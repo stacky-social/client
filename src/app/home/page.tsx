@@ -4,6 +4,9 @@ import { AppShell, Burger, Group, Skeleton, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { MantineLogo } from '@mantinex/mantine-logo';
 import {Navbar} from "../../components/Navbar";
+import { PostBar } from '../../components/PostBar';
+
+
 
 export default function HomePage() {
     const [opened, { toggle }] = useDisclosure();
@@ -27,6 +30,8 @@ export default function HomePage() {
             </AppShell.Navbar>
             <AppShell.Main>
                 Alt layout – Navbar and Aside are rendered on top on Header and Footer
+                <PostBar />
+         
             </AppShell.Main>
             <AppShell.Footer p="md">Footer</AppShell.Footer>
         </AppShell>

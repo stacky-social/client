@@ -1,0 +1,34 @@
+.PostBar{
+    display: flex; /* 使用flex布局 */
+    align-items: center;
+    justify-content: space-between;
+}
+.AvatarArea{
+    display: flex;
+    align-self: flex-start;
+    padding-top: 12px; /* 顶部留白设置为12px */
+    margin-right: 10px; /* 保持右边距为10px */
+}
+
+.inputArea {
+    flex-grow: 1; /* 让输入区域填满除头像外的所有空间 */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.textArea {
+    padding: 12px 0; 
+}
+
+.ButtonArea{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+}
+
+.button {
+    width: 70px;
+    height: 36px;
+  }
+  
