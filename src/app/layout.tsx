@@ -20,7 +20,9 @@ export default function RootLayout({ children }: { children: any }) {
         />
       </head>
       <body>
-        <MantineProvider theme={theme}>{children}</MantineProvider>
+        <MantineProvider theme={theme}>
+            {children}
+        </MantineProvider>
       </body>
     </html>
   );
