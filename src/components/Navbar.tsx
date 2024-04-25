@@ -1,75 +1,73 @@
 "use client"
 
-import { Group, Code, ScrollArea, rem } from '@mantine/core';
+import { useState } from 'react';
+import { Group, Code } from '@mantine/core';
 import {
-    IconNotes,
-    IconCalendarStats,
-    IconGauge,
-    IconPresentationAnalytics,
-    IconFileAnalytics,
-    IconAdjustments,
-    IconLock,
+    IconBellRinging,
+    IconFingerprint,
+    IconKey,
+    IconSettings,
+    Icon2fa,
+    IconDatabaseImport,
+    IconReceipt2,
+    IconSwitchHorizontal,
+    IconLogout,
 } from '@tabler/icons-react';
-import { UserButton } from './UserButton';
-import { LinksGroup } from './NavbarLinksGroup';
-import { Logo } from './Logo';
-import classes from './Navbar.module.css';
+import { MantineLogo } from '@mantinex/mantine-logo';
+import classes from './NavbarSimple.module.css';
 
-const mockdata = [
-    { label: 'Dashboard', icon: IconGauge },
-    {
-        label: 'Market news',
-        icon: IconNotes,
-        initiallyOpened: true,
-        links: [
-            { label: 'Overview', link: '/' },
-            { label: 'Forecasts', link: '/' },
-            { label: 'Outlook', link: '/' },
-            { label: 'Real time', link: '/' },
-        ],
-    },
-    {
-        label: 'Releases',
-        icon: IconCalendarStats,
-        links: [
-            { label: 'Upcoming releases', link: '/' },
-            { label: 'Previous releases', link: '/' },
-            { label: 'Releases schedule', link: '/' },
-        ],
-    },
-    { label: 'Analytics', icon: IconPresentationAnalytics },
-    { label: 'Contracts', icon: IconFileAnalytics },
-    { label: 'Settings', icon: IconAdjustments },
-    {
-        label: 'Security',
-        icon: IconLock,
-        links: [
-            { label: 'Enable 2FA', link: '/' },
-            { label: 'Change password', link: '/' },
-            { label: 'Recovery codes', link: '/' },
-        ],
-    },
+const data = [
+    { link: '', label: 'Notifications', icon: IconBellRinging },
+    { link: '', label: 'Billing', icon: IconReceipt2 },
+    { link: '', label: 'Security', icon: IconFingerprint },
+    { link: '', label: 'SSH Keys', icon: IconKey },
+    { link: '', label: 'Databases', icon: IconDatabaseImport },
+    { link: '', label: 'Authentication', icon: Icon2fa },
+    { link: '', label: 'Other Settings', icon: IconSettings },
 ];
 
 export function Navbar() {
-    const links = mockdata.map((item) => <LinksGroup {...item} key={item.label} />);
+    const [active, setActive] = useState('Billing');
+
+    const links = data.map((item) => (
+        <a
+            className={classes.link}
+            data-active={item.label === active || undefined}
+            href={item.link}
+            key={item.label}
+            onClick={(event) => {
+                event.preventDefault();
+                setActive(item.label);
+            }}
+        >
+            <item.icon className={classes.linkIcon} stroke={1.5} />
+            <span>{item.label}</span>
+        </a>
+    ));
 
     return (
-        <nav className={classes.navbar}>
-            <div className={classes.header}>
-                <Group justify="space-between">
-                    <Logo style={{ width: rem(120) }} />
-                    <Code fw={700}>v3.1.2</Code>
+        <nav className={classes.navbar} >
+            <div className={classes.navbarMain}>
+                <Group className={classes.header} justify="space-between">
+                    <MantineLogo size={28} />
+                    <Code fw={700}>v0.0.1</Code>
                 </Group>
+                {links}
             </div>
 
-            <ScrollArea className={classes.links}>
-                <div className={classes.linksInner}>{links}</div>
-            </ScrollArea>
-
             <div className={classes.footer}>
-                <UserButton />
+                <a href="#" className={classes.link} onClick={(event) => event.preventDefault()}>
+                    <IconSwitchHorizontal className={classes.linkIcon} stroke={1.5} />
+                    <span>Change account</span>
+                </a>
+
+                <a href="#" className={classes.link} onClick={(event) => event.preventDefault()}>
+                    <IconLogout className={classes.linkIcon} stroke={1.5} />
+                    <span>Logout</span>
+                </a>
             </div>
         </nav>
     );
 }
+
+
