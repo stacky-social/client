@@ -1,8 +1,14 @@
 .PostBar{
-    display: flex; /* 使用flex布局 */
+    display: flex; /* Maintain flex layout */
     align-items: center;
     justify-content: space-between;
+    width: auto; /* Set a fixed width, adjust this value as needed */
+    border: 1px solid #ccc; /* Add a light grey border */
+    border-radius: 8px; /* Optional: add rounded corners */
+    padding: 10px; /* Add some padding inside the borders */
 }
+
+
 .AvatarArea{
     display: flex;
     align-self: flex-start;
@@ -17,7 +23,7 @@
     justify-content: space-between;
 }
 .textArea {
-    padding: 12px 0; 
+    padding: 12px 0;
 }
 
 .ButtonArea{
@@ -31,4 +37,3 @@
     width: 70px;
     height: 36px;
   }
-  
