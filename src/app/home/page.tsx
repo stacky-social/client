@@ -2,14 +2,16 @@
 
 import {Text} from "@mantine/core";
 import {Shell} from "../../components/Shell";
-import {PostBar} from "../../components/PostBar";
+import {SubmitPost} from "../../components/SubmitPost";
+import Posts from "../../components/Posts";
 
 
 export default function HomePage() {
 
     return (
         <Shell>
-            <PostBar />
+            <SubmitPost />
+            <Posts />
         </Shell>
     );
 }

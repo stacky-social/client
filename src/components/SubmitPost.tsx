@@ -2,12 +2,12 @@ import React from 'react';
 import { Group, Avatar, TextInput, Button, ActionIcon } from '@mantine/core';
 import {IconCamera, IconGif, IconMessage2, IconMoodSmile, IconMapPin  } from '@tabler/icons-react';
 
-import classes from './PostBar.module.css';
+import classes from './SubmitPost.module.css';
 
-export function PostBar() {
+export function SubmitPost() {
     const iconStyle = { width: 20, height: 20, marginLeft: 7, marginRight: 7 };
     return (
-     
+
         <div className={classes.PostBar}>
             <div className={classes.AvatarArea}>
                 <Avatar
@@ -24,7 +24,7 @@ export function PostBar() {
                         radius="xl"
                         size="xl"
                         styles={{ input: { width: '100%' } }}
-                    />   
+                    />
                 </div>
                 <div className={classes.ButtonArea}>
                     <div className="iconlist">

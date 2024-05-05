@@ -1,7 +1,7 @@
 
 
 
-export const users = [
+export const fakeUsers = [
     {
         "accountId": "user001",
         "createdAt": "2024-04-01T07:45:00Z",
