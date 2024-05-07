@@ -1,0 +1,4 @@
+/* styles/globals.css */
+html {
+    overflow-y: scroll; /* Ensures scrollbar is always visible */
+}
