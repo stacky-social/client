@@ -11,12 +11,13 @@ import {
     IconDatabaseImport,
     IconReceipt2,
     IconSwitchHorizontal,
-    IconLogout,
+    IconLogout, IconHome,
 } from '@tabler/icons-react';
 import { MantineLogo } from '@mantinex/mantine-logo';
 import classes from './NavbarSimple.module.css';
 
 const data = [
+    { link: '/home', label: 'Home', icon: IconHome },
     { link: '', label: 'Notifications', icon: IconBellRinging },
     { link: '', label: 'Billing', icon: IconReceipt2 },
     { link: '', label: 'Security', icon: IconFingerprint },
@@ -27,7 +28,7 @@ const data = [
 ];
 
 export function Navbar() {
-    const [active, setActive] = useState('Billing');
+    const [active, setActive] = useState('Home');
 
     const links = data.map((item) => (
         <a
@@ -36,8 +37,12 @@ export function Navbar() {
             href={item.link}
             key={item.label}
             onClick={(event) => {
-                event.preventDefault();
-                setActive(item.label);
+                if (item.label !== 'Home') {
+                    event.preventDefault();
+                    setActive(item.label);
+                } else {
+                    setActive(item.label);
+                }
             }}
         >
             <item.icon className={classes.linkIcon} stroke={1.5} />
@@ -46,7 +51,7 @@ export function Navbar() {
     ));
 
     return (
-        <nav className={classes.navbar} >
+        <nav className={classes.navbar}>
             <div className={classes.navbarMain}>
                 <Group className={classes.header} justify="space-between">
                     <MantineLogo size={28} />
@@ -69,5 +74,3 @@ export function Navbar() {
         </nav>
     );
 }
-
-
