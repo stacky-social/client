@@ -18,13 +18,13 @@ import classes from './NavbarSimple.module.css';
 
 const data = [
     { link: '/home', label: 'Home', icon: IconHome },
-    { link: '', label: 'Notifications', icon: IconBellRinging },
-    { link: '', label: 'Billing', icon: IconReceipt2 },
-    { link: '', label: 'Security', icon: IconFingerprint },
-    { link: '', label: 'SSH Keys', icon: IconKey },
-    { link: '', label: 'Databases', icon: IconDatabaseImport },
-    { link: '', label: 'Authentication', icon: Icon2fa },
-    { link: '', label: 'Other Settings', icon: IconSettings },
+    { link: '', label: 'placeholder', icon: IconBellRinging },
+    { link: '', label: 'placeholder', icon: IconReceipt2 },
+    { link: '', label: 'placeholder', icon: IconFingerprint },
+    { link: '', label: 'placeholder', icon: IconKey },
+    { link: '', label: 'placeholder', icon: IconDatabaseImport },
+    { link: '', label: 'placeholder', icon: Icon2fa },
+    { link: '', label: 'placeholder', icon: IconSettings },
 ];
 
 export function Navbar() {

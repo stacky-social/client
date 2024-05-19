@@ -39,8 +39,36 @@ export default function Post({ id, text, author, avatar, repliesCount }: PostPro
     };
 
     return (
-        <div>
-            <Paper withBorder radius="md" mt={20} shadow="lg" p="lg">
+            <div style={{position: 'relative',  height: '220px', margin: '20px', marginBottom: '2rem'}}>
+            {/* Four Background Papers */}
+            {[...Array(4 )].map((_, index) => (
+                <Paper
+                    key={index}
+                    style={{
+                        position: 'absolute',
+                        top: `${10 * (index + 1)}px`,
+                        left: `${10 * (index + 1)}px`,
+                        width: '600px',
+                        height: '200px',
+                        zIndex: index + 1,
+                        boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+                    }}
+                    withBorder
+                />
+            ))}
+            <Paper
+                   style={{
+                position: 'absolute',
+                top: `${10 * 5}px`,
+                left: `${10 * 5}px`,
+                width: '600px',
+                height: '200px',
+                backgroundColor: '#fff',
+                zIndex: 5,
+
+            }}
+                   withBorder
+            >
                 <UnstyledButton onClick={handleNavigate} style={{ width: '100%' }}>
                     <Group>
                         <Avatar

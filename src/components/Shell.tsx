@@ -1,4 +1,4 @@
-import {AppShell, Burger, Group, Skeleton, Text, MantineProvider, Space} from '@mantine/core';
+import {AppShell, Burger, Group, Skeleton, Text, MantineProvider, Space, Paper} from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { MantineLogo } from '@mantinex/mantine-logo';
 import { ReactNode } from 'react';
@@ -16,7 +16,6 @@ export function Shell({ children }: ShellProps) {
             header={{height: 60}}
             footer={{ height: 60 }}
             navbar={{ width: {sm: 200, lg: 300}, breakpoint: 'md', collapsed: { mobile: !opened } }}
-            aside={{ width: {sm: 200, md: 400, lg: 600}, breakpoint: 'md', collapsed: { desktop: false, mobile: true } }}
             padding="md"
         >
             <AppShell.Header>
@@ -34,9 +33,6 @@ export function Shell({ children }: ShellProps) {
             <AppShell.Main>
                 {children}
             </AppShell.Main>
-            <AppShell.Aside p="md">
-                Aside
-            </AppShell.Aside>
             {/*<AppShell.Footer p="md">*/}
             {/*    Footer*/}
             {/*</AppShell.Footer>*/}
