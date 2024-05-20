@@ -12,12 +12,12 @@
 .AvatarArea{
     display: flex;
     align-self: flex-start;
-    padding-top: 12px; /* 顶部留白设置为12px */
-    margin-right: 10px; /* 保持右边距为10px */
+    padding-top: 12px; 
+    margin-right: 10px; 
 }
 
 .inputArea {
-    flex-grow: 1; /* 让输入区域填满除头像外的所有空间 */
+    flex-grow: 1; 
     display: flex;
     flex-direction: column;
     justify-content: space-between;

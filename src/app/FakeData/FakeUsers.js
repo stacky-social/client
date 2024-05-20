@@ -8,7 +8,7 @@ export const fakeUsers = [
         "updatedAt": "2024-04-27T19:34:00Z",
         "email": "user001@example.com",
         "name": "Alice Johnson",
-        "profilePictureUrl": "https://example.com/profiles/user001.jpg",
+        "profilePictureUrl": "https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/avatars/avatar-1.png",
         "lastLoggedIn": "2024-04-27T18:20:00Z"
     },
     {
