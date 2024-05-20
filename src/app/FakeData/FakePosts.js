@@ -17,7 +17,7 @@ function generateReplies(depth, maxDepth) {
         return [];
     }
 
-    const numberOfReplies = faker.number.int({ min: 5, max: 10}); // Random number of replies
+    const numberOfReplies = faker.number.int({ min: 1, max: 15}); // Random number of replies
     return Array.from({ length: numberOfReplies }, () => ({
         postId: faker.string.uuid(),
         text: faker.lorem.sentence(),
