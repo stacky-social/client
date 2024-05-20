@@ -82,8 +82,8 @@ export default function PostView({ params }: { params: { id: string } }) {
         );
     }
 
-    const handleNavigate = () => {
-        router.push(`/posts/${id}`);
+    const handleNavigate = (replyId: string) => {
+        router.push(`/posts/${replyId}`);
     };
 
     const handleLike = () => {
@@ -181,7 +181,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                         <Text pl={54} pt="sm" size="sm">Post Id: {post?.postId}</Text>
                         <Divider my="md"/>
                         <Group justify="space-between" mx="20">
-                            <Button variant="subtle" size="sm" radius="lg" onClick={handleNavigate}>
+                            <Button variant="subtle" size="sm" radius="lg" onClick={() => handleReplyClick(id)}>
                                 <IconMessageCircle size={20}/> <Text>{post?.replies?.length}</Text>
                             </Button>
                             <Button variant="subtle" size="sm" radius="lg" onClick={handleLike}>
@@ -230,7 +230,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                                 <Text pl={54} pt="sm" size="sm">Reply Id: {reply.postId}</Text>
                                 <Divider my="md"/>
                                 <Group justify="space-between" mx="20">
-                                    <Button variant="subtle" size="sm" radius="lg" onClick={handleNavigate}>
+                                    <Button variant="subtle" size="sm" radius="lg" onClick={() => handleReplyClick(reply.postId)}>
                                         <IconMessageCircle size={20}/> <Text>{reply?.replies?.length}</Text>
                                     </Button>
                                     <Button variant="subtle" size="sm" radius="lg" onClick={handleLike}>
