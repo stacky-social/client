@@ -1,19 +1,21 @@
-"use client"
-
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {Text, Avatar, Group, Paper, UnstyledButton, Button, ActionIcon, Stack, Divider} from '@mantine/core';
+import { Text, Avatar, Group, Paper, UnstyledButton, Button, Divider } from '@mantine/core';
 import { IconHeart, IconBookmark, IconShare, IconMessageCircle } from '@tabler/icons-react';
+import { formatDistanceToNow } from 'date-fns';
 
 interface PostProps {
     id: string;
-    text: string;
+    text: string;  
     author: string;
     avatar: string;
     repliesCount: number;
+    createdAt: string;  
 }
 
-export default function Post({ id, text, author, avatar, repliesCount }: PostProps) {
+export default function Post({ id, text, author, avatar, repliesCount, createdAt }: PostProps) {
     const router = useRouter();
+    const [showFullText, setShowFullText] = useState(false);
 
     const handleNavigate = () => {
         router.push(`/posts/${id}`);
@@ -25,23 +27,23 @@ export default function Post({ id, text, author, avatar, repliesCount }: PostPro
 
     const handleLike = () => {
         console.log("Like post:", id);
-        // Add like handling logic here
     };
 
     const handleSave = () => {
         console.log("Save post:", id);
-        // Add save handling logic here
     };
 
     const handleShare = () => {
         console.log("Share post:", id);
-        // Add share handling logic here
     };
 
+    // const handleShowMore = () => {
+    //     setShowFullText(!showFullText);
+    // };
+
     return (
-            <div style={{position: 'relative',  height: '220px', margin: '20px', marginBottom: '2rem'}}>
-            {/* Four Background Papers */}
-            {[...Array(4 )].map((_, index) => (
+        <div style={{ position: 'relative', height: '220px', margin: '20px', marginBottom: '2rem' }}>
+            {[...Array(4)].map((_, index) => (
                 <Paper
                     key={index}
                     style={{
@@ -57,17 +59,16 @@ export default function Post({ id, text, author, avatar, repliesCount }: PostPro
                 />
             ))}
             <Paper
-                   style={{
-                position: 'absolute',
-                top: `${10 * 5}px`,
-                left: `${10 * 5}px`,
-                width: '600px',
-                height: '200px',
-                backgroundColor: '#fff',
-                zIndex: 5,
-
-            }}
-                   withBorder
+                style={{
+                    position: 'absolute',
+                    top: `${10 * 5}px`,
+                    left: `${10 * 5}px`,
+                    width: '600px',
+                    height: '200px',
+                    backgroundColor: '#fff',
+                    zIndex: 5,
+                }}
+                withBorder
             >
                 <UnstyledButton onClick={handleNavigate} style={{ width: '100%' }}>
                     <Group>
@@ -78,13 +79,15 @@ export default function Post({ id, text, author, avatar, repliesCount }: PostPro
                         />
                         <div>
                             <Text size="sm">{author}</Text>
-                            <Text size="xs" color="dimmed">10 minutes ago</Text>
+                            <Text size="xs" color="dimmed">{formatDistanceToNow(new Date(createdAt))} ago</Text>
                         </div>
                     </Group>
-                    <Text pl={54} pt="sm" size="sm">{text}</Text>
+                    <div style={{ paddingLeft: '54px', paddingTop: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', display: showFullText ? 'block' : '-webkit-box', WebkitLineClamp: showFullText ? 'none' : '3', WebkitBoxOrient: 'vertical' }}>
+                        <div dangerouslySetInnerHTML={{ __html: text }} />
+                    </div>
+                    {/* <Button onClick={handleShowMore}>{showFullText ? 'Show Less' : 'Show More'}</Button> */}
                     <Text pl={54} pt="sm" size="sm">Post Id: {id}</Text>
                 </UnstyledButton>
-
                 <Divider my="md" />
                 <Group justify="space-between" mx="20">
                     <Button variant="subtle" size="sm" radius="lg" onClick={handleReply}>
