@@ -13,5 +13,6 @@ export interface PostType {
     text: string;
     author: string;
     avatar: string;
-    replies: ReplyType[];
+    replies: any[];
+    createdAt: string;  
 }
