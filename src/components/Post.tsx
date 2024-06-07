@@ -4,6 +4,7 @@ import { Text, Avatar, Group, Paper, UnstyledButton, Button, Divider } from '@ma
 import { IconHeart, IconBookmark, IconShare, IconMessageCircle } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 
+
 interface PostProps {
     id: string;
     text: string;  
