@@ -1,5 +1,6 @@
-"use client"
+"use client";
 
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Shell } from "../../../components/Shell";
 import {
@@ -9,27 +10,26 @@ import {
     Paper,
     Text,
     Divider,
-    UnstyledButton,
     Button,
     Image,
     TextInput,
     Card,
     Modal
 } from "@mantine/core";
-import FakePosts from '../../FakeData/FakePosts';
-import { useEffect, useState } from "react";
-import { PostType, ReplyType } from '../../../types/PostType';
 import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconSearch } from "@tabler/icons-react";
+import axios from 'axios';
 import classes from './postId.module.css';
-import expandModal from "../../../components/ExpandModal";
 import ExpandModal from "../../../components/ExpandModal";
 
+const MastodonInstanceUrl = 'https://mastodon.social'; // Mastodon instance URL
+const MastodonAccessToken = 'Vjshx_BvOsVDvJJDoWwCurinwPc-XoHMbYzcfT9hi20'; // access token for the Mastodon API
 
 export default function PostView({ params }: { params: { id: string } }) {
     const router = useRouter();
     const { id } = params;
     const [loading, setLoading] = useState(true);
-    const [post, setPost] = useState<PostType | ReplyType | null>(null);
+    const [post, setPost] = useState<any | null>(null);
+    const [replies, setReplies] = useState<any[]>([]);
     const [randomTexts, setRandomTexts] = useState<string[]>([]);
     const [modalOpened, setModalOpened] = useState(false);
     const [modalContent, setModalContent] = useState<string>('');
@@ -43,29 +43,34 @@ export default function PostView({ params }: { params: { id: string } }) {
     ];
 
     useEffect(() => {
-        const foundItem = findPostOrReply(FakePosts, id);
-        setPost(foundItem);
-        setLoading(false);
+        fetchPostAndReplies(id);
     }, [id]);
 
     useEffect(() => {
         generateRandomTexts();
     }, []);
 
-    function findPostOrReply(posts: (PostType | ReplyType)[], id: string): PostType | ReplyType | null {
-        for (const post of posts) {
-            if (post.postId === id) {  // Assuming all posts and replies share a unique 'postId' field
-                return post;
-            }
-            if (post.replies) {
-                const foundReply = findPostOrReply(post.replies, id);
-                if (foundReply) {
-                    return foundReply;
+    const fetchPostAndReplies = async (postId: string) => {
+        try {
+            const postResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}`, {
+                headers: {
+                    'Authorization': `Bearer ${MastodonAccessToken}`
                 }
-            }
+            });
+            setPost(postResponse.data);
+
+            const repliesResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}/context`, {
+                headers: {
+                    'Authorization': `Bearer ${MastodonAccessToken}`
+                }
+            });
+            setReplies(repliesResponse.data.descendants);
+        } catch (error) {
+            console.error('Failed to fetch post or replies:', error);
+        } finally {
+            setLoading(false);
         }
-        return null;
-    }
+    };
 
     const generateRandomTexts = () => {
         const shuffledTexts = initialRandomTexts.sort(() => 0.5 - Math.random()).slice(0, 4);
@@ -88,17 +93,17 @@ export default function PostView({ params }: { params: { id: string } }) {
 
     const handleLike = () => {
         console.log("Like post:", id);
-        // Add like handling logic here
+        // handle like logic
     };
 
     const handleSave = () => {
         console.log("Save post:", id);
-        // Add save handling logic here
+        // hanle save logic
     };
 
     const handleShare = () => {
         console.log("Share post:", id);
-        // Add share handling logic here
+        // hanle share logic
     };
 
     const handleReplyClick = (replyId: string) => {
@@ -171,18 +176,18 @@ export default function PostView({ params }: { params: { id: string } }) {
                     <Paper withBorder radius="md" mt={20} p="lg" style={{position: 'relative'}} shadow="lg">
                         <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{radius: "sm", blur: 2}}/>
                         <Group>
-                            <Avatar src={post?.avatar} alt={post?.author} radius="xl"/>
+                            <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl"/>
                             <div>
-                                <Text size="sm">{post?.author}</Text>
-                                <Text size="xs">10 minutes ago</Text>
+                                <Text size="sm">{post?.account.username}</Text>
+                                <Text size="xs">{new Date(post?.created_at).toLocaleString()}</Text>
                             </div>
                         </Group>
-                        <Text pl={54} pt="sm" size="sm">{post?.text}</Text>
-                        <Text pl={54} pt="sm" size="sm">Post Id: {post?.postId}</Text>
+                        <Text pl={54} pt="sm" size="sm" dangerouslySetInnerHTML={{ __html: post?.content }} />
+                        <Text pl={54} pt="sm" size="sm">Post Id: {post?.id}</Text>
                         <Divider my="md"/>
                         <Group justify="space-between" mx="20">
                             <Button variant="subtle" size="sm" radius="lg" onClick={() => handleReplyClick(id)}>
-                                <IconMessageCircle size={20}/> <Text>{post?.replies?.length}</Text>
+                                <IconMessageCircle size={20}/> <Text>{post?.replies_count}</Text>
                             </Button>
                             <Button variant="subtle" size="sm" radius="lg" onClick={handleLike}>
                                 <IconHeart size={20}/>
@@ -200,7 +205,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                     </Paper>
                     <Divider my="md"/>
                     <Group>
-                        <Avatar src={post?.avatar} alt={post?.author} radius="xl"/>
+                        <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl"/>
                         <TextInput
                             placeholder="Post your reply"
                             radius="lg"
@@ -215,37 +220,19 @@ export default function PostView({ params }: { params: { id: string } }) {
                         />
                     </Group>
                     <Divider my="md"/>
-                    {post?.replies?.map((reply, index) => (
+                    {replies.map((reply, index) => (
                         <div key={index}>
                             <Paper withBorder radius="md" mt={20} p="lg" style={{position: 'relative'}} shadow="md">
                                 <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{radius: "sm", blur: 2}}/>
                                 <Group>
-                                    <Avatar src={reply?.avatar} alt={reply?.author} radius="xl"/>
+                                    <Avatar src={reply.account.avatar} alt={reply.account.username} radius="xl"/>
                                     <div>
-                                        <Text size="sm">{reply?.author}</Text>
-                                        <Text size="xs">10 minutes ago</Text>
+                                        <Text size="sm">{reply.account.username}</Text>
+                                        <Text size="xs">{new Date(reply.created_at).toLocaleString()}</Text>
                                     </div>
                                 </Group>
-                                <Text pl={54} pt="sm" size="sm">{reply.text}</Text>
-                                <Text pl={54} pt="sm" size="sm">Reply Id: {reply.postId}</Text>
-                                <Divider my="md"/>
-                                <Group justify="space-between" mx="20">
-                                    <Button variant="subtle" size="sm" radius="lg" onClick={() => handleReplyClick(reply.postId)}>
-                                        <IconMessageCircle size={20}/> <Text>{reply?.replies?.length}</Text>
-                                    </Button>
-                                    <Button variant="subtle" size="sm" radius="lg" onClick={handleLike}>
-                                        <IconHeart size={20}/>
-                                    </Button>
-                                    <Button variant="subtle" size="sm" radius="lg" onClick={handleSave}>
-                                        <IconBookmark size={20}/>
-                                    </Button>
-                                    <Button variant="subtle" size="sm" radius="lg" onClick={handleShare}>
-                                        <IconShare size={20}/>
-                                    </Button>
-                                    <Button variant="subtle" size="sm" radius="lg" onClick={explorePages}>
-                                        <IconSearch size={20}/>
-                                    </Button>
-                                </Group>
+                                <Text pl={54} pt="sm" size="sm" dangerouslySetInnerHTML={{ __html: reply.content }} />
+                                <Button onClick={() => handleNavigate(reply.id)}>view details</Button>
                             </Paper>
                         </div>
                     ))}
