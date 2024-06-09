@@ -1,18 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Group, Avatar, TextInput, Button, ActionIcon } from '@mantine/core';
 import { IconCamera, IconGif, IconMessage2, IconMoodSmile, IconMapPin } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { fakeUsers } from '../app/FakeData/FakeUsers';
 import classes from './SubmitPost.module.css';
 
-const MastodonInstanceUrl = 'https://mastodon.social'; 
-const AccessToken = 'Vjshx_BvOsVDvJJDoWwCurinwPc-XoHMbYzcfT9hi20'; 
+const MastodonInstanceUrl = 'https://mastodon.social';
 
 export function SubmitPost() {
-  const [currentUser, setCurrentUser] = useState(fakeUsers[0]); 
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [postText, setPostText] = useState('');
+  const [accessToken, setAccessToken] = useState<string | null>(null);
 
   const iconStyle = { width: 20, height: 20, marginLeft: 7, marginRight: 7 };
+
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    setAccessToken(token);
+
+    const user = localStorage.getItem('currentUser');
+    if (user) {
+      setCurrentUser(JSON.parse(user));
+    }
+  }, []);
 
   const handleSubmit = async () => {
     try {
@@ -25,10 +34,19 @@ export function SubmitPost() {
         return;
       }
 
+      if (!accessToken) {
+        notifications.show({
+          title: 'Error',
+          message: 'Access token is missing. Please log in again.',
+          color: 'red',
+        });
+        return;
+      }
+
       const response = await fetch(`${MastodonInstanceUrl}/api/v1/statuses`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${AccessToken}`,
+          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -65,7 +83,11 @@ export function SubmitPost() {
   return (
     <div className={classes.PostBar}>
       <div className={classes.AvatarArea}>
-        <Avatar src={currentUser.profilePictureUrl} radius="xl" size={40} />
+        {currentUser ? (
+          <Avatar src={currentUser.avatar} radius="xl" size={40} />
+        ) : (
+          <Avatar radius="xl" size={40} />
+        )}
       </div>
 
       <div className={classes.inputArea}>

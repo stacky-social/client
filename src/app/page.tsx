@@ -13,6 +13,10 @@ interface FormValues {
   username: string;
 }
 
+const clientId = 'PXrEIUqzlj52rGqrYre8Xg7-AovzPxyzSE5h_cajNOo';
+const redirectUri = 'http://localhost:3000/callback'; 
+const scopes = 'read write follow';
+
 export default function LandingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -26,42 +30,11 @@ export default function LandingPage() {
     },
   });
 
-  const handleSubmit = async (values: FormValues) => {
+  const handleLogin = () => {
     setIsLoading(true);
-    try {
-      console.log('Submitting login form with values:', values);
-      const instanceUrl = `https://${values.username.split('@')[1]}`;
-      const accessToken = 'Vjshx_BvOsVDvJJDoWwCurinwPc-XoHMbYzcfT9hi20'; // access token for the Mastodon API
-
-      const response = await fetch(`${instanceUrl}/api/v1/accounts/verify_credentials`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        console.log('User data received:', data);
-        notifications.show({
-          title: 'Success',
-          message: 'Login successful.',
-          color: 'green',
-        });
-        router.push('/home'); // redirect to the home page
-      } else {
-        console.error('Error response from verify endpoint:', data);
-        throw new Error(data.error || 'Unknown error');
-      }
-    } catch (error) {
-      notifications.show({
-        title: 'Error',
-        message: 'Login failed.',
-        color: 'red',
-      });
-      console.error('Error during login:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    const instanceUrl = `https://${form.values.username.split('@')[1]}`;
+    const authorizationUrl = `${instanceUrl}/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scopes}&state=${form.values.username.split('@')[1]}`;
+    window.location.href = authorizationUrl;
   };
 
   return (
@@ -69,23 +42,22 @@ export default function LandingPage() {
       <Header />
       <Center className={classes.landingPageContent}>
         <Box maw={400} mx="auto">
-        <Title className={classes.title} ta="center" mt={60}>
-              Project{' '}
-              <Text inherit variant="gradient" component="span" gradient={{ from: 'pink', to: 'yellow' }}>
-                  STACKS
-              </Text>
+          <Title className={classes.title} ta="center" mt={60}>
+            Project{' '}
+            <Text inherit variant="gradient" component="span" gradient={{ from: 'pink', to: 'yellow' }}>
+              STACKS
+            </Text>
           </Title>
           <Text c="dimmed" ta="center" size="lg" maw={580} mx="auto" mt="xl">
-              AI-Curated Democratic Discourse
+            AI-Curated Democratic Discourse
           </Text>
-          <form onSubmit={form.onSubmit(handleSubmit)}>
+          <form onSubmit={form.onSubmit(handleLogin)}>
             <TextInput
               required
               label="Mastodon username"
               placeholder="yourname@mastodon.instance"
               {...form.getInputProps('username')}
             />
-
             <Button type="submit" fullWidth mt="xl" loading={isLoading}>
               Login
             </Button>

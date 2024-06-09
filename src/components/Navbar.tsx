@@ -14,6 +14,7 @@ import {
     IconLogout, IconHome,
 } from '@tabler/icons-react';
 import { MantineLogo } from '@mantinex/mantine-logo';
+import StackLogo from './StackLogo';
 import classes from './NavbarSimple.module.css';
 
 const data = [
@@ -54,7 +55,8 @@ export function Navbar() {
         <nav className={classes.navbar}>
             <div className={classes.navbarMain}>
                 <Group className={classes.header} justify="space-between">
-                    <MantineLogo size={28} />
+                    {/* <MantineLogo size={28} /> */}
+                    <StackLogo size={28} />
                     <Code fw={700}>v0.0.1</Code>
                 </Group>
                 {links}

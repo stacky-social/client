@@ -22,7 +22,6 @@ import classes from './postId.module.css';
 import ExpandModal from "../../../components/ExpandModal";
 
 const MastodonInstanceUrl = 'https://mastodon.social'; // Mastodon instance URL
-const MastodonAccessToken = 'Vjshx_BvOsVDvJJDoWwCurinwPc-XoHMbYzcfT9hi20'; // access token for the Mastodon API
 
 export default function PostView({ params }: { params: { id: string } }) {
     const router = useRouter();
@@ -51,17 +50,24 @@ export default function PostView({ params }: { params: { id: string } }) {
     }, []);
 
     const fetchPostAndReplies = async (postId: string) => {
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) {
+            console.error('Access token is missing.');
+            setLoading(false);
+            return;
+        }
+
         try {
             const postResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}`, {
                 headers: {
-                    'Authorization': `Bearer ${MastodonAccessToken}`
+                    'Authorization': `Bearer ${accessToken}`
                 }
             });
             setPost(postResponse.data);
 
             const repliesResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}/context`, {
                 headers: {
-                    'Authorization': `Bearer ${MastodonAccessToken}`
+                    'Authorization': `Bearer ${accessToken}`
                 }
             });
             setReplies(repliesResponse.data.descendants);
