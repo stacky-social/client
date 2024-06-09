@@ -4,14 +4,13 @@ import { Text, Avatar, Group, Paper, UnstyledButton, Button, Divider } from '@ma
 import { IconHeart, IconBookmark, IconShare, IconMessageCircle } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 
-
 interface PostProps {
     id: string;
-    text: string;  
+    text: string;
     author: string;
     avatar: string;
     repliesCount: number;
-    createdAt: string;  
+    createdAt: string;
 }
 
 export default function Post({ id, text, author, avatar, repliesCount, createdAt }: PostProps) {
@@ -38,12 +37,8 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         console.log("Share post:", id);
     };
 
-    // const handleShowMore = () => {
-    //     setShowFullText(!showFullText);
-    // };
-
     return (
-        <div style={{ position: 'relative', height: '220px', margin: '20px', marginBottom: '2rem' }}>
+        <div style={{ position: 'relative', margin: '20px', marginBottom: '2rem', height: '220px' }}>
             {[...Array(4)].map((_, index) => (
                 <Paper
                     key={index}
@@ -86,21 +81,20 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
                     <div style={{ paddingLeft: '54px', paddingTop: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', display: showFullText ? 'block' : '-webkit-box', WebkitLineClamp: showFullText ? 'none' : '3', WebkitBoxOrient: 'vertical' }}>
                         <div dangerouslySetInnerHTML={{ __html: text }} />
                     </div>
-                    {/* <Button onClick={handleShowMore}>{showFullText ? 'Show Less' : 'Show More'}</Button> */}
                     <Text pl={54} pt="sm" size="sm">Post Id: {id}</Text>
                 </UnstyledButton>
                 <Divider my="md" />
-                <Group justify="space-between" mx="20">
-                    <Button variant="subtle" size="sm" radius="lg" onClick={handleReply}>
-                        <IconMessageCircle size={20} /> <Text>{repliesCount}</Text>
+                <Group style={{ display: 'flex', justifyContent: 'space-around', padding: '0 20px' }}>
+                    <Button variant="subtle" size="sm" radius="lg" onClick={handleReply} style={{ display: 'flex', alignItems: 'center' }}>
+                        <IconMessageCircle size={20} /> <Text ml={4}>{repliesCount}</Text>
                     </Button>
-                    <Button variant="subtle" size="sm" radius="lg" onClick={handleLike}>
+                    <Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
                         <IconHeart size={20} />
                     </Button>
-                    <Button variant="subtle" size="sm" radius="lg" onClick={handleSave}>
+                    <Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
                         <IconBookmark size={20} />
                     </Button>
-                    <Button variant="subtle" size="sm" radius="lg" onClick={handleShare}>
+                    <Button variant="subtle" size="sm" radius="lg" onClick={handleShare} style={{ display: 'flex', alignItems: 'center' }}>
                         <IconShare size={20} />
                     </Button>
                 </Group>

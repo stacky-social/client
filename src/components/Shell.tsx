@@ -3,6 +3,7 @@ import { useDisclosure } from '@mantine/hooks';
 import { MantineLogo } from '@mantinex/mantine-logo';
 import { ReactNode } from 'react';
 import {Navbar} from "./Navbar";
+import StackLogo from './StackLogo';
 
 interface ShellProps {
     children?: ReactNode;
@@ -21,7 +22,7 @@ export function Shell({ children }: ShellProps) {
             <AppShell.Header>
                 <Group h="100%" px="md">
                     <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-                    <MantineLogo size={30} />
+                    <StackLogo size={30} />
                 </Group>
             </AppShell.Header>
             <AppShell.Navbar p="md">
