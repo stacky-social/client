@@ -4,8 +4,8 @@ import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { notifications } from '@mantine/notifications';
 
-const clientId = process.env.PUBLIC_MASTODON_OAUTH_CLIENT_ID;
-const clientSecret = process.env.PUBLIC_MASTODON_OAUTH_CLIENT_SECRET;
+const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
+const clientSecret = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_SECRET;
 const redirectUri = 'http://localhost:3000/callback';
 
 export default function Callback() {
