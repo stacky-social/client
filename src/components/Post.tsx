@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Button, Divider } from '@mantine/core';
-import { IconHeart, IconBookmark, IconShare, IconMessageCircle } from '@tabler/icons-react';
+import { IconHeart, IconBookmark, IconShare, IconMessageCircle, IconHeartFilled, IconBookmarkFilled } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import StackCount from './StackCount';
+import axios from 'axios';
 
 interface PostProps {
     id: string;
@@ -14,12 +15,19 @@ interface PostProps {
     createdAt: string;
     stackCount: number | null;
     stackId: string | null;
+    favouritesCount: number;
+    favourited: boolean;
+    bookmarked: boolean;
 }
 
-export default function Post({ id, text, author, avatar, repliesCount, createdAt, stackCount, stackId }: PostProps) {
+export default function Post({ id, text, author, avatar, repliesCount, createdAt, stackCount, stackId, favouritesCount, favourited, bookmarked }: PostProps) {
     const router = useRouter();
     const [cardHeight, setCardHeight] = useState(0);
     const paperRef = useRef<HTMLDivElement>(null);
+
+    const [liked, setLiked] = useState(favourited);
+    const [bookmarkedState, setBookmarkedState] = useState(bookmarked);
+    const [likeCount, setLikeCount] = useState(favouritesCount);
 
     useEffect(() => {
         if (paperRef.current) {
@@ -35,12 +43,41 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         router.push(`/posts/${id}`);
     };
 
-    const handleLike = () => {
-        console.log("Like post:", id);
+    const fetchPostData = async () => {
+        try {
+            const response = await axios.get(`https://mastodon.social/api/v1/statuses/${id}`);
+            const data = response.data;
+            setLikeCount(data.favourites_count);
+        } catch (error) {
+            console.error('Error fetching post data:', error);
+        }
     };
 
-    const handleSave = () => {
-        console.log("Save post:", id);
+    const handleLike = async () => {
+        try {
+            if (liked) {
+                await axios.post(`https://mastodon.social/api/v1/statuses/${id}/unfavourite`);
+            } else {
+                await axios.post(`https://mastodon.social/api/v1/statuses/${id}/favourite`);
+            }
+            setLiked(!liked);
+            fetchPostData(); // Fetch the updated count from the API
+        } catch (error) {
+            console.error('Error liking post:', error);
+        }
+    };
+
+    const handleSave = async () => {
+        try {
+            if (bookmarkedState) {
+                await axios.post(`https://mastodon.social/api/v1/statuses/${id}/unbookmark`);
+            } else {
+                await axios.post(`https://mastodon.social/api/v1/statuses/${id}/bookmark`);
+            }
+            setBookmarkedState(!bookmarkedState);
+        } catch (error) {
+            console.error('Error bookmarking post:', error);
+        }
     };
 
     const handleShare = () => {
@@ -86,10 +123,10 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
                         <IconMessageCircle size={20} /> <Text ml={4}>{repliesCount}</Text>
                     </Button>
                     <Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
-                        <IconHeart size={20} />
+                        {liked ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{likeCount}</Text>
                     </Button>
                     <Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
-                        <IconBookmark size={20} />
+                        {bookmarkedState ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
                     </Button>
                     <Button variant="subtle" size="sm" radius="lg" onClick={handleShare} style={{ display: 'flex', alignItems: 'center' }}>
                         <IconShare size={20} />
