@@ -25,13 +25,13 @@ export default function LandingPage() {
       username: '',
     },
     validate: {
-      username: (value) => (/^[a-zA-Z0-9_]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value) ? null : 'please enter valid Mastodon handle'),
+      username: (value) => (/^[a-zA-Z0-9_]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value) ? null : 'please enter valid Mastodon handle(username@server)'),
     },
   });
 
   const handleLogin = () => {
     setIsLoading(true);
-    const clientId = process.env.NEXT_PUBLIC_MASTODON_CLIENT_ID;
+    const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
     const instanceUrl = `https://${form.values.username.split('@')[1]}`;
     const authorizationUrl = `${instanceUrl}/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scopes}&state=${form.values.username.split('@')[1]}`;
     window.location.href = authorizationUrl;
@@ -55,7 +55,7 @@ export default function LandingPage() {
             <TextInput
               required
               label="Mastodon Handle"
-              placeholder="yourname@mastodon.instance"
+              placeholder="username@server"
               {...form.getInputProps('username')}
             />
             <Button type="submit" fullWidth mt="xl" loading={isLoading}>
