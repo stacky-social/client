@@ -13,8 +13,7 @@ interface FormValues {
   username: string;
 }
 
-const clientId = 'PXrEIUqzlj52rGqrYre8Xg7-AovzPxyzSE5h_cajNOo';
-const redirectUri = 'http://localhost:3000/callback'; 
+const redirectUri = 'http://localhost:3000/callback';
 const scopes = 'read write follow';
 
 export default function LandingPage() {
@@ -26,12 +25,13 @@ export default function LandingPage() {
       username: '',
     },
     validate: {
-      username: (value) => (/^[a-zA-Z0-9_]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value) ? null : '请输入有效的 Mastodon 用户名'),
+      username: (value) => (/^[a-zA-Z0-9_]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value) ? null : 'please enter valid Mastodon handle'),
     },
   });
 
   const handleLogin = () => {
     setIsLoading(true);
+    const clientId = process.env.NEXT_PUBLIC_CLIENT_ID;
     const instanceUrl = `https://${form.values.username.split('@')[1]}`;
     const authorizationUrl = `${instanceUrl}/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scopes}&state=${form.values.username.split('@')[1]}`;
     window.location.href = authorizationUrl;
@@ -54,7 +54,7 @@ export default function LandingPage() {
           <form onSubmit={form.onSubmit(handleLogin)}>
             <TextInput
               required
-              label="Mastodon username"
+              label="Mastodon Handle"
               placeholder="yourname@mastodon.instance"
               {...form.getInputProps('username')}
             />
