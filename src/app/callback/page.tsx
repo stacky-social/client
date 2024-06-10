@@ -4,14 +4,14 @@ import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { notifications } from '@mantine/notifications';
 
-const clientId = 'PXrEIUqzlj52rGqrYre8Xg7-AovzPxyzSE5h_cajNOo';
-const clientSecret = 'GX-32pjVdQ5uGAT_s6mzYVmu9-iWQQScgiQ-MBsT_v4';
+const clientId = process.env.PUBLIC_MASTODON_OAUTH_CLIENT_ID;
+const clientSecret = process.env.PUBLIC_MASTODON_OAUTH_CLIENT_SECRET;
 const redirectUri = 'http://localhost:3000/callback';
 
 export default function Callback() {
     const router = useRouter();
     const searchParams = useSearchParams();
-  
+
     useEffect(() => {
       const fetchAccessToken = async (code: string, instance: string) => {
         try {
@@ -28,12 +28,12 @@ export default function Callback() {
               code,
             }),
           });
-  
+
           const data = await response.json();
           if (response.ok) {
             const accessToken = data.access_token;
             localStorage.setItem('accessToken', accessToken);
-  
+
             // 获取用户信息
             const userResponse = await fetch(`${instance}/api/v1/accounts/verify_credentials`, {
               headers: {
@@ -70,16 +70,16 @@ export default function Callback() {
           console.error('Error during token exchange:', error);
         }
       };
-  
+
       const code = searchParams.get('code');
       const state = searchParams.get('state');
       const instance = `https://${state}`;
-  
+
       if (code) {
         fetchAccessToken(code, instance);
       }
     }, [searchParams, router]);
-  
+
     return (
       <div>
         <p>Logging in...</p>
