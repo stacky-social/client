@@ -14,5 +14,7 @@ export interface PostType {
     author: string;
     avatar: string;
     replies: any[];
-    createdAt: string;  
+    createdAt: string;
+    stackCount: number | null; 
+    stackId: string | null;
 }
