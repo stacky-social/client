@@ -5,8 +5,8 @@ import { Title, Text, Button, TextInput, Box, Center } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useRouter } from 'next/navigation';
-import { Header } from '../components/Header';
-import { Footer } from '../components/Footer';
+import { Header } from '../components/Header/Header';
+import { Footer } from '../components/Footer/Footer';
 import classes from './LandingPage.module.css';
 
 interface FormValues {

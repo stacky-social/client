@@ -7,17 +7,17 @@ import { MantineLogo } from '@mantinex/mantine-logo';
 import classes from './Header.module.css';
 
 const userLinks = [
-    { link: '#', label: 'Privacy & Security' },
-    { link: '#', label: 'Account settings' },
-    { link: '#', label: 'Support options' },
+    { link: '#', label: 'Placeholder' },
+    { link: '#', label: 'Placeholder' },
+    { link: '#', label: 'Placeholder' },
 ];
 
 const mainLinks = [
-    { link: '#', label: 'Book a demo' },
-    { link: '#', label: 'Documentation' },
-    { link: '#', label: 'Community' },
-    { link: '#', label: 'Academy' },
-    { link: '#', label: 'Forums' },
+    { link: '#', label: 'Placeholder' },
+    { link: '#', label: 'Placeholder' },
+    { link: '#', label: 'Placeholder' },
+    { link: '#', label: 'Placeholder' },
+    { link: '#', label: 'Placeholder' },
 ];
 
 export function Header() {
