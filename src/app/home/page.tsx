@@ -12,7 +12,7 @@ const HomePage: React.FC = () => {
     const [searchResult, setSearchResult] = useState<string>('');
 
     const handleSearch = (query: string) => {
-        
+
         setSearchResult(query);
         console.log('Search Result:', query); // For now, just log the search result
     };
@@ -23,11 +23,6 @@ const HomePage: React.FC = () => {
                 <div style={{ gridColumn: '1 / 2' }}>
                     <SubmitPost />
                     <Posts />
-                </div>
-                <div style={{ gridColumn: '2 / 3' }}>
-                    <SearchBar onSearch={handleSearch} />
-                    {/* Display the search result */}
-                    
                 </div>
             </div>
         </Shell>
