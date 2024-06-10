@@ -9,11 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@mantine/core": "7.7.1",
-    "@mantine/form": "^7.10.1",
-    "@mantine/hooks": "7.7.1",
-    "@mantine/notifications": "^7.10.1",
-    "@mantinex/mantine-logo": "^1.0.1",
+    "@mantine/core": "7.10.1",
+    "@mantine/form": "7.10.1",
+    "@mantine/hooks": "7.10.1",
+    "@mantine/notifications": "7.10.1",
+    "@mantinex/mantine-logo": "1.0.1",
     "@tabler/icons": "^3.2.0",
     "@tabler/icons-react": "^3.1.0",
     "axios": "^1.7.2",
