@@ -1,14 +1,11 @@
-// pages/index.tsx
 "use client";
 
 import { Shell } from "../../components/Shell";
 import { SubmitPost } from "../../components/SubmitPost";
 import Posts from "../../components/Posts";
-import SearchBar from "../../components/SearchBar";
 import { useState } from 'react';
-import { Grid, Box, Text } from '@mantine/core';
 
-const HomePage: React.FC = () => {
+export default function HomePage(){
     const [searchResult, setSearchResult] = useState<string>('');
 
     const handleSearch = (query: string) => {
@@ -29,4 +26,3 @@ const HomePage: React.FC = () => {
     );
 };
 
-export default HomePage;
