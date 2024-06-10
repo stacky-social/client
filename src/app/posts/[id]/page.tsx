@@ -32,6 +32,8 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [randomTexts, setRandomTexts] = useState<string[]>([]);
     const [modalOpened, setModalOpened] = useState(false);
     const [modalContent, setModalContent] = useState<string>('');
+    const [replyContent, setReplyContent] = useState<string>('');
+    const [currentUser, setCurrentUser] = useState<any | null>(null);
 
     const initialRandomTexts = [
         "Exploring the depths of space!",
@@ -46,8 +48,28 @@ export default function PostView({ params }: { params: { id: string } }) {
     }, [id]);
 
     useEffect(() => {
+        fetchCurrentUser();
         generateRandomTexts();
     }, []);
+
+    const fetchCurrentUser = async () => {
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) {
+            console.error('Access token is missing.');
+            return;
+        }
+
+        try {
+            const userResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/accounts/verify_credentials`, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            });
+            setCurrentUser(userResponse.data);
+        } catch (error) {
+            console.error('Failed to fetch current user:', error);
+        }
+    };
 
     const fetchPostAndReplies = async (postId: string) => {
         const accessToken = localStorage.getItem('accessToken');
@@ -81,6 +103,29 @@ export default function PostView({ params }: { params: { id: string } }) {
     const generateRandomTexts = () => {
         const shuffledTexts = initialRandomTexts.sort(() => 0.5 - Math.random()).slice(0, 4);
         setRandomTexts(shuffledTexts);
+    };
+
+    const handleReplySubmit = async () => {
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) {
+            console.error('Access token is missing.');
+            return;
+        }
+
+        try {
+            await axios.post(`${MastodonInstanceUrl}/api/v1/statuses`, {
+                status: replyContent,
+                in_reply_to_id: id
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            });
+            setReplyContent('');
+            fetchPostAndReplies(id); // Refresh replies after posting
+        } catch (error) {
+            console.error('Failed to post reply:', error);
+        }
     };
 
     if (!post && !loading) {
@@ -211,13 +256,15 @@ export default function PostView({ params }: { params: { id: string } }) {
                     </Paper>
                     <Divider my="md"/>
                     <Group>
-                        <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl"/>
+                        <Avatar src={currentUser?.avatar || 'defaultAvatarUrl'} alt="Current User" radius="xl"/>
                         <TextInput
                             placeholder="Post your reply"
                             radius="lg"
                             size="xl"
+                            value={replyContent}
+                            onChange={(e) => setReplyContent(e.target.value)}
                             rightSection={
-                                <Button>
+                                <Button onClick={handleReplySubmit}>
                                     Send
                                 </Button>
                             }

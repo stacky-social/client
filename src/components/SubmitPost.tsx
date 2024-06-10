@@ -60,7 +60,7 @@ export function SubmitPost() {
           message: 'Post created successfully.',
           color: 'green',
         });
-        setPostText(''); // 清空输入框
+        setPostText(''); // Clear the input field
       } else {
         const data = await response.json();
         console.error('Failed to create post:', data);
