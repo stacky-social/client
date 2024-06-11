@@ -35,6 +35,10 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         }
     }, [text]);
 
+    useEffect(() => {
+        fetchPostData();
+    }, []);
+
     const handleNavigate = () => {
         router.push(`/posts/${id}`);
     };
@@ -43,38 +47,72 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         router.push(`/posts/${id}`);
     };
 
+    const getAccessToken = () => {
+        return localStorage.getItem('accessToken');
+    };
+
     const fetchPostData = async () => {
+        const accessToken = getAccessToken();
+        if (!accessToken) return;
+
         try {
-            const response = await axios.get(`https://mastodon.social/api/v1/statuses/${id}`);
+            const response = await axios.get(`https://mastodon.social/api/v1/statuses/${id}`, {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            });
             const data = response.data;
             setLikeCount(data.favourites_count);
+            setLiked(data.favourited);
+            setBookmarkedState(data.bookmarked);
         } catch (error) {
             console.error('Error fetching post data:', error);
         }
     };
 
     const handleLike = async () => {
+        const accessToken = getAccessToken();
+        if (!accessToken) return;
+
         try {
             if (liked) {
-                await axios.post(`https://mastodon.social/api/v1/statuses/${id}/unfavourite`);
+                await axios.post(`https://mastodon.social/api/v1/statuses/${id}/unfavourite`, {}, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                });
             } else {
-                await axios.post(`https://mastodon.social/api/v1/statuses/${id}/favourite`);
+                await axios.post(`https://mastodon.social/api/v1/statuses/${id}/favourite`, {}, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                });
             }
-            setLiked(!liked);
-            fetchPostData(); // Fetch the updated count from the API
+            await fetchPostData(); // Fetch the updated count from the API
         } catch (error) {
             console.error('Error liking post:', error);
         }
     };
 
     const handleSave = async () => {
+        const accessToken = getAccessToken();
+        if (!accessToken) return;
+
         try {
             if (bookmarkedState) {
-                await axios.post(`https://mastodon.social/api/v1/statuses/${id}/unbookmark`);
+                await axios.post(`https://mastodon.social/api/v1/statuses/${id}/unbookmark`, {}, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                });
             } else {
-                await axios.post(`https://mastodon.social/api/v1/statuses/${id}/bookmark`);
+                await axios.post(`https://mastodon.social/api/v1/statuses/${id}/bookmark`, {}, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                });
             }
-            setBookmarkedState(!bookmarkedState);
+            await fetchPostData(); // Fetch the updated count from the API
         } catch (error) {
             console.error('Error bookmarking post:', error);
         }
