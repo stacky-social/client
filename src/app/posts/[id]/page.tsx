@@ -20,11 +20,24 @@ import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconSearch, Icon
 import axios from 'axios';
 import classes from './postId.module.css';
 import ExpandModal from "../../../components/ExpandModal";
-import { PostType } from '../../../types/PostType';
 import RelatedStacks from '../../../components/RelatedStacks';
-import { generateFakeRelatedStacks } from '../../FakeData/generateFakeRelatedStacks'; 
+
 
 const MastodonInstanceUrl = 'https://mastodon.social'; // Mastodon instance URL
+
+interface PostType {
+    id: string;
+    created_at: string;
+    replies_count: number;
+    favourites_count: number;
+    favourited: boolean;
+    bookmarked: boolean;
+    content: string;
+    account: {
+        avatar: string;
+        display_name: string;
+    };
+}
 
 interface RelatedStack {
     rel: string;
@@ -32,7 +45,6 @@ interface RelatedStack {
     size: number;
     topPost: PostType;
 }
-
 
 export default function PostView({ params }: { params: { id: string } }) {
     const router = useRouter();
@@ -48,8 +60,6 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [liked, setLiked] = useState(false);
     const [bookmarked, setBookmarked] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
-    // const [relatedStacks, setRelatedStacks] = useState<RelatedStack[]>([]);
-    const [relatedStacks, setRelatedStacks] = useState<RelatedStack[]>(generateFakeRelatedStacks(5));
 
     const initialRandomTexts = [
         "Exploring the depths of space!",
@@ -67,13 +77,6 @@ export default function PostView({ params }: { params: { id: string } }) {
         fetchCurrentUser();
         generateRandomTexts();
     }, []);
-
-    useEffect(() => {
-        if (post) {
-            fetchStackAndRelatedStacks(id);
-        }
-    }, [post]);
-
 
     const fetchCurrentUser = async () => {
         const accessToken = localStorage.getItem('accessToken');
@@ -125,61 +128,6 @@ export default function PostView({ params }: { params: { id: string } }) {
             setLoading(false);
         }
     };
-
-    const fetchStackAndRelatedStacks = async (postId: string) => {
-        const accessToken = localStorage.getItem('accessToken');
-        if (!accessToken) {
-            console.error('Access token is missing.');
-            return;
-        }
-
-        try {
-            // Fetch Stack ID for the given Post ID
-            const stackResponse = await axios.get(`http://beta.stacky.social:3002/posts/${postId}/stack`, {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`
-                }
-            });
-
-            const { stackId } = stackResponse.data;
-
-            if (!stackId) {
-                console.error('No stack ID found for the given post.');
-                return;
-            }
-
-            // Fetch related Stacks for the given Stack ID
-            const relatedStacksResponse = await axios.get(`http://beta.stacky.social:3002/stacks/${stackId}/related`, {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`
-                }
-            });
-
-            const relatedStacksData = relatedStacksResponse.data.relatedStacks.map((stack: any) => ({
-                rel: stack.rel,
-                stackId: stack.stackId,
-                stackSize: stack.stackSize, 
-                topPost: {
-                    postId: stack.topPost.id,
-                    text: stack.topPost.content,
-                    author: stack.topPost.account.username,
-                    avatar: stack.topPost.account.avatar,
-                    replies: [],
-                    createdAt: stack.topPost.created_at,
-                    favouritesCount: stack.topPost.favourites_count,
-                    favourited: stack.topPost.favourited,
-                    bookmarked: stack.topPost.bookmarked,
-                    stackSize: stack.stackSize, 
-                    stackId: stackId
-                }
-            }));
-
-            setRelatedStacks(relatedStacksData);
-        } catch (error) {
-            console.error('Failed to fetch stack or related stacks:', error);
-        }
-    };
-
 
     const generateRandomTexts = () => {
         const shuffledTexts = initialRandomTexts.sort(() => 0.5 - Math.random()).slice(0, 4);
@@ -406,7 +354,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                 </div>
                 <div style={{ gridColumn: '2 / 3' }}>
                     {stacks()}
-                    <RelatedStacks relatedStacks={relatedStacks} handleNavigate={handleNavigate} />
+                    <RelatedStacks postId={id} cardWidth={400} cardHeight={200} />
                 </div>
             </div>
         </Shell>
