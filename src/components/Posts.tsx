@@ -21,7 +21,7 @@ export default function Posts() {
                     replies: [],
                     stackCount: null,
                     stackId: null,
-                    favourites_count: post.favourites_count,  
+                    favouritesCount: post.favourites_count,  
                     favourited: post.favourited,            
                     bookmarked: post.bookmarked             
                 }));
@@ -62,13 +62,12 @@ export default function Posts() {
             author={post.author} 
             avatar={post.avatar} 
             repliesCount={post.replies.length}
-            favouritesCount={post.favourites_count}  
-            favourited={post.favourited}            
-            bookmarked={post.bookmarked}   
             createdAt={post.createdAt}
             stackCount={post.stackCount} 
             stackId={post.stackId} 
-                     
+            favouritesCount={post.favouritesCount}  
+            favourited={post.favourited}            
+            bookmarked={post.bookmarked}            
         />
     ));
 

@@ -15,7 +15,7 @@ export interface PostType {
     avatar: string;
     replies: any[];
     createdAt: string;
-    favourites_count: number;
+    favouritesCount: number;
     favourited: boolean; 
     bookmarked: boolean;
     stackCount: number | null; 

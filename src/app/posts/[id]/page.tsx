@@ -16,7 +16,7 @@ import {
     Card,
     Modal
 } from "@mantine/core";
-import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconSearch } from "@tabler/icons-react";
+import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconSearch, IconHeartFilled, IconBookmarkFilled } from "@tabler/icons-react";
 import axios from 'axios';
 import classes from './postId.module.css';
 import ExpandModal from "../../../components/ExpandModal";
@@ -34,6 +34,9 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [modalContent, setModalContent] = useState<string>('');
     const [replyContent, setReplyContent] = useState<string>('');
     const [currentUser, setCurrentUser] = useState<any | null>(null);
+    const [liked, setLiked] = useState(false);
+    const [bookmarked, setBookmarked] = useState(false);
+    const [likeCount, setLikeCount] = useState(0);
 
     const initialRandomTexts = [
         "Exploring the depths of space!",
@@ -86,6 +89,9 @@ export default function PostView({ params }: { params: { id: string } }) {
                 }
             });
             setPost(postResponse.data);
+            setLiked(postResponse.data.favourited);
+            setBookmarked(postResponse.data.bookmarked);
+            setLikeCount(postResponse.data.favourites_count);
 
             const repliesResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}/context`, {
                 headers: {
@@ -128,37 +134,60 @@ export default function PostView({ params }: { params: { id: string } }) {
         }
     };
 
-    if (!post && !loading) {
-        return (
-            <Shell>
-                <Paper withBorder radius="md" mt={20} p="lg">
-                    <Text size="sm">Post not found.</Text>
-                </Paper>
-            </Shell>
-        );
-    }
-
     const handleNavigate = (replyId: string) => {
         router.push(`/posts/${replyId}`);
     };
 
-    const handleLike = () => {
-        console.log("Like post:", id);
-        // handle like logic
+    const handleLike = async () => {
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) return;
+
+        try {
+            if (liked) {
+                await axios.post(`${MastodonInstanceUrl}/api/v1/statuses/${id}/unfavourite`, {}, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                });
+            } else {
+                await axios.post(`${MastodonInstanceUrl}/api/v1/statuses/${id}/favourite`, {}, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                });
+            }
+            await fetchPostAndReplies(id); // Fetch the updated count from the API
+        } catch (error) {
+            console.error('Error liking post:', error);
+        }
     };
 
-    const handleSave = () => {
-        console.log("Save post:", id);
-        // hanle save logic
+    const handleSave = async () => {
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) return;
+
+        try {
+            if (bookmarked) {
+                await axios.post(`${MastodonInstanceUrl}/api/v1/statuses/${id}/unbookmark`, {}, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                });
+            } else {
+                await axios.post(`${MastodonInstanceUrl}/api/v1/statuses/${id}/bookmark`, {}, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                });
+            }
+            await fetchPostAndReplies(id); // Fetch the updated count from the API
+        } catch (error) {
+            console.error('Error bookmarking post:', error);
+        }
     };
 
     const handleShare = () => {
         console.log("Share post:", id);
-        // hanle share logic
-    };
-
-    const handleReplyClick = (replyId: string) => {
-        router.push(`/posts/${replyId}`);
     };
 
     const explorePages = () => {
@@ -210,6 +239,16 @@ export default function PostView({ params }: { params: { id: string } }) {
         );
     };
 
+    if (!post && !loading) {
+        return (
+            <Shell>
+                <Paper withBorder radius="md" mt={20} p="lg">
+                    <Text size="sm">Post not found.</Text>
+                </Paper>
+            </Shell>
+        );
+    }
+
     return (
         <Shell>
             <Modal
@@ -222,12 +261,12 @@ export default function PostView({ params }: { params: { id: string } }) {
                 <ExpandModal />
             </Modal>
 
-            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%'}}>
-                <div style={{gridColumn: '1 / 2'}}>
-                    <Paper withBorder radius="md" mt={20} p="lg" style={{position: 'relative'}} shadow="lg">
-                        <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{radius: "sm", blur: 2}}/>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%' }}>
+                <div style={{ gridColumn: '1 / 2' }}>
+                    <Paper withBorder radius="md" mt={20} p="lg" style={{ position: 'relative' }} shadow="lg">
+                        <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
                         <Group>
-                            <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl"/>
+                            <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl" />
                             <div>
                                 <Text size="sm">{post?.account.username}</Text>
                                 <Text size="xs">{new Date(post?.created_at).toLocaleString()}</Text>
@@ -235,28 +274,28 @@ export default function PostView({ params }: { params: { id: string } }) {
                         </Group>
                         <Text pl={54} pt="sm" size="sm" dangerouslySetInnerHTML={{ __html: post?.content }} />
                         <Text pl={54} pt="sm" size="sm">Post Id: {post?.id}</Text>
-                        <Divider my="md"/>
+                        <Divider my="md" />
                         <Group justify="space-between" mx="20">
-                            <Button variant="subtle" size="sm" radius="lg" onClick={() => handleReplyClick(id)}>
-                                <IconMessageCircle size={20}/> <Text>{post?.replies_count}</Text>
+                            <Button variant="subtle" size="sm" radius="lg" onClick={() => handleNavigate(id)}>
+                                <IconMessageCircle size={20} /> <Text ml={4}>{post?.replies_count}</Text>
                             </Button>
-                            <Button variant="subtle" size="sm" radius="lg" onClick={handleLike}>
-                                <IconHeart size={20}/>
+                            <Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
+                                {liked ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{likeCount}</Text>
                             </Button>
-                            <Button variant="subtle" size="sm" radius="lg" onClick={handleSave}>
-                                <IconBookmark size={20}/>
+                            <Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
+                                {bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
                             </Button>
                             <Button variant="subtle" size="sm" radius="lg" onClick={handleShare}>
-                                <IconShare size={20}/>
+                                <IconShare size={20} />
                             </Button>
                             <Button variant="subtle" size="sm" radius="lg" onClick={explorePages}>
-                                <IconSearch size={20}/>
+                                <IconSearch size={20} />
                             </Button>
                         </Group>
                     </Paper>
-                    <Divider my="md"/>
+                    <Divider my="md" />
                     <Group>
-                        <Avatar src={currentUser?.avatar || 'defaultAvatarUrl'} alt="Current User" radius="xl"/>
+                        <Avatar src={currentUser?.avatar || 'defaultAvatarUrl'} alt="Current User" radius="xl" />
                         <TextInput
                             placeholder="Post your reply"
                             radius="lg"
@@ -269,16 +308,16 @@ export default function PostView({ params }: { params: { id: string } }) {
                                 </Button>
                             }
                             rightSectionWidth={100}
-                            style={{flex: 1}}
+                            style={{ flex: 1 }}
                         />
                     </Group>
-                    <Divider my="md"/>
+                    <Divider my="md" />
                     {replies.map((reply, index) => (
                         <div key={index}>
-                            <Paper withBorder radius="md" mt={20} p="lg" style={{position: 'relative'}} shadow="md">
-                                <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{radius: "sm", blur: 2}}/>
+                            <Paper withBorder radius="md" mt={20} p="lg" style={{ position: 'relative' }} shadow="md">
+                                <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
                                 <Group>
-                                    <Avatar src={reply.account.avatar} alt={reply.account.username} radius="xl"/>
+                                    <Avatar src={reply.account.avatar} alt={reply.account.username} radius="xl" />
                                     <div>
                                         <Text size="sm">{reply.account.username}</Text>
                                         <Text size="xs">{new Date(reply.created_at).toLocaleString()}</Text>
@@ -290,7 +329,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                         </div>
                     ))}
                 </div>
-                <div style={{gridColumn: '2 / 3'}}>
+                <div style={{ gridColumn: '2 / 3' }}>
                     {stacks()}
                 </div>
             </div>
