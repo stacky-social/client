@@ -5,7 +5,7 @@ import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookma
 import { formatDistanceToNow } from 'date-fns';
 import StackCount from './StackCount';
 import mockStack from './mock_stack.json'; // for testing
-import mockRelatedStacks from './mock_related_stacks.json'; 
+import mockRelatedStacks from './mock_related_stacks.json'; // for testing
 
 interface PostType {
   id: string;
@@ -38,25 +38,27 @@ interface RelatedStacksProps {
 const RelatedStacks: React.FC<RelatedStacksProps> = ({ postId, cardWidth, cardHeight,onStackClick  }) => {
   const [relatedStacks, setRelatedStacks] = useState<RelatedStackType[]>([]);
 
-//   const getStackByPostId = async (postId: string) => {
-//     try {
-//       const response = await axios.get(`/api/posts/${postId}/stack`);
-//       return response.data;
-//     } catch (error) {
-//       console.error('Error fetching stack by postId:', error);
-//       return null;
-//     }
-//   };
+  // const getStackByPostId = async (postId: string) => {
+  //   try {
+  //     const response = await axios.get(`https://beta.stacky.social:3002/posts/${postId}/stack`);
+  //     return response.data;
+  //   } catch (error) {
+  //     console.error('Error fetching stack by postId:', error);
+  //     return null;
+  //   }
+  // };
+  
+  // const getRelatedStacksByStackId = async (stackId: string) => {
+  //   try {
+  //     const response = await axios.get(`https://beta.stacky.social:3002/stacks/${stackId}/related`);
+  //     return response.data.relatedStacks;
+  //   } catch (error) {
+  //     console.error('Error fetching related stacks by stackId:', error);
+  //     return [];
+  //   }
+  // };
+  
 
-//   const getRelatedStacksByStackId = async (stackId: string) => {
-//     try {
-//       const response = await axios.get(`/api/stacks/${stackId}/related`);
-//       return response.data.relatedStacks;
-//     } catch (error) {
-//       console.error('Error fetching related stacks by stackId:', error);
-//       return [];
-//     }
-//   };
 const getStackByPostId = async (postId: string) => {
     try {
       //test

@@ -34,39 +34,88 @@ export default function ExpandModal({ stackId }: ExpandModalProps) {
     const [substacks, setSubstacks] = useState<Substack[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
 
-    const fetchSubstacks = async (id: string) => {
-        try {
-            let response;
-            if (process.env.NODE_ENV === 'development') {
-                response = await axios.get('/mockSubstacks.json');
-            } else {
-                response = await axios.get(`/api/stacks/${id}/substacks`);
-            }
-            setSubstacks(response.data);
-        } catch (error) {
-            console.error('Failed to fetch substacks:', error);
-        }
-    };
+    // const fetchSubstacks = async (id: string) => {
+    //     try {
+    //         let response;
+    //         if (process.env.NODE_ENV === 'development') {
+    //             response = await axios.get('/mockSubstacks.json');
+    //         } else {
+    //             response = await axios.get(`/api/stacks/${id}/substacks`);
+    //         }
+    //         setSubstacks(response.data);
+    //     } catch (error) {
+    //         console.error('Failed to fetch substacks:', error);
+    //     }
+    // };
 
     useEffect(() => {
         fetchSubstacks(stackId);
     }, [stackId]);
 
-    const handleSearch = async (event: React.KeyboardEvent<HTMLInputElement>) => {
-        if (event.key === 'Enter') {
-            try {
-                let response;
-                if (process.env.NODE_ENV === 'development') {
-                    response = await axios.get('/mockFilteredSubstacks.json');
-                } else {
-                    response = await axios.get(`/api/stacks/${stackId}/filter?query=${searchTerm}`);
-                }
-                setSubstacks(response.data);
-            } catch (error) {
-                console.error('Failed to fetch filtered substacks:', error);
-            }
+    // const handleSearch = async (event: React.KeyboardEvent<HTMLInputElement>) => {
+    //     if (event.key === 'Enter') {
+    //         try {
+    //             let response;
+    //             if (process.env.NODE_ENV === 'development') {
+    //                 response = await axios.get('/mockFilteredSubstacks.json');
+    //             } else {
+    //                 response = await axios.get(`/api/stacks/${stackId}/filter?query=${searchTerm}`);
+    //             }
+    //             setSubstacks(response.data);
+    //         } catch (error) {
+    //             console.error('Failed to fetch filtered substacks:', error);
+    //         }
+    //     }
+    // };
+
+    const fetchMockSubstacks = async (id: string) => {
+        try {
+          const response = await axios.get('/mockSubstacks.json');
+          setSubstacks(response.data);
+        } catch (error) {
+          console.error('Failed to fetch mock substacks:', error);
         }
-    };
+      };
+      
+      const fetchActualSubstacks = async (id: string) => {
+        try {
+          const response = await axios.get(`https://beta.stacky.social:3002/stacks/${id}/substacks`);
+          setSubstacks(response.data);
+        } catch (error) {
+          console.error('Failed to fetch substacks:', error);
+        }
+      };
+      
+      const handleMockSearch = async (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === 'Enter') {
+          try {
+            const response = await axios.get('/mockFilteredSubstacks.json');
+            setSubstacks(response.data);
+          } catch (error) {
+            console.error('Failed to fetch mock filtered substacks:', error);
+          }
+        }
+      };
+      
+      const handleActualSearch = async (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === 'Enter') {
+          try {
+            const response = await axios.get(`https://beta.stacky.social:3002/stacks/${stackId}/filter?query=${searchTerm}`);
+            setSubstacks(response.data);
+          } catch (error) {
+            console.error('Failed to fetch filtered substacks:', error);
+          }
+        }
+      };
+      
+      // mock API
+      const fetchSubstacks = fetchMockSubstacks;
+      const handleSearch = handleMockSearch;
+      
+      // use actual API
+      // const fetchSubstacks = fetchActualSubstacks;
+      // const handleSearch = handleActualSearch;
+      
 
     const handleStackClick = (stackId: string) => {
         console.log(`Stack ${stackId} clicked`);
