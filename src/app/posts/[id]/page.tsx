@@ -22,7 +22,6 @@ import classes from './postId.module.css';
 import ExpandModal from "../../../components/ExpandModal";
 import RelatedStacks from '../../../components/RelatedStacks';
 
-
 const MastodonInstanceUrl = 'https://mastodon.social'; // Mastodon instance URL
 
 interface PostType {
@@ -217,50 +216,55 @@ export default function PostView({ params }: { params: { id: string } }) {
         generateRandomTexts();
     };
 
-    const handleCardClick = (text: string) => {
-        setModalContent(text);
+    const handleStackClick = (stackId: string) => { 
+        setModalContent(stackId);
         setModalOpened(true);
     };
 
-    const stacks = () => {
-        return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', margin: '2rem' }}>
-                {randomTexts.map((text, index) => (
-                    <Card withBorder radius="md" p={0} className={classes.card} key={index} style={{ margin: '1rem' }} onClick={() => handleCardClick(text)}>
-                        <Group wrap="nowrap" gap={0}>
-                            <Image
-                                src="https://images.unsplash.com/photo-1602080858428-57174f9431cf?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80"
-                                height={160}
-                            />
-                            <div className={classes.body}>
-                                <Text tt="uppercase" c="dimmed" fw={700} size="xs">
-                                    technology
-                                </Text>
-                                <Text className={classes.title} mt="xs" mb="md">
-                                    {text}
-                                </Text>
-                                <Group wrap="nowrap" gap="xs">
-                                    <Group gap="xs" wrap="nowrap">
-                                        <Avatar
-                                            size={20}
-                                            src="https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/avatars/avatar-8.png"
-                                        />
-                                        <Text size="xs">Elsa Typechecker</Text>
-                                    </Group>
-                                    <Text size="xs" c="dimmed">
-                                        •
-                                    </Text>
-                                    <Text size="xs" c="dimmed">
-                                        Feb 6th
-                                    </Text>
-                                </Group>
-                            </div>
-                        </Group>
-                    </Card>
-                ))}
-            </div>
-        );
-    };
+    // const handleCardClick = (text: string) => {
+    //     setModalContent(text);
+    //     setModalOpened(true);
+    // };
+
+    // const stacks = () => {
+    //     return (
+    //         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', margin: '2rem' }}>
+    //             {randomTexts.map((text, index) => (
+    //                 <Card withBorder radius="md" p={0} className={classes.card} key={index} style={{ margin: '1rem' }} onClick={() => handleCardClick(text)}>
+    //                     <Group wrap="nowrap" gap={0}>
+    //                         <Image
+    //                             src="https://images.unsplash.com/photo-1602080858428-57174f9431cf?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80"
+    //                             height={160}
+    //                         />
+    //                         <div className={classes.body}>
+    //                             <Text tt="uppercase" c="dimmed" fw={700} size="xs">
+    //                                 technology
+    //                             </Text>
+    //                             <Text className={classes.title} mt="xs" mb="md">
+    //                                 {text}
+    //                             </Text>
+    //                             <Group wrap="nowrap" gap="xs">
+    //                                 <Group gap="xs" wrap="nowrap">
+    //                                     <Avatar
+    //                                         size={20}
+    //                                         src="https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/avatars/avatar-8.png"
+    //                                     />
+    //                                     <Text size="xs">Elsa Typechecker</Text>
+    //                                 </Group>
+    //                                 <Text size="xs" c="dimmed">
+    //                                     •
+    //                                 </Text>
+    //                                 <Text size="xs" c="dimmed">
+    //                                     Feb 6th
+    //                                 </Text>
+    //                             </Group>
+    //                         </div>
+    //                     </Group>
+    //                 </Card>
+    //             ))}
+    //         </div>
+    //     );
+    // };
 
     if (!post && !loading) {
         return (
@@ -281,7 +285,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                 centered
                 size="auto"
             >
-                <ExpandModal />
+                <ExpandModal stackId={modalContent} /> 
             </Modal>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%' }}>
@@ -353,8 +357,8 @@ export default function PostView({ params }: { params: { id: string } }) {
                     ))}
                 </div>
                 <div style={{ gridColumn: '2 / 3' }}>
-                    {stacks()}
-                    <RelatedStacks postId={id} cardWidth={400} cardHeight={200} />
+                    {/* {stacks()} */}
+                    <RelatedStacks postId={id} cardWidth={400} cardHeight={200} onStackClick={handleStackClick} />
                 </div>
             </div>
         </Shell>
