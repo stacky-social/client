@@ -1,13 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { SimpleGrid, Card, Image, Text, Container, AspectRatio, Group, Avatar, Button, Divider, Paper, UnstyledButton } from '@mantine/core';
+import { SimpleGrid, Text, Container, Group, Avatar, Button, Divider, Paper, UnstyledButton, TextInput, rem } from '@mantine/core';
 import axios from 'axios';
-import classes from './expandModal.module.css';
 import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconHeartFilled, IconBookmarkFilled, IconSearch } from "@tabler/icons-react";
 import { formatDistanceToNow } from 'date-fns';
-import { rem } from '@mantine/core';
-import { TextInput } from '@mantine/core';
 import { Code } from '@mantine/core';
-
+import classes from './expandModal.module.css';
 
 interface ExpandModalProps {
     stackId: string;
@@ -37,36 +34,46 @@ export default function ExpandModal({ stackId }: ExpandModalProps) {
     const [substacks, setSubstacks] = useState<Substack[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
 
+    const fetchSubstacks = async (id: string) => {
+        try {
+            let response;
+            if (process.env.NODE_ENV === 'development') {
+                response = await axios.get('/mockSubstacks.json');
+            } else {
+                response = await axios.get(`/api/stacks/${id}/substacks`);
+            }
+            setSubstacks(response.data);
+        } catch (error) {
+            console.error('Failed to fetch substacks:', error);
+        }
+    };
+
     useEffect(() => {
-        const fetchSubstacks = async () => {
+        fetchSubstacks(stackId);
+    }, [stackId]);
+
+    const handleSearch = async (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === 'Enter') {
             try {
                 let response;
                 if (process.env.NODE_ENV === 'development') {
-                    response = await axios.get('/mockSubstacks.json');
+                    response = await axios.get('/mockFilteredSubstacks.json');
                 } else {
-                    response = await axios.get(`/api/stacks/${stackId}/substacks`);
+                    response = await axios.get(`/api/stacks/${stackId}/filter?query=${searchTerm}`);
                 }
                 setSubstacks(response.data);
             } catch (error) {
-                console.error('Failed to fetch substacks:', error);
+                console.error('Failed to fetch filtered substacks:', error);
             }
-        };
-
-        fetchSubstacks();
-    }, [stackId]);
+        }
+    };
 
     const handleStackClick = (stackId: string) => {
         console.log(`Stack ${stackId} clicked`);
     };
-    const handleSearch = (event: React.KeyboardEvent<HTMLInputElement>) => {
-        if (event.key === 'Enter') {
-            console.log(`Search term: ${searchTerm}`);
-           
-        }
-    };
 
     const cards = substacks.map((stack) => (
-        <div key={stack.substackId} style={{ margin: '20px' }}>
+        <div key={stack.substackId} style={{ margin: '20px', width: '100%' }}>
             <Paper
                 style={{
                     backgroundColor: '#fff',
@@ -114,20 +121,20 @@ export default function ExpandModal({ stackId }: ExpandModalProps) {
     ));
 
     return (
-        <Container py="xl" style={{ maxWidth: '1000px', margin: '0 auto' }}> 
-        <TextInput
-                placeholder="Search"
-                size="xs"
-                leftSection={<IconSearch style={{ width: rem(12), height: rem(12) }} stroke={1.5} />}
-                rightSectionWidth={70}
-                rightSection={<Code className={classes.searchCode}>Enter</Code>}
-                styles={{ section: { pointerEvents: 'none' } }}
-                mb="sm"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.currentTarget.value)}
-                onKeyDown={handleSearch}
-            />
-            
+        <Container py="xl" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                <TextInput
+                    placeholder="Search"
+                    size="md"
+                    leftSection={<IconSearch style={{ width: rem(16), height: rem(16) }} stroke={1.5} />}
+                    rightSectionWidth={70}
+                    rightSection={<Code className={classes.searchCode}>Enter</Code>}
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.currentTarget.value)}
+                    onKeyDown={handleSearch}
+                    styles={{ input: { fontSize: '16px', width: '100%' }, root: { width: '100%', maxWidth: '800px' } }}
+                />
+            </div>
             <SimpleGrid cols={2} spacing="lg">{cards}</SimpleGrid>
         </Container>
     );
