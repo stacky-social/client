@@ -32,9 +32,10 @@ interface RelatedStacksProps {
   postId: string;
   cardWidth: number;
   cardHeight: number;
+  onStackClick: (stackId: string) => void;
 }
 
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ postId, cardWidth, cardHeight }) => {
+const RelatedStacks: React.FC<RelatedStacksProps> = ({ postId, cardWidth, cardHeight,onStackClick  }) => {
   const [relatedStacks, setRelatedStacks] = useState<RelatedStackType[]>([]);
 
 //   const getStackByPostId = async (postId: string) => {
@@ -90,60 +91,58 @@ const getStackByPostId = async (postId: string) => {
     fetchRelatedStacks();
   }, [postId]);
 
-  return (
+return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', margin: '2rem' }}>
-      {relatedStacks.map((stack) => (
-        <div key={stack.stackId} 
-        style={{ position: 'relative', margin: '2rem', marginBottom: '2rem', width: cardWidth,marginLeft: '2rem' }}>
-          <Paper
-            style={{
-              position: 'relative',
-              width: cardWidth,
-              backgroundColor: '#fff',
-              zIndex: 5,
-              boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-              borderRadius: '8px',
-            }}
-            withBorder
-          >
-            <UnstyledButton onClick={() => { /* Navigate to post logic */ }} style={{ width: '100%' }}>
-              <Group>
-                <Avatar
-                  src={stack.topPost.account.avatar}
-                  alt={stack.topPost.account.display_name}
-                  radius="xl"
-                />
-                <div>
-                  <Text size="sm">{stack.topPost.account.display_name}</Text>
-                  <Text size="xs" color="dimmed">{formatDistanceToNow(new Date(stack.topPost.created_at))} ago</Text>
-                </div>
-              </Group>
-              <div style={{ paddingLeft: '54px', paddingTop: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: '3', WebkitBoxOrient: 'vertical' }}>
-                <div dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
-              </div>
-              <Text pl={54} pt="sm" size="sm">Post Id: {stack.topPost.id}</Text>
-              <Text pl={54} pt="sm" size="sm">Stack Id: {stack.stackId}</Text>
-              <Text pl={54} pt="sm" size="sm">Stack rel: {stack.rel}</Text>
-            </UnstyledButton>
-            <Divider my="md" />
-            <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
-              <Button variant="subtle" size="sm" radius="lg">
-                <IconMessageCircle size={20} /> <Text ml={4}>{stack.topPost.replies_count}</Text>
-              </Button>
-              <Button variant="subtle" size="sm" radius="lg">
-                {stack.topPost.favourited ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{stack.topPost.favourites_count}</Text>
-              </Button>
-              <Button variant="subtle" size="sm" radius="lg">
-                {stack.topPost.bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
-              </Button>
-              <Button variant="subtle" size="sm" radius="lg">
-                <IconShare size={20} />
-              </Button>
-            </Group>
-            {stack.size !== null && <StackCount count={stack.size} />}
-            
-          </Paper>
-          {[...Array(4)].map((_, index) => (
+        {relatedStacks.map((stack) => (
+            <div key={stack.stackId} style={{ position: 'relative', margin: '20px', marginBottom: '2rem', width: cardWidth, marginLeft: '2rem' }}>
+                <Paper
+                    style={{
+                        position: 'relative',
+                        width: cardWidth,
+                        backgroundColor: '#fff',
+                        zIndex: 5,
+                        boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+                        borderRadius: '8px',
+                    }}
+                    withBorder
+                >
+                    <UnstyledButton onClick={() => onStackClick(stack.stackId)} style={{ width: '100%' }}> {/* 修改点击事件 */}
+                        <Group>
+                            <Avatar
+                                src={stack.topPost.account.avatar}
+                                alt={stack.topPost.account.display_name}
+                                radius="xl"
+                            />
+                            <div>
+                                <Text size="sm">{stack.topPost.account.display_name}</Text>
+                                <Text size="xs" color="dimmed">{formatDistanceToNow(new Date(stack.topPost.created_at))} ago</Text>
+                            </div>
+                        </Group>
+                        <div style={{ paddingLeft: '54px', paddingTop: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: '3', WebkitBoxOrient: 'vertical' }}>
+                            <div dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
+                        </div>
+                        <Text pl={54} pt="sm" size="sm">Post Id: {stack.topPost.id}</Text>
+                        <Text pl={54} pt="sm" size="sm">Stack Id: {stack.stackId}</Text>
+                        <Text pl={54} pt="sm" size="sm">Stack rel: {stack.rel}</Text>
+                    </UnstyledButton>
+                    <Divider my="md" />
+                    <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
+                        <Button variant="subtle" size="sm" radius="lg">
+                            <IconMessageCircle size={20} /> <Text ml={4}>{stack.topPost.replies_count}</Text>
+                        </Button>
+                        <Button variant="subtle" size="sm" radius="lg">
+                            {stack.topPost.favourited ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{stack.topPost.favourites_count}</Text>
+                        </Button>
+                        <Button variant="subtle" size="sm" radius="lg">
+                            {stack.topPost.bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
+                        </Button>
+                        <Button variant="subtle" size="sm" radius="lg">
+                            <IconShare size={20} />
+                        </Button>
+                    </Group>
+                    {stack.size !== null && <StackCount count={stack.size} />}
+                </Paper>
+                {[...Array(4)].map((_, index) => (
             <div
               key={index}
               style={{
@@ -151,7 +150,7 @@ const getStackByPostId = async (postId: string) => {
                 bottom: `${20 - 5 * (index + 1)}px`,
                 left: `${20 - 5 * (index + 1)}px`,
                 width: cardWidth,
-                height: `${cardHeight}px`,
+                height: `${cardHeight-10}px`,
                 backgroundColor: '#fff',
                 zIndex: index + 1,
                 boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
@@ -160,10 +159,10 @@ const getStackByPostId = async (postId: string) => {
               }}
             />
           ))}
-        </div>
-      ))}
+            </div>
+        ))}
     </div>
-  );
+);
 };
 
 export default RelatedStacks;
