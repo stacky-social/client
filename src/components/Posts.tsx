@@ -31,7 +31,7 @@ export default function Posts() {
 
                 data.forEach(async (post) => {
                     try {
-                        const stackResponse = await axios.get(`http://beta.stacky.social:3002/posts/${post.postId}/stack`);
+                        const stackResponse = await axios.get(`beta.stacky.social:3002/posts/<int:id>/stack`);
                         const stackData = stackResponse.data;
 
                         if (stackData.stackId) {

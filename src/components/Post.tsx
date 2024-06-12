@@ -170,7 +170,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
                         <IconShare size={20} />
                     </Button>
                 </Group>
-                {stackCount !== null && <StackCount count={stackCount} />}
+                <StackCount count={stackCount !== null ? stackCount : 0} />
             </Paper>
             {[...Array(4)].map((_, index) => (
                 <div
