@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Shell } from "../../../components/Shell";
 import {
@@ -11,16 +11,14 @@ import {
     Text,
     Divider,
     Button,
-    Image,
     TextInput,
-    Card,
     Modal
 } from "@mantine/core";
 import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconSearch, IconHeartFilled, IconBookmarkFilled } from "@tabler/icons-react";
 import axios from 'axios';
-import classes from './postId.module.css';
 import ExpandModal from "../../../components/ExpandModal";
 import RelatedStacks from '../../../components/RelatedStacks';
+import RelatedStackStats from '../../../components/RelatedStackStats';
 
 const MastodonInstanceUrl = 'https://mastodon.social'; // Mastodon instance URL
 
@@ -59,6 +57,19 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [liked, setLiked] = useState(false);
     const [bookmarked, setBookmarked] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
+
+    const paperRef = useRef<HTMLDivElement | null>(null);
+    const [cardWidth, setCardWidth] = useState(0);
+    const [cardHeight, setCardHeight] = useState(0);
+
+    useEffect(() => {
+        if (paperRef.current) {
+            const { width, height } = paperRef.current.getBoundingClientRect();
+            const margin = 20; 
+            setCardWidth(width - 40); // Adjust the width as needed
+            setCardHeight(height + margin*4); // Adjust the height as needed
+        }
+    }, [paperRef.current]);
 
     const initialRandomTexts = [
         "Exploring the depths of space!",
@@ -221,51 +232,6 @@ export default function PostView({ params }: { params: { id: string } }) {
         setModalOpened(true);
     };
 
-    // const handleCardClick = (text: string) => {
-    //     setModalContent(text);
-    //     setModalOpened(true);
-    // };
-
-    // const stacks = () => {
-    //     return (
-    //         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', margin: '2rem' }}>
-    //             {randomTexts.map((text, index) => (
-    //                 <Card withBorder radius="md" p={0} className={classes.card} key={index} style={{ margin: '1rem' }} onClick={() => handleCardClick(text)}>
-    //                     <Group wrap="nowrap" gap={0}>
-    //                         <Image
-    //                             src="https://images.unsplash.com/photo-1602080858428-57174f9431cf?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80"
-    //                             height={160}
-    //                         />
-    //                         <div className={classes.body}>
-    //                             <Text tt="uppercase" c="dimmed" fw={700} size="xs">
-    //                                 technology
-    //                             </Text>
-    //                             <Text className={classes.title} mt="xs" mb="md">
-    //                                 {text}
-    //                             </Text>
-    //                             <Group wrap="nowrap" gap="xs">
-    //                                 <Group gap="xs" wrap="nowrap">
-    //                                     <Avatar
-    //                                         size={20}
-    //                                         src="https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/avatars/avatar-8.png"
-    //                                     />
-    //                                     <Text size="xs">Elsa Typechecker</Text>
-    //                                 </Group>
-    //                                 <Text size="xs" c="dimmed">
-    //                                     •
-    //                                 </Text>
-    //                                 <Text size="xs" c="dimmed">
-    //                                     Feb 6th
-    //                                 </Text>
-    //                             </Group>
-    //                         </div>
-    //                     </Group>
-    //                 </Card>
-    //             ))}
-    //         </div>
-    //     );
-    // };
-
     if (!post && !loading) {
         return (
             <Shell>
@@ -289,37 +255,42 @@ export default function PostView({ params }: { params: { id: string } }) {
             </Modal>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%' }}>
-                <div style={{ gridColumn: '1 / 2' }}>
-                    <Paper withBorder radius="md" mt={20} p="lg" style={{ position: 'relative' }} shadow="lg">
-                        <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
-                        <Group>
-                            <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl" />
-                            <div>
-                                <Text size="sm">{post?.account.username}</Text>
-                                <Text size="xs">{new Date(post?.created_at).toLocaleString()}</Text>
-                            </div>
-                        </Group>
-                        <Text pl={54} pt="sm" size="sm" dangerouslySetInnerHTML={{ __html: post?.content }} />
-                        <Text pl={54} pt="sm" size="sm">Post Id: {post?.id}</Text>
-                        <Divider my="md" />
-                        <Group justify="space-between" mx="20">
-                            <Button variant="subtle" size="sm" radius="lg" onClick={() => handleNavigate(id)}>
-                                <IconMessageCircle size={20} /> <Text ml={4}>{post?.replies_count}</Text>
-                            </Button>
-                            <Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
-                                {liked ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{likeCount}</Text>
-                            </Button>
-                            <Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
-                                {bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
-                            </Button>
-                            <Button variant="subtle" size="sm" radius="lg" onClick={handleShare}>
-                                <IconShare size={20} />
-                            </Button>
-                            <Button variant="subtle" size="sm" radius="lg" onClick={explorePages}>
-                                <IconSearch size={20} />
-                            </Button>
-                        </Group>
-                    </Paper>
+                <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
+                    <div style={{ position: 'relative', marginBottom: '2rem' }}>
+                        <Paper ref={paperRef} withBorder radius="md" mt={20} p="lg" style={{ position: 'relative', zIndex: 5 }} shadow="lg">
+                            <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
+                            <Group>
+                                <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl" />
+                                <div>
+                                    <Text size="sm">{post?.account.username}</Text>
+                                    <Text size="xs">{new Date(post?.created_at).toLocaleString()}</Text>
+                                </div>
+                            </Group>
+                            <Text pl={54} pt="sm" size="sm" dangerouslySetInnerHTML={{ __html: post?.content }} />
+                            <Text pl={54} pt="sm" size="sm">Post Id: {post?.id}</Text>
+                            <Divider my="md" />
+                            <Group justify="space-between" mx="20">
+                                <Button variant="subtle" size="sm" radius="lg" onClick={() => handleNavigate(id)}>
+                                    <IconMessageCircle size={20} /> <Text ml={4}>{post?.replies_count}</Text>
+                                </Button>
+                                <Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
+                                    {liked ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{likeCount}</Text>
+                                </Button>
+                                <Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
+                                    {bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
+                                </Button>
+                                <Button variant="subtle" size="sm" radius="lg" onClick={handleShare}>
+                                    <IconShare size={20} />
+                                </Button>
+                                <Button variant="subtle" size="sm" radius="lg" onClick={explorePages}>
+                                    <IconSearch size={20} />
+                                </Button>
+                            </Group>
+                            <RelatedStackStats stackId={id} />
+                        </Paper>
+                       
+                    </div>
+                    
                     <Divider my="md" />
                     <Group>
                         <Avatar src={currentUser?.avatar || 'defaultAvatarUrl'} alt="Current User" radius="xl" />
@@ -357,7 +328,6 @@ export default function PostView({ params }: { params: { id: string } }) {
                     ))}
                 </div>
                 <div style={{ gridColumn: '2 / 3' }}>
-                    {/* {stacks()} */}
                     <RelatedStacks postId={id} cardWidth={400} cardHeight={200} onStackClick={handleStackClick} />
                 </div>
             </div>
