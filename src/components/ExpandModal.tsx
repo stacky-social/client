@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useState } from 'react';
 import { SimpleGrid, Text, Container, Group, Avatar, Button, Divider, Paper, UnstyledButton, TextInput, rem } from '@mantine/core';
 import axios from 'axios';
@@ -5,6 +7,8 @@ import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconHeartFilled,
 import { formatDistanceToNow } from 'date-fns';
 import { Code } from '@mantine/core';
 import classes from './expandModal.module.css';
+import { useRouter } from 'next/navigation';
+
 
 interface ExpandModalProps {
     stackId: string;
@@ -33,40 +37,14 @@ interface Substack {
 export default function ExpandModal({ stackId }: ExpandModalProps) {
     const [substacks, setSubstacks] = useState<Substack[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const router = useRouter();
 
-    // const fetchSubstacks = async (id: string) => {
-    //     try {
-    //         let response;
-    //         if (process.env.NODE_ENV === 'development') {
-    //             response = await axios.get('/mockSubstacks.json');
-    //         } else {
-    //             response = await axios.get(`/api/stacks/${id}/substacks`);
-    //         }
-    //         setSubstacks(response.data);
-    //     } catch (error) {
-    //         console.error('Failed to fetch substacks:', error);
-    //     }
-    // };
+
 
     useEffect(() => {
         fetchSubstacks(stackId);
     }, [stackId]);
 
-    // const handleSearch = async (event: React.KeyboardEvent<HTMLInputElement>) => {
-    //     if (event.key === 'Enter') {
-    //         try {
-    //             let response;
-    //             if (process.env.NODE_ENV === 'development') {
-    //                 response = await axios.get('/mockFilteredSubstacks.json');
-    //             } else {
-    //                 response = await axios.get(`/api/stacks/${stackId}/filter?query=${searchTerm}`);
-    //             }
-    //             setSubstacks(response.data);
-    //         } catch (error) {
-    //             console.error('Failed to fetch filtered substacks:', error);
-    //         }
-    //     }
-    // };
 
     const fetchMockSubstacks = async (id: string) => {
         try {
@@ -117,8 +95,9 @@ export default function ExpandModal({ stackId }: ExpandModalProps) {
       // const handleSearch = handleActualSearch;
       
 
-    const handleStackClick = (stackId: string) => {
-        console.log(`Stack ${stackId} clicked`);
+      const handleStackClick = (topPostId: string) => {
+        console.log(`Navigating to /posts/${topPostId}`);
+        router.push(`/posts/${topPostId}`);
     };
 
     const cards = substacks.map((stack) => (
@@ -131,7 +110,7 @@ export default function ExpandModal({ stackId }: ExpandModalProps) {
                 }}
                 withBorder
             >
-                <UnstyledButton onClick={() => handleStackClick(stack.substackId)} style={{ width: '100%' }}>
+                <UnstyledButton onClick={() => handleStackClick(stack.topPost.id)} style={{ width: '100%' }}>
                     <Group>
                         <Avatar
                             src={stack.topPost.account.avatar}
