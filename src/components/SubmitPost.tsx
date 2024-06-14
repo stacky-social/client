@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Group, Avatar, TextInput, Button, ActionIcon } from '@mantine/core';
+import React, { useState, useEffect, useRef } from 'react';
+import { Group, Avatar, Button, ActionIcon } from '@mantine/core';
 import { IconCamera, IconGif, IconMessage2, IconMoodSmile, IconMapPin } from '@tabler/icons-react';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { notifications } from '@mantine/notifications';
 import classes from './SubmitPost.module.css';
 
@@ -10,6 +11,11 @@ export function SubmitPost() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [postText, setPostText] = useState('');
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const iconStyle = { width: 20, height: 20, marginLeft: 7, marginRight: 7 };
 
@@ -22,6 +28,34 @@ export function SubmitPost() {
       setCurrentUser(JSON.parse(user));
     }
   }, []);
+
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [postText]);
+
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(event.target as Node) &&
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showEmojiPicker]);
 
   const handleSubmit = async () => {
     try {
@@ -43,15 +77,18 @@ export function SubmitPost() {
         return;
       }
 
+      const formData = new FormData();
+      formData.append('status', postText);
+      if (fileInputRef.current?.files?.[0]) {
+        formData.append('media[]', fileInputRef.current.files[0]);
+      }
+
       const response = await fetch(`${MastodonInstanceUrl}/api/v1/statuses`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          status: postText,
-        }),
+        body: formData,
       });
 
       if (response.ok) {
@@ -60,7 +97,7 @@ export function SubmitPost() {
           message: 'Post created successfully.',
           color: 'green',
         });
-        setPostText(''); // Clear the input field
+        setPostText(''); // Clear the post text after successful post
       } else {
         const data = await response.json();
         console.error('Failed to create post:', data);
@@ -80,8 +117,24 @@ export function SubmitPost() {
     }
   };
 
+  const handleEmojiSelect = (emoji: EmojiClickData) => {
+    setPostText((prevText) => prevText + emoji.emoji);
+    setShowEmojiPicker(false);
+  };
+
+  const toggleEmojiPicker = () => {
+    setShowEmojiPicker((prev) => !prev);
+  };
+
+  const adjustTextareaHeight = () => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+    }
+  };
+
   return (
-    <div className={classes.PostBar}>
+    <div ref={containerRef} className={classes.PostBar}>
       <div className={classes.AvatarArea}>
         {currentUser ? (
           <Avatar src={currentUser.avatar} radius="xl" size={40} />
@@ -92,30 +145,40 @@ export function SubmitPost() {
 
       <div className={classes.inputArea}>
         <div className={classes.textArea}>
-          <TextInput
+          <textarea
+            ref={textareaRef}
             placeholder="What's on your mind?"
-            radius="xl"
-            size="xl"
             value={postText}
             onChange={(event) => setPostText(event.currentTarget.value)}
-            styles={{ input: { width: '100%' } }}
+            className={classes.textarea}
           />
         </div>
         <div className={classes.ButtonArea}>
           <div className="iconlist">
             <Group>
-              <ActionIcon style={iconStyle}>
+              <ActionIcon style={iconStyle} onClick={() => fileInputRef.current?.click()}>
                 <IconCamera size={20} />
               </ActionIcon>
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept="image/*"
+              />
               <ActionIcon style={iconStyle}>
                 <IconGif size={20} />
               </ActionIcon>
               <ActionIcon style={iconStyle}>
                 <IconMessage2 size={20} />
               </ActionIcon>
-              <ActionIcon style={iconStyle}>
+              <ActionIcon style={iconStyle} onClick={toggleEmojiPicker}>
                 <IconMoodSmile size={20} />
               </ActionIcon>
+              {showEmojiPicker && (
+                <div ref={emojiPickerRef} className={classes.EmojiPicker}>
+                  <EmojiPicker onEmojiClick={handleEmojiSelect} />
+                </div>
+              )}
               <ActionIcon style={iconStyle}>
                 <IconMapPin size={20} />
               </ActionIcon>
