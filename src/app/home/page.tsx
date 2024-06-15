@@ -19,6 +19,8 @@ export default function HomePage(){
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%', gap: '20px' }}>
                 <div style={{ gridColumn: '1 / 2' }}>
                     <SubmitPost />
+                    <div style={{ marginBottom: '40px' }}>
+                    </div> 
                     <Posts />
                 </div>
             </div>

@@ -134,7 +134,7 @@ export function SubmitPost() {
   };
 
   return (
-    <div ref={containerRef} className={classes.PostBar}>
+    <div ref={containerRef} className={classes.PostBar} >
       <div className={classes.AvatarArea}>
         {currentUser ? (
           <Avatar src={currentUser.avatar} radius="xl" size={40} />
@@ -179,9 +179,6 @@ export function SubmitPost() {
                   <EmojiPicker onEmojiClick={handleEmojiSelect} />
                 </div>
               )}
-              <ActionIcon style={iconStyle}>
-                <IconMapPin size={20} />
-              </ActionIcon>
             </Group>
           </div>
           <div className="postbutton">
