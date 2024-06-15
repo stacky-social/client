@@ -57,6 +57,7 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [liked, setLiked] = useState(false);
     const [bookmarked, setBookmarked] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
+    const [stackId, setStackId] = useState<string | null>(null);
 
     const paperRef = useRef<HTMLDivElement | null>(null);
     const [cardWidth, setCardWidth] = useState(0);
@@ -273,7 +274,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                                     {attachment.type === 'image' && (
                                         <img src={attachment.url} alt={attachment.description} style={{ maxWidth: '100%', marginTop: '10px' }} />
                                     )}
-                                    {/* 可以根据需要处理其他类型的附件，例如视频 */}
+                                
                                 </div>
                             ))}
                             <Text pl={54} pt="sm" size="sm">Post Id: {post?.id}</Text>
@@ -334,7 +335,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                                         {attachment.type === 'image' && (
                                             <img src={attachment.url} alt={attachment.description} style={{ maxWidth: '100%', marginTop: '10px' }} />
                                         )}
-                                        {/* 可以根据需要处理其他类型的附件，例如视频 */}
+                                        
                                     </div>
                                 ))}
                                 <Button onClick={() => handleNavigate(reply.id)}>view details</Button>

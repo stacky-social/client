@@ -6,6 +6,7 @@ import { formatDistanceToNow } from 'date-fns';
 import StackCount from './StackCount';
 import axios from 'axios';
 import AnnotationModal from './AnnotationModal';
+import StackPostsModal from './StackPostsModal';
 
 interface PostProps {
     id: string;
@@ -21,6 +22,37 @@ interface PostProps {
     bookmarked: boolean;
 }
 
+
+const fakeStackPosts = {
+    stackId: "123456",
+    posts: [
+      {
+        id: "1",
+        text: "This is the first post in the stack.",
+        author: "Author1",
+        createdAt: "2024-06-01T12:00:00Z"
+      },
+      {
+        id: "2",
+        text: "This is the second post in the stack.",
+        author: "Author2",
+        createdAt: "2024-06-02T13:00:00Z"
+      },
+      {
+        id: "3",
+        text: "This is the third post in the stack.",
+        author: "Author3",
+        createdAt: "2024-06-03T14:00:00Z"
+      },
+      {
+        id: "4",
+        text: "This is the fourth post in the stack.",
+        author: "Author4",
+        createdAt: "2024-06-04T15:00:00Z"
+      }
+    ]
+  };
+
 export default function Post({ id, text, author, avatar, repliesCount, createdAt, stackCount, stackId, favouritesCount, favourited, bookmarked }: PostProps) {
     const router = useRouter();
     const [cardHeight, setCardHeight] = useState(0);
@@ -30,6 +62,8 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     const [bookmarkedState, setBookmarkedState] = useState(bookmarked);
     const [likeCount, setLikeCount] = useState(favouritesCount);
     const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
+    const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
+    const [stackPosts, setStackPosts] = useState<{ id: string; text: string; author: string; createdAt: string; }[]>([]);
 
     useEffect(() => {
         if (paperRef.current) {
@@ -130,6 +164,27 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         setAnnotationModalOpen(false);
     };
 
+    const handleStackCountClick = async () => {
+        // if (!stackId) return;
+
+        // try {
+        //     const response = await axios.get(`/api/stacks/${stackId}/posts`);
+        //     const posts = response.data.posts.map((post: any) => ({
+        //         id: post.id,
+        //         text: post.text,
+        //         author: post.author,
+        //         createdAt: post.createdAt,
+        //     }));
+        //     setStackPosts(posts);
+        //     setStackPostsModalOpen(true);
+        // } catch (error) {
+        //     console.error('Error fetching stack posts:', error);
+        // }
+        setStackPosts(fakeStackPosts.posts);
+        setStackPostsModalOpen(true);
+    };
+
+
     const cardWidth = '600px';
 
     return (
@@ -162,6 +217,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
                         <div dangerouslySetInnerHTML={{ __html: text }} />
                     </div>
                     <Text pl={54} pt="sm" size="sm">Post Id: {id}</Text>
+                    <Text pl={54} pt="sm" size="sm">Stack Id: {stackId}</Text>
                 </UnstyledButton>
                 <Divider my="md" />
                 <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
@@ -178,7 +234,10 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
                         <IconNote size={20} />
                     </Button>
                 </Group>
-                <StackCount count={stackCount !== null ? stackCount : 0} />
+                <UnstyledButton onClick={handleStackCountClick}>
+                    <StackCount count={stackCount !== null ? stackCount : 0} />
+                </UnstyledButton>
+                
             </Paper>
             {[...Array(4)].map((_, index) => (
                 <div
@@ -203,6 +262,11 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
                 isOpen={annotationModalOpen}
                 onClose={() => setAnnotationModalOpen(false)}
                 onSubmit={handleAnnotationSubmit}
+            />
+            <StackPostsModal
+                isOpen={stackPostsModalOpen}
+                onClose={() => setStackPostsModalOpen(false)}
+                posts={stackPosts}
             />
         </div>
 

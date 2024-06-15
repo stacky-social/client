@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Group, Avatar, Button, ActionIcon } from '@mantine/core';
-import { IconCamera, IconGif, IconMessage2, IconMoodSmile, IconMapPin } from '@tabler/icons-react';
+import { IconPhoto, IconChartBar, IconAlertTriangle, IconMoodSmile,  } from '@tabler/icons-react';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { notifications } from '@mantine/notifications';
 import classes from './SubmitPost.module.css';
@@ -157,7 +157,7 @@ export function SubmitPost() {
           <div className="iconlist">
             <Group>
               <ActionIcon style={iconStyle} onClick={() => fileInputRef.current?.click()}>
-                <IconCamera size={20} />
+                <IconPhoto size={20} />
               </ActionIcon>
               <input
                 type="file"
@@ -166,10 +166,10 @@ export function SubmitPost() {
                 accept="image/*"
               />
               <ActionIcon style={iconStyle}>
-                <IconGif size={20} />
+                <IconChartBar size={20} />
               </ActionIcon>
               <ActionIcon style={iconStyle}>
-                <IconMessage2 size={20} />
+                <IconAlertTriangle size={20} />
               </ActionIcon>
               <ActionIcon style={iconStyle} onClick={toggleEmojiPicker}>
                 <IconMoodSmile size={20} />
