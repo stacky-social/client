@@ -114,7 +114,7 @@ export default function PostView({ params }: { params: { id: string } }) {
             setLoading(false);
             return;
         }
-
+    
         try {
             const postResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}`, {
                 headers: {
@@ -125,7 +125,7 @@ export default function PostView({ params }: { params: { id: string } }) {
             setLiked(postResponse.data.favourited);
             setBookmarked(postResponse.data.bookmarked);
             setLikeCount(postResponse.data.favourites_count);
-
+    
             const repliesResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}/context`, {
                 headers: {
                     'Authorization': `Bearer ${accessToken}`
@@ -138,6 +138,7 @@ export default function PostView({ params }: { params: { id: string } }) {
             setLoading(false);
         }
     };
+    
 
     const generateRandomTexts = () => {
         const shuffledTexts = initialRandomTexts.sort(() => 0.5 - Math.random()).slice(0, 4);
@@ -251,9 +252,9 @@ export default function PostView({ params }: { params: { id: string } }) {
                 centered
                 size="auto"
             >
-                <ExpandModal stackId={modalContent} /> 
+                <ExpandModal stackId={modalContent} />
             </Modal>
-
+    
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%' }}>
                 <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
                     <div style={{ position: 'relative', marginBottom: '2rem' }}>
@@ -267,6 +268,14 @@ export default function PostView({ params }: { params: { id: string } }) {
                                 </div>
                             </Group>
                             <Text pl={54} pt="sm" size="sm" dangerouslySetInnerHTML={{ __html: post?.content }} />
+                            {post?.media_attachments && post.media_attachments.map((attachment: any) => (
+                                <div key={attachment.id}>
+                                    {attachment.type === 'image' && (
+                                        <img src={attachment.url} alt={attachment.description} style={{ maxWidth: '100%', marginTop: '10px' }} />
+                                    )}
+                                    {/* 可以根据需要处理其他类型的附件，例如视频 */}
+                                </div>
+                            ))}
                             <Text pl={54} pt="sm" size="sm">Post Id: {post?.id}</Text>
                             <Divider my="md" />
                             <Group justify="space-between" mx="20">
@@ -288,9 +297,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                             </Group>
                             <RelatedStackStats stackId={id} />
                         </Paper>
-                       
                     </div>
-                    
                     <Divider my="md" />
                     <Group>
                         <Avatar src={currentUser?.avatar || 'defaultAvatarUrl'} alt="Current User" radius="xl" />
@@ -322,6 +329,14 @@ export default function PostView({ params }: { params: { id: string } }) {
                                     </div>
                                 </Group>
                                 <Text pl={54} pt="sm" size="sm" dangerouslySetInnerHTML={{ __html: reply.content }} />
+                                {reply.media_attachments && reply.media_attachments.map((attachment: any) => (
+                                    <div key={attachment.id}>
+                                        {attachment.type === 'image' && (
+                                            <img src={attachment.url} alt={attachment.description} style={{ maxWidth: '100%', marginTop: '10px' }} />
+                                        )}
+                                        {/* 可以根据需要处理其他类型的附件，例如视频 */}
+                                    </div>
+                                ))}
                                 <Button onClick={() => handleNavigate(reply.id)}>view details</Button>
                             </Paper>
                         </div>
@@ -333,4 +348,4 @@ export default function PostView({ params }: { params: { id: string } }) {
             </div>
         </Shell>
     );
-}
+}    
