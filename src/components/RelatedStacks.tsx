@@ -93,6 +93,26 @@ const getStackByPostId = async (postId: string) => {
     fetchRelatedStacks();
   }, [postId]);
 
+  const handleStackCountClick = async () => {
+    // if (!stackId) return;
+
+    // try {
+    //     const response = await axios.get(`/api/stacks/${stackId}/posts`);
+    //     const posts = response.data.posts.map((post: any) => ({
+    //         id: post.id,
+    //         text: post.text,
+    //         author: post.author,
+    //         createdAt: post.createdAt,
+    //     }));
+    //     setStackPosts(posts);
+    //     setStackPostsModalOpen(true);
+    // } catch (error) {
+    //     console.error('Error fetching stack posts:', error);
+    // }
+    // setStackPosts(fakeStackPosts.posts);
+    // setStackPostsModalOpen(true);
+};
+
 return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', margin: '2rem' }}>
         {relatedStacks.map((stack) => (
@@ -142,7 +162,7 @@ return (
                             <IconShare size={20} />
                         </Button>
                     </Group>
-                    {stack.size !== null && <StackCount count={stack.size} />}
+                    <StackCount count={stack.size !== null ? stack.size : 0} onClick={handleStackCountClick} />
                 </Paper>
                 {[...Array(4)].map((_, index) => (
             <div

@@ -4,11 +4,13 @@ import { IconStack } from '@tabler/icons-react';
 
 interface StackCountProps {
     count: number;
+    onClick: () => void; 
 }
 
-const StackCount: React.FC<StackCountProps> = ({ count }) => {
+const StackCount: React.FC<StackCountProps> = ({ count, onClick }) => {
     return (
         <Paper
+            onClick={onClick} 
             style={{
                 position: 'absolute',
                 top: '10px',
@@ -20,6 +22,7 @@ const StackCount: React.FC<StackCountProps> = ({ count }) => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+                // cursor: 'pointer' 
             }}
             withBorder
         >
