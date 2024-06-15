@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Button, Divider } from '@mantine/core';
-import { IconHeart, IconBookmark, IconShare, IconMessageCircle, IconHeartFilled, IconBookmarkFilled } from '@tabler/icons-react';
+import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import StackCount from './StackCount';
 import axios from 'axios';
+import AnnotationModal from './AnnotationModal';
 
 interface PostProps {
     id: string;
@@ -28,6 +29,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     const [liked, setLiked] = useState(favourited);
     const [bookmarkedState, setBookmarkedState] = useState(bookmarked);
     const [likeCount, setLikeCount] = useState(favouritesCount);
+    const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
 
     useEffect(() => {
         if (paperRef.current) {
@@ -118,8 +120,14 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         }
     };
 
-    const handleShare = () => {
-        console.log("Share post:", id);
+    
+    const handleAnnotation = () => {
+        setAnnotationModalOpen(true);
+    };
+
+    const handleAnnotationSubmit = (annotation: string) => {
+        console.log("Annotation submitted:", annotation);
+        setAnnotationModalOpen(false);
     };
 
     const cardWidth = '600px';
@@ -166,8 +174,8 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
                     <Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
                         {bookmarkedState ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
                     </Button>
-                    <Button variant="subtle" size="sm" radius="lg" onClick={handleShare} style={{ display: 'flex', alignItems: 'center' }}>
-                        <IconShare size={20} />
+                    <Button variant="subtle" size="sm" radius="lg" onClick={handleAnnotation}style={{ display: 'flex', alignItems: 'center' }}>
+                        <IconNote size={20} />
                     </Button>
                 </Group>
                 <StackCount count={stackCount !== null ? stackCount : 0} />
@@ -189,6 +197,15 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
                     }}
                 />
             ))}
+
+
+            <AnnotationModal
+                isOpen={annotationModalOpen}
+                onClose={() => setAnnotationModalOpen(false)}
+                onSubmit={handleAnnotationSubmit}
+            />
         </div>
+
+        
     );
 }
