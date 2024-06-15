@@ -52,7 +52,7 @@ const RelatedStackStats: React.FC<RelatedStackStatsProps> = ({ stackId }) => {
         justifyContent: 'space-around',
         boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
         padding: '10px',
-        backgroundColor: '#f7e7b2',
+        backgroundColor: '##FFEC99',
       }}
       withBorder
     >
