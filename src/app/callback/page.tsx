@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { notifications } from '@mantine/notifications';
+import {Center, Container, Loader} from "@mantine/core";
 
 const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
 const clientSecret = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_SECRET;
@@ -81,8 +82,8 @@ export default function Callback() {
     }, [searchParams, router]);
 
     return (
-      <div>
-        <p>Logging in...</p>
-      </div>
+      <Center>
+        <Loader color="blue" size={41} my={45}/>
+      </Center>
     );
   }

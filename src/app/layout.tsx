@@ -3,6 +3,7 @@ import React from "react";
 import { MantineProvider, ColorSchemeScript } from "@mantine/core";
 import { theme } from "../../theme";
 import '../styles/globals.css';
+import {Notifications} from "@mantine/notifications";
 
 export const metadata = {
   title: "Stacks",
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: any }) {
       </head>
       <body>
         <MantineProvider theme={theme}>
+            <Notifications />
             {children}
         </MantineProvider>
       </body>
