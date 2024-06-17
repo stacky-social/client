@@ -11,7 +11,7 @@ export default function Posts() {
     useEffect(() => {
         const fetchPosts = async () => {
             try {
-                const response = await axios.get('https://mastodon.social/api/v1/timelines/public');
+                const response = await axios.get('https://beta.stacky.social/api/v1/timelines/public');
                 const data: PostType[] = response.data.map((post: any) => ({
                     postId: post.id,
                     text: post.content,
