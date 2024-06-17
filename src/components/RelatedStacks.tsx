@@ -4,8 +4,8 @@ import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button } from '@ma
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import StackCount from './StackCount';
-import mockStack from './mock_stack.json'; // for testing
-import mockRelatedStacks from './mock_related_stacks.json'; // for testing
+import mockStack from '../app/FakeData/mock_stack.json'; // for testing
+import mockRelatedStacks from '../app/FakeData/mock_related_stacks.json'; // for testing
 
 interface PostType {
   id: string;
@@ -47,7 +47,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ postId, cardWidth, cardHe
   //     return null;
   //   }
   // };
-  
+
   // const getRelatedStacksByStackId = async (stackId: string) => {
   //   try {
   //     const response = await axios.get(`https://beta.stacky.social:3002/stacks/${stackId}/related`);
@@ -57,7 +57,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ postId, cardWidth, cardHe
   //     return [];
   //   }
   // };
-  
+
 
 const getStackByPostId = async (postId: string) => {
     try {

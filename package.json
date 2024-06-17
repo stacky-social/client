@@ -14,7 +14,6 @@
     "@mantine/hooks": "7.10.1",
     "@mantine/notifications": "7.10.1",
     "@mantinex/mantine-logo": "1.0.1",
-    "@tabler/icons": "^3.2.0",
     "@tabler/icons-react": "^3.1.0",
     "axios": "^1.7.2",
     "date-fns": "^3.6.0",
