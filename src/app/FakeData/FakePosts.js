@@ -8,7 +8,6 @@ function generateAvatarURLs() {
     for (let i = 1; i <= avatarCount; i++) {
         avatars.push(`${baseAvatarURL}${i}.png`);
     }
-
     return avatars;
 }
 
