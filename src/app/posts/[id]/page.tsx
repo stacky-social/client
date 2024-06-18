@@ -19,8 +19,11 @@ import axios from 'axios';
 import ExpandModal from "../../../components/ExpandModal";
 import RelatedStacks from '../../../components/RelatedStacks';
 import RelatedStackStats from '../../../components/RelatedStackStats';
+import { v4 as uuidv4 } from 'uuid';
 
-const MastodonInstanceUrl = 'https://beta.stacky.social'; // Mastodon instance URL
+// const MastodonInstanceUrl = 'https://beta.stacky.social'; 
+const MastodonInstanceUrl = 'https://mastodon.social';
+
 
 interface PostType {
     id: string;

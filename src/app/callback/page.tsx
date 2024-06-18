@@ -35,7 +35,7 @@ export default function Callback() {
             const accessToken = data.access_token;
             localStorage.setItem('accessToken', accessToken);
 
-            // 获取用户信息
+            // get user info
             const userResponse = await fetch(`${instance}/api/v1/accounts/verify_credentials`, {
               headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -49,7 +49,7 @@ export default function Callback() {
                 message: 'Login successful. User info stored in localStorage.',
                 color: 'green',
               });
-              router.push('/home'); // 导航到/home页面
+              router.push('/home'); // direct to home page
             } else {
               console.error('Failed to fetch user info:', userData);
               notifications.show({

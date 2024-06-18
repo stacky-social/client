@@ -4,7 +4,8 @@ import { LoadingOverlay } from "@mantine/core";
 import { PostType } from '../types/PostType';
 import axios from 'axios';
 
-const MastodonInstanceUrl = 'https://beta.stacky.social';
+// const MastodonInstanceUrl = 'https://beta.stacky.social';
+const MastodonInstanceUrl = 'https://mastodon.social';
 
 export default function Posts() {
     const [posts, setPosts] = useState<PostType[]>([]);
