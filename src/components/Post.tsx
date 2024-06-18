@@ -8,6 +8,8 @@ import axios from 'axios';
 import AnnotationModal from './AnnotationModal';
 import StackPostsModal, { PostType } from './StackPostsModal';
 
+const MastodonInstanceUrl = 'https://beta.stacky.social';
+
 interface PostProps {
   id: string;
   text: string;
@@ -116,7 +118,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     if (!accessToken) return;
 
     try {
-      const response = await axios.get(`https://mastodon.social/api/v1/statuses/${id}`, {
+      const response = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${id}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -136,13 +138,13 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
 
     try {
       if (liked) {
-        await axios.post(`https://mastodon.social/api/v1/statuses/${id}/unfavourite`, {}, {
+        await axios.post(`${MastodonInstanceUrl}/api/v1/statuses/${id}/unfavourite`, {}, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
         });
       } else {
-        await axios.post(`https://mastodon.social/api/v1/statuses/${id}/favourite`, {}, {
+        await axios.post(`${MastodonInstanceUrl}/api/v1/statuses/${id}/favourite`, {}, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
@@ -160,13 +162,13 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
 
     try {
       if (bookmarkedState) {
-        await axios.post(`https://mastodon.social/api/v1/statuses/${id}/unbookmark`, {}, {
+        await axios.post(`${MastodonInstanceUrl}/api/v1/statuses/${id}/unbookmark`, {}, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
         });
       } else {
-        await axios.post(`https://mastodon.social/api/v1/statuses/${id}/bookmark`, {}, {
+        await axios.post(`${MastodonInstanceUrl}/api/v1/statuses/${id}/bookmark`, {}, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
@@ -188,8 +190,22 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   };
 
   const handleStackCountClick = async () => {
-    setStackPosts(fakeStackPosts.posts);
-    setStackPostsModalOpen(true);
+    const accessToken = getAccessToken(); 
+    if (!accessToken) return;
+  
+    try {
+      const response = await axios.get(`${MastodonInstanceUrl}/stacks/${stackId}/fposts`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+  
+      const data = response.data;
+      setStackPosts(data.posts);
+      setStackPostsModalOpen(true);
+    } catch (error) {
+      console.error('Error fetching stack posts:', error);
+    }
   };
 
   const cardWidth = '600px';

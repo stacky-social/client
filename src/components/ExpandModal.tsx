@@ -87,12 +87,12 @@ export default function ExpandModal({ stackId }: ExpandModalProps) {
       };
       
       // mock API
-      const fetchSubstacks = fetchMockSubstacks;
-      const handleSearch = handleMockSearch;
+      // const fetchSubstacks = fetchMockSubstacks;
+      // const handleSearch = handleMockSearch;
       
       // use actual API
-      // const fetchSubstacks = fetchActualSubstacks;
-      // const handleSearch = handleActualSearch;
+      const fetchSubstacks = fetchActualSubstacks;
+      const handleSearch = handleActualSearch;
       
 
       const handleStackClick = (topPostId: string) => {
