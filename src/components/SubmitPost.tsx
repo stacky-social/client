@@ -5,7 +5,7 @@ import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { notifications } from '@mantine/notifications';
 import classes from './SubmitPost.module.css';
 
-const MastodonInstanceUrl = 'https://mastodon.social';
+const MastodonInstanceUrl = 'https://beta.stacky.social';
 
 export function SubmitPost() {
   const [currentUser, setCurrentUser] = useState<any>(null);

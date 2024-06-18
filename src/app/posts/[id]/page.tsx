@@ -20,7 +20,7 @@ import ExpandModal from "../../../components/ExpandModal";
 import RelatedStacks from '../../../components/RelatedStacks';
 import RelatedStackStats from '../../../components/RelatedStackStats';
 
-const MastodonInstanceUrl = 'https://mastodon.social'; // Mastodon instance URL
+const MastodonInstanceUrl = 'https://beta.stacky.social'; // Mastodon instance URL
 
 interface PostType {
     id: string;
