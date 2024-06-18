@@ -29,13 +29,13 @@ interface RelatedStackType {
 }
 
 interface RelatedStacksProps {
-  postId: string;
+  stackId: string;
   cardWidth: number;
   cardHeight: number;
   onStackClick: (stackId: string) => void;
 }
 
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ postId, cardWidth, cardHeight,onStackClick  }) => {
+const RelatedStacks: React.FC<RelatedStacksProps> = ({ stackId, cardWidth, cardHeight,onStackClick  }) => {
   const [relatedStacks, setRelatedStacks] = useState<RelatedStackType[]>([]);
 
   // const getStackByPostId = async (postId: string) => {
@@ -48,32 +48,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ postId, cardWidth, cardHe
   //   }
   // };
 
-  // const getRelatedStacksByStackId = async (stackId: string) => {
-  //   try {
-  //     const response = await axios.get(`https://beta.stacky.social:3002/stacks/${stackId}/related`);
-  //     return response.data.relatedStacks;
-  //   } catch (error) {
-  //     console.error('Error fetching related stacks by stackId:', error);
-  //     return [];
-  //   }
-  // };
-
-
-const getStackByPostId = async (postId: string) => {
-    try {
-      //test
-      const response = mockStack;
-      return response;
-    } catch (error) {
-      console.error('Error fetching stack by postId:', error);
-      return null;
-    }
-  };
-
   const getRelatedStacksByStackId = async (stackId: string) => {
     try {
-      //test
-      return mockRelatedStacks.relatedStacks;
+      const response = await axios.get(`https://beta.stacky.social:3002/stacks/${stackId}/related`);
+      return response.data.relatedStacks;
     } catch (error) {
       console.error('Error fetching related stacks by stackId:', error);
       return [];
@@ -81,17 +59,27 @@ const getStackByPostId = async (postId: string) => {
   };
 
 
+
+
+  // const getRelatedStacksByStackId = async (stackId: string) => {
+  //   try {
+  //     //test
+  //     return mockRelatedStacks.relatedStacks;
+  //   } catch (error) {
+  //     console.error('Error fetching related stacks by stackId:', error);
+  //     return [];
+  //   }
+  // };
+
+
   useEffect(() => {
     const fetchRelatedStacks = async () => {
-      const stack = await getStackByPostId(postId);
-      if (stack) {
-        const relatedStacks = await getRelatedStacksByStackId(stack.stackId);
-        setRelatedStacks(relatedStacks);
-      }
+      const relatedStacks = await getRelatedStacksByStackId(stackId);
+      setRelatedStacks(relatedStacks);
     };
 
     fetchRelatedStacks();
-  }, [postId]);
+  }, [stackId]);
 
   const handleStackCountClick = async () => {
     // if (!stackId) return;
