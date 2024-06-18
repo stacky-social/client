@@ -12,6 +12,7 @@ import {
     Divider,
     Button,
     TextInput,
+    Textarea,
     Modal
 } from "@mantine/core";
 import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconSearch, IconHeartFilled, IconBookmarkFilled } from "@tabler/icons-react";
@@ -21,8 +22,37 @@ import RelatedStacks from '../../../components/RelatedStacks';
 import RelatedStackStats from '../../../components/RelatedStackStats';
 import { v4 as uuidv4 } from 'uuid';
 
-// const MastodonInstanceUrl = 'https://beta.stacky.social'; 
-const MastodonInstanceUrl = 'https://mastodon.social';
+const MastodonInstanceUrl = 'https://beta.stacky.social'; 
+// const MastodonInstanceUrl = 'https://mastodon.social';
+
+const fakeData = {
+    score: 85,
+    advice: "Your input is positive, keep it concise.",
+    isSignificantChange: true,
+    simulatedReplies: [
+        {
+            postId: uuidv4(),
+            content: "This is a simulated reply 1.",
+            author: "Author 1",
+            createdAt: new Date().toISOString(),
+            isSynthetic: false
+        },
+        {
+            postId: uuidv4(),
+            content: "This is a simulated reply 2.",
+            author: "Author 2",
+            createdAt: new Date().toISOString(),
+            isSynthetic: true
+        },
+        {
+            postId: uuidv4(),
+            content: "This is a simulated reply 3.",
+            author: "Author 3",
+            createdAt: new Date().toISOString(),
+            isSynthetic: false
+        }
+    ]
+};
 
 
 interface PostType {
@@ -66,6 +96,12 @@ export default function PostView({ params }: { params: { id: string } }) {
     const paperRef = useRef<HTMLDivElement | null>(null);
     const [cardWidth, setCardWidth] = useState(0);
     const [cardHeight, setCardHeight] = useState(0);
+
+    const [draftId] = useState(uuidv4());
+    const [buttonLabel, setButtonLabel] = useState('Submit?');
+    const [buttonDisabled, setButtonDisabled] = useState(true);
+    const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
 
     useEffect(() => {
         if (paperRef.current) {
@@ -265,6 +301,49 @@ export default function PostView({ params }: { params: { id: string } }) {
         setModalOpened(true);
     };
 
+
+    const fetchRealTimeFeedback = async (inputContent: string) => {
+        try {
+            // const response = await axios.post('/api/posts/feedback', {
+            //     draftId: draftId,
+            //     input: inputContent
+            // });
+
+            // const { isSignificantChange } = response.data;
+
+            const response = fakeData;
+
+            const { isSignificantChange } = response;
+
+
+            if (isSignificantChange) {
+                if (feedbackTimeoutRef.current) {
+                    clearTimeout(feedbackTimeoutRef.current);
+                }
+
+                feedbackTimeoutRef.current = setTimeout(() => {
+                    setButtonLabel('Submit!');
+                    setButtonDisabled(false);
+                }, 5000);
+            } else {
+                setButtonLabel('Submit!');
+                setButtonDisabled(false);
+            }
+        } catch (error) {
+            console.error('Failed to fetch real-time feedback:', error);
+        }
+    };
+
+    const handleReplyContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const newContent = e.target.value;
+        setReplyContent(newContent);
+        setButtonLabel('Submit?');
+        setButtonDisabled(true);
+        fetchRealTimeFeedback(newContent);
+    };
+
+
+
     if (!post && !loading) {
         return (
             <Shell>
@@ -335,20 +414,17 @@ export default function PostView({ params }: { params: { id: string } }) {
                     <Divider my="md" />
                     <Group>
                         <Avatar src={currentUser?.avatar || 'defaultAvatarUrl'} alt="Current User" radius="xl" />
-                        <TextInput
+                        <Textarea
                             placeholder="Post your reply"
                             radius="lg"
                             size="xl"
                             value={replyContent}
-                            onChange={(e) => setReplyContent(e.target.value)}
-                            rightSection={
-                                <Button onClick={handleReplySubmit}>
-                                    Send
-                                </Button>
-                            }
-                            rightSectionWidth={100}
+                            onChange={handleReplyContentChange}
                             style={{ flex: 1 }}
                         />
+                        <Button onClick={handleReplySubmit} disabled={buttonDisabled} style={{ backgroundColor: buttonDisabled ? 'grey' : 'green' }}>
+                            {buttonLabel}
+                        </Button>
                     </Group>
                     <Divider my="md" />
                     {replies.map((reply, index) => (
