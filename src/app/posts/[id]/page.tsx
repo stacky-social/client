@@ -58,6 +58,7 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [bookmarked, setBookmarked] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
     const [stackId, setStackId] = useState<string | null>(null);
+    const [stackSize, setStackSize] = useState<number | null>(null);
 
     const paperRef = useRef<HTMLDivElement | null>(null);
     const [cardWidth, setCardWidth] = useState(0);
@@ -82,12 +83,39 @@ export default function PostView({ params }: { params: { id: string } }) {
 
     useEffect(() => {
         fetchPostAndReplies(id);
+        fetchStackData(id);
     }, [id]);
 
     useEffect(() => {
         fetchCurrentUser();
         generateRandomTexts();
     }, []);
+
+    const fetchStackData = async (id: string) => {
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) {
+            console.error('Access token is missing.');
+            return;
+        }
+
+        try {
+            const stackResponse = await axios.get(`${MastodonInstanceUrl}:3002/posts/${id}/stack`, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            });
+
+            if (stackResponse.data.stackId) {
+                setStackId(stackResponse.data.stackId);
+                setStackSize(stackResponse.data.size);
+            } else {
+                setStackId(null);
+                console.log(stackResponse.data.debugMessage);
+            }
+        } catch (error) {
+            console.error('Failed to fetch stack data:', error);
+        }
+    };
 
     const fetchCurrentUser = async () => {
         const accessToken = localStorage.getItem('accessToken');
@@ -278,6 +306,8 @@ export default function PostView({ params }: { params: { id: string } }) {
                                 </div>
                             ))}
                             <Text pl={54} pt="sm" size="sm">Post Id: {post?.id}</Text>
+                            <Text pl={54} pt="sm" size="sm">Stack Id: {stackId}</Text>
+                            <Text pl={54} pt="sm" size="sm">Stack Size: {stackSize}</Text>  
                             <Divider my="md" />
                             <Group justify="space-between" mx="20">
                                 <Button variant="subtle" size="sm" radius="lg" onClick={() => handleNavigate(id)}>
@@ -296,7 +326,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                                     <IconSearch size={20} />
                                 </Button>
                             </Group>
-                            <RelatedStackStats stackId={id} />
+                            {stackId && <RelatedStackStats stackId={stackId} />}
                         </Paper>
                     </div>
                     <Divider my="md" />
@@ -344,7 +374,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                     ))}
                 </div>
                 <div style={{ gridColumn: '2 / 3' }}>
-                    <RelatedStacks postId={id} cardWidth={400} cardHeight={200} onStackClick={handleStackClick} />
+                    <RelatedStacks stackId={id} cardWidth={400} cardHeight={200} onStackClick={handleStackClick} />
                 </div>
             </div>
         </Shell>
