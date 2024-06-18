@@ -194,7 +194,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     if (!accessToken) return;
   
     try {
-      const response = await axios.get(`${MastodonInstanceUrl}/stacks/${stackId}/fposts`, {
+      const response = await axios.get(`${MastodonInstanceUrl}/stacks/${stackId}/posts`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -206,6 +206,8 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     } catch (error) {
       console.error('Error fetching stack posts:', error);
     }
+    // setStackPosts(fakeStackPosts.posts);
+    // setStackPostsModalOpen(true);
   };
 
   const cardWidth = '600px';
