@@ -4,18 +4,36 @@ import { LoadingOverlay } from "@mantine/core";
 import { PostType } from '../types/PostType';
 import axios from 'axios';
 
+const MastodonInstanceUrl = 'https://beta.stacky.social';
+
 export default function Posts() {
     const [posts, setPosts] = useState<PostType[]>([]);
+    const [accessToken, setAccessToken] = useState<string | null>(null);
+    const [currentUser, setCurrentUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const token = localStorage.getItem('accessToken');
+        setAccessToken(token);
+    
+        const user = localStorage.getItem('currentUser');
+        if (user) {
+          setCurrentUser(JSON.parse(user));
+        }
+      }, []);
 
     useEffect(() => {
         const fetchPosts = async () => {
             try {
-                const response = await axios.get('https://beta.stacky.social/api/v1/timelines/public');
+                const response = await axios.get(`${MastodonInstanceUrl}/api/v1/timelines/public?local=true`, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    }
+                });
                 const data: PostType[] = response.data.map((post: any) => ({
                     postId: post.id,
                     text: post.content,
-                    author: post.account.display_name,
+                    author: post.account.username,
                     avatar: post.account.avatar,
                     createdAt: post.created_at,
                     replies: [],
@@ -31,7 +49,7 @@ export default function Posts() {
 
                 data.forEach(async (post) => {
                     try {
-                        const stackResponse = await axios.get(`beta.stacky.social:3002/posts/<int:id>/stack`);
+                        const stackResponse = await axios.get(`${MastodonInstanceUrl}:3002/posts/${post.postId}/stack`);
                         const stackData = stackResponse.data;
 
                         if (stackData.stackId) {
@@ -78,3 +96,4 @@ export default function Posts() {
         </div>
     );
 }
+
