@@ -1,18 +1,21 @@
 import React from 'react';
 import { Modal, ScrollArea, Text, Title, Divider, Paper, Group, Avatar, Button } from '@mantine/core';
-import { IconHeart, IconBookmark, IconMessageCircle, IconShare, IconHeartFilled,IconBookmarkFilled} from '@tabler/icons-react';
+import { IconHeart, IconBookmark, IconMessageCircle, IconShare, IconHeartFilled, IconBookmarkFilled } from '@tabler/icons-react';
 
 export interface PostType {
-  postId: string;
-  text: string;
-  author: string;
-  avatar: string;
-  replies: any[];
-  createdAt: string;
-  favouritesCount: number;
-  favourited: boolean;
-  bookmarked: boolean;
-}
+    postId: string;
+    content: string;
+    account: {
+      username: string;
+      avatar: string;
+      created_at:string;
+    };
+    replies: any[];
+    createdAt: string;
+    favouritesCount: number;
+    favourited: boolean;
+    bookmarked: boolean;
+  }
 
 interface StackPostsModalProps {
   isOpen: boolean;
@@ -34,17 +37,17 @@ function StackPostsModal({ isOpen, onClose, posts }: StackPostsModalProps) {
           posts.map((post) => (
             <Paper key={post.postId} withBorder radius="md" mt={20} p="lg" shadow="md">
               <Group>
-                <Avatar src={post.avatar} alt={post.author} radius="xl" />
+                <Avatar src={post.account.avatar} alt={post.account.username} radius="xl" />
                 <div>
-                  <Text size="sm">{post.author}</Text>
-                  <Text size="xs">{new Date(post.createdAt).toLocaleString()}</Text>
+                  <Text size="sm">{post.account.username}</Text>
+                  <Text size="xs">{new Date(post.account.created_at).toLocaleString()}</Text>
                 </div>
               </Group>
-              <Text pt="sm" size="sm" dangerouslySetInnerHTML={{ __html: post.text }} />
+              <Text pt="sm" size="sm" dangerouslySetInnerHTML={{ __html: post.content }} />
               <Divider my="md" />
               <Group justify="space-between">
                 <Button variant="subtle" size="sm" radius="lg">
-                  <IconMessageCircle size={20} /> <Text ml={4}>{post.replies.length}</Text>
+                  <IconMessageCircle size={20} /> <Text ml={4}>{post.replies ? post.replies.length : 0}</Text>
                 </Button>
                 <Button variant="subtle" size="sm" radius="lg">
                   {post.favourited ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{post.favouritesCount}</Text>
