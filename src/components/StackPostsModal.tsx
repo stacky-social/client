@@ -11,7 +11,6 @@ export interface PostType {
       created_at:string;
     };
     replies: any[];
-    createdAt: string;
     favouritesCount: number;
     favourited: boolean;
     bookmarked: boolean;
