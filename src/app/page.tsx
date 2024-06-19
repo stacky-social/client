@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Title, Text, Button, TextInput, Box, Center } from '@mantine/core';
+import { Title, Text, Button, TextInput, Box, Center, Container, rem } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useRouter } from 'next/navigation';
@@ -25,7 +25,10 @@ export default function LandingPage() {
       username: '',
     },
     validate: {
-      username: (value) => (/^[a-zA-Z0-9_]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value) ? null : 'please enter valid Mastodon handle(username@server)'),
+      username: (value) =>
+          /^[a-zA-Z0-9_]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)
+              ? null
+              : 'please enter valid Mastodon handle (username@server)',
     },
   });
 
@@ -34,7 +37,7 @@ export default function LandingPage() {
     notifications.show({
       title: 'Logging in',
       message: 'Attempting to Login to Mastodon...',
-    })
+    });
     const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
     const instanceUrl = `https://${form.values.username.split('@')[1]}`;
     const authorizationUrl = `${instanceUrl}/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scopes}&state=${form.values.username.split('@')[1]}`;
@@ -42,33 +45,35 @@ export default function LandingPage() {
   };
 
   return (
-    <>
-      <Header />
-      <Center className={classes.landingPageContent}>
-        <Box maw={400} mx="auto">
-          <Title className={classes.title} ta="center" mt={60}>
-            Project{' '}
-            <Text inherit variant="gradient" component="span" gradient={{ from: 'pink', to: 'yellow' }}>
-              STACKS
+      <>
+        <Header />
+        <Center className={classes.landingPageContent}>
+          <Container maw={700}>
+            <Text ta="center" mt={10} size={rem(75)} fw="900">
+              Project{' '}
+              <Text component="span" variant="gradient" gradient={{from: 'pink', to: 'yellow'}} inherit>
+                STACKS
+              </Text>
             </Text>
-          </Title>
-          <Text c="dimmed" ta="center" size="lg" maw={580} mx="auto" mt="xl">
-            AI-Curated Democratic Discourse
-          </Text>
-          <form onSubmit={form.onSubmit(handleLogin)}>
-            <TextInput
-              required
-              label="Mastodon Handle"
-              placeholder="username@server"
-              {...form.getInputProps('username')}
-            />
-            <Button type="submit" fullWidth mt="xl" loading={isLoading}>
-              Login
-            </Button>
-          </form>
-        </Box>
-      </Center>
-      <Footer />
-    </>
+            <Text c="dimmed" ta="center" size="lg" maw={580} mt="xl" mb="lg">
+              AI-Curated Democratic Discourse
+            </Text>
+            <Container w="80%">
+              <form onSubmit={form.onSubmit(handleLogin)}>
+                <TextInput
+                    required
+                    label="Mastodon Handle"
+                    placeholder="username@server"
+                    {...form.getInputProps('username')}
+                />
+                <Button type="submit" fullWidth loading={isLoading} mt="2rem">
+                  Login
+                </Button>
+              </form>
+            </Container>
+          </Container>
+        </Center>
+        <Footer/>
+      </>
   );
 }
