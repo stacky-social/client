@@ -21,38 +21,11 @@ import ExpandModal from "../../../components/ExpandModal";
 import RelatedStacks from '../../../components/RelatedStacks';
 import RelatedStackStats from '../../../components/RelatedStackStats';
 import { v4 as uuidv4 } from 'uuid';
+import ReplySection from '../../../components/ReplySection';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 // const MastodonInstanceUrl = 'https://mastodon.social';
 
-const fakeData = {
-    score: 85,
-    advice: "Your input is positive, keep it concise.",
-    isSignificantChange: true,
-    simulatedReplies: [
-        {
-            postId: uuidv4(),
-            content: "This is a simulated reply 1.",
-            author: "Author 1",
-            createdAt: new Date().toISOString(),
-            isSynthetic: false
-        },
-        {
-            postId: uuidv4(),
-            content: "This is a simulated reply 2.",
-            author: "Author 2",
-            createdAt: new Date().toISOString(),
-            isSynthetic: true
-        },
-        {
-            postId: uuidv4(),
-            content: "This is a simulated reply 3.",
-            author: "Author 3",
-            createdAt: new Date().toISOString(),
-            isSynthetic: false
-        }
-    ]
-};
 
 
 interface PostType {
@@ -82,10 +55,8 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [loading, setLoading] = useState(true);
     const [post, setPost] = useState<any | null>(null);
     const [replies, setReplies] = useState<any[]>([]);
-    const [randomTexts, setRandomTexts] = useState<string[]>([]);
     const [modalOpened, setModalOpened] = useState(false);
     const [modalContent, setModalContent] = useState<string>('');
-    const [replyContent, setReplyContent] = useState<string>('');
     const [currentUser, setCurrentUser] = useState<any | null>(null);
     const [liked, setLiked] = useState(false);
     const [bookmarked, setBookmarked] = useState(false);
@@ -94,31 +65,7 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [stackSize, setStackSize] = useState<number | null>(null);
 
     const paperRef = useRef<HTMLDivElement | null>(null);
-    const [cardWidth, setCardWidth] = useState(0);
-    const [cardHeight, setCardHeight] = useState(0);
-
-    const [draftId] = useState(uuidv4());
-    const [buttonLabel, setButtonLabel] = useState('Submit?');
-    const [buttonDisabled, setButtonDisabled] = useState(true);
-    const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-
-    useEffect(() => {
-        if (paperRef.current) {
-            const { width, height } = paperRef.current.getBoundingClientRect();
-            const margin = 20;
-            setCardWidth(width - 40); // Adjust the width as needed
-            setCardHeight(height + margin*4); // Adjust the height as needed
-        }
-    }, [paperRef.current]);
-
-    const initialRandomTexts = [
-        "Exploring the depths of space!",
-        "Discovering new programming paradigms.",
-        "The future of artificial intelligence.",
-        "Advancements in quantum computing.",
-        "The rise of renewable energy."
-    ];
+  
 
     useEffect(() => {
         fetchPostAndReplies(id);
@@ -127,7 +74,7 @@ export default function PostView({ params }: { params: { id: string } }) {
 
     useEffect(() => {
         fetchCurrentUser();
-        generateRandomTexts();
+      
     }, []);
 
     const fetchStackData = async (id: string) => {
@@ -208,34 +155,6 @@ export default function PostView({ params }: { params: { id: string } }) {
     };
 
 
-    const generateRandomTexts = () => {
-        const shuffledTexts = initialRandomTexts.sort(() => 0.5 - Math.random()).slice(0, 4);
-        setRandomTexts(shuffledTexts);
-    };
-
-    const handleReplySubmit = async () => {
-        const accessToken = localStorage.getItem('accessToken');
-        if (!accessToken) {
-            console.error('Access token is missing.');
-            return;
-        }
-
-        try {
-            await axios.post(`${MastodonInstanceUrl}/api/v1/statuses`, {
-                status: replyContent,
-                in_reply_to_id: id
-            }, {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`
-                }
-            });
-            setReplyContent('');
-            fetchPostAndReplies(id); // Refresh replies after posting
-        } catch (error) {
-            console.error('Failed to post reply:', error);
-        }
-    };
-
     const handleNavigate = (replyId: string) => {
         router.push(`/posts/${replyId}`);
     };
@@ -293,7 +212,7 @@ export default function PostView({ params }: { params: { id: string } }) {
     };
 
     const explorePages = () => {
-        generateRandomTexts();
+        // generateRandomTexts();
     };
 
     const handleStackClick = (stackId: string) => {
@@ -302,48 +221,7 @@ export default function PostView({ params }: { params: { id: string } }) {
     };
 
 
-    const fetchRealTimeFeedback = async (inputContent: string) => {
-        try {
-            // const response = await axios.post('/api/posts/feedback', {
-            //     draftId: draftId,
-            //     input: inputContent
-            // });
-
-            // const { isSignificantChange } = response.data;
-
-            const response = fakeData;
-
-            const { isSignificantChange } = response;
-
-
-            if (isSignificantChange) {
-                if (feedbackTimeoutRef.current) {
-                    clearTimeout(feedbackTimeoutRef.current);
-                }
-
-                feedbackTimeoutRef.current = setTimeout(() => {
-                    setButtonLabel('Submit!');
-                    setButtonDisabled(false);
-                }, 5000);
-            } else {
-                setButtonLabel('Submit!');
-                setButtonDisabled(false);
-            }
-        } catch (error) {
-            console.error('Failed to fetch real-time feedback:', error);
-        }
-    };
-
-    const handleReplyContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        const newContent = e.target.value;
-        setReplyContent(newContent);
-        setButtonLabel('Submit?');
-        setButtonDisabled(true);
-        fetchRealTimeFeedback(newContent);
-    };
-
-
-
+    
     if (!post && !loading) {
         return (
             <Shell>
@@ -412,20 +290,13 @@ export default function PostView({ params }: { params: { id: string } }) {
                         </Paper>
                     </div>
                     <Divider my="md" />
-                    <Group>
-                        <Avatar src={currentUser?.avatar || 'defaultAvatarUrl'} alt="Current User" radius="xl" />
-                        <Textarea
-                            placeholder="Post your reply"
-                            radius="lg"
-                            size="xl"
-                            value={replyContent}
-                            onChange={handleReplyContentChange}
-                            style={{ flex: 1 }}
-                        />
-                        <Button onClick={handleReplySubmit} disabled={buttonDisabled} style={{ backgroundColor: buttonDisabled ? 'grey' : 'green' }}>
-                            {buttonLabel}
-                        </Button>
-                    </Group>
+
+                     <ReplySection
+                        postId={id}
+                        currentUser={currentUser}
+                        fetchPostAndReplies={fetchPostAndReplies}
+                    />
+                    
                     <Divider my="md" />
                     {replies.map((reply, index) => (
                         <div key={index}>
