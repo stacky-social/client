@@ -21,7 +21,7 @@ import {
     IconCompass,
   } from '@tabler/icons-react';
 import { MantineLogo } from '@mantinex/mantine-logo';
-import StackLogo from './StackLogo';
+import StackLogo from '../../utils/StackLogo';
 import classes from './NavbarSimple.module.css';
 
 const data = [
@@ -56,20 +56,10 @@ export function Navbar() {
       return (
         <nav className={classes.navbar}>
             <div className={classes.navbarMain}>
-                <Group className={classes.header} justify="space-between">
-                    {/* <MantineLogo size={28} /> */}
-                    <StackLogo size={28} />
-                    <Code fw={700}>v0.0.1</Code>
-                </Group>
                 {links}
             </div>
 
             <div className={classes.footer}>
-                <a href="#" className={classes.link} onClick={(event) => event.preventDefault()}>
-                    <IconSwitchHorizontal className={classes.linkIcon} stroke={1.5} />
-                    <span>Change account</span>
-                </a>
-
                 <a href="#" className={classes.link} onClick={(event) => event.preventDefault()}>
                     <IconLogout className={classes.linkIcon} stroke={1.5} />
                     <span>Logout</span>

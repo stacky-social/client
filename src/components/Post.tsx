@@ -29,8 +29,6 @@ interface StackPost {
   posts: PostType[];
 }
 
-
-
 export default function Post({ id, text, author, avatar, repliesCount, createdAt, stackCount, stackId, favouritesCount, favourited, bookmarked }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
@@ -142,16 +140,16 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   };
 
   const handleStackCountClick = async () => {
-    const accessToken = getAccessToken(); 
+    const accessToken = getAccessToken();
     if (!accessToken) return;
-  
+
     try {
       const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${stackId}/posts`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
       });
-  
+
       const data = response.data;
       setStackPosts(data.posts);
       setStackPostsModalOpen(true);
@@ -162,15 +160,14 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     // setStackPostsModalOpen(true);
   };
 
-  const cardWidth = '600px';
 
   return (
-    <div style={{ position: 'relative', margin: '20px', marginBottom: '2rem', width: cardWidth }}>
+    <div style={{ position: 'relative', margin: '15px', marginBottom: '2rem', width: "90%" }}>
       <Paper
         ref={paperRef}
         style={{
           position: 'relative',
-          width: cardWidth,
+          width: "100%",
           backgroundColor: '#fff',
           zIndex: 5,
           boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
@@ -222,7 +219,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
             position: 'absolute',
             bottom: `${20 - 5 * (index + 1)}px`,
             left: `${20 - 5 * (index + 1)}px`,
-            width: cardWidth,
+            width: "100%",
             height: `${cardHeight}px`,
             backgroundColor: '#fff',
             zIndex: index + 1,
