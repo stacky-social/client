@@ -132,6 +132,8 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                 }
             });
             setReplyContent('');
+            setScore(null);
+            setFeedback(null);
             fetchPostAndReplies(postId); // Refresh replies after posting
         } catch (error) {
             console.error('Failed to post reply:', error);

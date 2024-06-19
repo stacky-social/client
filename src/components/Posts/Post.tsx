@@ -143,7 +143,16 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     const accessToken = getAccessToken();
     if (!accessToken) return;
 
+    if (!stackId) {
+        setStackPosts([]);
+        setStackPostsModalOpen(true);
+        console.log('Stack ID is null');
+        return;
+    }
+
     try {
+      console.log('MastodonInstanceUrl:', MastodonInstanceUrl);
+console.log('stackId:', stackId);
       const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${stackId}/posts`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -153,12 +162,12 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
       const data = response.data;
       setStackPosts(data.posts);
       setStackPostsModalOpen(true);
+      console.log('Successfully fetched stack posts:', stackId);
     } catch (error) {
       console.error('Error fetching stack posts:', error);
     }
-    // setStackPosts(fakeStackPosts.posts);
-    // setStackPostsModalOpen(true);
-  };
+};
+
 
 
   return (
