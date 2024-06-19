@@ -5,7 +5,7 @@ import StackLogo from "../../utils/StackLogo";
 import { Navbar } from "../../components/NavBar/Navbar";
 import { useDisclosure } from "@mantine/hooks";
 import {SubmitPost} from "../../components/SubmitPost/SubmitPost";
-import Posts from "../../components/Posts";
+import Posts from "../../components/Posts/Posts";
 
 export default function HomePage() {
     const [opened, { toggle }] = useDisclosure();

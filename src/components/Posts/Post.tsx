@@ -3,10 +3,10 @@ import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Button, Divider } from '@mantine/core';
 import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
-import StackCount from './StackCount';
+import StackCount from '../StackCount';
 import axios from 'axios';
-import AnnotationModal from './AnnotationModal';
-import StackPostsModal, { PostType } from './StackPostsModal';
+import AnnotationModal from '../AnnotationModal';
+import StackPostsModal, { PostType } from '../StackPostsModal';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
