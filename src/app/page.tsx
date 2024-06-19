@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Title, Text, Button, TextInput, Box, Center, Container, rem } from '@mantine/core';
+import {Title, Text, Button, TextInput, Box, Center, Container, rem, Paper} from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useRouter } from 'next/navigation';
@@ -58,20 +58,32 @@ export default function LandingPage() {
             <Text c="dimmed" ta="center" size="lg" maw={580} mt="xl" mb="lg">
               AI-Curated Democratic Discourse
             </Text>
-            <Container w="80%">
-              <form onSubmit={form.onSubmit(handleLogin)}>
-                <TextInput
-                    required
-                    label="Mastodon Handle"
-                    placeholder="username@server"
-                    {...form.getInputProps('username')}
-                />
-                <Button type="submit" fullWidth loading={isLoading} mt="2rem">
-                  Login
-                </Button>
-              </form>
-            </Container>
+
+            <Paper radius="md" p="xl" withBorder mx="xl">
+
+              <Container w="80%">
+                <Text size="lg" fw={600} ta="center" mb="1rem">
+                  Login to Mastodon
+                </Text>
+
+
+
+                <form onSubmit={form.onSubmit(handleLogin)}>
+                  <TextInput
+                      required
+                      radius="lg"
+                      label="Mastodon Handle"
+                      placeholder="username@server"
+                      {...form.getInputProps('username')}
+                  />
+                  <Button type="submit" fullWidth loading={isLoading} mt="2rem" radius="lg" color="pink" variant="light">
+                    Login
+                  </Button>
+                </form>
+              </Container>
+            </Paper>
           </Container>
+
         </Center>
         <Footer/>
       </>
