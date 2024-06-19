@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Post from './Post';
 import { LoadingOverlay } from "@mantine/core";
-import { PostType } from '../types/PostType';
+import { PostType } from '../../types/PostType';
 import axios from 'axios';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
