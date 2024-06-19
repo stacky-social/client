@@ -29,55 +29,7 @@ interface StackPost {
   posts: PostType[];
 }
 
-const fakeStackPosts: StackPost = {
-  stackId: "123456",
-  posts: [
-    {
-      postId: "1",
-      text: "This is the first post in the stack.",
-      author: "Author1",
-      avatar: "/path/to/avatar1.png",
-      replies: [],
-      createdAt: "2024-06-01T12:00:00Z",
-      favouritesCount: 10,
-      favourited: false,
-      bookmarked: false
-    },
-    {
-      postId: "2",
-      text: "This is the second post in the stack.",
-      author: "Author2",
-      avatar: "/path/to/avatar2.png",
-      replies: [],
-      createdAt: "2024-06-02T13:00:00Z",
-      favouritesCount: 20,
-      favourited: true,
-      bookmarked: true
-    },
-    {
-      postId: "3",
-      text: "This is the third post in the stack.",
-      author: "Author3",
-      avatar: "/path/to/avatar3.png",
-      replies: [],
-      createdAt: "2024-06-03T14:00:00Z",
-      favouritesCount: 30,
-      favourited: false,
-      bookmarked: false
-    },
-    {
-      postId: "4",
-      text: "This is the fourth post in the stack.",
-      author: "Author4",
-      avatar: "/path/to/avatar4.png",
-      replies: [],
-      createdAt: "2024-06-04T15:00:00Z",
-      favouritesCount: 40,
-      favourited: true,
-      bookmarked: true
-    }
-  ]
-};
+
 
 export default function Post({ id, text, author, avatar, repliesCount, createdAt, stackCount, stackId, favouritesCount, favourited, bookmarked }: PostProps) {
   const router = useRouter();
@@ -89,7 +41,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   const [likeCount, setLikeCount] = useState(favouritesCount);
   const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
-  const [stackPosts, setStackPosts] = useState<PostType[]>(fakeStackPosts.posts);
+  const [stackPosts, setStackPosts] = useState<PostType[]>([]);
 
   useEffect(() => {
     if (paperRef.current) {
@@ -194,7 +146,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     if (!accessToken) return;
   
     try {
-      const response = await axios.get(`${MastodonInstanceUrl}/stacks/${stackId}/posts`, {
+      const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${stackId}/posts`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
