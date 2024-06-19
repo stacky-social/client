@@ -11,8 +11,6 @@ import {
     Text,
     Divider,
     Button,
-    TextInput,
-    Textarea,
     Modal
 } from "@mantine/core";
 import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconSearch, IconHeartFilled, IconBookmarkFilled } from "@tabler/icons-react";
@@ -20,13 +18,9 @@ import axios from 'axios';
 import ExpandModal from "../../../components/ExpandModal";
 import RelatedStacks from '../../../components/RelatedStacks';
 import RelatedStackStats from '../../../components/RelatedStackStats';
-import { v4 as uuidv4 } from 'uuid';
 import ReplySection from '../../../components/ReplySection';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
-// const MastodonInstanceUrl = 'https://mastodon.social';
-
-
 
 interface PostType {
     id: string;
@@ -40,13 +34,6 @@ interface PostType {
         avatar: string;
         display_name: string;
     };
-}
-
-interface RelatedStack {
-    rel: string;
-    stackId: string;
-    size: number;
-    topPost: PostType;
 }
 
 export default function PostView({ params }: { params: { id: string } }) {
@@ -65,7 +52,6 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [stackSize, setStackSize] = useState<number | null>(null);
 
     const paperRef = useRef<HTMLDivElement | null>(null);
-  
 
     useEffect(() => {
         fetchPostAndReplies(id);
@@ -74,7 +60,6 @@ export default function PostView({ params }: { params: { id: string } }) {
 
     useEffect(() => {
         fetchCurrentUser();
-      
     }, []);
 
     const fetchStackData = async (id: string) => {
@@ -154,7 +139,6 @@ export default function PostView({ params }: { params: { id: string } }) {
         }
     };
 
-
     const handleNavigate = (replyId: string) => {
         router.push(`/posts/${replyId}`);
     };
@@ -220,8 +204,6 @@ export default function PostView({ params }: { params: { id: string } }) {
         setModalOpened(true);
     };
 
-
-    
     if (!post && !loading) {
         return (
             <Shell>
@@ -241,7 +223,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                 centered
                 size="auto"
             >
-                <ExpandModal stackId={modalContent} />
+                {stackId && <ExpandModal stackId={modalContent} />}
             </Modal>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%' }}>
@@ -291,12 +273,12 @@ export default function PostView({ params }: { params: { id: string } }) {
                     </div>
                     <Divider my="md" />
 
-                     <ReplySection
+                    <ReplySection
                         postId={id}
                         currentUser={currentUser}
                         fetchPostAndReplies={fetchPostAndReplies}
                     />
-                    
+
                     <Divider my="md" />
                     {replies.map((reply, index) => (
                         <div key={index}>
@@ -324,7 +306,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                     ))}
                 </div>
                 <div style={{ gridColumn: '2 / 3' }}>
-                    <RelatedStacks stackId={id} cardWidth={400} cardHeight={200} onStackClick={handleStackClick} />
+                    {stackId && <RelatedStacks stackId={id} cardWidth={400} cardHeight={200} onStackClick={handleStackClick} />}
                 </div>
             </div>
         </Shell>
