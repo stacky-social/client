@@ -7,6 +7,7 @@ import StackCount from '../StackCount';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
 import StackPostsModal, { PostType } from '../StackPostsModal';
+import Link from 'next/link';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
@@ -52,8 +53,10 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   }, []);
 
   const handleNavigate = () => {
-    router.push(`/posts/${id}`);
+    const url = `/posts/${id}?stackId=${stackId || ''}`;
+    router.push(url);
   };
+
 
   const handleReply = () => {
     router.push(`/posts/${id}`);
@@ -152,7 +155,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
 
     try {
       console.log('MastodonInstanceUrl:', MastodonInstanceUrl);
-console.log('stackId:', stackId);
+      console.log('stackId:', stackId);
       const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${stackId}/posts`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,

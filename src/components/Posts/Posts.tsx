@@ -5,7 +5,6 @@ import { PostType } from '../../types/PostType';
 import axios from 'axios';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
-// const MastodonInstanceUrl = 'https://mastodon.social';
 
 export default function Posts() {
     const [posts, setPosts] = useState<PostType[]>([]);
@@ -45,25 +44,24 @@ export default function Posts() {
                     bookmarked: post.bookmarked
                 }));
 
-                setPosts(data);
-                setLoading(false);
-
-                data.forEach(async (post) => {
+                const updatedData = await Promise.all(data.map(async (post) => {
                     try {
                         const stackResponse = await axios.get(`${MastodonInstanceUrl}:3002/posts/${post.postId}/stack`);
                         const stackData = stackResponse.data;
 
-                        if (stackData.stackId) {
-                            console.log(`Successfully fetched stack data for post ${post.postId}:`, stackData);
-                        }
-
-                        setPosts((prevPosts) => prevPosts.map((p) =>
-                            p.postId === post.postId ? { ...p, stackCount: stackData.size, stackId: stackData.stackId } : p
-                        ));
+                        return {
+                            ...post,
+                            stackCount: stackData.size,
+                            stackId: stackData.stackId
+                        };
                     } catch (error) {
                         console.error(`Error fetching stack data for post ${post.postId}:`, error);
+                        return post;
                     }
-                });
+                }));
+
+                setPosts(updatedData);
+                setLoading(false);
             } catch (error) {
                 console.error('Error fetching Mastodon data:', error);
                 setLoading(false);

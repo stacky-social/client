@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Shell } from "../../../components/Shell";
 import {
     Avatar,
@@ -38,6 +38,8 @@ interface PostType {
 
 export default function PostView({ params }: { params: { id: string } }) {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const stackIdFromParams = searchParams.get('stackId');
     const { id } = params;
     const [loading, setLoading] = useState(true);
     const [post, setPost] = useState<any | null>(null);
@@ -48,45 +50,17 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [liked, setLiked] = useState(false);
     const [bookmarked, setBookmarked] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
-    const [stackId, setStackId] = useState<string | null>(null);
-    const [stackSize, setStackSize] = useState<number | null>(null);
+    const stackId = stackIdFromParams || null;
 
     const paperRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         fetchPostAndReplies(id);
-        fetchStackData(id);
     }, [id]);
 
     useEffect(() => {
         fetchCurrentUser();
     }, []);
-
-    const fetchStackData = async (id: string) => {
-        const accessToken = localStorage.getItem('accessToken');
-        if (!accessToken) {
-            console.error('Access token is missing.');
-            return;
-        }
-
-        try {
-            const stackResponse = await axios.get(`${MastodonInstanceUrl}:3002/posts/${id}/stack`, {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`
-                }
-            });
-
-            if (stackResponse.data.stackId) {
-                setStackId(stackResponse.data.stackId);
-                setStackSize(stackResponse.data.size);
-            } else {
-                setStackId(null);
-                console.log(stackResponse.data.debugMessage);
-            }
-        } catch (error) {
-            console.error('Failed to fetch stack data:', error);
-        }
-    };
 
     const fetchCurrentUser = async () => {
         const accessToken = localStorage.getItem('accessToken');
@@ -249,7 +223,6 @@ export default function PostView({ params }: { params: { id: string } }) {
                             ))}
                             <Text pl={54} pt="sm" size="sm">Post Id: {post?.id}</Text>
                             <Text pl={54} pt="sm" size="sm">Stack Id: {stackId}</Text>
-                            <Text pl={54} pt="sm" size="sm">Stack Size: {stackSize}</Text>
                             <Divider my="md" />
                             <Group justify="space-between" mx="20">
                                 <Button variant="subtle" size="sm" radius="lg" onClick={() => handleNavigate(id)}>
