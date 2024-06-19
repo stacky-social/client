@@ -16,12 +16,12 @@ export default function Posts() {
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
         setAccessToken(token);
-    
+
         const user = localStorage.getItem('currentUser');
         if (user) {
-          setCurrentUser(JSON.parse(user));
+            setCurrentUser(JSON.parse(user));
         }
-      }, []);
+    }, []);
 
     useEffect(() => {
         const fetchPosts = async () => {
@@ -40,9 +40,9 @@ export default function Posts() {
                     replies: [],
                     stackCount: null,
                     stackId: null,
-                    favouritesCount: post.favourites_count,  
-                    favourited: post.favourited,            
-                    bookmarked: post.bookmarked             
+                    favouritesCount: post.favourites_count,
+                    favourited: post.favourited,
+                    bookmarked: post.bookmarked
                 }));
 
                 setPosts(data);
@@ -57,7 +57,7 @@ export default function Posts() {
                             console.log(`Successfully fetched stack data for post ${post.postId}:`, stackData);
                         }
 
-                        setPosts((prevPosts) => prevPosts.map((p) => 
+                        setPosts((prevPosts) => prevPosts.map((p) =>
                             p.postId === post.postId ? { ...p, stackCount: stackData.size, stackId: stackData.stackId } : p
                         ));
                     } catch (error) {
@@ -71,30 +71,29 @@ export default function Posts() {
         };
 
         fetchPosts();
-    }, []);
+    }, [accessToken]);
 
     const postElements = posts.map((post: PostType) => (
-        <Post 
-            key={post.postId} 
-            id={post.postId} 
-            text={post.text} 
-            author={post.author} 
-            avatar={post.avatar} 
+        <Post
+            key={post.postId}
+            id={post.postId}
+            text={post.text}
+            author={post.author}
+            avatar={post.avatar}
             repliesCount={post.replies.length}
             createdAt={post.createdAt}
-            stackCount={post.stackCount} 
-            stackId={post.stackId} 
-            favouritesCount={post.favouritesCount}  
-            favourited={post.favourited}            
-            bookmarked={post.bookmarked}            
+            stackCount={post.stackCount}
+            stackId={post.stackId}
+            favouritesCount={post.favouritesCount}
+            favourited={post.favourited}
+            bookmarked={post.bookmarked}
         />
     ));
 
     return (
-        <div style={{ position: 'relative', minHeight: '100px' }}>
+        <div style={{ width: '100%' }}>
             <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
             {!loading && postElements}
         </div>
     );
 }
-

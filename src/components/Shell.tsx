@@ -2,8 +2,8 @@ import {AppShell, Burger, Group, Skeleton, Text, MantineProvider, Space, Paper} 
 import { useDisclosure } from '@mantine/hooks';
 import { MantineLogo } from '@mantinex/mantine-logo';
 import { ReactNode } from 'react';
-import {Navbar} from "./Navbar";
-import StackLogo from './StackLogo';
+import {Navbar} from "./NavBar/Navbar";
+import StackLogo from '../utils/StackLogo';
 
 interface ShellProps {
     children?: ReactNode;
@@ -15,7 +15,6 @@ export function Shell({ children }: ShellProps) {
         <AppShell
             layout="alt"
             header={{height: 60}}
-            footer={{ height: 60 }}
             navbar={{ width: {sm: 200, lg: 300}, breakpoint: 'md', collapsed: { mobile: !opened } }}
             padding="md"
         >
@@ -34,7 +33,7 @@ export function Shell({ children }: ShellProps) {
             <AppShell.Main>
                 {children}
             </AppShell.Main>
-            {/*<AppShell.Footer p="md">*/}
+
             {/*    Footer*/}
             {/*</AppShell.Footer>*/}
         </AppShell>
