@@ -23,6 +23,7 @@ interface PostProps {
   favouritesCount: number;
   favourited: boolean;
   bookmarked: boolean;
+  mediaAttachments: string[];
 }
 
 interface StackPost {
@@ -41,6 +42,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [stackPosts, setStackPosts] = useState<PostType[]>([]);
+  const [mediaAttachments, setMediaAttachments] = useState<string[]>([]);
 
   useEffect(() => {
     if (paperRef.current) {
@@ -77,9 +79,12 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         },
       });
       const data = response.data;
+      const mediaAttachments = data.media_attachments.map((attachment: any) => attachment.url);
       setLikeCount(data.favourites_count);
+      
       setLiked(data.favourited);
       setBookmarkedState(data.bookmarked);
+      setMediaAttachments(mediaAttachments);
     } catch (error) {
       console.error('Error fetching post data:', error);
     }
@@ -199,9 +204,15 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
               <Text size="xs" color="dimmed">{formatDistanceToNow(new Date(createdAt))} ago</Text>
             </div>
           </Group>
-          <div style={{ paddingLeft: '54px', paddingTop: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: '3', WebkitBoxOrient: 'vertical' }}>
-            <div dangerouslySetInnerHTML={{ __html: text }} />
+          
+          <Text pl={54} pt="sm" size="sm" dangerouslySetInnerHTML={{ __html: text }} />
+          {mediaAttachments.length > 0 && (
+           <div style={{ paddingLeft: '54px', paddingRight: '54px', paddingTop: '1rem' }}> 
+            {mediaAttachments.map((url, index) => (
+              <img key={index} src={url} alt={`Attachment ${index + 1}`} style={{ width: '100%', marginBottom: '10px' }} />
+            ))}
           </div>
+        )}
           <Text pl={54} pt="sm" size="sm">Post Id: {id}</Text>
           <Text pl={54} pt="sm" size="sm">Stack Id: {stackId}</Text>
         </UnstyledButton>
