@@ -6,6 +6,7 @@ import { Navbar } from "../../components/NavBar/Navbar";
 import { useDisclosure } from "@mantine/hooks";
 import {SubmitPost} from "../../components/SubmitPost/SubmitPost";
 import Posts from "../../components/Posts/Posts";
+import SearchBar from "../../components/SearchBar/SearchBar";
 
 export default function HomePage() {
     const [opened, { toggle }] = useDisclosure();
@@ -29,7 +30,8 @@ export default function HomePage() {
             <AppShell.Main>
                 <Posts />
             </AppShell.Main>
-            <AppShell.Aside p="md">
+            <AppShell.Aside p="lg">
+                <SearchBar />
                 <SubmitPost />
             </AppShell.Aside>
         </AppShell>
