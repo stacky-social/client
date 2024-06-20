@@ -20,4 +20,5 @@ export interface PostType {
     bookmarked: boolean;
     stackCount: number | null; 
     stackId: string | null;
+    mediaAttachments: string[];
 }

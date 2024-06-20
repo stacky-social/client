@@ -85,6 +85,7 @@ export default function Posts() {
             favouritesCount={post.favouritesCount}
             favourited={post.favourited}
             bookmarked={post.bookmarked}
+            mediaAttachments={post.mediaAttachments}
         />
     ));
 
