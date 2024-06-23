@@ -91,6 +91,12 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     }
   };
 
+  const handleNavigateToUser = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = `/user/${author}`;
+    router.push(url);
+  };
+
   const handleLike = async () => {
     const accessToken = getAccessToken();
     if (!accessToken) return;
@@ -195,11 +201,13 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
       >
         <UnstyledButton onClick={handleNavigate} style={{ width: '100%' }}>
           <Group>
-            <Avatar
-              src={avatar}
-              alt={author}
-              radius="xl"
-            />
+            <UnstyledButton onClick={handleNavigateToUser}>
+              <Avatar
+                src={avatar}
+                alt={author}
+                radius="xl"
+              />
+            </UnstyledButton>
             <div>
               <Text size="sm">{author}</Text>
               <Text size="xs" color="dimmed">{formatDistanceToNow(new Date(createdAt))} ago</Text>
