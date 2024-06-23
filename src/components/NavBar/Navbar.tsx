@@ -1,28 +1,18 @@
-"use client"
-
+"use client";
 import { useState } from 'react';
-import { Group, Code } from '@mantine/core';
 import {
     IconBellRinging,
-    IconFingerprint,
-    IconKey,
-    IconSettings,
-    Icon2fa,
-    IconDatabaseImport,
-    IconReceipt2,
-    IconSwitchHorizontal,
-    IconLogout,
     IconHome,
+    IconCompass,
     IconGlobe,
+    IconAt,
     IconBookmark,
     IconStar,
     IconList,
-    IconAt,
-    IconCompass,
-  } from '@tabler/icons-react';
-import { MantineLogo } from '@mantinex/mantine-logo';
-import StackLogo from '../../utils/StackLogo';
+    IconLogout,
+} from '@tabler/icons-react';
 import classes from './NavbarSimple.module.css';
+import { useRouter } from 'next/navigation'; // 确保导入正确的 useRouter
 
 const data = [
     { link: '/home', label: 'Home', icon: IconHome },
@@ -33,27 +23,28 @@ const data = [
     { link: '/bookmarks', label: 'Bookmarks', icon: IconBookmark },
     { link: '/favorites', label: 'Favorites', icon: IconStar },
     { link: '/lists', label: 'Lists', icon: IconList },
-  ];
+];
 
 export function Navbar() {
     const [active, setActive] = useState('Home');
+    const router = useRouter(); 
 
     const links = data.map((item) => (
         <a
-          className={`${classes.link} ${item.label === active ? classes.activeLink : ''}`}
-          href={item.link}
-          key={item.label}
-          onClick={(event) => {
-            event.preventDefault();
-            setActive(item.label);
-          }}
+            className={`${classes.link} ${item.label === active ? classes.activeLink : ''}`}
+            key={item.label}
+            onClick={(event) => {
+                event.preventDefault();
+                setActive(item.label);
+                router.push(item.link); 
+            }}
         >
-          <item.icon className={classes.linkIcon} stroke={1.5} />
-          <span>{item.label}</span>
+            <item.icon className={classes.linkIcon} stroke={1.5} />
+            <span>{item.label}</span>
         </a>
-      ));
+    ));
 
-      return (
+    return (
         <nav className={classes.navbar}>
             <div className={classes.navbarMain}>
                 {links}
@@ -66,5 +57,5 @@ export function Navbar() {
                 </a>
             </div>
         </nav>
-      );
-    }
+    );
+}

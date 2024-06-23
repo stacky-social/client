@@ -1,4 +1,4 @@
-
+"use client";
 import {TextInput, rem, Box, Paper, ActionIcon, useMantineTheme} from '@mantine/core';
 import {IconArrowRight, IconSearch} from '@tabler/icons-react';
 

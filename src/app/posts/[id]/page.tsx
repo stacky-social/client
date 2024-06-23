@@ -19,6 +19,7 @@ import ExpandModal from "../../../components/ExpandModal";
 import RelatedStacks from '../../../components/RelatedStacks';
 import RelatedStackStats from '../../../components/RelatedStackStats';
 import ReplySection from '../../../components/ReplySection';
+import { Layout } from '../../../components/Layout';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
@@ -189,7 +190,8 @@ export default function PostView({ params }: { params: { id: string } }) {
     }
 
     return (
-        <Shell>
+        // <Shell>
+        <Layout>
             <Modal
                 opened={modalOpened}
                 onClose={() => setModalOpened(false)}
@@ -282,6 +284,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                     {stackId && <RelatedStacks stackId={id} cardWidth={400} cardHeight={200} onStackClick={handleStackClick} />}
                 </div>
             </div>
-        </Shell>
+        {/* </Shell> */}
+        </Layout>
     );
 }
