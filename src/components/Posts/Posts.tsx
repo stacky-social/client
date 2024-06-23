@@ -1,3 +1,4 @@
+"use client";
 import React, { useEffect, useState } from 'react';
 import Post from './Post';
 import { LoadingOverlay } from "@mantine/core";

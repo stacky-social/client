@@ -4,23 +4,21 @@ import { MantineLogo } from '@mantinex/mantine-logo';
 import { ReactNode } from 'react';
 import {Navbar} from "./NavBar/Navbar";
 import StackLogo from '../utils/StackLogo';
-import SearchBar from "./SearchBar/SearchBar";
-import { SubmitPost } from "./SubmitPost/SubmitPost";
 
 interface ShellProps {
     children?: ReactNode;
 }
 
-export function Shell({ children }: ShellProps) {
+export function Layout({ children }: ShellProps) {
     const [opened, { toggle }] = useDisclosure();
     return (
         <AppShell
-        header={{ height: 60 }}
-        navbar={{ width: { sm: 200, lg: 300 }, breakpoint: 'md', collapsed: { mobile: !opened } }}
-        aside={{ width: 500, breakpoint: 'md', collapsed: { desktop: false, mobile: true } }}
-        padding="md"
-    >
-           <AppShell.Header>
+            layout="alt"
+            header={{height: 60}}
+            navbar={{ width: {sm: 200, lg: 300}, breakpoint: 'md', collapsed: { mobile: !opened } }}
+            padding="md"
+        >
+            <AppShell.Header>
                 <Group h="100%" px="md">
                     <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
                     <StackLogo size={30} />
@@ -35,14 +33,6 @@ export function Shell({ children }: ShellProps) {
             <AppShell.Main>
                 {children}
             </AppShell.Main>
-              <AppShell.Aside p="lg">
-                <SearchBar />
-                <SubmitPost />
-            </AppShell.Aside>
-            <AppShell.Aside p="lg">
-                <SearchBar />
-                <SubmitPost />
-            </AppShell.Aside>
 
             {/*    Footer*/}
             {/*</AppShell.Footer>*/}
