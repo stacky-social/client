@@ -240,11 +240,14 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
             <IconNote size={20} />
           </Button>
         </Group>
-        <UnstyledButton onClick={handleStackCountClick}>
-          <StackCount count={stackCount !== null ? stackCount : 0} onClick={handleStackCountClick} />
-        </UnstyledButton>
+        {stackId !== null && (
+       
+       <UnstyledButton onClick={handleStackCountClick}>
+       <StackCount count={stackCount !== null ? stackCount : 0} onClick={handleStackCountClick} />
+     </UnstyledButton>
+        )}
       </Paper>
-      {[...Array(4)].map((_, index) => (
+      {stackId  !== null && [...Array(4)].map((_, index) => (
         <div
           key={index}
           style={{
@@ -261,7 +264,6 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
           }}
         />
       ))}
-
       <AnnotationModal
         isOpen={annotationModalOpen}
         onClose={() => setAnnotationModalOpen(false)}

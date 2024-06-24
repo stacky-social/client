@@ -12,7 +12,7 @@ import {
     IconLogout,
 } from '@tabler/icons-react';
 import classes from './NavbarSimple.module.css';
-import { useRouter } from 'next/navigation'; // 确保导入正确的 useRouter
+import { useRouter } from 'next/navigation'; 
 
 const data = [
     { link: '/home', label: 'Home', icon: IconHome },

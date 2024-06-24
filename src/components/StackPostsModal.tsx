@@ -21,7 +21,6 @@ interface StackPostsModalProps {
   onClose: () => void;
   posts: PostType[];
 }
-
 function StackPostsModal({ isOpen, onClose, posts }: StackPostsModalProps) {
   return (
     <Modal
@@ -32,7 +31,7 @@ function StackPostsModal({ isOpen, onClose, posts }: StackPostsModalProps) {
       centered
     >
       <ScrollArea style={{ height: 400 }}>
-        {posts.length > 0 ? (
+        {posts && posts.length > 0 ? (
           posts.map((post) => (
             <Paper key={post.postId} withBorder radius="md" mt={20} p="lg" shadow="md">
               <Group>
@@ -67,5 +66,6 @@ function StackPostsModal({ isOpen, onClose, posts }: StackPostsModalProps) {
     </Modal>
   );
 }
+
 
 export default StackPostsModal;

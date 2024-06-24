@@ -12,6 +12,7 @@ export default function UserPage() {
   const userName = Array.isArray(params.userName) ? params.userName[0] : params.userName;
   const [userData, setUserData] = useState<any>(null);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (userName) {
@@ -21,24 +22,45 @@ export default function UserPage() {
 
   const fetchUserData = async (username: string) => {
     try {
-      const response = await axios.get(`${MastodonInstanceUrl}/api/v1/accounts/lookup?acct=${username}`);
-      setUserData(response.data);
-      setIsFollowing(response.data.following); // set initial follow status
+      const userResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/accounts/lookup?acct=${username}`);
+      setUserData(userResponse.data);
+      fetchRelationship(userResponse.data.id);
     } catch (error) {
       console.error('Error fetching user data:', error);
     }
   };
 
-  const handleFollowToggle = async () => {
+  const fetchRelationship = async (userId: string) => {
     try {
-      const accessToken = localStorage.getItem('accessToken'); // access token
+      const accessToken = localStorage.getItem('accessToken');
       if (!accessToken) {
         console.error('Access token not found');
         return;
       }
+      const relationshipResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/accounts/relationships?id=${userId}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      if (relationshipResponse.data && relationshipResponse.data.length > 0) {
+        setIsFollowing(relationshipResponse.data[0].following);
+      }
+    } catch (error) {
+      console.error('Error fetching relationship data:', error);
+    }
+  };
+
+  const handleFollowToggle = async () => {
+    try {
+      setLoading(true);
+      const accessToken = localStorage.getItem('accessToken');
+      if (!accessToken) {
+        console.error('Access token not found');
+        setLoading(false);
+        return;
+      }
 
       if (isFollowing) {
-        // 取消关注用户
         await axios.post(
           `${MastodonInstanceUrl}/api/v1/accounts/${userData.id}/unfollow`,
           {},
@@ -49,7 +71,6 @@ export default function UserPage() {
           }
         );
       } else {
-        // follow user
         await axios.post(
           `${MastodonInstanceUrl}/api/v1/accounts/${userData.id}/follow`,
           {},
@@ -61,9 +82,12 @@ export default function UserPage() {
         );
       }
 
-      setIsFollowing(!isFollowing); // toggle follow status
+      console.log('Follow toggle successful');
+      await fetchUserData(userName); 
     } catch (error) {
       console.error('Error toggling follow status:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -94,8 +118,9 @@ export default function UserPage() {
             <Button
               color={isFollowing ? 'red' : 'blue'}
               onClick={handleFollowToggle}
+              disabled={loading}
             >
-              {isFollowing ? 'Unfollow' : 'Follow'}
+              {loading ? 'Loading...' : (isFollowing ? 'Unfollow' : 'Follow')}
             </Button>
           </Group>
           <Divider my="md" />
