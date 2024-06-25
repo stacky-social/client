@@ -46,14 +46,6 @@ export default function ExpandModal({ stackId }: ExpandModalProps) {
     }, [stackId]);
 
 
-    const fetchMockSubstacks = async (id: string) => {
-        try {
-          const response = await axios.get('/mockSubstacks.json');
-          setSubstacks(response.data);
-        } catch (error) {
-          console.error('Failed to fetch mock substacks:', error);
-        }
-      };
       
       const fetchActualSubstacks = async (id: string) => {
         try {
@@ -86,9 +78,6 @@ export default function ExpandModal({ stackId }: ExpandModalProps) {
         }
       };
       
-      // mock API
-      // const fetchSubstacks = fetchMockSubstacks;
-      // const handleSearch = handleMockSearch;
       
       // use actual API
       const fetchSubstacks = fetchActualSubstacks;

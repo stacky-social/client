@@ -7,7 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import StackCount from '../StackCount';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
-import StackPostsModal, { PostType } from '../StackPostsModal';
+import StackPostsModal from '../StackPostsModal';
 import Link from 'next/link';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
@@ -29,7 +29,7 @@ interface PostProps {
 
 interface StackPost {
   stackId: string;
-  posts: PostType[];
+  apiUrl: string;
 }
 
 export default function Post({ id, text, author, avatar, repliesCount, createdAt, stackCount, stackId, favouritesCount, favourited, bookmarked }: PostProps) {
@@ -42,7 +42,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   const [likeCount, setLikeCount] = useState(favouritesCount);
   const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
-  const [stackPosts, setStackPosts] = useState<PostType[]>([]);
+  const [stackPosts, setStackPosts] = useState<string[]>([]);
   const [mediaAttachments, setMediaAttachments] = useState<string[]>([]);
 
   useEffect(() => {
@@ -159,28 +159,23 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     if (!accessToken) return;
 
     if (!stackId) {
-        setStackPosts([]);
-        setStackPostsModalOpen(true);
         console.log('Stack ID is null');
         return;
     }
 
-    try {
-      console.log('MastodonInstanceUrl:', MastodonInstanceUrl);
-      console.log('stackId:', stackId);
-      const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${stackId}/posts`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      const data = response.data;
-      setStackPosts(data.posts);
-      setStackPostsModalOpen(true);
-      console.log('Successfully fetched stack posts:', stackId);
-    } catch (error) {
-      console.error('Error fetching stack posts:', error);
-    }
+    // try {
+    //     const response = await axios.get(`${MastodonInstanceUrl}/api/v1/stacks/${stackId}/posts`, {
+    //         headers: {
+    //             Authorization: `Bearer ${accessToken}`,
+    //         },
+    //     });
+    //     const data = response.data;
+    //     console.log('Successfully fetched stack posts:', data);
+    //     setStackPosts(data.posts);
+        setStackPostsModalOpen(true);
+    // } catch (error) {
+    //     console.error('Error fetching stack posts:', error);
+    // }
 };
 
 
@@ -247,7 +242,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
      </UnstyledButton>
         )}
       </Paper>
-      {stackId  !== null && [...Array(4)].map((_, index) => (
+      {stackId!== null && [...Array(4)].map((_, index) => (
         <div
           key={index}
           style={{
@@ -272,7 +267,9 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
       <StackPostsModal
         isOpen={stackPostsModalOpen}
         onClose={() => setStackPostsModalOpen(false)}
-        posts={stackPosts}
+        apiUrl={`${MastodonInstanceUrl}:3002/stacks/${stackId}/posts`}
+        // apiUrl='https://beta.stacky.social/api/v1/timelines/public'
+        stackId={stackId}
       />
     </div>
   );
