@@ -54,7 +54,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ stackId, cardWidth, cardH
     setStackPostsModalOpen(true);
   };
   
-  
+  const handleNavigate = (postId:string,newstackId:string) => {
+    const url = `/posts/${postId}?stackId=${newstackId || ''}`;
+    router.push(url);
+  };
 
 
   return (
@@ -69,7 +72,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ stackId, cardWidth, cardH
               boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
               borderRadius: '8px',
           }} withBorder>
-            <UnstyledButton onClick={() => onStackClick(stack.stackId)} style={{ width: '100%' }}>
+            <UnstyledButton onClick={() => handleNavigate(stack.topPost.id, stack.stackId)} style={{ width: '100%' }}>
               <Group>
                 <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
                 <div>
