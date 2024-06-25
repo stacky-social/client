@@ -41,8 +41,9 @@ export default function LandingPage() {
     const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
     const instanceUrl = `https://${form.values.username.split('@')[1]}`;
     const authorizationUrl = `${instanceUrl}/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scopes}&state=${form.values.username.split('@')[1]}`;
+    console.log("Authorization URL:", authorizationUrl);
     window.location.href = authorizationUrl;
-  };
+};
 
   return (
       <>
