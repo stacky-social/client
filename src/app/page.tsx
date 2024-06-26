@@ -67,8 +67,6 @@ export default function LandingPage() {
                   Login to Mastodon
                 </Text>
 
-
-
                 <form onSubmit={form.onSubmit(handleLogin)}>
                   <TextInput
                       required
