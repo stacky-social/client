@@ -2,7 +2,6 @@
 
 import {AppShell, Burger, Group, Skeleton, Text, MantineProvider, Space, Paper} from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { MantineLogo } from '@mantinex/mantine-logo';
 import { ReactNode } from 'react';
 import {Navbar} from "../../components/NavBar/Navbar";
 import StackLogo from '../../utils/StackLogo';
