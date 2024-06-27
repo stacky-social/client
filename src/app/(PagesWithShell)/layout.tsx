@@ -19,7 +19,7 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
     return (
         <AppShell
             header={{ height: 60 }}
-            navbar={{ width: { sm: 200, lg: 300 }, breakpoint: 'md', collapsed: { mobile: !opened } }}
+            navbar={{ width: { sm: 200, lg: 300 }, breakpoint: 'sm', collapsed: { mobile: !opened } }}
             aside={{ width: 500, breakpoint: 'md', collapsed: { desktop: false, mobile: true } }}
             padding="md"
         >
@@ -30,9 +30,6 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
                 </Group>
             </AppShell.Header>
             <AppShell.Navbar p="md">
-                <Group >
-                    <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-                </Group>
                 <Navbar />
             </AppShell.Navbar>
             <AppShell.Main>
