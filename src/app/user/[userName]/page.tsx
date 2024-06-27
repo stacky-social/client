@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Text, Avatar, Group, Paper, Divider, Button } from '@mantine/core';
 import axios from 'axios';
-import { Shell } from "../../../components/Shell";
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
@@ -83,7 +82,7 @@ export default function UserPage() {
       }
 
       console.log('Follow toggle successful');
-      await fetchUserData(userName); 
+      await fetchUserData(userName);
     } catch (error) {
       console.error('Error toggling follow status:', error);
     } finally {
@@ -96,7 +95,6 @@ export default function UserPage() {
   }
 
   return (
-    <Shell>
       <div style={{ margin: '15px', width: '90%' }}>
         <Paper
           style={{
@@ -142,6 +140,5 @@ export default function UserPage() {
           </Group>
         </Paper>
       </div>
-    </Shell>
   );
 }
