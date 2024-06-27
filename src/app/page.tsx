@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import {Title, Text, Button, TextInput, Box, Center, Container, rem, Paper} from '@mantine/core';
+import { Title, Text, Button, TextInput, Box, Center, Container, rem, Paper } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useRouter } from 'next/navigation';
@@ -10,7 +10,7 @@ import { Footer } from '../components/Footer/Footer';
 import classes from './LandingPage.module.css';
 
 interface FormValues {
-  username: string;
+  instanceDomain: string;
 }
 
 const redirectUri = 'http://localhost:3000/callback';
@@ -22,13 +22,13 @@ export default function LandingPage() {
 
   const form = useForm<FormValues>({
     initialValues: {
-      username: '',
+      instanceDomain: '',
     },
     validate: {
-      username: (value) =>
-          /^[a-zA-Z0-9_]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)
+      instanceDomain: (value) =>
+          /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)
               ? null
-              : 'please enter valid Mastodon handle (username@server)',
+              : 'Please enter a valid instance domain, e.g., mastodon.social or beta.stacky.social',
     },
   });
 
@@ -39,11 +39,11 @@ export default function LandingPage() {
       message: 'Attempting to Login to Mastodon...',
     });
     const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
-    const instanceUrl = `https://${form.values.username.split('@')[1]}`;
-    const authorizationUrl = `${instanceUrl}/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scopes}&state=${form.values.username.split('@')[1]}`;
+    const instanceUrl = `https://${form.values.instanceDomain}`;
+    const authorizationUrl = `${instanceUrl}/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scopes}&state=${form.values.instanceDomain}`;
     console.log("Authorization URL:", authorizationUrl);
     window.location.href = authorizationUrl;
-};
+  };
 
   return (
       <>
@@ -52,7 +52,7 @@ export default function LandingPage() {
           <Container maw={700}>
             <Text ta="center" mt={10} size={rem(75)} fw="900">
               Project{' '}
-              <Text component="span" variant="gradient" gradient={{from: 'pink', to: 'yellow'}} inherit>
+              <Text component="span" variant="gradient" gradient={{ from: 'pink', to: 'yellow' }} inherit>
                 STACKS
               </Text>
             </Text>
@@ -61,21 +61,18 @@ export default function LandingPage() {
             </Text>
 
             <Paper radius="md" p="xl" withBorder mx="xl">
-
               <Container w="80%">
                 <Text size="lg" fw={600} ta="center" mb="1rem">
                   Login to Mastodon
                 </Text>
 
-
-
                 <form onSubmit={form.onSubmit(handleLogin)}>
                   <TextInput
                       required
                       radius="lg"
-                      label="Mastodon Handle"
-                      placeholder="username@server"
-                      {...form.getInputProps('username')}
+                      label="Mastodon Instance"
+                      placeholder="instance domain"
+                      {...form.getInputProps('instanceDomain')}
                   />
                   <Button type="submit" fullWidth loading={isLoading} mt="2rem" radius="lg" color="pink" variant="light">
                     Login
@@ -84,9 +81,8 @@ export default function LandingPage() {
               </Container>
             </Paper>
           </Container>
-
         </Center>
-        <Footer/>
+        <Footer />
       </>
   );
 }

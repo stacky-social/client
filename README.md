@@ -10,7 +10,7 @@ Stacks is a web application built with Next.js.
 - [Dependencies](#dependencies)
 
 
-Deployed at: `stacksjhu.vercel.app`
+Deployed at: `_`
 
 
 

@@ -6,13 +6,14 @@ import PostPage from './posts/page';
 import HashtagsPage from './hashtags/page';
 import PeoplePage from './people/page';
 import NewsPage from './news/page';
+import {DoubleHeader} from "../../../components/DoubleHeader";
 
 export default function Explore() {
   const pathname = usePathname();
   const [activePage, setActivePage] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('Current pathname:', pathname); 
+    console.log('Current pathname:', pathname);
 
     if (pathname.includes('posts')) {
       setActivePage('posts');
@@ -28,6 +29,7 @@ export default function Explore() {
   }, [pathname]);
 
   const renderActivePage = () => {
+
     switch (activePage) {
       case 'posts':
         return <PostPage />;
@@ -42,5 +44,12 @@ export default function Explore() {
     }
   };
 
-  return renderActivePage();
+  return (
+    <>
+      <DoubleHeader />
+        {renderActivePage()}
+    </>
+
+
+  );
 }

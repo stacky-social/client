@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Shell } from "../../../components/Shell";
 import {
     Avatar,
     Group,
@@ -11,15 +10,14 @@ import {
     Text,
     Divider,
     Button,
-    Modal
+    Modal, Container
 } from "@mantine/core";
 import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconSearch, IconHeartFilled, IconBookmarkFilled } from "@tabler/icons-react";
 import axios from 'axios';
-import ExpandModal from "../../../components/ExpandModal";
-import RelatedStacks from '../../../components/RelatedStacks';
-import RelatedStackStats from '../../../components/RelatedStackStats';
-import ReplySection from '../../../components/ReplySection';
-import { Layout } from '../../../components/Layout';
+import ExpandModal from "../../../../components/ExpandModal";
+import RelatedStacks from '../../../../components/RelatedStacks';
+import RelatedStackStats from '../../../../components/RelatedStackStats';
+import ReplySection from '../../../../components/ReplySection';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
@@ -181,17 +179,14 @@ export default function PostView({ params }: { params: { id: string } }) {
 
     if (!post && !loading) {
         return (
-            <Shell>
                 <Paper withBorder radius="md" mt={20} p="lg">
                     <Text size="sm">Post not found.</Text>
                 </Paper>
-            </Shell>
         );
     }
 
     return (
-        // <Shell>
-        <Layout>
+        <Container fluid>
             <Modal
                 opened={modalOpened}
                 onClose={() => setModalOpened(false)}
@@ -284,7 +279,6 @@ export default function PostView({ params }: { params: { id: string } }) {
                     {stackId && <RelatedStacks stackId={id} cardWidth={400} cardHeight={200} onStackClick={handleStackClick} />}
                 </div>
             </div>
-        {/* </Shell> */}
-        </Layout>
+        </Container>
     );
 }
