@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Container, Anchor, Group, Burger, Box } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { MantineLogo } from '@mantinex/mantine-logo';
 import classes from './Header.module.css';
 
 const userLinks = [
@@ -53,7 +52,6 @@ export function Header() {
     return (
         <header className={classes.header}>
             <Container className={classes.inner}>
-                <MantineLogo size={34} />
                 <Box className={classes.links} visibleFrom="sm">
                     <Group justify="flex-end">{secondaryItems}</Group>
                     <Group gap={0} justify="flex-end" className={classes.mainLinks}>
