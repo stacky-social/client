@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Shell } from "../../../../components/Shell";
 import {
     Avatar,
     Group,
@@ -180,11 +179,9 @@ export default function PostView({ params }: { params: { id: string } }) {
 
     if (!post && !loading) {
         return (
-            <Shell>
                 <Paper withBorder radius="md" mt={20} p="lg">
                     <Text size="sm">Post not found.</Text>
                 </Paper>
-            </Shell>
         );
     }
 
