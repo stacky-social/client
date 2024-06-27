@@ -19,7 +19,7 @@ const data = [
     { link: '/notifications', label: 'Notifications', icon: IconBellRinging },
     { link: '/explore', label: 'Explore', icon: IconCompass },
     { link: '/livefeeds', label: 'Live feeds', icon: IconGlobe },
-    { link: '/private-mentions', label: 'Private mentions', icon: IconAt },
+    { link: '/mentions', label: 'Private mentions', icon: IconAt },
     { link: '/bookmarks', label: 'Bookmarks', icon: IconBookmark },
     { link: '/favorites', label: 'Favorites', icon: IconStar },
     { link: '/lists', label: 'Lists', icon: IconList },
