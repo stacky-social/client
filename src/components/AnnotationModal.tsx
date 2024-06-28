@@ -89,7 +89,7 @@ const AnnotationModal: React.FC<AnnotationModalProps> = ({ isOpen, onClose, stac
       console.log('answers submitted successfully');
       setAnswers({});
       onClose();
-    } catch (error) {
+    } catch (error) { 
       console.error('error happens:', error);
     }
   };
