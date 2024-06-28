@@ -21,4 +21,5 @@ export interface PostType {
     stackCount: number | null; 
     stackId: string | null;
     mediaAttachments: string[];
+    replies_count: number;
 }

@@ -40,6 +40,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   const [liked, setLiked] = useState(favourited);
   const [bookmarkedState, setBookmarkedState] = useState(bookmarked);
   const [likeCount, setLikeCount] = useState(favouritesCount);
+  const [replyCount, setReplyCount] = useState(repliesCount);
   const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [stackPosts, setStackPosts] = useState<string[]>([]);
@@ -82,6 +83,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
       const data = response.data;
       const mediaAttachments = data.media_attachments.map((attachment: any) => attachment.url);
       setLikeCount(data.favourites_count);
+      setReplyCount(data.replies_count);
       
       setLiked(data.favourited);
       setBookmarkedState(data.bookmarked);
@@ -163,19 +165,9 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         return;
     }
 
-    // try {
-    //     const response = await axios.get(`${MastodonInstanceUrl}/api/v1/stacks/${stackId}/posts`, {
-    //         headers: {
-    //             Authorization: `Bearer ${accessToken}`,
-    //         },
-    //     });
-    //     const data = response.data;
-    //     console.log('Successfully fetched stack posts:', data);
-    //     setStackPosts(data.posts);
+    
         setStackPostsModalOpen(true);
-    // } catch (error) {
-    //     console.error('Error fetching stack posts:', error);
-    // }
+   
 };
 
 
@@ -223,7 +215,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         <Divider my="md" />
         <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
           <Button variant="subtle" size="sm" radius="lg" onClick={handleReply} style={{ display: 'flex', alignItems: 'center' }}>
-            <IconMessageCircle size={20} /> <Text ml={4}>{repliesCount}</Text>
+            <IconMessageCircle size={20} /> <Text ml={4}>{replyCount}</Text>
           </Button>
           <Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
             {liked ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{likeCount}</Text>
@@ -236,10 +228,9 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
           </Button>
         </Group>
         {stackId !== null && (
-       
-       <UnstyledButton onClick={handleStackCountClick}>
-       <StackCount count={stackCount !== null ? stackCount : 0} onClick={handleStackCountClick} />
-     </UnstyledButton>
+        <UnstyledButton onClick={handleStackCountClick}>
+        <StackCount count={stackCount !== null ? stackCount : 0} onClick={handleStackCountClick} />
+        </UnstyledButton>
         )}
       </Paper>
       {stackId!== null && [...Array(4)].map((_, index) => (
@@ -268,7 +259,6 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         isOpen={stackPostsModalOpen}
         onClose={() => setStackPostsModalOpen(false)}
         apiUrl={`${MastodonInstanceUrl}:3002/stacks/${stackId}/posts`}
-        // apiUrl='https://beta.stacky.social/api/v1/timelines/public'
         stackId={stackId}
       />
     </div>
