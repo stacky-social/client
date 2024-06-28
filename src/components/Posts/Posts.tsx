@@ -35,7 +35,7 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
                     author: post.account.username,
                     avatar: post.account.avatar,
                     createdAt: post.created_at,
-                    replies: [],
+                    replies: post.replies_count,
                     stackCount: null,
                     stackId: null,
                     favouritesCount: post.favourites_count,
@@ -79,7 +79,7 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
             text={post.text}
             author={post.author}
             avatar={post.avatar}
-            repliesCount={post.replies.length}
+            repliesCount={post.replies_count}
             createdAt={post.createdAt}
             stackCount={post.stackCount}
             stackId={post.stackId}

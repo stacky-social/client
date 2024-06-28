@@ -19,7 +19,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl,stackId}: StackPostsModalProp
   const [showAdvanced, setShowAdvanced] = useState(false);
   const title = showAdvanced ? "Substack" : "Post in Stack";
   
-  console.log("apiUrl: ", apiUrl);
+
   return (
     <Modal
       opened={isOpen}

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Post from '../../../../components/Posts/Post'; 
 import {
     Avatar,
     Group,
@@ -12,7 +13,7 @@ import {
     Button,
     Modal, Container
 } from "@mantine/core";
-import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconSearch, IconHeartFilled, IconBookmarkFilled } from "@tabler/icons-react";
+import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconHeartFilled, IconBookmarkFilled } from "@tabler/icons-react";
 import axios from 'axios';
 import ExpandModal from "../../../../components/ExpandModal";
 import RelatedStacks from '../../../../components/RelatedStacks';
@@ -43,6 +44,7 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [loading, setLoading] = useState(true);
     const [post, setPost] = useState<any | null>(null);
     const [replies, setReplies] = useState<any[]>([]);
+    const [ancestors, setAncestors] = useState<any[]>([]);
     const [modalOpened, setModalOpened] = useState(false);
     const [modalContent, setModalContent] = useState<string>('');
     const [currentUser, setCurrentUser] = useState<any | null>(null);
@@ -50,8 +52,11 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [bookmarked, setBookmarked] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
     const stackId = stackIdFromParams || null;
+    const currentPostRef = useRef<HTMLDivElement>(null);
+    const [relatedStacksLoaded, setRelatedStacksLoaded] = useState(false);
+    const [postLoaded, setPostLoaded] = useState(false);
 
-    const paperRef = useRef<HTMLDivElement | null>(null);
+    
 
     useEffect(() => {
         fetchPostAndReplies(id);
@@ -60,6 +65,22 @@ export default function PostView({ params }: { params: { id: string } }) {
     useEffect(() => {
         fetchCurrentUser();
     }, []);
+
+
+    useEffect(() => {
+        if (currentPostRef.current!==null) {
+            setTimeout(() => {
+                window.scrollTo({
+                    top: currentPostRef.current!.offsetTop, 
+                    behavior: 'smooth'
+                });
+            }, 100); 
+        }
+    }, [relatedStacksLoaded, post]); 
+    
+    
+    
+    
 
     const fetchCurrentUser = async () => {
         const accessToken = localStorage.getItem('accessToken');
@@ -79,7 +100,6 @@ export default function PostView({ params }: { params: { id: string } }) {
             console.error('Failed to fetch current user:', error);
         }
     };
-
     const fetchPostAndReplies = async (postId: string) => {
         const accessToken = localStorage.getItem('accessToken');
         if (!accessToken) {
@@ -87,7 +107,7 @@ export default function PostView({ params }: { params: { id: string } }) {
             setLoading(false);
             return;
         }
-
+    
         try {
             const postResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}`, {
                 headers: {
@@ -98,20 +118,53 @@ export default function PostView({ params }: { params: { id: string } }) {
             setLiked(postResponse.data.favourited);
             setBookmarked(postResponse.data.bookmarked);
             setLikeCount(postResponse.data.favourites_count);
-
+    
             const repliesResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}/context`, {
                 headers: {
                     'Authorization': `Bearer ${accessToken}`
                 }
             });
-            setReplies(repliesResponse.data.descendants);
+    
+            const formattedReplies = repliesResponse.data.descendants.map((reply: any) => ({
+                id: reply.id,
+                created_at: reply.created_at,
+                replies_count: reply.replies_count,
+                favourites_count: reply.favourites_count,
+                favourited: reply.favourited,
+                bookmarked: reply.bookmarked,
+                content: reply.content,
+                account: {
+                    avatar: reply.account.avatar,
+                    username: reply.account.username 
+                }
+            }));
+    
+            setReplies(formattedReplies);
+    
+            const formattedAncestors = repliesResponse.data.ancestors.map((ancestor: any) => ({
+                id: ancestor.id,
+                created_at: ancestor.created_at,
+                replies_count: ancestor.replies_count,
+                favourites_count: ancestor.favourites_count,
+                favourited: ancestor.favourited,
+                bookmarked: ancestor.bookmarked,
+                content: ancestor.content,
+                account: {
+                    avatar: ancestor.account.avatar,
+                    username: ancestor.account.username 
+                }
+            }));
+    
+            setAncestors(formattedAncestors);
+    
+            setPostLoaded(true);  
         } catch (error) {
             console.error('Failed to fetch post or replies:', error);
         } finally {
             setLoading(false);
         }
     };
-
+    
     const handleNavigate = (replyId: string) => {
         router.push(`/posts/${replyId}`);
     };
@@ -168,10 +221,6 @@ export default function PostView({ params }: { params: { id: string } }) {
         console.log("Share post:", id);
     };
 
-    const explorePages = () => {
-        // generateRandomTexts();
-    };
-
     const handleStackClick = (stackId: string) => {
         setModalContent(stackId);
         setModalOpened(true);
@@ -179,9 +228,9 @@ export default function PostView({ params }: { params: { id: string } }) {
 
     if (!post && !loading) {
         return (
-                <Paper withBorder radius="md" mt={20} p="lg">
-                    <Text size="sm">Post not found.</Text>
-                </Paper>
+            <Paper withBorder radius="md" mt={20} p="lg">
+                <Text size="sm">Post not found.</Text>
+            </Paper>
         );
     }
 
@@ -200,7 +249,25 @@ export default function PostView({ params }: { params: { id: string } }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%' }}>
                 <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
                     <div style={{ position: 'relative', marginBottom: '2rem' }}>
-                        <Paper ref={paperRef} withBorder radius="md" mt={20} p="lg" style={{ position: 'relative', zIndex: 5 }} shadow="lg">
+                    {ancestors.map((ancestor) => (
+                        <Post
+                            key={ancestor.id}
+                            id={ancestor.id}
+                            text={ancestor.content}
+                            author={ancestor.account.username}
+                            avatar={ancestor.account.avatar}
+                            repliesCount={ancestor.replies_count}
+                            createdAt={ancestor.created_at}
+                            stackCount={null}
+                            stackId={null}
+                            favouritesCount={ancestor.favourites_count}
+                            favourited={ancestor.favourited}
+                            bookmarked={ancestor.bookmarked}
+                            mediaAttachments={[]}
+                        />
+                    ))}
+                        
+                        <Paper  ref={currentPostRef} withBorder radius="md" mt={20} p="lg" style={{ position: 'relative', zIndex: 5, backgroundColor: '#C5F6FA' }} shadow="lg" >
                             <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
                             <Group>
                                 <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl" />
@@ -215,7 +282,6 @@ export default function PostView({ params }: { params: { id: string } }) {
                                     {attachment.type === 'image' && (
                                         <img src={attachment.url} alt={attachment.description} style={{ maxWidth: '100%', marginTop: '10px' }} />
                                     )}
-
                                 </div>
                             ))}
                             <Text pl={54} pt="sm" size="sm">Post Id: {post?.id}</Text>
@@ -234,12 +300,10 @@ export default function PostView({ params }: { params: { id: string } }) {
                                 <Button variant="subtle" size="sm" radius="lg" onClick={handleShare}>
                                     <IconShare size={20} />
                                 </Button>
-                                <Button variant="subtle" size="sm" radius="lg" onClick={explorePages}>
-                                    <IconSearch size={20} />
-                                </Button>
                             </Group>
                             {stackId && <RelatedStackStats stackId={stackId} />}
                         </Paper>
+                
                     </div>
                     <Divider my="md" />
 
@@ -250,33 +314,27 @@ export default function PostView({ params }: { params: { id: string } }) {
                     />
 
                     <Divider my="md" />
-                    {replies.map((reply, index) => (
-                        <div key={index}>
-                            <Paper withBorder radius="md" mt={20} p="lg" style={{ position: 'relative' }} shadow="md">
-                                <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
-                                <Group>
-                                    <Avatar src={reply.account.avatar} alt={reply.account.username} radius="xl" />
-                                    <div>
-                                        <Text size="sm">{reply.account.username}</Text>
-                                        <Text size="xs">{new Date(reply.created_at).toLocaleString()}</Text>
-                                    </div>
-                                </Group>
-                                <Text pl={54} pt="sm" size="sm" dangerouslySetInnerHTML={{ __html: reply.content }} />
-                                {reply.media_attachments && reply.media_attachments.map((attachment: any) => (
-                                    <div key={attachment.id}>
-                                        {attachment.type === 'image' && (
-                                            <img src={attachment.url} alt={attachment.description} style={{ maxWidth: '100%', marginTop: '10px' }} />
-                                        )}
 
-                                    </div>
-                                ))}
-                                <Button onClick={() => handleNavigate(reply.id)}>view details</Button>
-                            </Paper>
-                        </div>
+                    {replies.map((reply) => (
+                        <Post
+                            key={reply.id}
+                            id={reply.id}
+                            text={reply.content}
+                            author={reply.account.username}
+                            avatar={reply.account.avatar}
+                            repliesCount={reply.replies_count}
+                            createdAt={reply.created_at}
+                            stackCount={null}
+                            stackId={null}
+                            favouritesCount={reply.favourites_count}
+                            favourited={reply.favourited}
+                            bookmarked={reply.bookmarked}
+                            mediaAttachments={[]}
+                        />
                     ))}
                 </div>
                 <div style={{ gridColumn: '2 / 3' }}>
-                    {stackId && <RelatedStacks stackId={id} cardWidth={400} cardHeight={200} onStackClick={handleStackClick} />}
+                    {stackId && <RelatedStacks stackId={id} cardWidth={400} cardHeight={200} onStackClick={handleStackClick} onLoadComplete={() => console.log('Related stacks have loaded')} />}
                 </div>
             </div>
         </Container>

@@ -33,9 +33,11 @@ interface RelatedStacksProps {
   cardWidth: number;
   cardHeight: number;
   onStackClick: (stackId: string) => void;
+  onLoadComplete: () => void;  // Callback to signal loading completion
 }
 
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ stackId, cardWidth, cardHeight, onStackClick }) => {
+
+const RelatedStacks: React.FC<RelatedStacksProps> = ({ stackId, cardWidth, cardHeight, onStackClick,onLoadComplete }) => {
   const [relatedStacks, setRelatedStacks] = useState<RelatedStackType[]>([]);
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [currentStackId, setCurrentStackId] = useState('');
@@ -43,11 +45,17 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ stackId, cardWidth, cardH
 
   useEffect(() => {
     const fetchRelatedStacks = async () => {
-      const response = await axios.get(`https://beta.stacky.social:3002/stacks/${stackId}/related`);
-      setRelatedStacks(response.data.relatedStacks);
+      try {
+        const response = await axios.get(`https://beta.stacky.social:3002/stacks/${stackId}/related`);
+        setRelatedStacks(response.data.relatedStacks);
+        onLoadComplete();  // Call the callback once data is loaded
+      } catch (error) {
+        console.error('Failed to fetch related stacks:', error);
+        onLoadComplete();  // Ensure to call onLoadComplete even if there's an error
+      }
     };
     fetchRelatedStacks();
-  }, [stackId]);
+  }, [stackId, onLoadComplete]);
 
   const handleStackCountClick = (stackId: string) => {
     setCurrentStackId(stackId);
@@ -67,7 +75,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ stackId, cardWidth, cardH
           <Paper style={{
               position: 'relative',
               width: cardWidth,
-              backgroundColor: '#fff',
+              backgroundColor: '#E3FAFC',
               zIndex: 5,
               boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
               borderRadius: '8px',
@@ -104,6 +112,24 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ stackId, cardWidth, cardH
             </Group>
             <StackCount count={stack.size !== null ? stack.size : 0} onClick={() => handleStackCountClick(stack.stackId)} />
           </Paper>
+
+          {stack.size!== null && [...Array(4)].map((_, index) => (
+        <div
+          key={index}
+          style={{
+            position: 'absolute',
+            bottom: `${20 - 5 * (index + 1)}px`,
+            left: `${20 - 5 * (index + 1)}px`,
+            width: "100%",
+            height: `${cardHeight+50}px`,
+            backgroundColor: '#fff',
+            zIndex: index + 1,
+            boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+            borderRadius: '8px',
+            border: '1px solid rgba(0, 0, 0, 0.1)',
+          }}
+        />
+      ))}
         </div>
       ))}
       <StackPostsModal
