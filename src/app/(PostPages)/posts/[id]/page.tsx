@@ -21,6 +21,7 @@ import RelatedStackStats from '../../../../components/RelatedStackStats';
 import ReplySection from '../../../../components/ReplySection';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
+// const MastodonInstanceUrl = 'https://mastodon.social';
 
 interface PostType {
     id: string;

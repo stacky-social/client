@@ -11,6 +11,7 @@ import StackPostsModal from '../StackPostsModal';
 import Link from 'next/link';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
+// const MastodonInstanceUrl = 'https://mastodon.social';
 
 interface PostProps {
   id: string;
