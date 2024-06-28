@@ -43,7 +43,6 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   const [replyCount, setReplyCount] = useState(repliesCount);
   const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
-  const [stackPosts, setStackPosts] = useState<string[]>([]);
   const [mediaAttachments, setMediaAttachments] = useState<string[]>([]);
 
   useEffect(() => {
@@ -251,10 +250,11 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         />
       ))}
       <AnnotationModal
-        isOpen={annotationModalOpen}
-        onClose={() => setAnnotationModalOpen(false)}
-        onSubmit={handleAnnotationSubmit}
-      />
+    isOpen={annotationModalOpen}
+    onClose={() => setAnnotationModalOpen(false)}
+    stackId={stackId} 
+  />
+
       <StackPostsModal
         isOpen={stackPostsModalOpen}
         onClose={() => setStackPostsModalOpen(false)}
