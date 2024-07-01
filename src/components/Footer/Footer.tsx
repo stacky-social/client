@@ -27,7 +27,6 @@ const data = [
             { label: 'Join Discord', link: '#' },
             { label: 'Follow on Twitter', link: '#' },
             { label: 'Email newsletter', link: '#' },
-            { label: 'GitHub discussions', link: '#' },
         ],
     },
 ];
