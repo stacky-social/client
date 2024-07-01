@@ -40,29 +40,16 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
                     stackId: null,
                     favouritesCount: post.favourites_count,
                     favourited: post.favourited,
-                    bookmarked: post.bookmarked
+                    bookmarked: post.bookmarked,
+                    mediaAttachments: post.media_attachments,
                 }));
-
-                if (loadStackInfo) {
-                    data = await Promise.all(data.map(async (post) => {
-                        try {
-                            const stackResponse = await axios.get(`https://beta.stacky.social:3002/posts/${post.postId}/stack`);
-                            const stackData = stackResponse.data;
-
-                            return {
-                                ...post,
-                                stackCount: stackData.size,
-                                stackId: stackData.stackId
-                            };
-                        } catch (error) {
-                            console.error(`Error fetching stack data for post ${post.postId}:`, error);
-                            return post;
-                        }
-                    }));
-                }
 
                 setPosts(data);
                 setLoading(false);
+
+                if (loadStackInfo) {
+                    await loadStackData(data);
+                }
             } catch (error) {
                 console.error('Error fetching Mastodon data:', error);
                 setLoading(false);
@@ -71,6 +58,26 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
 
         fetchPosts();
     }, [apiUrl, accessToken, loadStackInfo]);
+
+    const loadStackData = async (posts: PostType[]) => {
+        const updatedPosts = await Promise.all(posts.map(async (post) => {
+            try {
+                const stackResponse = await axios.get(`https://beta.stacky.social:3002/posts/${post.postId}/stack`);
+                const stackData = stackResponse.data;
+
+                return {
+                    ...post,
+                    stackCount: stackData.size,
+                    stackId: stackData.stackId
+                };
+            } catch (error) {
+                console.error(`Error fetching stack data for post ${post.postId}:`, error);
+                return post;
+            }
+        }));
+
+        setPosts(updatedPosts);
+    };
 
     const postElements = posts.map((post: PostType) => (
         <Post
