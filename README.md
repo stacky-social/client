@@ -13,7 +13,6 @@ Stacks is a web application built with Next.js.
 Deployed at: `jhustacks.vercel.app`
 
 
-
 ## Usage
 
 To run the application in development mode, use the following command:
