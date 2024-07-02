@@ -64,7 +64,7 @@ export default function LandingPage() {
             <Paper radius="md" p="xl" withBorder mx="xl">
               <Container w="80%">
                 <Text size="lg" fw={600} ta="center" mb="1rem">
-                  Login to Mastodon
+                  Log In to Mastodon
                 </Text>
 
                 <form onSubmit={form.onSubmit(handleLogin)}>
