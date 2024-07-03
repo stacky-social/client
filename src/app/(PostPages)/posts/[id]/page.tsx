@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Post from '../../../../components/Posts/Post'; 
+import Post from '../../../../components/Posts/Post';
 import {
     Avatar,
     Group,
@@ -11,7 +11,8 @@ import {
     Text,
     Divider,
     Button,
-    Modal, Container
+    Modal,
+    Container
 } from "@mantine/core";
 import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconHeartFilled, IconBookmarkFilled } from "@tabler/icons-react";
 import axios from 'axios';
@@ -19,9 +20,9 @@ import ExpandModal from "../../../../components/ExpandModal";
 import RelatedStacks from '../../../../components/RelatedStacks';
 import RelatedStackStats from '../../../../components/RelatedStackStats';
 import ReplySection from '../../../../components/ReplySection';
+import StackCount from '../../../../components/StackCount';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
-// const MastodonInstanceUrl = 'https://mastodon.social';
 
 interface PostType {
     id: string;
@@ -35,6 +36,11 @@ interface PostType {
         avatar: string;
         display_name: string;
     };
+}
+
+interface StackData {
+    stackId: string | null;
+    size: number;
 }
 
 export default function PostView({ params }: { params: { id: string } }) {
@@ -54,10 +60,10 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [likeCount, setLikeCount] = useState(0);
     const stackId = stackIdFromParams || null;
     const currentPostRef = useRef<HTMLDivElement>(null);
+    const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
     const [relatedStacksLoaded, setRelatedStacksLoaded] = useState(false);
     const [postLoaded, setPostLoaded] = useState(false);
-
-    
+    const [postStackIds, setPostStackIds] = useState<{ [key: string]: StackData }>({});
 
     useEffect(() => {
         fetchPostAndReplies(id);
@@ -67,21 +73,16 @@ export default function PostView({ params }: { params: { id: string } }) {
         fetchCurrentUser();
     }, []);
 
-
     useEffect(() => {
-        if (currentPostRef.current!==null) {
+        if (currentPostRef.current !== null) {
             setTimeout(() => {
                 window.scrollTo({
-                    top: currentPostRef.current!.offsetTop, 
+                    top: currentPostRef.current!.offsetTop,
                     behavior: 'smooth'
                 });
-            }, 100); 
+            }, 100);
         }
-    }, [relatedStacksLoaded, post]); 
-    
-    
-    
-    
+    }, [relatedStacksLoaded, post]);
 
     const fetchCurrentUser = async () => {
         const accessToken = localStorage.getItem('accessToken');
@@ -101,6 +102,7 @@ export default function PostView({ params }: { params: { id: string } }) {
             console.error('Failed to fetch current user:', error);
         }
     };
+
     const fetchPostAndReplies = async (postId: string) => {
         const accessToken = localStorage.getItem('accessToken');
         if (!accessToken) {
@@ -108,7 +110,7 @@ export default function PostView({ params }: { params: { id: string } }) {
             setLoading(false);
             return;
         }
-    
+
         try {
             const postResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}`, {
                 headers: {
@@ -119,13 +121,13 @@ export default function PostView({ params }: { params: { id: string } }) {
             setLiked(postResponse.data.favourited);
             setBookmarked(postResponse.data.bookmarked);
             setLikeCount(postResponse.data.favourites_count);
-    
+
             const repliesResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}/context`, {
                 headers: {
                     'Authorization': `Bearer ${accessToken}`
                 }
             });
-    
+
             const formattedReplies = repliesResponse.data.descendants.map((reply: any) => ({
                 id: reply.id,
                 created_at: reply.created_at,
@@ -136,12 +138,12 @@ export default function PostView({ params }: { params: { id: string } }) {
                 content: reply.content,
                 account: {
                     avatar: reply.account.avatar,
-                    username: reply.account.username 
+                    username: reply.account.username
                 }
             }));
-    
+
             setReplies(formattedReplies);
-    
+
             const formattedAncestors = repliesResponse.data.ancestors.map((ancestor: any) => ({
                 id: ancestor.id,
                 created_at: ancestor.created_at,
@@ -152,20 +154,112 @@ export default function PostView({ params }: { params: { id: string } }) {
                 content: ancestor.content,
                 account: {
                     avatar: ancestor.account.avatar,
-                    username: ancestor.account.username 
+                    username: ancestor.account.username
                 }
             }));
-    
+
             setAncestors(formattedAncestors);
-    
-            setPostLoaded(true);  
+
+            setPostLoaded(true);
+
+            // Fetch stack IDs for each ancestor and reply
+            await fetchAllStackIds([...formattedAncestors, ...formattedReplies]);
         } catch (error) {
             console.error('Failed to fetch post or replies:', error);
         } finally {
             setLoading(false);
         }
     };
-    
+
+    const fetchStackId = async (postId: string): Promise<StackData> => {
+        
+        const fakeStackData: { [key: string]: StackData } = {
+            "112701710903410105": { stackId: "stack-1", size: 20 },
+            "112712545788018654": { stackId: "stack-2", size: 15 },
+            "112718098683258328": { stackId: "stack-3", size: 10 },
+            "112718194195663750": { stackId: "stack-4", size: 5 },
+        };
+
+        return fakeStackData[postId] || { stackId: null, size: 0 };
+    };
+
+    const fetchAllStackIds = async (posts: any[]) => {
+        const stackIdPromises = posts.map(async (post) => {
+            const stackData = await fetchStackId(post.id);
+            return { postId: post.id, ...stackData };
+        });
+
+        const stackIdResults = await Promise.all(stackIdPromises);
+        const newPostStackIds = stackIdResults.reduce((acc, { postId, stackId, size }) => {
+            acc[postId] = { stackId, size };
+            return acc;
+        }, {} as { [key: string]: StackData });
+
+        setPostStackIds(newPostStackIds);
+    };
+
+    const fetchRelatedStacks = async (stackId: string) => {
+        // 使用假数据来模拟 relatedStacks
+        const fakeRelatedStacks = [
+            {
+              stackId: "stack-1",
+              rel: "disagree",
+              size: 20,
+              topPost: {
+                id: "post-1",
+                created_at: new Date().toISOString(),
+                replies_count: 5,
+                favourites_count: 10,
+                favourited: false,
+                bookmarked: false,
+                content: "This is a fake post content for stack 1",
+                account: {
+                  avatar: "https://via.placeholder.com/150",
+                  display_name: "User 1",
+                },
+              },
+            },
+            {
+              stackId: "stack-2",
+              rel: "prediction",
+              size: 15,
+              topPost: {
+                id: "post-2",
+                created_at: new Date().toISOString(),
+                replies_count: 3,
+                favourites_count: 7,
+                favourited: true,
+                bookmarked: false,
+                content: "This is a fake post content for stack 2",
+                account: {
+                  avatar: "https://via.placeholder.com/150",
+                  display_name: "User 2",
+                },
+              },
+            },
+            {
+              stackId: "stack-3",
+              rel: "history",
+              size: 15,
+              topPost: {
+                id: "post-2",
+                created_at: new Date().toISOString(),
+                replies_count: 3,
+                favourites_count: 7,
+                favourited: true,
+                bookmarked: false,
+                content: "This is a fake post content for stack 2",
+                account: {
+                  avatar: "https://via.placeholder.com/150",
+                  display_name: "User 2",
+                },
+              },
+            }
+            // Add more fake data as needed
+          ];
+        return fakeRelatedStacks;
+    };
+
     const handleNavigate = (replyId: string) => {
         router.push(`/posts/${replyId}`);
     };
@@ -222,9 +316,34 @@ export default function PostView({ params }: { params: { id: string } }) {
         console.log("Share post:", id);
     };
 
-    const handleStackClick = (stackId: string) => {
-        setModalContent(stackId);
-        setModalOpened(true);
+    const handleStackIconClick = async (stackId: string) => {
+        const relatedStacks = await fetchRelatedStacks(stackId);
+        setRelatedStacks(relatedStacks);
+        setRelatedStacksLoaded(true);
+    };
+
+    const renderPostWithStack = (post: any) => {
+        const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
+        const { stackId, size } = stackData;
+
+        return (
+            <Post
+                key={post.id}
+                id={post.id}
+                text={post.content}
+                author={post.account.username}
+                avatar={post.account.avatar}
+                repliesCount={post.replies_count}
+                createdAt={post.created_at}
+                stackCount={size}
+                stackId={stackId}
+                favouritesCount={post.favourites_count}
+                favourited={post.favourited}
+                bookmarked={post.bookmarked}
+                mediaAttachments={[]}
+                onStackIconClick={() => stackId && handleStackIconClick(stackId)}
+            />
+        );
     };
 
     if (!post && !loading) {
@@ -250,25 +369,21 @@ export default function PostView({ params }: { params: { id: string } }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%' }}>
                 <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
                     <div style={{ position: 'relative', marginBottom: '2rem' }}>
-                    {ancestors.map((ancestor) => (
-                        <Post
-                            key={ancestor.id}
-                            id={ancestor.id}
-                            text={ancestor.content}
-                            author={ancestor.account.username}
-                            avatar={ancestor.account.avatar}
-                            repliesCount={ancestor.replies_count}
-                            createdAt={ancestor.created_at}
-                            stackCount={null}
-                            stackId={null}
-                            favouritesCount={ancestor.favourites_count}
-                            favourited={ancestor.favourited}
-                            bookmarked={ancestor.bookmarked}
-                            mediaAttachments={[]}
-                        />
-                    ))}
-                        
-                        <Paper  ref={currentPostRef} withBorder radius="md" mt={20} p="lg" style={{ position: 'relative', zIndex: 5, backgroundColor: '#C5F6FA' }} shadow="lg" >
+                        {ancestors.map((ancestor) => (
+                            <div key={ancestor.id} style={{ position: 'relative', marginBottom: '1rem' }}>
+                                {renderPostWithStack(ancestor)}
+                                <div style={{
+                                    position: 'absolute',
+                                    left: '20%',
+                                    bottom: '-2rem',
+                                    width: '2px',
+                                    height: '2rem',
+                                    backgroundColor: '#000',
+                                    transform: 'translateX(-50%)'
+                                }}></div>
+                            </div>
+                        ))}
+                        <Paper ref={currentPostRef} withBorder radius="md" mt={20} p="lg" style={{ position: 'relative', zIndex: 5, backgroundColor: '#C5F6FA' }} shadow="lg">
                             <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
                             <Group>
                                 <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl" />
@@ -302,9 +417,14 @@ export default function PostView({ params }: { params: { id: string } }) {
                                     <IconShare size={20} />
                                 </Button>
                             </Group>
-                            {stackId && <RelatedStackStats stackId={stackId} />}
+                            {/* {stackId && (
+                                <StackCount
+                                    count={size}
+                                    onClick={() => handleStackIconClick(stackId)}
+                                    relatedStacks={relatedStacks}
+                                />
+                            )} */}
                         </Paper>
-                
                     </div>
                     <Divider my="md" />
 
@@ -316,26 +436,18 @@ export default function PostView({ params }: { params: { id: string } }) {
 
                     <Divider my="md" />
 
-                    {replies.map((reply) => (
-                        <Post
-                            key={reply.id}
-                            id={reply.id}
-                            text={reply.content}
-                            author={reply.account.username}
-                            avatar={reply.account.avatar}
-                            repliesCount={reply.replies_count}
-                            createdAt={reply.created_at}
-                            stackCount={null}
-                            stackId={null}
-                            favouritesCount={reply.favourites_count}
-                            favourited={reply.favourited}
-                            bookmarked={reply.bookmarked}
-                            mediaAttachments={[]}
-                        />
-                    ))}
+                    {replies.map((reply) => renderPostWithStack(reply))}
+                    <div style={{ height: '100vh' }}></div>
                 </div>
                 <div style={{ gridColumn: '2 / 3' }}>
-                    {stackId && <RelatedStacks stackId={id} cardWidth={400} cardHeight={200} onStackClick={handleStackClick} onLoadComplete={() => console.log('Related stacks have loaded')} />}
+                    {relatedStacks.length > 0 && (
+                        <RelatedStacks
+                            relatedStacks={relatedStacks}
+                            cardWidth={400}
+                            cardHeight={200}
+                            onStackClick={() => {}}
+                        />
+                    )}
                 </div>
             </div>
         </Container>

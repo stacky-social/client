@@ -19,7 +19,7 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
         <AppShell
             header={{ height: 60 }}
             navbar={{ width: { sm: 200, lg: 300 }, breakpoint: 'sm', collapsed: { mobile: !opened } }}
-            aside={{ width: 500, breakpoint: 'md', collapsed: { desktop: false, mobile: true } }}
+            // aside={{ width: 500, breakpoint: 'md', collapsed: { desktop: false, mobile: true } }}
             padding="md"
         >
             <AppShell.Header>
@@ -34,10 +34,11 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
             <AppShell.Main>
                 {children}
             </AppShell.Main>
-            <AppShell.Aside p="lg">
+            {/* <AppShell.Aside p="lg">
                 <SearchBar />
                 <SubmitPost />
-            </AppShell.Aside>
+            
+            </AppShell.Aside> */}
         </AppShell>
     );
 }

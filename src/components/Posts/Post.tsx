@@ -10,8 +10,68 @@ import AnnotationModal from '../AnnotationModal';
 import StackPostsModal from '../StackPostsModal';
 import Link from 'next/link';
 
+
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 // const MastodonInstanceUrl = 'https://mastodon.social';
+
+const fakeRelatedStacks = [
+  {
+    stackId: "stack-1",
+    rel: "disagree",
+    size: 20,
+    topPost: {
+      id: "post-1",
+      created_at: new Date().toISOString(),
+      replies_count: 5,
+      favourites_count: 10,
+      favourited: false,
+      bookmarked: false,
+      content: "This is a fake post content for stack 1",
+      account: {
+        avatar: "https://via.placeholder.com/150",
+        display_name: "User 1",
+      },
+    },
+  },
+  {
+    stackId: "stack-2",
+    rel: "prediction",
+    size: 15,
+    topPost: {
+      id: "post-2",
+      created_at: new Date().toISOString(),
+      replies_count: 3,
+      favourites_count: 7,
+      favourited: true,
+      bookmarked: false,
+      content: "This is a fake post content for stack 2",
+      account: {
+        avatar: "https://via.placeholder.com/150",
+        display_name: "User 2",
+      },
+    },
+  },
+  {
+    stackId: "stack-3",
+    rel: "history",
+    size: 15,
+    topPost: {
+      id: "post-2",
+      created_at: new Date().toISOString(),
+      replies_count: 3,
+      favourites_count: 7,
+      favourited: true,
+      bookmarked: false,
+      content: "This is a fake post content for stack 2",
+      account: {
+        avatar: "https://via.placeholder.com/150",
+        display_name: "User 2",
+      },
+    },
+  }
+  // Add more fake data as needed
+];
+
 
 interface PostProps {
   id: string;
@@ -26,6 +86,7 @@ interface PostProps {
   favourited: boolean;
   bookmarked: boolean;
   mediaAttachments: string[];
+  onStackIconClick: (relatedStacks: any[]) => void;
 }
 
 interface StackPost {
@@ -33,7 +94,7 @@ interface StackPost {
   apiUrl: string;
 }
 
-export default function Post({ id, text, author, avatar, repliesCount, createdAt, stackCount, stackId, favouritesCount, favourited, bookmarked }: PostProps) {
+export default function Post({ id, text, author, avatar, repliesCount, createdAt, stackCount, stackId, favouritesCount, favourited, bookmarked,onStackIconClick }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
   const paperRef = useRef<HTMLDivElement>(null);
@@ -45,6 +106,8 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [mediaAttachments, setMediaAttachments] = useState<string[]>([]);
+  // const [relatedStacks, setRelatedStacks] = useState<Array<{ rel: string, stackId: string, size: number }>>([]);
+  const [relatedStacks, setRelatedStacks] = useState(fakeRelatedStacks);
 
   useEffect(() => {
     if (paperRef.current) {
@@ -151,11 +214,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     setAnnotationModalOpen(true);
   };
 
-  const handleAnnotationSubmit = (annotation: string) => {
-    console.log("Annotation submitted:", annotation);
-    setAnnotationModalOpen(false);
-  };
-
+  
   const handleStackCountClick = async () => {
     const accessToken = getAccessToken();
     if (!accessToken) return;
@@ -164,9 +223,23 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         console.log('Stack ID is null');
         return;
     }
-
+    onStackIconClick(relatedStacks);
     
-        setStackPostsModalOpen(true);
+    // setStackPostsModalOpen(true);
+    // try{
+    //   const response = await axios.get(`${MastodonInstanceUrl}/api/stacks/${stackId}/related`, {
+    //     headers: {
+    //       Authorization: `Bearer ${accessToken}`,
+    //     },
+    //   });
+    //   const relatedStacksData= response.data.relatedStacks;
+    //   setRelatedStacks(relatedStacksData);
+
+    // }catch (error) {
+    //   console.error('Error fetching related stacks:', error);
+    
+    // }
+
    
 };
 
@@ -185,6 +258,16 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
           borderRadius: '8px',
         }}
         withBorder
+        onMouseEnter={() => {
+          if (paperRef.current) {
+            paperRef.current.style.backgroundColor = 'rgba(240, 240, 240, 0.5)'; 
+          }
+        }}
+        onMouseLeave={() => {
+          if (paperRef.current) {
+            paperRef.current.style.backgroundColor = 'rgba(255, 255, 255, 1)'; 
+          }
+        }}
       >
         <UnstyledButton onClick={handleNavigate} style={{ width: '100%' }}>
           <Group>
@@ -229,7 +312,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         </Group>
         {stackId !== null && (
         <UnstyledButton onClick={handleStackCountClick}>
-        <StackCount count={stackCount !== null ? stackCount : 0} onClick={handleStackCountClick} />
+        <StackCount count={stackCount !== null ? stackCount : 0} onClick={handleStackCountClick} relatedStacks={relatedStacks} />
         </UnstyledButton>
         )}
       </Paper>
