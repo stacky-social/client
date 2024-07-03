@@ -1,9 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, ScrollArea, Switch } from '@mantine/core';
-import Posts from './Posts/Posts';
+import PostList from './PostList';
 import ExpandModal from './ExpandModal';
-import { useState } from 'react';
-
+import test from 'node:test';
 
 interface StackPostsModalProps {
   isOpen: boolean;
@@ -11,21 +10,31 @@ interface StackPostsModalProps {
   apiUrl: string;
   stackId: string | null;
 }
-const MastodonInstanceUrl = 'https://beta.stacky.social/api/v1/timelines/public';
 
+const testurl='https://mastodon.social/api/v1/timelines/public';
 
-
-function StackPostsModal({ isOpen, onClose, apiUrl,stackId}: StackPostsModalProps) {
+function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    setAccessToken(token);
+  }, []);
+
+  const handleStackIconClick = (relatedStacks: any[]) => {
+    setRelatedStacks(relatedStacks);
+  };
+
   const title = showAdvanced ? "Substack" : "Post in Stack";
-  
 
   return (
     <Modal
       opened={isOpen}
       onClose={onClose}
       title={title}
-      size="80%"
+      size="100%"
       centered
     >
       <Switch
@@ -34,18 +43,20 @@ function StackPostsModal({ isOpen, onClose, apiUrl,stackId}: StackPostsModalProp
         onChange={() => setShowAdvanced(!showAdvanced)}
         style={{ marginBottom: 20 }}
       />
-
-  
-<ScrollArea style={{ height: 600 }}>
-  {
-    showAdvanced ?
-    (stackId ? <ExpandModal stackId={stackId} /> : null) :  
-    <Posts apiUrl={MastodonInstanceUrl} loadStackInfo={false} />
-  }
-</ScrollArea>
+      <ScrollArea style={{ height: 600 }}>
+        {showAdvanced ? (
+          stackId ? <ExpandModal stackId={stackId} /> : null
+        ) : (
+          <PostList
+            apiUrl={testurl}
+            handleStackIconClick={handleStackIconClick}
+            loadStackInfo={false}
+            accessToken={accessToken}
+          />
+        )}
+      </ScrollArea>
     </Modal>
   );
 }
-
 
 export default StackPostsModal;

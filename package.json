@@ -24,6 +24,7 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-emoji-picker": "1.0.13",
+    "react-transition-group": "^4.4.5",
     "uuid": "10.0.0"
   },
   "devDependencies": {
@@ -32,6 +33,7 @@
     "@types/node": "20.14.9",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
+    "@types/react-transition-group": "^4.4.10",
     "@types/uuid": "9.0.8",
     "eslint": "8.57.0",
     "eslint-config-next": "14.2.4",
