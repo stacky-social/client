@@ -9,6 +9,8 @@ import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
 import StackPostsModal from '../StackPostsModal';
 import Link from 'next/link';
+import RelatedStacks from '../RelatedStacks'; 
+
 
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
@@ -86,7 +88,7 @@ interface PostProps {
   favourited: boolean;
   bookmarked: boolean;
   mediaAttachments: string[];
-  onStackIconClick: (relatedStacks: any[]) => void;
+  onStackIconClick: (relatedStacks: any[], postId: string, position: { top: number, height: number }) => void; 
 }
 
 interface StackPost {
@@ -108,6 +110,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   const [mediaAttachments, setMediaAttachments] = useState<string[]>([]);
   // const [relatedStacks, setRelatedStacks] = useState<Array<{ rel: string, stackId: string, size: number }>>([]);
   const [relatedStacks, setRelatedStacks] = useState(fakeRelatedStacks);
+ 
 
   useEffect(() => {
     if (paperRef.current) {
@@ -223,8 +226,11 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         console.log('Stack ID is null');
         return;
     }
-    onStackIconClick(relatedStacks);
     
+    const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
+    const adjustedPosition = { top: position.top + window.scrollY, height: position.height }; // 调整位置
+    console.log('Adjusted Position:', adjustedPosition); // 检查调整后的位置
+    onStackIconClick(relatedStacks, id, adjustedPosition);
     // setStackPostsModalOpen(true);
     // try{
     //   const response = await axios.get(`${MastodonInstanceUrl}/api/stacks/${stackId}/related`, {
@@ -312,9 +318,9 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         </Group>
         {stackId !== null && (
         <UnstyledButton onClick={handleStackCountClick}>
-        <StackCount count={stackCount !== null ? stackCount : 0} onClick={handleStackCountClick} relatedStacks={relatedStacks} />
+          <StackCount count={stackCount !== null ? stackCount : 0} onClick={handleStackCountClick} relatedStacks={relatedStacks} />
         </UnstyledButton>
-        )}
+      )}
       </Paper>
       {stackId!== null && [...Array(4)].map((_, index) => (
         <div
