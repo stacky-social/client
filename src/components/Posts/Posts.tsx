@@ -9,6 +9,8 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
+    const [activePostId, setActivePostId] = useState<string | null>(null);
+    const [postPosition, setPostPosition] = useState<{ top: number, height: number } | null>(null); // 新增状态
 
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
@@ -20,8 +22,10 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
         }
     }, []);
 
-    const handleStackIconClick = (relatedStacks: any[]) => {
+    const handleStackIconClick = (relatedStacks: any[], postId: string, position: { top: number, height: number }) => { // 修改回调函数
         setRelatedStacks(relatedStacks);
+        setActivePostId(postId);
+        setPostPosition(position); // 保存 post 的位置
     };
 
     return (
@@ -39,20 +43,20 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
                     accessToken={accessToken}
                 />
             </div>
-            <div style={{ gridColumn: '2 / 3' }}>
+            <div style={{ gridColumn: '2 / 3', position: 'relative' }}>
                 <SearchBar />
-                <div style={{ marginRight: '2rem' }}>
-                {relatedStacks.length > 0 && (
-                    <RelatedStacks
-                        relatedStacks={relatedStacks}
-                        cardWidth={450}
-                        cardHeight={200}
-                        onStackClick={() => {}}
-                    />
-                )}
-
+                <div style={{ marginRight: '10rem', position: 'relative' }}>
+                    {relatedStacks.length > 0 && postPosition && (
+                        <div style={{ position: 'absolute', top: postPosition.top-200, left: 0 }}>
+                            <RelatedStacks
+                                relatedStacks={relatedStacks}
+                                cardWidth={450}
+                                cardHeight={200}
+                                onStackClick={() => { }}
+                            />
+                        </div>
+                    )}
                 </div>
-                
             </div>
         </div>
     );
