@@ -85,7 +85,6 @@ const fakeRelatedStacks = [
     },
   }
 ];
-
 interface PostProps {
   id: string;
   text: string;
@@ -100,18 +99,23 @@ interface PostProps {
   bookmarked: boolean;
   mediaAttachments: string[];
   onStackIconClick: (relatedStacks: any[], postId: string, position: { top: number, height: number }) => void; 
+  setIsModalOpen: (isOpen: boolean) => void;
+  setIsExpandModalOpen: (isOpen: boolean) => void; // 新增的属性
 }
 
 export default function Post({ id, text, author, avatar, repliesCount, createdAt, stackCount, stackId, favouritesCount, favourited, bookmarked, onStackIconClick }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
   const paperRef = useRef<HTMLDivElement>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false); // 控制relatedStacks的显示和关闭
+  const [isExpandModalOpen, setIsExpandModalOpen] = useState(false); // 控制expandmodal的显示和关闭
 
   const [liked, setLiked] = useState(favourited);
   const [bookmarkedState, setBookmarkedState] = useState(bookmarked);
   const [likeCount, setLikeCount] = useState(favouritesCount);
   const [replyCount, setReplyCount] = useState(repliesCount);
   const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
+  const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [mediaAttachments, setMediaAttachments] = useState<string[]>([]);
   const [relatedStacks, setRelatedStacks] = useState<Array<{ rel: string, stackId: string, size: number }>>([]);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -128,19 +132,16 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (paperRef.current && !paperRef.current.contains(event.target as Node)) {
+      if (!isModalOpen && !isExpandModalOpen && paperRef.current && !paperRef.current.contains(event.target as Node)) {
         setRelatedStacks([]);
         setIsExpanded(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
-
-  
+  }, [isModalOpen, isExpandModalOpen]);
 
   const handleNavigate = () => {
     const url = `/posts/${id}?stackId=${stackId || ''}`;
@@ -236,29 +237,31 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   };
 
   const handleStackCountClick = () => {
-    const newRelatedStacks = fakeRelatedStacks; // 使用假数据
+    const newRelatedStacks = fakeRelatedStacks; 
     setRelatedStacks(newRelatedStacks);
     setIsExpanded(true);
     const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
-    const adjustedPosition = { top: position.top + window.scrollY, height: position.height }; // 调整位置
+    const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
     onStackIconClick(newRelatedStacks, id, adjustedPosition);
   };
 
-  const handleStackClick = (index: number) => {
-    console.log('Clicked stack index:', index);
-    const newRelatedStacks = [...relatedStacks];
-    const [clickedStack] = newRelatedStacks.splice(index, 1);
-    console.log('Clicked stack:', clickedStack);
-    
-    newRelatedStacks.unshift(clickedStack);
-    setRelatedStacks(newRelatedStacks);
-    console.log('Updated related stacks:', newRelatedStacks);
+  // 例如在 handleStackClick 中使用
+const handleStackClick = (index: number) => {
+  console.log('Clicked stack index:', index);
+  const newRelatedStacks = [...relatedStacks];
+  const [clickedStack] = newRelatedStacks.splice(index, 1);
+  console.log('Clicked stack:', clickedStack);
 
-    // 通知父组件更新
-    const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
-    const adjustedPosition = { top: position.top + window.scrollY, height: position.height }; // 调整位置
-    onStackIconClick(newRelatedStacks, id, adjustedPosition);
-  };
+  newRelatedStacks.unshift(clickedStack);
+  setRelatedStacks(newRelatedStacks);
+  console.log('Updated related stacks:', newRelatedStacks);
+
+  const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
+  const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+  onStackIconClick(newRelatedStacks, id, adjustedPosition);
+  setIsExpandModalOpen(true);
+};
+
 
   return (
     <div style={{ position: 'relative', margin: '15px', marginBottom: '2rem', width: "90%" }}>
@@ -326,7 +329,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
           <StackCount 
             count={stackCount !== null ? stackCount : 0} 
             onClick={handleStackCountClick} 
-            onStackClick={handleStackClick} // 新增回调函数
+            onStackClick={handleStackClick} 
             relatedStacks={relatedStacks} 
             expanded={isExpanded} 
           />
@@ -351,12 +354,10 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         />
       ))}
       <AnnotationModal
-    isOpen={annotationModalOpen}
-    onClose={() => setAnnotationModalOpen(false)}
-    stackId={stackId} 
-  />
-
-     
+        isOpen={annotationModalOpen}
+        onClose={() => setAnnotationModalOpen(false)}
+        stackId={stackId} 
+      />
     </div>
   );
 }

@@ -11,6 +11,8 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
     const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
     const [activePostId, setActivePostId] = useState<string | null>(null);
     const [postPosition, setPostPosition] = useState<{ top: number, height: number } | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false); // 控制relatedStacks的显示和关闭
+    const [isExpandModalOpen, setIsExpandModalOpen] = useState(false); // 控制expandmodal的显示和关闭
 
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
@@ -28,26 +30,6 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
         setPostPosition(position);
     };
 
-    const handleClickOutside = () => {
-        setRelatedStacks([]);
-        setActivePostId(null);
-        setPostPosition(null);
-    };
-
-    useEffect(() => {
-        const handleMouseDown = (event: MouseEvent) => {
-            const relatedStacksElement = document.getElementById('related-stacks');
-            if (relatedStacksElement && !relatedStacksElement.contains(event.target as Node)) {
-                handleClickOutside();
-            }
-        };
-
-        document.addEventListener('mousedown', handleMouseDown);
-        return () => {
-            document.removeEventListener('mousedown', handleMouseDown);
-        };
-    }, []);
-
     return (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 500px', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem' }}>
             <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
@@ -61,6 +43,8 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
                     handleStackIconClick={handleStackIconClick}
                     loadStackInfo={loadStackInfo}
                     accessToken={accessToken}
+                    setIsModalOpen={setIsModalOpen} // 传递 setIsModalOpen
+                    setIsExpandModalOpen={setIsExpandModalOpen} // 传递 setIsExpandModalOpen
                 />
             </div>
             <div style={{ gridColumn: '2 / 3', position: 'relative' }}>
@@ -73,6 +57,8 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
                                 cardWidth={450}
                                 cardHeight={200}
                                 onStackClick={() => { }}
+                                setIsModalOpen={setIsModalOpen} // 传递 setIsModalOpen
+                                setIsExpandModalOpen={setIsExpandModalOpen} // 传递 setIsExpandModalOpen
                             />
                         </div>
                     )}
