@@ -6,7 +6,7 @@ import axios from 'axios';
 
 interface PostListProps {
     apiUrl: string;
-    handleStackIconClick: (relatedStacks: any[], postId: string, position: { top: number, height: number }) => void; // 更新回调函数签名
+    handleStackIconClick: (relatedStacks: any[], postId: string, position: { top: number, height: number }) => void;
     loadStackInfo: boolean;
     accessToken: string | null;
 }
