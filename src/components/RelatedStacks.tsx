@@ -35,7 +35,10 @@ interface RelatedStacksProps {
   cardWidth: number;
   cardHeight: number;
   onStackClick: (stackId: string) => void;
+  setIsModalOpen: (isOpen: boolean) => void;
+  setIsExpandModalOpen: (isOpen: boolean) => void; // 新增的属性
 }
+
 
 const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, cardHeight, onStackClick }) => {
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);

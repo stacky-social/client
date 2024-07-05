@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Paper, Text, Transition } from '@mantine/core';
 import { IconStack } from '@tabler/icons-react';
 
 interface StackCountProps {
     count: number;
     onClick: () => void; 
-    onStackClick: (index: number) => void; // 新增回调函数
+    onStackClick: (index: number) => void; 
     relatedStacks: Array<{ rel: string, stackId: string, size: number }>;
     expanded: boolean;
 }
@@ -19,10 +19,20 @@ const randomEmojis: { [key: string]: string } = {
 
 const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, relatedStacks, expanded }) => {
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+    const [isExpanded, setIsExpanded] = useState(expanded);
+
+    useEffect(() => {
+        setIsExpanded(expanded);
+    }, [expanded]);
+
+    const handlePaperClick = () => {
+        onClick();
+        setIsExpanded(true);
+    };
 
     return (
         <Paper
-            onClick={onClick}
+            onClick={handlePaperClick}
             style={{
                 position: 'absolute',
                 top: '10px',
@@ -48,7 +58,7 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
                 <IconStack size={24} />
                 <Text size="sm">{count}</Text>
             </div>
-            <Transition mounted={expanded} transition="slide-down" duration={300} timingFunction="ease">
+            <Transition mounted={isExpanded} transition="slide-down" duration={300} timingFunction="ease">
                 {(styles) => (
                     <div style={{ ...styles, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                         {relatedStacks.map((stack, index) => (
@@ -62,14 +72,15 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
                                     marginBottom: '5px', 
                                     backgroundColor: hoveredIndex === index ? 'rgba(0, 0, 0, 0.1)' : 'transparent',
                                     transition: 'background-color 0.3s ease',
-                                    width: '100%' // 确保宽度覆盖整个区域
+                                    width: '100%' 
                                 }}
                                 onMouseEnter={() => setHoveredIndex(index)}
                                 onMouseLeave={() => setHoveredIndex(null)}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onStackClick(index);
-                                }} // 新增点击事件处理
+                                    setIsExpanded(true);
+                                }}
                             >
                                 <Text style={{ lineHeight: '24px', margin: '0' }}>{randomEmojis[stack.rel] || "📦"}</Text>
                                 <Text size="xs" style={{ margin: '0' }}>{stack.size}</Text>
