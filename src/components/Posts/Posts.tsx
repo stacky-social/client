@@ -10,7 +10,7 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
     const [activePostId, setActivePostId] = useState<string | null>(null);
-    const [postPosition, setPostPosition] = useState<{ top: number, height: number } | null>(null); // 新增状态
+    const [postPosition, setPostPosition] = useState<{ top: number, height: number } | null>(null);
 
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
@@ -22,14 +22,34 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
         }
     }, []);
 
-    const handleStackIconClick = (relatedStacks: any[], postId: string, position: { top: number, height: number }) => { // 修改回调函数
-        setRelatedStacks(relatedStacks);
+    const handleStackIconClick = (relatedStacks: any[], postId: string, position: { top: number, height: number }) => {
+        setRelatedStacks([...relatedStacks]); // 更新 relatedStacks 的副本
         setActivePostId(postId);
-        setPostPosition(position); // 保存 post 的位置
+        setPostPosition(position);
     };
 
+    const handleClickOutside = () => {
+        setRelatedStacks([]);
+        setActivePostId(null);
+        setPostPosition(null);
+    };
+
+    useEffect(() => {
+        const handleMouseDown = (event: MouseEvent) => {
+            const relatedStacksElement = document.getElementById('related-stacks');
+            if (relatedStacksElement && !relatedStacksElement.contains(event.target as Node)) {
+                handleClickOutside();
+            }
+        };
+
+        document.addEventListener('mousedown', handleMouseDown);
+        return () => {
+            document.removeEventListener('mousedown', handleMouseDown);
+        };
+    }, []);
+
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 500px', width: '100%', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 500px', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem' }}>
             <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>
                     <div style={{ width: '90%', marginLeft: '-3rem' }}>
@@ -47,7 +67,7 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
                 <SearchBar />
                 <div style={{ marginRight: '10rem', position: 'relative' }}>
                     {relatedStacks.length > 0 && postPosition && (
-                        <div style={{ position: 'absolute', top: postPosition.top-200, left: 0 }}>
+                        <div id="related-stacks" style={{ position: 'absolute', top: postPosition.top - 200, left: 0 }}>
                             <RelatedStacks
                                 relatedStacks={relatedStacks}
                                 cardWidth={450}

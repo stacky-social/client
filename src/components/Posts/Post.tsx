@@ -1,4 +1,3 @@
-"use client";
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Button, Divider } from '@mantine/core';
@@ -8,13 +7,9 @@ import StackCount from '../StackCount';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
 import StackPostsModal from '../StackPostsModal';
-import Link from 'next/link';
 import RelatedStacks from '../RelatedStacks'; 
 
-
-
 const MastodonInstanceUrl = 'https://beta.stacky.social';
-// const MastodonInstanceUrl = 'https://mastodon.social';
 
 const fakeRelatedStacks = [
   {
@@ -55,7 +50,25 @@ const fakeRelatedStacks = [
   },
   {
     stackId: "stack-3",
-    rel: "history",
+    rel: "funny",
+    size: 15,
+    topPost: {
+      id: "post-2",
+      created_at: new Date().toISOString(),
+      replies_count: 3,
+      favourites_count: 7,
+      favourited: true,
+      bookmarked: false,
+      content: "This is a fake post content for stack 2",
+      account: {
+        avatar: "https://via.placeholder.com/150",
+        display_name: "User 2",
+      },
+    },
+  },
+  {
+    stackId: "stack-4",
+    rel: "evidence",
     size: 15,
     topPost: {
       id: "post-2",
@@ -71,9 +84,7 @@ const fakeRelatedStacks = [
       },
     },
   }
-  // Add more fake data as needed
 ];
-
 
 interface PostProps {
   id: string;
@@ -91,12 +102,7 @@ interface PostProps {
   onStackIconClick: (relatedStacks: any[], postId: string, position: { top: number, height: number }) => void; 
 }
 
-interface StackPost {
-  stackId: string;
-  apiUrl: string;
-}
-
-export default function Post({ id, text, author, avatar, repliesCount, createdAt, stackCount, stackId, favouritesCount, favourited, bookmarked,onStackIconClick }: PostProps) {
+export default function Post({ id, text, author, avatar, repliesCount, createdAt, stackCount, stackId, favouritesCount, favourited, bookmarked, onStackIconClick }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
   const paperRef = useRef<HTMLDivElement>(null);
@@ -108,9 +114,8 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [mediaAttachments, setMediaAttachments] = useState<string[]>([]);
-  // const [relatedStacks, setRelatedStacks] = useState<Array<{ rel: string, stackId: string, size: number }>>([]);
-  const [relatedStacks, setRelatedStacks] = useState(fakeRelatedStacks);
- 
+  const [relatedStacks, setRelatedStacks] = useState<Array<{ rel: string, stackId: string, size: number }>>([]);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     if (paperRef.current) {
@@ -122,11 +127,26 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     fetchPostData();
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (paperRef.current && !paperRef.current.contains(event.target as Node)) {
+        setRelatedStacks([]);
+        setIsExpanded(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  
+
   const handleNavigate = () => {
     const url = `/posts/${id}?stackId=${stackId || ''}`;
     router.push(url);
   };
-
 
   const handleReply = () => {
     router.push(`/posts/${id}`);
@@ -150,7 +170,6 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
       const mediaAttachments = data.media_attachments.map((attachment: any) => attachment.url);
       setLikeCount(data.favourites_count);
       setReplyCount(data.replies_count);
-      
       setLiked(data.favourited);
       setBookmarkedState(data.bookmarked);
       setMediaAttachments(mediaAttachments);
@@ -217,39 +236,30 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     setAnnotationModalOpen(true);
   };
 
-  
-  const handleStackCountClick = async () => {
-    const accessToken = getAccessToken();
-    if (!accessToken) return;
-
-    if (!stackId) {
-        console.log('Stack ID is null');
-        return;
-    }
-    
+  const handleStackCountClick = () => {
+    const newRelatedStacks = fakeRelatedStacks; // 使用假数据
+    setRelatedStacks(newRelatedStacks);
+    setIsExpanded(true);
     const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
     const adjustedPosition = { top: position.top + window.scrollY, height: position.height }; // 调整位置
-    console.log('Adjusted Position:', adjustedPosition); // 检查调整后的位置
-    onStackIconClick(relatedStacks, id, adjustedPosition);
-    // setStackPostsModalOpen(true);
-    // try{
-    //   const response = await axios.get(`${MastodonInstanceUrl}/api/stacks/${stackId}/related`, {
-    //     headers: {
-    //       Authorization: `Bearer ${accessToken}`,
-    //     },
-    //   });
-    //   const relatedStacksData= response.data.relatedStacks;
-    //   setRelatedStacks(relatedStacksData);
+    onStackIconClick(newRelatedStacks, id, adjustedPosition);
+  };
 
-    // }catch (error) {
-    //   console.error('Error fetching related stacks:', error);
+  const handleStackClick = (index: number) => {
+    console.log('Clicked stack index:', index);
+    const newRelatedStacks = [...relatedStacks];
+    const [clickedStack] = newRelatedStacks.splice(index, 1);
+    console.log('Clicked stack:', clickedStack);
     
-    // }
+    newRelatedStacks.unshift(clickedStack);
+    setRelatedStacks(newRelatedStacks);
+    console.log('Updated related stacks:', newRelatedStacks);
 
-   
-};
-
-
+    // 通知父组件更新
+    const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
+    const adjustedPosition = { top: position.top + window.scrollY, height: position.height }; // 调整位置
+    onStackIconClick(newRelatedStacks, id, adjustedPosition);
+  };
 
   return (
     <div style={{ position: 'relative', margin: '15px', marginBottom: '2rem', width: "90%" }}>
@@ -278,11 +288,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         <UnstyledButton onClick={handleNavigate} style={{ width: '100%' }}>
           <Group>
             <UnstyledButton onClick={handleNavigateToUser}>
-              <Avatar
-                src={avatar}
-                alt={author}
-                radius="xl"
-              />
+              <Avatar src={avatar} alt={author} radius="xl" />
             </UnstyledButton>
             <div>
               <Text size="sm">{author}</Text>
@@ -318,11 +324,17 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         </Group>
         {stackId !== null && (
         <UnstyledButton onClick={handleStackCountClick}>
-          <StackCount count={stackCount !== null ? stackCount : 0} onClick={handleStackCountClick} relatedStacks={relatedStacks} />
+          <StackCount 
+            count={stackCount !== null ? stackCount : 0} 
+            onClick={handleStackCountClick} 
+            onStackClick={handleStackClick} // 新增回调函数
+            relatedStacks={relatedStacks} 
+            expanded={isExpanded} 
+          />
         </UnstyledButton>
       )}
       </Paper>
-      {stackId!== null && [...Array(4)].map((_, index) => (
+      {stackId !== null && [...Array(4)].map((_, index) => (
         <div
           key={index}
           style={{
