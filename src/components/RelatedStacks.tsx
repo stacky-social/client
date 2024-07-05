@@ -41,6 +41,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [currentStackId, setCurrentStackId] = useState('');
   const router = useRouter();
+  const [maxStacksToShow, setMaxStacksToShow] = useState(3);
 
   const handleStackCountClick = (stackId: string) => {
     setCurrentStackId(stackId);
@@ -55,7 +56,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center', width: '100%' }}>
       <TransitionGroup>
-        {relatedStacks.map((stack) => (
+      {relatedStacks.slice(0, maxStacksToShow).map((stack) => (
           <CSSTransition
             key={stack.stackId}
             timeout={500}

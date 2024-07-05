@@ -112,7 +112,6 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   const [likeCount, setLikeCount] = useState(favouritesCount);
   const [replyCount, setReplyCount] = useState(repliesCount);
   const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
-  const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [mediaAttachments, setMediaAttachments] = useState<string[]>([]);
   const [relatedStacks, setRelatedStacks] = useState<Array<{ rel: string, stackId: string, size: number }>>([]);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -357,12 +356,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     stackId={stackId} 
   />
 
-      <StackPostsModal
-        isOpen={stackPostsModalOpen}
-        onClose={() => setStackPostsModalOpen(false)}
-        apiUrl={`${MastodonInstanceUrl}:3002/stacks/${stackId}/posts`}
-        stackId={stackId}
-      />
+     
     </div>
   );
 }
