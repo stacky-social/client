@@ -8,11 +8,9 @@ import StackLogo from '../../utils/StackLogo';
 import SearchBar from "../../components/SearchBar/SearchBar";
 import { SubmitPost } from "../../components/SubmitPost/SubmitPost";
 
-interface ShellProps {
-    children?: ReactNode;
-}
 
-export default function NormalPageLayout({ children }: {  children: React.ReactNode; }) {
+
+export default function NormalPageLayout({ children }: {  children: React.ReactNode}) {
     const [opened, { toggle }] = useDisclosure();
 
     return (
