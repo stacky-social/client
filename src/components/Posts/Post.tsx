@@ -327,17 +327,17 @@ const handleStackClick = (index: number) => {
             <IconNote size={20} />
           </Button>
         </Group>
-        {stackId !== null && (
+  
         <UnstyledButton onClick={handleStackCountClick}>
-          <StackCount 
-            count={stackCount !== null ? stackCount : 0} 
+           <StackCount 
+            count={stackCount} 
             onClick={handleStackCountClick} 
             onStackClick={handleStackClick} 
             relatedStacks={relatedStacks} 
             expanded={isExpanded} 
           />
         </UnstyledButton>
-      )}
+     
       </Paper>
       {stackId !== null && [...Array(4)].map((_, index) => (
         <div
