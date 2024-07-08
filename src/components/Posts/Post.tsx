@@ -6,8 +6,7 @@ import { formatDistanceToNow } from 'date-fns';
 import StackCount from '../StackCount';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
-import StackPostsModal from '../StackPostsModal';
-import RelatedStacks from '../RelatedStacks'; 
+
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
@@ -100,25 +99,26 @@ interface PostProps {
   mediaAttachments: string[];
   onStackIconClick: (relatedStacks: any[], postId: string, position: { top: number, height: number }) => void; 
   setIsModalOpen: (isOpen: boolean) => void;
-  setIsExpandModalOpen: (isOpen: boolean) => void; // 新增的属性
+  setIsExpandModalOpen: (isOpen: boolean) => void; 
+ 
 }
 
-export default function Post({ id, text, author, avatar, repliesCount, createdAt, stackCount, stackId, favouritesCount, favourited, bookmarked, onStackIconClick }: PostProps) {
+export default function Post({ id, text, author, avatar, repliesCount, createdAt, stackCount, stackId, favouritesCount, favourited, bookmarked, onStackIconClick}: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
   const paperRef = useRef<HTMLDivElement>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false); // 控制relatedStacks的显示和关闭
-  const [isExpandModalOpen, setIsExpandModalOpen] = useState(false); // 控制expandmodal的显示和关闭
+  const [isModalOpen, setIsModalOpen] = useState(false); 
+  const [isExpandModalOpen, setIsExpandModalOpen] = useState(false); 
 
   const [liked, setLiked] = useState(favourited);
   const [bookmarkedState, setBookmarkedState] = useState(bookmarked);
   const [likeCount, setLikeCount] = useState(favouritesCount);
   const [replyCount, setReplyCount] = useState(repliesCount);
   const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
-  const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [mediaAttachments, setMediaAttachments] = useState<string[]>([]);
   const [relatedStacks, setRelatedStacks] = useState<Array<{ rel: string, stackId: string, size: number }>>([]);
   const [isExpanded, setIsExpanded] = useState(false);
+  
 
   useEffect(() => {
     if (paperRef.current) {
@@ -131,9 +131,10 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   }, []);
 
   useEffect(() => {
+    if (isExpandModalOpen) return;
     const handleClickOutside = (event: MouseEvent) => {
-      if (!isModalOpen && !isExpandModalOpen && paperRef.current && !paperRef.current.contains(event.target as Node)) {
-        setRelatedStacks([]);
+   
+      if (!isExpandModalOpen && paperRef.current && !paperRef.current.contains(event.target as Node)) {
         setIsExpanded(false);
       }
     };
@@ -141,7 +142,9 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isModalOpen, isExpandModalOpen]);
+  }, [isExpandModalOpen]);
+
+
 
   const handleNavigate = () => {
     const url = `/posts/${id}?stackId=${stackId || ''}`;
@@ -202,7 +205,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
           },
         });
       }
-      await fetchPostData(); // Fetch the updated count from the API
+      await fetchPostData(); 
     } catch (error) {
       console.error('Error liking post:', error);
     }
@@ -245,7 +248,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     onStackIconClick(newRelatedStacks, id, adjustedPosition);
   };
 
-  // 例如在 handleStackClick 中使用
+  
 const handleStackClick = (index: number) => {
   console.log('Clicked stack index:', index);
   const newRelatedStacks = [...relatedStacks];
@@ -259,7 +262,7 @@ const handleStackClick = (index: number) => {
   const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
   const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
   onStackIconClick(newRelatedStacks, id, adjustedPosition);
-  setIsExpandModalOpen(true);
+  // setIsExpandModalOpen(true);
 };
 
 

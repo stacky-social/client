@@ -11,10 +11,10 @@ interface PostListProps {
     accessToken: string | null;
     setIsModalOpen: (isOpen: boolean) => void; 
     setIsExpandModalOpen: (isOpen: boolean) => void; 
+   
 }
 
-
-const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadStackInfo, accessToken, setIsModalOpen, setIsExpandModalOpen }) => {
+const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadStackInfo, accessToken, setIsModalOpen, setIsExpandModalOpen}) => {
     const [posts, setPosts] = useState<PostType[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -94,8 +94,9 @@ const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadS
             bookmarked={post.bookmarked}
             mediaAttachments={post.mediaAttachments}
             onStackIconClick={handleStackIconClick}
-            setIsModalOpen={setIsModalOpen} // 传递 setIsModalOpen
-        setIsExpandModalOpen={setIsExpandModalOpen} // 传递 setIsExpandModalOpen
+            setIsModalOpen={setIsModalOpen}
+            setIsExpandModalOpen={setIsExpandModalOpen}
+          
         />
     ));
 
