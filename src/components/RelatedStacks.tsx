@@ -6,8 +6,8 @@ import RelatedStackCount from './RelatedStackCount';
 import StackPostsModal from './StackPostsModal';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { CSSTransition, TransitionGroup } from 'react-transition-group';
 import './RelatedStacks.css';
+import { randomEmojis } from '../utils/emojiMapping';
 
 interface PostType {
   id: string;
@@ -36,7 +36,7 @@ interface RelatedStacksProps {
   cardHeight: number;
   onStackClick: (stackId: string) => void;
   setIsModalOpen: (isOpen: boolean) => void;
-  setIsExpandModalOpen: (isOpen: boolean) => void; // 新增的属性
+  setIsExpandModalOpen: (isOpen: boolean) => void; 
 }
 
 const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, cardHeight, onStackClick, setIsExpandModalOpen }) => {
@@ -48,7 +48,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
   const handleStackCountClick = (stackId: string) => {
     setCurrentStackId(stackId);
     setStackPostsModalOpen(true);
-    setIsExpandModalOpen(true); // 打开expand modal
+    setIsExpandModalOpen(true);
   };
 
   const handleNavigate = (postId: string, newStackId: string) => {
@@ -58,91 +58,85 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center', width: '100%' }}>
-      <TransitionGroup>
-        {relatedStacks.slice(0, maxStacksToShow).map((stack) => (
-          <CSSTransition
-            key={stack.stackId}
-            timeout={500}
-            classNames="slide"
-          >
+      {relatedStacks.slice(0, maxStacksToShow).map((stack) => (
+        <div
+          key={stack.stackId}
+          style={{
+            position: 'relative',
+            margin: '20px 20px',
+            marginTop: '30px',
+            width: cardWidth,
+          }}
+        >
+          <Paper style={{
+            position: 'relative',
+            width: cardWidth,
+            backgroundColor: 'rgba(227, 250, 252, 0.8)',
+            zIndex: 5,
+            boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+            borderRadius: '8px',
+            margin: '0 auto',
+          }} withBorder>
+            <UnstyledButton onClick={() => handleNavigate(stack.topPost.id, stack.stackId)} style={{ width: '100%' }}>
+              <Group>
+                <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
+                <div>
+                  <Text size="sm">{stack.topPost.account.display_name}</Text>
+                  <Text size="xs" color="dimmed">{formatDistanceToNow(new Date(stack.topPost.created_at))} ago</Text>
+                </div>
+              </Group>
+              <div style={{ paddingTop: '1rem', paddingLeft: '1rem', paddingRight: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: '3', WebkitBoxOrient: 'vertical' }}>
+                <div dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
+              </div>
+              <Text pl={54} pt="sm" size="sm">Post Id: {stack.topPost.id}</Text>
+              <Text pl={54} pt="sm" size="sm">Stack Id: {stack.stackId}</Text>
+            </UnstyledButton>
+            <div className="rel-display">
+              {randomEmojis[stack.rel] || randomEmojis["default"]} {stack.rel}
+            </div>
+            <Divider my="md" />
+            <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
+              <Button variant="subtle" size="sm" radius="lg">
+                <IconMessageCircle size={20} /> <Text ml={4}>{stack.topPost.replies_count}</Text>
+              </Button>
+              <Button variant="subtle" size="sm" radius="lg">
+                {stack.topPost.favourited ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{stack.topPost.favourites_count}</Text>
+              </Button>
+              <Button variant="subtle" size="sm" radius="lg">
+                {stack.topPost.bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
+              </Button>
+              <Button variant="subtle" size="sm" radius="lg">
+                <IconShare size={20} />
+              </Button>
+            </Group>
+            <RelatedStackCount count={stack.size} onClick={() => handleStackCountClick(stack.stackId)} />
+          </Paper>
+
+          {stack.size !== null && [...Array(4)].map((_, index) => (
             <div
-              key={stack.stackId}
+              key={index}
               style={{
-                position: 'relative',
-                margin: '20px 20px',
-                marginTop: '30px',
-                width: cardWidth,
-              }}
-            >
-              <Paper style={{
-                position: 'relative',
-                width: cardWidth,
+                position: 'absolute',
+                bottom: `${20 - 5 * (index + 1)}px`,
+                left: `${20 - 5 * (index + 1)}px`,
+                width: "100%",
+                height: `${cardHeight + 10}px`,
                 backgroundColor: 'rgba(227, 250, 252, 0.8)',
-                zIndex: 5,
+                zIndex: index + 1,
                 boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
                 borderRadius: '8px',
-                margin: '0 auto',
-              }} withBorder>
-                <UnstyledButton onClick={() => handleNavigate(stack.topPost.id, stack.stackId)} style={{ width: '100%' }}>
-                  <Group>
-                    <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
-                    <div>
-                      <Text size="sm">{stack.topPost.account.display_name}</Text>
-                      <Text size="xs" color="dimmed">{formatDistanceToNow(new Date(stack.topPost.created_at))} ago</Text>
-                    </div>
-                  </Group>
-                  <div style={{ paddingTop: '1rem', paddingLeft: '1rem', paddingRight: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: '3', WebkitBoxOrient: 'vertical' }}>
-                    <div dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
-                  </div>
-                  <Text pl={54} pt="sm" size="sm">Post Id: {stack.topPost.id}</Text>
-                  <Text pl={54} pt="sm" size="sm">Stack Id: {stack.stackId}</Text>
-                </UnstyledButton>
-                <div className="rel-display">{stack.rel}</div>
-                <Divider my="md" />
-                <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
-                  <Button variant="subtle" size="sm" radius="lg">
-                    <IconMessageCircle size={20} /> <Text ml={4}>{stack.topPost.replies_count}</Text>
-                  </Button>
-                  <Button variant="subtle" size="sm" radius="lg">
-                    {stack.topPost.favourited ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{stack.topPost.favourites_count}</Text>
-                  </Button>
-                  <Button variant="subtle" size="sm" radius="lg">
-                    {stack.topPost.bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
-                  </Button>
-                  <Button variant="subtle" size="sm" radius="lg">
-                    <IconShare size={20} />
-                  </Button>
-                </Group>
-                <RelatedStackCount count={stack.size} onClick={() => handleStackCountClick(stack.stackId)} />
-              </Paper>
-
-              {stack.size !== null && [...Array(4)].map((_, index) => (
-                <div
-                  key={index}
-                  style={{
-                    position: 'absolute',
-                    bottom: `${20 - 5 * (index + 1)}px`,
-                    left: `${20 - 5 * (index + 1)}px`,
-                    width: "100%",
-                    height: `${cardHeight + 10}px`,
-                    backgroundColor: 'rgba(227, 250, 252, 0.8)',
-                    zIndex: index + 1,
-                    boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(0, 0, 0, 0.1)',
-                  }}
-                />
-              ))}
-            </div>
-          </CSSTransition>
-        ))}
-      </TransitionGroup>
+                border: '1px solid rgba(0, 0, 0, 0.1)',
+              }}
+            />
+          ))}
+        </div>
+      ))}
 
       <StackPostsModal
         isOpen={stackPostsModalOpen}
         onClose={() => {
           setStackPostsModalOpen(false);
-          setIsExpandModalOpen(false); // 关闭expand modal
+          setIsExpandModalOpen(false); 
         }}
         apiUrl={`https://beta.stacky.social:3002/stacks/${currentStackId}/posts`}
         stackId={currentStackId}

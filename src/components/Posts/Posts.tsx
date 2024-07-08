@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { SubmitPost } from '../SubmitPost/SubmitPost';
 import SearchBar from '../SearchBar/SearchBar';
 import RelatedStacks from '../RelatedStacks';
@@ -37,8 +38,6 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
             if (isExpandModalOpen) return;
             if (relatedStacksRef.current && !relatedStacksRef.current.contains(event.target as Node)) {
                 setRelatedStacks([]);
-                
-
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -62,25 +61,33 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
                     accessToken={accessToken}
                     setIsModalOpen={setIsModalOpen} 
                     setIsExpandModalOpen={setIsExpandModalOpen}
-                  
                 />
             </div>
             <div style={{ gridColumn: '2 / 3', position: 'relative' }}>
                 <SearchBar />
                 <div style={{ marginRight: '10rem', position: 'relative' }} ref={relatedStacksRef}>
-                    {relatedStacks.length > 0 && postPosition && (
-                        <div id="related-stacks" style={{ position: 'absolute', top: postPosition.top - 200, left: 0 }}>
-                            <RelatedStacks
-                                key={relatedStacks.map(stack => stack.stackId).join(',')} // 强制重新渲染
-                                relatedStacks={relatedStacks}
-                                cardWidth={450}
-                                cardHeight={200}
-                                onStackClick={() => { }}
-                                setIsModalOpen={setIsModalOpen} 
-                                setIsExpandModalOpen={setIsExpandModalOpen} 
-                            />
-                        </div>
-                    )}
+                    <AnimatePresence>
+                        {relatedStacks.length > 0 && postPosition && (
+                            <motion.div
+                                id="related-stacks"
+                                style={{ position: 'absolute', top: postPosition.top - 200, left: 0 }}
+                                initial={{ opacity: 0, x: -200 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -200 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <RelatedStacks
+                                    key={relatedStacks.map(stack => stack.stackId).join(',')} 
+                                    relatedStacks={relatedStacks}
+                                    cardWidth={450}
+                                    cardHeight={200}
+                                    onStackClick={() => { }}
+                                    setIsModalOpen={setIsModalOpen} 
+                                    setIsExpandModalOpen={setIsExpandModalOpen} 
+                                />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
             </div>
         </div>
