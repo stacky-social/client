@@ -2,7 +2,7 @@ import React from 'react';
 import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button } from '@mantine/core';
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
-import RelatedStackCount from './RelatedStackCount';  // 引入新组件
+import RelatedStackCount from './RelatedStackCount'; 
 import StackPostsModal from './StackPostsModal';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -39,8 +39,7 @@ interface RelatedStacksProps {
   setIsExpandModalOpen: (isOpen: boolean) => void; // 新增的属性
 }
 
-
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, cardHeight, onStackClick }) => {
+const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, cardHeight, onStackClick, setIsExpandModalOpen }) => {
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [currentStackId, setCurrentStackId] = useState('');
   const router = useRouter();
@@ -49,6 +48,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
   const handleStackCountClick = (stackId: string) => {
     setCurrentStackId(stackId);
     setStackPostsModalOpen(true);
+    setIsExpandModalOpen(true); // 打开expand modal
   };
 
   const handleNavigate = (postId: string, newStackId: string) => {
@@ -59,7 +59,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center', width: '100%' }}>
       <TransitionGroup>
-      {relatedStacks.slice(0, maxStacksToShow).map((stack) => (
+        {relatedStacks.slice(0, maxStacksToShow).map((stack) => (
           <CSSTransition
             key={stack.stackId}
             timeout={500}
@@ -75,13 +75,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
               }}
             >
               <Paper style={{
-                  position: 'relative',
-                  width: cardWidth,
-                  backgroundColor: 'rgba(227, 250, 252, 0.8)',
-                  zIndex: 5,
-                  boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-                  borderRadius: '8px',
-                  margin: '0 auto',
+                position: 'relative',
+                width: cardWidth,
+                backgroundColor: 'rgba(227, 250, 252, 0.8)',
+                zIndex: 5,
+                boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+                borderRadius: '8px',
+                margin: '0 auto',
               }} withBorder>
                 <UnstyledButton onClick={() => handleNavigate(stack.topPost.id, stack.stackId)} style={{ width: '100%' }}>
                   <Group>
@@ -124,7 +124,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
                     bottom: `${20 - 5 * (index + 1)}px`,
                     left: `${20 - 5 * (index + 1)}px`,
                     width: "100%",
-                    height: `${cardHeight+10}px`,
+                    height: `${cardHeight + 10}px`,
                     backgroundColor: 'rgba(227, 250, 252, 0.8)',
                     zIndex: index + 1,
                     boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
@@ -137,10 +137,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
           </CSSTransition>
         ))}
       </TransitionGroup>
-      
+
       <StackPostsModal
         isOpen={stackPostsModalOpen}
-        onClose={() => setStackPostsModalOpen(false)}
+        onClose={() => {
+          setStackPostsModalOpen(false);
+          setIsExpandModalOpen(false); // 关闭expand modal
+        }}
         apiUrl={`https://beta.stacky.social:3002/stacks/${currentStackId}/posts`}
         stackId={currentStackId}
       />
