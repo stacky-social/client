@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Paper, Text, Transition } from '@mantine/core';
+import { Paper, Text, Transition,Loader } from '@mantine/core';
 import { IconStack } from '@tabler/icons-react';
 import { randomEmojis } from '../utils/emojiMapping';
 
 interface StackCountProps {
-    count: number;
+    count: number|null;
     onClick: () => void; 
     onStackClick: (index: number) => void; 
     relatedStacks: Array<{ rel: string, stackId: string, size: number }>;
@@ -50,7 +50,9 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
                 height: '50px',
             }}>
                 <IconStack size={24} />
-                <Text size="sm">{count}</Text>
+                <Text size="sm">
+                    {count !== null ? count : <Loader size="xs" />}
+                </Text>
             </div>
             <Transition mounted={isExpanded} transition="slide-down" duration={300} timingFunction="ease">
                 {(styles) => (

@@ -57,7 +57,10 @@ const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadS
     }, [apiUrl, accessToken, loadStackInfo]);
 
     const loadStackData = async (posts: PostType[]) => {
+        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
         const updatedPosts = await Promise.all(posts.map(async (post) => {
+            await delay(5000); 
             try {
                 const stackData = {
                     size: Math.floor(Math.random() * 100),
