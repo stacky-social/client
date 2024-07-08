@@ -33,7 +33,7 @@ const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadS
                     avatar: post.account.avatar,
                     createdAt: post.created_at,
                     replies: post.replies_count,
-                    stackCount: null,
+                    stackCount: loadStackInfo ? null : -1,
                     stackId: null,
                     favouritesCount: post.favourites_count,
                     favourited: post.favourited,
@@ -60,7 +60,10 @@ const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadS
         const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
         const updatedPosts = await Promise.all(posts.map(async (post) => {
-            await delay(5000); 
+            if (post.stackCount === -1) {
+                return post;
+            }
+            await delay(1000);
             try {
                 const stackData = {
                     size: Math.floor(Math.random() * 100),

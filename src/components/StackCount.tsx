@@ -12,6 +12,7 @@ interface StackCountProps {
 }
 
 const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, relatedStacks, expanded }) => {
+    if (count === -1) return null;
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     const [isExpanded, setIsExpanded] = useState(expanded);
 
