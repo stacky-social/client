@@ -100,6 +100,7 @@ interface PostProps {
   onStackIconClick: (relatedStacks: any[], postId: string, position: { top: number, height: number }) => void; 
   setIsModalOpen: (isOpen: boolean) => void;
   setIsExpandModalOpen: (isOpen: boolean) => void; 
+
  
 }
 
