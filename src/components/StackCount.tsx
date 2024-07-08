@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Paper, Text, Transition } from '@mantine/core';
 import { IconStack } from '@tabler/icons-react';
+import { randomEmojis } from '../utils/emojiMapping';
 
 interface StackCountProps {
     count: number;
@@ -9,13 +10,6 @@ interface StackCountProps {
     relatedStacks: Array<{ rel: string, stackId: string, size: number }>;
     expanded: boolean;
 }
-
-const randomEmojis: { [key: string]: string } = {
-    "disagree": "❌",
-    "prediction": "🔮",
-    "funny": "😂",
-    "evidence": "📜",
-};
 
 const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, relatedStacks, expanded }) => {
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -82,7 +76,7 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
                                     setIsExpanded(true);
                                 }}
                             >
-                                <Text style={{ lineHeight: '24px', margin: '0' }}>{randomEmojis[stack.rel] || "📦"}</Text>
+                                <Text style={{ lineHeight: '24px', margin: '0' }}>{randomEmojis[stack.rel] || randomEmojis["default"]}</Text>
                                 <Text size="xs" style={{ margin: '0' }}>{stack.size}</Text>
                             </div>
                         ))}
