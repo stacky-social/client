@@ -162,8 +162,9 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   useEffect(() => {
     if (paperRef.current) {
       setCardHeight(paperRef.current.clientHeight);
+      console.log('Card height:', paperRef.current.clientHeight);
     }
-  }, [text]);
+  }, [text, mediaAttachments, previewCard]);
 
   useEffect(() => {
     fetchPostData();
