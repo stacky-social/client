@@ -8,7 +8,6 @@ import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
 
 
-const MastodonInstanceUrl = 'https://beta.stacky.social';
 
 const fakeRelatedStacks = [
   {
@@ -84,6 +83,44 @@ const fakeRelatedStacks = [
     },
   }
 ];
+
+const MastodonInstanceUrl = 'https://beta.stacky.social';
+
+interface PreviewCard {
+  title: string;
+  description: string;
+  image?: string;
+}
+
+const extractMastodonLink = (text: string): string | null => {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const matches = text.match(urlRegex);
+  if (matches) {
+    const mastodonLink = matches.find((link) => link.includes(MastodonInstanceUrl));
+    return mastodonLink || null;
+  }
+  return null;
+};
+
+const fetchPreviewCard = async (url: string): Promise<PreviewCard | null> => {
+  try {
+    console.log('Fetching preview card for URL:', url);
+    const response = await axios.get(`https://api.microlink.io?url=${encodeURIComponent(url)}`);
+    console.log('Preview card response:', response.data);
+    return {
+      title: response.data.data.title,
+      description: response.data.data.description,
+      image: response.data.data.image?.url,
+    };
+  } catch (error) {
+    console.error('Error fetching preview card:', error);
+    return null;
+  }
+};
+
+
+
+
 interface PostProps {
   id: string;
   text: string;
@@ -100,9 +137,9 @@ interface PostProps {
   onStackIconClick: (relatedStacks: any[], postId: string, position: { top: number, height: number }) => void; 
   setIsModalOpen: (isOpen: boolean) => void;
   setIsExpandModalOpen: (isOpen: boolean) => void; 
-
- 
 }
+
+
 
 export default function Post({ id, text, author, avatar, repliesCount, createdAt, stackCount, stackId, favouritesCount, favourited, bookmarked, onStackIconClick}: PostProps) {
   const router = useRouter();
@@ -119,7 +156,8 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   const [mediaAttachments, setMediaAttachments] = useState<string[]>([]);
   const [relatedStacks, setRelatedStacks] = useState<Array<{ rel: string, stackId: string, size: number }>>([]);
   const [isExpanded, setIsExpanded] = useState(false);
-  
+
+  const [previewCard, setPreviewCard] = useState<PreviewCard | null>(null);
 
   useEffect(() => {
     if (paperRef.current) {
@@ -134,7 +172,6 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   useEffect(() => {
     if (isExpandModalOpen) return;
     const handleClickOutside = (event: MouseEvent) => {
-   
       if (!isExpandModalOpen && paperRef.current && !paperRef.current.contains(event.target as Node)) {
         setIsExpanded(false);
       }
@@ -144,8 +181,6 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isExpandModalOpen]);
-
-
 
   const handleNavigate = () => {
     const url = `/posts/${id}?stackId=${stackId || ''}`;
@@ -177,6 +212,12 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
       setLiked(data.favourited);
       setBookmarkedState(data.bookmarked);
       setMediaAttachments(mediaAttachments);
+
+      const mastodonLink = extractMastodonLink(data.content);
+      if (mastodonLink) {
+        const card = await fetchPreviewCard(mastodonLink);
+        setPreviewCard(card);
+      }
     } catch (error) {
       console.error('Error fetching post data:', error);
     }
@@ -249,24 +290,41 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     onStackIconClick(newRelatedStacks, id, adjustedPosition);
   };
 
+  const handleStackClick = (index: number) => {
+    console.log('Clicked stack index:', index);
+    const newRelatedStacks = [...relatedStacks];
+    const [clickedStack] = newRelatedStacks.splice(index, 1);
+    console.log('Clicked stack:', clickedStack);
+
+    newRelatedStacks.unshift(clickedStack);
+    setRelatedStacks(newRelatedStacks);
+    console.log('Updated related stacks:', newRelatedStacks);
+
+    const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
+    const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+    onStackIconClick(newRelatedStacks, id, adjustedPosition);
+  };
+
+  const handleLinkClick = (e: MouseEvent) => {
+    // const target = e.target as HTMLElement;
+    // if (target.tagName !== 'A') {
+    //   e.stopPropagation();
+    // }
+  };
   
-const handleStackClick = (index: number) => {
-  console.log('Clicked stack index:', index);
-  const newRelatedStacks = [...relatedStacks];
-  const [clickedStack] = newRelatedStacks.splice(index, 1);
-  console.log('Clicked stack:', clickedStack);
+  useEffect(() => {
+  const links = document.querySelectorAll('.post-content a');
+  links.forEach(link => {
+    link.addEventListener('click', handleLinkClick as EventListener);
+  });
 
-  newRelatedStacks.unshift(clickedStack);
-  setRelatedStacks(newRelatedStacks);
-  console.log('Updated related stacks:', newRelatedStacks);
-
-  const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
-  const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
-  onStackIconClick(newRelatedStacks, id, adjustedPosition);
-  // setIsExpandModalOpen(true);
-};
-
-
+  return () => {
+    links.forEach(link => {
+      link.removeEventListener('click', handleLinkClick as EventListener);
+    });
+  };
+}, [text]);
+  
   return (
     <div style={{ position: 'relative', margin: '15px', marginBottom: '2rem', width: "90%" }}>
       <Paper
@@ -278,11 +336,12 @@ const handleStackClick = (index: number) => {
           zIndex: 5,
           boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
           borderRadius: '8px',
+          padding: '10px ',
         }}
         withBorder
         onMouseEnter={() => {
           if (paperRef.current) {
-            paperRef.current.style.backgroundColor = 'rgba(240, 240, 240, 0.5)'; 
+            paperRef.current.style.backgroundColor = 'rgba(245, 245, 245)'; 
           }
         }}
         onMouseLeave={() => {
@@ -302,7 +361,8 @@ const handleStackClick = (index: number) => {
             </div>
           </Group>
           
-          <Text pl={54} pt="sm" size="sm" dangerouslySetInnerHTML={{ __html: text }} />
+          <Text pl={54} pt="sm" size="sm" className="post-content" dangerouslySetInnerHTML={{ __html: text }} />
+          
           {mediaAttachments.length > 0 && (
            <div style={{ paddingLeft: '54px', paddingRight: '54px', paddingTop: '1rem' }}> 
             {mediaAttachments.map((url, index) => (
@@ -310,11 +370,32 @@ const handleStackClick = (index: number) => {
             ))}
           </div>
         )}
+
+{previewCard && (
+  <div style={{
+    display: 'flex',
+    alignItems: 'flex-start',
+    paddingTop: '1rem',
+    border: '1px solid rgba(0, 0, 0, 0.1)',  
+    borderRadius: '8px',  
+    overflow: 'hidden', 
+    boxShadow: '0 3px 3px rgba(0, 0, 0, 0.1)',  
+  }}>
+    {previewCard.image && (
+      <img src={previewCard.image} alt={previewCard.title} style={{ width: '150px', marginRight: '10px' }} />
+    )}
+    <div>
+      <Text size="sm">{previewCard.title}</Text>
+      <Text size="xs" color="dimmed">{previewCard.description}</Text>
+    </div>
+  </div>
+)}
+
           <Text pl={54} pt="sm" size="sm">Post Id: {id}</Text>
           <Text pl={54} pt="sm" size="sm">Stack Id: {stackId}</Text>
         </UnstyledButton>
         <Divider my="md" />
-        <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
+        <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px', marginBottom: '-20px' }}>
           <Button variant="subtle" size="sm" radius="lg" onClick={handleReply} style={{ display: 'flex', alignItems: 'center' }}>
             <IconMessageCircle size={20} /> <Text ml={4}>{replyCount}</Text>
           </Button>
