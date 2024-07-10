@@ -90,36 +90,28 @@ interface PreviewCard {
   title: string;
   description: string;
   image?: string;
+  url: string; 
 }
 
-const extractMastodonLink = (text: string): string | null => {
+const extractLinks = (text: string): string[] => {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
-  const matches = text.match(urlRegex);
-  if (matches) {
-    const mastodonLink = matches.find((link) => link.includes(MastodonInstanceUrl));
-    return mastodonLink || null;
-  }
-  return null;
+  return text.match(urlRegex) || [];
 };
 
 const fetchPreviewCard = async (url: string): Promise<PreviewCard | null> => {
   try {
-    console.log('Fetching preview card for URL:', url);
     const response = await axios.get(`https://api.microlink.io?url=${encodeURIComponent(url)}`);
-    console.log('Preview card response:', response.data);
     return {
       title: response.data.data.title,
       description: response.data.data.description,
       image: response.data.data.image?.url,
+      url: url
     };
   } catch (error) {
     console.error('Error fetching preview card:', error);
     return null;
   }
 };
-
-
-
 
 interface PostProps {
   id: string;
@@ -157,14 +149,13 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   const [relatedStacks, setRelatedStacks] = useState<Array<{ rel: string, stackId: string, size: number }>>([]);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const [previewCard, setPreviewCard] = useState<PreviewCard | null>(null);
-
+  const [previewCards, setPreviewCards] = useState<PreviewCard[]>([]);
   useEffect(() => {
     if (paperRef.current) {
       setCardHeight(paperRef.current.clientHeight);
       console.log('Card height:', paperRef.current.clientHeight);
     }
-  }, [text, mediaAttachments, previewCard]);
+  }, [text, mediaAttachments, previewCards]);
 
   useEffect(() => {
     fetchPostData();
@@ -214,11 +205,10 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
       setBookmarkedState(data.bookmarked);
       setMediaAttachments(mediaAttachments);
 
-      const mastodonLink = extractMastodonLink(data.content);
-      if (mastodonLink) {
-        const card = await fetchPreviewCard(mastodonLink);
-        setPreviewCard(card);
-      }
+      const links = extractLinks(data.content);
+      const previewCardsPromises = links.map(link => fetchPreviewCard(link));
+      const previewCards = await Promise.all(previewCardsPromises);
+      setPreviewCards(previewCards.filter(card => card !== null) as PreviewCard[]);
     } catch (error) {
       console.error('Error fetching post data:', error);
     }
@@ -372,25 +362,26 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
           </div>
         )}
 
-{previewCard && (
-  <div style={{
-    display: 'flex',
-    alignItems: 'flex-start',
-    paddingTop: '1rem',
-    border: '1px solid rgba(0, 0, 0, 0.1)',  
-    borderRadius: '8px',  
-    overflow: 'hidden', 
-    boxShadow: '0 3px 3px rgba(0, 0, 0, 0.1)',  
-  }}>
-    {previewCard.image && (
-      <img src={previewCard.image} alt={previewCard.title} style={{ width: '150px', marginRight: '10px' }} />
-    )}
-    <div>
-      <Text size="sm">{previewCard.title}</Text>
-      <Text size="xs" color="dimmed">{previewCard.description}</Text>
-    </div>
-  </div>
-)}
+      {previewCards.map((card, index) => (
+          <div key={index} style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            padding: '1rem',
+            border: '1px solid rgba(0, 0, 0, 0.1)',  
+            borderRadius: '8px',  
+            overflow: 'hidden', 
+            boxShadow: '0 3px 3px rgba(0, 0, 0, 0.1)',  
+            marginTop: '1rem',
+          }} onClick={(e) => { e.stopPropagation(); window.open(card.url, '_blank'); }}>
+            {card.image && (
+              <img src={card.image} alt={card.title} style={{ width: '150px', margin: '10px' }} />
+            )}
+            <div>
+              <Text size="sm">{card.title}</Text>
+              <Text size="xs" color="dimmed">{card.description}</Text>
+            </div>
+          </div>
+        ))}
 
           <Text pl={54} pt="sm" size="sm">Post Id: {id}</Text>
           <Text pl={54} pt="sm" size="sm">Stack Id: {stackId}</Text>
