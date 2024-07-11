@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import {useEffect, useState} from 'react';
 import { Title, Text, Button, TextInput, Box, Center, Container, rem, Paper } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
@@ -9,6 +9,8 @@ import { Header } from '../components/Header/Header';
 import { Footer } from '../components/Footer/Footer';
 import classes from './LandingPage.module.css';
 import {BASE_URL} from "../utils/DevMode";
+
+
 
 interface FormValues {
   instanceDomain: string;
@@ -46,44 +48,50 @@ export default function LandingPage() {
     window.location.href = authorizationUrl;
   };
 
+  //
+  useEffect(() => {
+    // check if user is already logged in
+
+    //router.push("/home")
+
+  }, [])
+
+
   return (
-      <>
-        <Header />
-        <Center className={classes.landingPageContent}>
-          <Container maw={700}>
-            <Text ta="center" mt={10} size={rem(75)} fw="900">
-              Project{' '}
-              <Text component="span" variant="gradient" gradient={{ from: 'pink', to: 'yellow' }} inherit>
-                STACKS
-              </Text>
-            </Text>
-            <Text c="dimmed" ta="center" size="lg" maw={580} mt="xl" mb="lg">
-              AI-Curated Democratic Discourse
+    <>
+      {/* <Header /> */}
+      <Center className={classes.landingPageContent}>
+        <Container size={400} className={classes.container}>
+          <img src="/stacksLOGO.jpg" alt="Logo" className={classes.logo} />
+          <img src="/stacks.png" alt="Logo" className={classes.logo} />
+          {/* <Text ta="center" mt={10} size={rem(50)} fw="700" className={classes.title}>
+            STACKY
+          </Text> */}
+          <Text c="dimmed" ta="center" size="md" className={classes.subtitle}>
+            AI-Curated Democratic Discourse
+          </Text>
+
+          <Paper radius="md" p="xl" withBorder className={classes.paper}>
+            <Text size="lg" fw={600} ta="center" mb="1rem">
+              Login to Mastodon
             </Text>
 
-            <Paper radius="md" p="xl" withBorder mx="xl">
-              <Container w="80%">
-                <Text size="lg" fw={600} ta="center" mb="1rem">
-                  Login to Mastodon
-                </Text>
-
-                <form onSubmit={form.onSubmit(handleLogin)}>
-                  <TextInput
-                      required
-                      radius="lg"
-                      label="Mastodon Instance"
-                      placeholder="instance domain"
-                      {...form.getInputProps('instanceDomain')}
-                  />
-                  <Button type="submit" fullWidth loading={isLoading} mt="2rem" radius="lg" color="pink" variant="light">
-                    Login
-                  </Button>
-                </form>
-              </Container>
-            </Paper>
-          </Container>
-        </Center>
-        <Footer />
-      </>
+            <form onSubmit={form.onSubmit(handleLogin)}>
+              <TextInput
+                required
+                radius="lg"
+                label="Mastodon Instance"
+                placeholder="instance domain"
+                {...form.getInputProps('instanceDomain')}
+              />
+              <Button type="submit" fullWidth loading={isLoading} mt="2rem" radius="lg" color="pink" variant="light">
+                Login
+              </Button>
+            </form>
+          </Paper>
+        </Container>
+      </Center>
+      {/* <Footer /> */}
+    </>
   );
 }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState } from 'react';
@@ -8,7 +9,6 @@ import { formatDistanceToNow } from 'date-fns';
 import { Code } from '@mantine/core';
 import classes from './expandModal.module.css';
 import { useRouter } from 'next/navigation';
-
 
 interface ExpandModalProps {
     stackId: string;
@@ -34,57 +34,104 @@ interface Substack {
     topPost: PostType;
 }
 
+const fakeData = {
+    substacks: [
+        {
+            substackId: "substack-1",
+            size: 50,
+            topPost: {
+                id: "post-1",
+                created_at: "2024-07-03T12:34:56Z",
+                replies_count: 10,
+                favourites_count: 20,
+                favourited: false,
+                bookmarked: false,
+                content: "This is a fake post for testing purposes.",
+                account: {
+                    avatar: "https://example.com/avatar.jpg",
+                    display_name: "Fake User"
+                }
+            }
+        },
+        {
+            substackId: "substack-2",
+            size: 30,
+            topPost: {
+                id: "post-2",
+                created_at: "2024-07-02T11:22:33Z",
+                replies_count: 5,
+                favourites_count: 15,
+                favourited: true,
+                bookmarked: true,
+                content: "Another fake post for testing purposes.",
+                account: {
+                    avatar: "https://example.com/avatar2.jpg",
+                    display_name: "Another Fake User"
+                }
+            }
+        },
+
+        {
+            substackId: "substack-2",
+            size: 30,
+            topPost: {
+                id: "post-2",
+                created_at: "2024-07-02T11:22:33Z",
+                replies_count: 5,
+                favourites_count: 15,
+                favourited: true,
+                bookmarked: true,
+                content: "Another fake post for testing purposes.",
+                account: {
+                    avatar: "https://example.com/avatar2.jpg",
+                    display_name: "Another Fake User"
+                }
+            }
+        },
+        {
+            substackId: "substack-2",
+            size: 30,
+            topPost: {
+                id: "post-2",
+                created_at: "2024-07-02T11:22:33Z",
+                replies_count: 5,
+                favourites_count: 15,
+                favourited: true,
+                bookmarked: true,
+                content: "Another fake post for testing purposes.",
+                account: {
+                    avatar: "https://example.com/avatar2.jpg",
+                    display_name: "Another Fake User"
+                }
+            }
+        }
+    ]
+};
+
 export default function ExpandModal({ stackId }: ExpandModalProps) {
     const [substacks, setSubstacks] = useState<Substack[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const router = useRouter();
 
-
-
     useEffect(() => {
         fetchSubstacks(stackId);
     }, [stackId]);
 
+    const fetchSubstacks = async (id: string) => {
+  
+        setSubstacks(fakeData.substacks);
+    };
 
-      
-      const fetchActualSubstacks = async (id: string) => {
-        try {
-          const response = await axios.get(`https://beta.stacky.social:3002/stacks/${id}/substacks`);
-          setSubstacks(response.data);
-        } catch (error) {
-          console.error('Failed to fetch substacks:', error);
-        }
-      };
-      
-      const handleMockSearch = async (event: React.KeyboardEvent<HTMLInputElement>) => {
+    const handleSearch = async (event: React.KeyboardEvent<HTMLInputElement>) => {
         if (event.key === 'Enter') {
-          try {
-            const response = await axios.get('/mockFilteredSubstacks.json');
-            setSubstacks(response.data);
-          } catch (error) {
-            console.error('Failed to fetch mock filtered substacks:', error);
-          }
+            const filteredSubstacks = fakeData.substacks.filter(substack =>
+                substack.topPost.content.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            setSubstacks(filteredSubstacks);
         }
-      };
-      
-      const handleActualSearch = async (event: React.KeyboardEvent<HTMLInputElement>) => {
-        if (event.key === 'Enter') {
-          try {
-            const response = await axios.get(`https://beta.stacky.social:3002/stacks/${stackId}/filter?query=${searchTerm}`);
-            setSubstacks(response.data);
-          } catch (error) {
-            console.error('Failed to fetch filtered substacks:', error);
-          }
-        }
-      };
-      
-      
-      // use actual API
-      const fetchSubstacks = fetchActualSubstacks;
-      const handleSearch = handleActualSearch;
-      
+    };
 
-      const handleStackClick = (topPostId: string) => {
+    const handleStackClick = (topPostId: string) => {
         console.log(`Navigating to /posts/${topPostId}`);
         router.push(`/posts/${topPostId}`);
     };
@@ -116,7 +163,7 @@ export default function ExpandModal({ stackId }: ExpandModalProps) {
                     </div>
                     <Text pl={54} pt="sm" size="sm">Post Id: {stack.topPost.id}</Text>
                     <Text pl={54} pt="sm" size="sm">Stack Id: {stack.substackId}</Text>
-                    <Text pl={54} pt="sm" size="sm">Stack rel: {stack.size}</Text>
+                    <Text pl={54} pt="sm" size="sm">Stack size: {stack.size}</Text>
                 </UnstyledButton>
                 <Divider my="md" />
                 <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
@@ -130,7 +177,7 @@ export default function ExpandModal({ stackId }: ExpandModalProps) {
                         {stack.topPost.bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
                     </Button>
                     <Button variant="subtle" size="sm" radius="lg">
-                        <IconShare size={20} />
+                        <IconSearch size={20} />
                     </Button>
                 </Group>
             </Paper>

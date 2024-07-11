@@ -79,6 +79,10 @@ function CallbackPage() {
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const instance = `https://${state}`;
+    console.log('Authorization code:', code);
+    if (code) {
+      localStorage.setItem('authCode', code);
+    }
 
     if (code) {
       fetchAccessToken(code, instance);
