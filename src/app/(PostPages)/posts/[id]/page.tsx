@@ -18,9 +18,7 @@ import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconHeartFilled,
 import axios from 'axios';
 import ExpandModal from "../../../../components/ExpandModal";
 import RelatedStacks from '../../../../components/RelatedStacks';
-import RelatedStackStats from '../../../../components/RelatedStackStats';
 import ReplySection from '../../../../components/ReplySection';
-import StackCount from '../../../../components/StackCount';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
@@ -172,7 +170,7 @@ export default function PostView({ params }: { params: { id: string } }) {
     };
 
     const fetchStackId = async (postId: string): Promise<StackData> => {
-        
+
         const fakeStackData: { [key: string]: StackData } = {
             "112701710903410105": { stackId: "stack-1", size: 20 },
             "112712545788018654": { stackId: "stack-2", size: 15 },
