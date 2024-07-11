@@ -52,6 +52,8 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
             handleStackIconClick={handleStackIconClick}
             loadStackInfo={false}
             accessToken={accessToken}
+            setIsModalOpen={() => {}}
+            setIsExpandModalOpen={() => {}}
           />
         )}
       </ScrollArea>

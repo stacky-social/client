@@ -1,5 +1,6 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { SubmitPost } from '../SubmitPost/SubmitPost';
 import SearchBar from '../SearchBar/SearchBar';
 import RelatedStacks from '../RelatedStacks';
@@ -11,8 +12,10 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
     const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
     const [activePostId, setActivePostId] = useState<string | null>(null);
     const [postPosition, setPostPosition] = useState<{ top: number, height: number } | null>(null);
-    const [isModalOpen, setIsModalOpen] = useState(false); // 控制relatedStacks的显示和关闭
-    const [isExpandModalOpen, setIsExpandModalOpen] = useState(false); // 控制expandmodal的显示和关闭
+    const [isModalOpen, setIsModalOpen] = useState(false); 
+    const [isExpandModalOpen, setIsExpandModalOpen] = useState(false); 
+
+    const relatedStacksRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
@@ -25,13 +28,26 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
     }, []);
 
     const handleStackIconClick = (relatedStacks: any[], postId: string, position: { top: number, height: number }) => {
-        setRelatedStacks([...relatedStacks]); // 更新 relatedStacks 的副本
+        setRelatedStacks([...relatedStacks]); 
         setActivePostId(postId);
         setPostPosition(position);
     };
 
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (isExpandModalOpen) return;
+            if (relatedStacksRef.current && !relatedStacksRef.current.contains(event.target as Node)) {
+                setRelatedStacks([]);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [relatedStacks, isExpandModalOpen]);
+
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 500px', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem' }}>
             <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>
                     <div style={{ width: '90%', marginLeft: '-3rem' }}>
@@ -43,25 +59,35 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
                     handleStackIconClick={handleStackIconClick}
                     loadStackInfo={loadStackInfo}
                     accessToken={accessToken}
-                    setIsModalOpen={setIsModalOpen} // 传递 setIsModalOpen
-                    setIsExpandModalOpen={setIsExpandModalOpen} // 传递 setIsExpandModalOpen
+                    setIsModalOpen={setIsModalOpen} 
+                    setIsExpandModalOpen={setIsExpandModalOpen}
                 />
             </div>
             <div style={{ gridColumn: '2 / 3', position: 'relative' }}>
                 <SearchBar />
-                <div style={{ marginRight: '10rem', position: 'relative' }}>
-                    {relatedStacks.length > 0 && postPosition && (
-                        <div id="related-stacks" style={{ position: 'absolute', top: postPosition.top - 200, left: 0 }}>
-                            <RelatedStacks
-                                relatedStacks={relatedStacks}
-                                cardWidth={450}
-                                cardHeight={200}
-                                onStackClick={() => { }}
-                                setIsModalOpen={setIsModalOpen} // 传递 setIsModalOpen
-                                setIsExpandModalOpen={setIsExpandModalOpen} // 传递 setIsExpandModalOpen
-                            />
-                        </div>
-                    )}
+                <div style={{ marginRight: '10rem', position: 'relative' }} ref={relatedStacksRef}>
+                    <AnimatePresence>
+                        {relatedStacks.length > 0 && postPosition && (
+                            <motion.div
+                                id="related-stacks"
+                                style={{ position: 'absolute', top: postPosition.top - 200, left: 0 }}
+                                initial={{ opacity: 0, x: -200 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -200 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <RelatedStacks
+                                    key={relatedStacks.map(stack => stack.stackId).join(',')} 
+                                    relatedStacks={relatedStacks}
+                                    cardWidth={450}
+                                    cardHeight={200}
+                                    onStackClick={() => { }}
+                                    setIsModalOpen={setIsModalOpen} 
+                                    setIsExpandModalOpen={setIsExpandModalOpen} 
+                                />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
             </div>
         </div>
