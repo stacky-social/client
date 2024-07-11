@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import {useEffect, useState} from 'react';
 import { Title, Text, Button, TextInput, Box, Center, Container, rem, Paper } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
@@ -9,6 +9,8 @@ import { Header } from '../components/Header/Header';
 import { Footer } from '../components/Footer/Footer';
 import classes from './LandingPage.module.css';
 import {BASE_URL} from "../utils/DevMode";
+
+
 
 interface FormValues {
   instanceDomain: string;
@@ -45,6 +47,15 @@ export default function LandingPage() {
     console.log("Authorization URL:", authorizationUrl);
     window.location.href = authorizationUrl;
   };
+
+  //
+  useEffect(() => {
+    // check if user is already logged in
+
+    //router.push("/home")
+
+  }, [])
+
 
   return (
     <>
