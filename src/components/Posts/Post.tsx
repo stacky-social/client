@@ -90,7 +90,7 @@ interface PreviewCard {
   title: string;
   description: string;
   image?: string;
-  url: string; 
+  url: string;
 }
 
 const extractLinks = (text: string): string[] => {
@@ -126,9 +126,9 @@ interface PostProps {
   favourited: boolean;
   bookmarked: boolean;
   mediaAttachments: string[];
-  onStackIconClick: (relatedStacks: any[], postId: string, position: { top: number, height: number }) => void; 
+  onStackIconClick: (relatedStacks: any[], postId: string, position: { top: number, height: number }) => void;
   setIsModalOpen: (isOpen: boolean) => void;
-  setIsExpandModalOpen: (isOpen: boolean) => void; 
+  setIsExpandModalOpen: (isOpen: boolean) => void;
 }
 
 
@@ -137,8 +137,8 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
   const paperRef = useRef<HTMLDivElement>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false); 
-  const [isExpandModalOpen, setIsExpandModalOpen] = useState(false); 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExpandModalOpen, setIsExpandModalOpen] = useState(false);
 
   const [liked, setLiked] = useState(favourited);
   const [bookmarkedState, setBookmarkedState] = useState(bookmarked);
@@ -238,7 +238,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
           },
         });
       }
-      await fetchPostData(); 
+      await fetchPostData();
     } catch (error) {
       console.error('Error liking post:', error);
     }
@@ -273,7 +273,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   };
 
   const handleStackCountClick = () => {
-    const newRelatedStacks = fakeRelatedStacks; 
+    const newRelatedStacks = fakeRelatedStacks;
     setRelatedStacks(newRelatedStacks);
     setIsExpanded(true);
     const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
@@ -297,9 +297,9 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   };
 
   const handleLinkClick = (e: MouseEvent) => {
-   
+
   };
-  
+
   useEffect(() => {
   const links = document.querySelectorAll('.post-content a');
   links.forEach(link => {
@@ -312,7 +312,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
     });
   };
 }, [text]);
-  
+
   return (
     <div style={{ position: 'relative', margin: '15px', marginBottom: '2rem', width: "90%" }}>
       <Paper
@@ -329,12 +329,12 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
         withBorder
         onMouseEnter={() => {
           if (paperRef.current) {
-            paperRef.current.style.backgroundColor = 'rgba(245, 245, 245)'; 
+            paperRef.current.style.backgroundColor = 'rgba(245, 245, 245)';
           }
         }}
         onMouseLeave={() => {
           if (paperRef.current) {
-            paperRef.current.style.backgroundColor = 'rgba(255, 255, 255, 1)'; 
+            paperRef.current.style.backgroundColor = 'rgba(255, 255, 255, 1)';
           }
         }}
       >
@@ -345,14 +345,14 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
             </UnstyledButton>
             <div>
               <Text size="sm">{author}</Text>
-              <Text size="xs" color="dimmed">{formatDistanceToNow(new Date(createdAt))} ago</Text>
+              <Text size="xs" c="dimmed">{formatDistanceToNow(new Date(createdAt))} ago</Text>
             </div>
           </Group>
-          
+
           <Text pl={54} pt="sm" size="sm" className="post-content" dangerouslySetInnerHTML={{ __html: text }} />
-          
+
           {mediaAttachments.length > 0 && (
-           <div style={{ paddingLeft: '54px', paddingRight: '54px', paddingTop: '1rem' }}> 
+           <div style={{ paddingLeft: '54px', paddingRight: '54px', paddingTop: '1rem' }}>
             {mediaAttachments.map((url, index) => (
               <img key={index} src={url} alt={`Attachment ${index + 1}`} style={{ width: '100%', marginBottom: '10px' }} />
             ))}
@@ -364,10 +364,10 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
             display: 'flex',
             alignItems: 'flex-start',
             padding: '1rem',
-            border: '1px solid rgba(0, 0, 0, 0.1)',  
-            borderRadius: '8px',  
-            overflow: 'hidden', 
-            boxShadow: '0 3px 3px rgba(0, 0, 0, 0.1)',  
+            border: '1px solid rgba(0, 0, 0, 0.1)',
+            borderRadius: '8px',
+            overflow: 'hidden',
+            boxShadow: '0 3px 3px rgba(0, 0, 0, 0.1)',
             marginTop: '1rem',
           }} onClick={(e) => { e.stopPropagation(); window.open(card.url, '_blank'); }}>
             {card.image && (
@@ -375,7 +375,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
             )}
             <div>
               <Text size="sm">{card.title}</Text>
-              <Text size="xs" color="dimmed">{card.description}</Text>
+              <Text size="xs" c="dimmed">{card.description}</Text>
             </div>
           </div>
         ))}
@@ -398,17 +398,17 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
             <IconNote size={20} />
           </Button>
         </Group>
-  
+
         <UnstyledButton onClick={handleStackCountClick}>
-           <StackCount 
-            count={stackCount} 
-            onClick={handleStackCountClick} 
-            onStackClick={handleStackClick} 
-            relatedStacks={relatedStacks} 
-            expanded={isExpanded} 
+           <StackCount
+            count={stackCount}
+            onClick={handleStackCountClick}
+            onStackClick={handleStackClick}
+            relatedStacks={relatedStacks}
+            expanded={isExpanded}
           />
         </UnstyledButton>
-     
+
       </Paper>
       {stackId !== null && [...Array(4)].map((_, index) => (
         <div
@@ -430,7 +430,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
       <AnnotationModal
         isOpen={annotationModalOpen}
         onClose={() => setAnnotationModalOpen(false)}
-        stackId={stackId} 
+        stackId={stackId}
       />
     </div>
   );
