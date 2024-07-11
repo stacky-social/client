@@ -20,4 +20,8 @@ const StackLogo = ({ size = 30, spacing = 10 }: { size?: number, spacing?: numbe
     </div>
 );
 
+
+
+
+
 export default StackLogo;

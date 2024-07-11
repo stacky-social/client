@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import React from 'react';
 import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button } from '@mantine/core';
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
-import StackCount from './StackCount';
+import RelatedStackCount from './RelatedStackCount'; 
 import StackPostsModal from './StackPostsModal';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import './RelatedStacks.css';
+import { randomEmojis } from '../utils/emojiMapping';
 
 interface PostType {
   id: string;
@@ -29,56 +31,51 @@ interface RelatedStackType {
 }
 
 interface RelatedStacksProps {
-  stackId: string;
+  relatedStacks: RelatedStackType[];
   cardWidth: number;
   cardHeight: number;
   onStackClick: (stackId: string) => void;
-  onLoadComplete: () => void;  // Callback to signal loading completion
+  setIsModalOpen: (isOpen: boolean) => void;
+  setIsExpandModalOpen: (isOpen: boolean) => void; 
 }
 
-
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ stackId, cardWidth, cardHeight, onStackClick,onLoadComplete }) => {
-  const [relatedStacks, setRelatedStacks] = useState<RelatedStackType[]>([]);
+const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, cardHeight, onStackClick, setIsExpandModalOpen }) => {
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [currentStackId, setCurrentStackId] = useState('');
   const router = useRouter();
-
-  useEffect(() => {
-    const fetchRelatedStacks = async () => {
-      try {
-        const response = await axios.get(`https://beta.stacky.social:3002/stacks/${stackId}/related`);
-        setRelatedStacks(response.data.relatedStacks);
-        onLoadComplete();  // Call the callback once data is loaded
-      } catch (error) {
-        console.error('Failed to fetch related stacks:', error);
-        onLoadComplete();  // Ensure to call onLoadComplete even if there's an error
-      }
-    };
-    fetchRelatedStacks();
-  }, [stackId, onLoadComplete]);
+  const [maxStacksToShow, setMaxStacksToShow] = useState(3);
 
   const handleStackCountClick = (stackId: string) => {
     setCurrentStackId(stackId);
     setStackPostsModalOpen(true);
+    setIsExpandModalOpen(true);
   };
-  
-  const handleNavigate = (postId:string,newstackId:string) => {
-    const url = `/posts/${postId}?stackId=${newstackId || ''}`;
+
+  const handleNavigate = (postId: string, newStackId: string) => {
+    const url = `/posts/${postId}?stackId=${newStackId || ''}`;
     router.push(url);
   };
 
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', margin: '2rem' }}>
-      {relatedStacks.map((stack) => (
-        <div key={stack.stackId} style={{ position: 'relative', margin: '20px', marginBottom: '2rem', width: cardWidth, marginLeft: '2rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center', width: '100%' }}>
+      {relatedStacks.slice(0, maxStacksToShow).map((stack) => (
+        <div
+          key={stack.stackId}
+          style={{
+            position: 'relative',
+            margin: '20px 20px',
+            marginTop: '30px',
+            width: cardWidth,
+          }}
+        >
           <Paper style={{
-              position: 'relative',
-              width: cardWidth,
-              backgroundColor: '#E3FAFC',
-              zIndex: 5,
-              boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-              borderRadius: '8px',
+            position: 'relative',
+            width: cardWidth,
+            backgroundColor: 'rgba(227, 250, 252, 0.8)',
+            zIndex: 5,
+            boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+            borderRadius: '8px',
+            margin: '0 auto',
           }} withBorder>
             <UnstyledButton onClick={() => handleNavigate(stack.topPost.id, stack.stackId)} style={{ width: '100%' }}>
               <Group>
@@ -88,13 +85,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ stackId, cardWidth, cardH
                   <Text size="xs" color="dimmed">{formatDistanceToNow(new Date(stack.topPost.created_at))} ago</Text>
                 </div>
               </Group>
-              <div style={{ paddingLeft: '54px', paddingTop: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: '3', WebkitBoxOrient: 'vertical' }}>
+              <div style={{ paddingTop: '1rem', paddingLeft: '1rem', paddingRight: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: '3', WebkitBoxOrient: 'vertical' }}>
                 <div dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
               </div>
               <Text pl={54} pt="sm" size="sm">Post Id: {stack.topPost.id}</Text>
               <Text pl={54} pt="sm" size="sm">Stack Id: {stack.stackId}</Text>
-              <Text pl={54} pt="sm" size="sm">Stack rel: {stack.rel}</Text>
             </UnstyledButton>
+            <div className="rel-display">
+              {randomEmojis[stack.rel] || randomEmojis["default"]} {stack.rel}
+            </div>
             <Divider my="md" />
             <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
               <Button variant="subtle" size="sm" radius="lg">
@@ -110,31 +109,35 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ stackId, cardWidth, cardH
                 <IconShare size={20} />
               </Button>
             </Group>
-            <StackCount count={stack.size !== null ? stack.size : 0} onClick={() => handleStackCountClick(stack.stackId)} />
+            <RelatedStackCount count={stack.size} onClick={() => handleStackCountClick(stack.stackId)} />
           </Paper>
 
-          {stack.size!== null && [...Array(4)].map((_, index) => (
-        <div
-          key={index}
-          style={{
-            position: 'absolute',
-            bottom: `${20 - 5 * (index + 1)}px`,
-            left: `${20 - 5 * (index + 1)}px`,
-            width: "100%",
-            height: `${cardHeight+50}px`,
-            backgroundColor: '#fff',
-            zIndex: index + 1,
-            boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-            borderRadius: '8px',
-            border: '1px solid rgba(0, 0, 0, 0.1)',
-          }}
-        />
-      ))}
+          {stack.size !== null && [...Array(4)].map((_, index) => (
+            <div
+              key={index}
+              style={{
+                position: 'absolute',
+                bottom: `${20 - 5 * (index + 1)}px`,
+                left: `${20 - 5 * (index + 1)}px`,
+                width: "100%",
+                height: `${cardHeight + 10}px`,
+                backgroundColor: 'rgba(227, 250, 252, 0.8)',
+                zIndex: index + 1,
+                boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+                borderRadius: '8px',
+                border: '1px solid rgba(0, 0, 0, 0.1)',
+              }}
+            />
+          ))}
         </div>
       ))}
+
       <StackPostsModal
         isOpen={stackPostsModalOpen}
-        onClose={() => setStackPostsModalOpen(false)}
+        onClose={() => {
+          setStackPostsModalOpen(false);
+          setIsExpandModalOpen(false); 
+        }}
         apiUrl={`https://beta.stacky.social:3002/stacks/${currentStackId}/posts`}
         stackId={currentStackId}
       />
