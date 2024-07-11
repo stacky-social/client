@@ -340,6 +340,8 @@ export default function PostView({ params }: { params: { id: string } }) {
                 bookmarked={post.bookmarked}
                 mediaAttachments={[]}
                 onStackIconClick={() => stackId && handleStackIconClick(stackId)}
+                setIsModalOpen={() => {}}
+                setIsExpandModalOpen={()=>{}}
             />
         );
     };
@@ -444,6 +446,8 @@ export default function PostView({ params }: { params: { id: string } }) {
                             cardWidth={400}
                             cardHeight={200}
                             onStackClick={() => {}}
+                            setIsExpandModalOpen={()=>{}}
+                            setIsModalOpen={()=>{}}
                         />
                     )}
                 </div>
