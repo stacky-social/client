@@ -5,14 +5,17 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { notifications } from '@mantine/notifications';
 import { Center, Container, Loader } from '@mantine/core';
 import { Suspense } from 'react';
+import {BASE_URL} from "../../utils/DevMode";
 
 const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
 const clientSecret = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_SECRET;
-const redirectUri = 'http://localhost:3000/callback';
+
+const redirectUri = `${BASE_URL}/callback`;
 
 function CallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
 
   useEffect(() => {
     const fetchAccessToken = async (code: string, instance: string) => {

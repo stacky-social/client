@@ -8,12 +8,13 @@ import { useRouter } from 'next/navigation';
 import { Header } from '../components/Header/Header';
 import { Footer } from '../components/Footer/Footer';
 import classes from './LandingPage.module.css';
+import {BASE_URL} from "../utils/DevMode";
 
 interface FormValues {
   instanceDomain: string;
 }
 
-const redirectUri = 'http://localhost:3000/callback';
+const redirectUri = `${BASE_URL}/callback`;
 const scopes = 'read write follow';
 
 export default function LandingPage() {
