@@ -9,7 +9,7 @@ export default function Home() {
 
 
     return (
-            <Posts apiUrl={testurl} loadStackInfo={true} />
+            <Posts apiUrl={MastodonInstanceUrl} loadStackInfo={true} />
 
     );
 }
