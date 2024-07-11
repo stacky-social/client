@@ -7,6 +7,7 @@ import { notifications } from '@mantine/notifications';
 import classes from './SubmitPost.module.css';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
+// const MastodonInstanceUrl = 'https://mastodon.social';
 
 export function SubmitPost() {
   const [currentUser, setCurrentUser] = useState<any>(null);
