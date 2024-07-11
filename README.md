@@ -10,7 +10,7 @@ Stacks is a web application built with Next.js.
 - [Dependencies](#dependencies)
 
 
-Deployed at: `_`
+Deployed at: `jhustacks.vercel.app`
 
 
 
@@ -42,5 +42,3 @@ pnpm run start
 - `build`: Builds the application for production.
 - `start`: Starts the application in production mode.
 - `lint`: Runs ESLint to check for code quality issues.
-
-For any issues or contributions, please open an issue or submit a pull request on [GitHub](https://github.com/your-username/stacks).
