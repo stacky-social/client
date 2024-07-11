@@ -11,7 +11,7 @@ interface StackPostsModalProps {
   stackId: string | null;
 }
 
-const testurl='https://mastodon.social/api/v1/timelines/public';
+const testurl='https://beta.stacky.social/api/v1/timelines/public';
 
 function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
