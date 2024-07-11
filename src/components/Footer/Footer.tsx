@@ -27,7 +27,6 @@ const data = [
             { label: 'Join Discord', link: '#' },
             { label: 'Follow on Twitter', link: '#' },
             { label: 'Email newsletter', link: '#' },
-            { label: 'GitHub discussions', link: '#' },
         ],
     },
 ];
@@ -58,7 +57,6 @@ export function Footer() {
         <footer className={classes.footer}>
             <Container className={classes.inner}>
                 <div className={classes.logo}>
-
                     <Text size="xs" c="dimmed" className={classes.description}>
                         Build fully functional accessible web applications faster than ever
                     </Text>
