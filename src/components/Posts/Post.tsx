@@ -205,7 +205,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
       setBookmarkedState(data.bookmarked);
       setMediaAttachments(mediaAttachments);
 
-      const links = extractLinks(data.content);
+      const links = extractLinks(data.content).filter(link => !link.startsWith('#')); // 排除标签链接
       const previewCardsPromises = links.map(link => fetchPreviewCard(link));
       const previewCards = await Promise.all(previewCardsPromises);
       setPreviewCards(previewCards.filter(card => card !== null) as PreviewCard[]);
@@ -297,10 +297,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   };
 
   const handleLinkClick = (e: MouseEvent) => {
-    // const target = e.target as HTMLElement;
-    // if (target.tagName !== 'A') {
-    //   e.stopPropagation();
-    // }
+   
   };
   
   useEffect(() => {
