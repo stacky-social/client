@@ -94,9 +94,15 @@ interface PreviewCard {
 }
 
 const extractLinks = (text: string): string[] => {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return text.match(urlRegex) || [];
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text, 'text/html');
+  const anchors = doc.querySelectorAll('a:not(.mention.hashtag)') as NodeListOf<HTMLAnchorElement>; // 明确指定为 HTMLAnchorElement 类型并排除hashtag链接
+  return Array.from(anchors)
+    .map(anchor => anchor.href)
+    .filter(href => href.startsWith('http')); // 只提取以 http 或 https 开头的链接
 };
+
+
 
 const fetchPreviewCard = async (url: string): Promise<PreviewCard | null> => {
   try {
@@ -153,7 +159,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   useEffect(() => {
     if (paperRef.current) {
       setCardHeight(paperRef.current.clientHeight);
-      console.log('Card height:', paperRef.current.clientHeight);
+      
     }
   }, [text, mediaAttachments, previewCards]);
 
@@ -190,7 +196,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   const fetchPostData = async () => {
     const accessToken = getAccessToken();
     if (!accessToken) return;
-
+  
     try {
       const response = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${id}`, {
         headers: {
@@ -204,8 +210,9 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
       setLiked(data.favourited);
       setBookmarkedState(data.bookmarked);
       setMediaAttachments(mediaAttachments);
-
-      const links = extractLinks(data.content).filter(link => !link.startsWith('#')); // 排除标签链接
+  
+      const links = extractLinks(data.content); 
+      
       const previewCardsPromises = links.map(link => fetchPreviewCard(link));
       const previewCards = await Promise.all(previewCardsPromises);
       setPreviewCards(previewCards.filter(card => card !== null) as PreviewCard[]);
@@ -213,6 +220,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
       console.error('Error fetching post data:', error);
     }
   };
+  
 
   const handleNavigateToUser = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -297,21 +305,26 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
   };
 
   const handleLinkClick = (e: MouseEvent) => {
-
+    e.preventDefault();
+    const target = e.target as HTMLAnchorElement;
+    if (target && target.href) {
+      window.open(target.href, '_blank');
+    }
   };
 
   useEffect(() => {
-  const links = document.querySelectorAll('.post-content a');
-  links.forEach(link => {
-    link.addEventListener('click', handleLinkClick as EventListener);
-  });
-
-  return () => {
+    const links = document.querySelectorAll('.post-content a');
+    console.log('Links:', links);
     links.forEach(link => {
-      link.removeEventListener('click', handleLinkClick as EventListener);
+      link.addEventListener('click', handleLinkClick as EventListener);
     });
-  };
-}, [text]);
+
+    return () => {
+      links.forEach(link => {
+        link.removeEventListener('click', handleLinkClick as EventListener);
+      });
+    };
+  }, [text]);
 
   return (
     <div style={{ position: 'relative', margin: '15px', marginBottom: '2rem', width: "90%" }}>
@@ -350,6 +363,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
           </Group>
 
           <Text pl={54} pt="sm" size="sm" className="post-content" dangerouslySetInnerHTML={{ __html: text }} />
+         
 
           {mediaAttachments.length > 0 && (
            <div style={{ paddingLeft: '54px', paddingRight: '54px', paddingTop: '1rem' }}>
