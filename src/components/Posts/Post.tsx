@@ -99,7 +99,7 @@ const extractLinks = (text: string): string[] => {
   const anchors = doc.querySelectorAll('a:not(.mention.hashtag)') as NodeListOf<HTMLAnchorElement>; // 明确指定为 HTMLAnchorElement 类型并排除hashtag链接
   return Array.from(anchors)
     .map(anchor => anchor.href)
-    .filter(href => href.startsWith('http')); // 只提取以 http 或 https 开头的链接
+    .filter(href => href.startsWith('http')); 
 };
 
 
@@ -123,6 +123,7 @@ interface PostProps {
   id: string;
   text: string;
   author: string;
+  account:string;
   avatar: string;
   repliesCount: number;
   createdAt: string;
@@ -139,7 +140,7 @@ interface PostProps {
 
 
 
-export default function Post({ id, text, author, avatar, repliesCount, createdAt, stackCount, stackId, favouritesCount, favourited, bookmarked, onStackIconClick}: PostProps) {
+export default function Post({ id, text, author, account,avatar, repliesCount, createdAt, stackCount, stackId, favouritesCount, favourited, bookmarked, onStackIconClick}: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
   const paperRef = useRef<HTMLDivElement>(null);
@@ -224,7 +225,7 @@ export default function Post({ id, text, author, avatar, repliesCount, createdAt
 
   const handleNavigateToUser = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const url = `/user/${author}`;
+    const url = `/user/${account}`;
     router.push(url);
   };
 

@@ -30,6 +30,7 @@ const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadS
                     postId: post.id,
                     text: post.content,
                     author: post.account.username,
+                    account:post.account.acct,
                     avatar: post.account.avatar,
                     createdAt: post.created_at,
                     replies: post.replies_count,
@@ -90,6 +91,7 @@ const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadS
             id={post.postId}
             text={post.text}
             author={post.author}
+            account={post.account}
             avatar={post.avatar}
             repliesCount={post.replies_count}
             createdAt={post.createdAt}

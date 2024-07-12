@@ -1,8 +1,9 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { TextInput, rem, Box, Paper, ActionIcon, useMantineTheme, List, ThemeIcon } from '@mantine/core';
+import { TextInput, rem, Box, Paper, ActionIcon, useMantineTheme, List, ThemeIcon, Avatar, UnstyledButton,Group } from '@mantine/core';
 import { IconArrowRight, IconSearch, IconUser, IconTag, IconMessage } from '@tabler/icons-react';
 import axios from 'axios';
+import { useRouter } from 'next/navigation';
 
 type SearchResult = {
   accounts: Array<{
@@ -34,20 +35,23 @@ type SearchResult = {
 };
 
 export default function SearchBar() {
+    const router = useRouter();
   const theme = useMantineTheme();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult>({ accounts: [], statuses: [], hashtags: [] });
   const [accessToken, setAccessToken] = useState<string | null>(null);
-
-  const icon = <IconSearch style={{ width: rem(16), height: rem(16) }} />;
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     setAccessToken(token);
+    setMounted(true);
   }, []);
 
+  const icon = <IconSearch style={{ width: rem(16), height: rem(16) }} />;
+
   const handleSearch = async () => {
-    console.log('Search button clicked'); // 调试信息
+    console.log('Search button clicked'); 
     if (!accessToken) {
       console.error('No access token found');
       return;
@@ -55,7 +59,7 @@ export default function SearchBar() {
 
     try {
       const response = await axios.get(`https://beta.stacky.social/api/v2/search`, {
-        params: { q: query, limit: 10 }, // 可以根据需要调整参数
+        params: { q: query, limit: 10 }, 
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -66,7 +70,16 @@ export default function SearchBar() {
     }
   };
 
+  const handleNavigateToUser = (acct: string) => {
+ 
+      
+      const url = `/user/${acct}`;
+      router.push(url);
+ 
+  };
+
   return (
+    
     <Paper withBorder p="md" mb="lg">
       <TextInput
         size="lg"
@@ -87,11 +100,17 @@ export default function SearchBar() {
             <h3>Accounts</h3>
             <List>
               {results.accounts.map((account) => (
-                <Paper key={account.id} withBorder p="md" mb="sm">
-                  <ThemeIcon color="blue" size={32} radius="xl"><IconUser size={rem(18)} /></ThemeIcon>
-                  <div>{account.display_name} (@{account.username})</div>
-                  <div dangerouslySetInnerHTML={{ __html: account.note }} />
-                </Paper>
+                <UnstyledButton key={account.id} onClick={() => handleNavigateToUser(account.acct)} style={{ width: '100%' }}>
+                  <Paper withBorder p="md" mb="sm">
+                    <Group>
+                      <Avatar src={account.avatar} radius="xl" size="lg" />
+                      <div>
+                        <div>{account.display_name} (@{account.username})</div>
+                        <div dangerouslySetInnerHTML={{ __html: account.note }} />
+                      </div>
+                    </Group>
+                  </Paper>
+                </UnstyledButton>
               ))}
             </List>
           </Box>
