@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { TextInput, rem, Box, Paper, ActionIcon, useMantineTheme, List, ThemeIcon, Avatar, UnstyledButton,Group } from '@mantine/core';
+import { TextInput, rem, Box, Paper, ActionIcon, useMantineTheme, List, ThemeIcon, Avatar, UnstyledButton, Group } from '@mantine/core';
 import { IconArrowRight, IconSearch, IconUser, IconTag, IconMessage } from '@tabler/icons-react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
@@ -35,7 +35,7 @@ type SearchResult = {
 };
 
 export default function SearchBar() {
-    const router = useRouter();
+  const router = useRouter();
   const theme = useMantineTheme();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult>({ accounts: [], statuses: [], hashtags: [] });
@@ -51,7 +51,7 @@ export default function SearchBar() {
   const icon = <IconSearch style={{ width: rem(16), height: rem(16) }} />;
 
   const handleSearch = async () => {
-    console.log('Search button clicked'); 
+    console.log('Search button clicked');
     if (!accessToken) {
       console.error('No access token found');
       return;
@@ -59,11 +59,12 @@ export default function SearchBar() {
 
     try {
       const response = await axios.get(`https://beta.stacky.social/api/v2/search`, {
-        params: { q: query, limit: 10 }, 
+        params: { q: query, limit: 10 },
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
       });
+      console.log('Search results:', response.data);
       setResults(response.data);
     } catch (error) {
       console.error('Error searching Mastodon:', error);
@@ -71,15 +72,16 @@ export default function SearchBar() {
   };
 
   const handleNavigateToUser = (acct: string) => {
- 
-      
-      const url = `/user/${acct}`;
-      router.push(url);
- 
+    const url = `/user/${acct}`;
+    router.push(url);
+  };
+
+  const handleNavigateToTag = (tag: string) => {
+    const url = `/tag/${tag}`;
+    router.push(url);
   };
 
   return (
-    
     <Paper withBorder p="md" mb="lg">
       <TextInput
         size="lg"
@@ -120,10 +122,14 @@ export default function SearchBar() {
             <h3>Hashtags</h3>
             <List>
               {results.hashtags.map((hashtag) => (
-                <Paper key={hashtag.name} withBorder p="md" mb="sm">
-                  <ThemeIcon color="green" size={32} radius="xl"><IconTag size={rem(18)} /></ThemeIcon>
-                  <div>#{hashtag.name}</div>
-                </Paper>
+                <UnstyledButton key={hashtag.name} onClick={() => handleNavigateToTag(hashtag.name)} style={{ width: '100%' }}>
+                  <Paper withBorder p="md" mb="sm">
+                    <Group>
+                      <ThemeIcon color="green" size={32} radius="xl"><IconTag size={rem(18)} /></ThemeIcon>
+                      <div>#{hashtag.name}</div>
+                    </Group>
+                  </Paper>
+                </UnstyledButton>
               ))}
             </List>
           </Box>

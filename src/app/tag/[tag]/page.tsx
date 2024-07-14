@@ -98,7 +98,7 @@ export default function TagPage() {
         </Group>
       </Paper>
       <div style={{ marginTop: '20px' }}>
-        <Posts apiUrl={`${MastodonInstanceUrl}/api/v1//timelines/tags/${tagName}`} loadStackInfo={true} showSubmitAndSearch={false} />
+        <Posts apiUrl={`${MastodonInstanceUrl}/api/v1//timelines/tag/${tagName}`} loadStackInfo={true} showSubmitAndSearch={false} />
       </div>
     </div>
   );

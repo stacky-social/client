@@ -33,6 +33,7 @@ interface PostType {
     account: {
         avatar: string;
         display_name: string;
+        username: string; 
     };
 }
 
@@ -331,6 +332,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                 text={post.content}
                 author={post.account.username}
                 account={post.account.acc}
+                
                 avatar={post.account.avatar}
                 repliesCount={post.replies_count}
                 createdAt={post.created_at}
