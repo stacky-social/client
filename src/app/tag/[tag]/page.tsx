@@ -7,10 +7,23 @@ import Posts from '../../../components/Posts/Posts';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
+interface TagHistory {
+  day: string;
+  uses: string;
+  accounts: string;
+}
+
+interface TagData {
+  name: string;
+  url: string;
+  history: TagHistory[];
+  following: boolean;
+}
+
 export default function TagPage() {
   const params = useParams();
   const tagName = Array.isArray(params.tag) ? params.tag[0] : params.tag;
-  const [tagData, setTagData] = useState<any>(null);
+  const [tagData, setTagData] = useState<TagData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   const accessToken = localStorage.getItem('accessToken');
@@ -58,7 +71,7 @@ export default function TagPage() {
     }
   };
 
-  if (loading) {
+  if (loading || !tagData) {
     return <div>Loading...</div>;
   }
 
@@ -84,21 +97,24 @@ export default function TagPage() {
           </Button>
         </Group>
         <Divider my="md" />
-        <Text>{tagData ? tagData.description : 'No description available'}</Text>
-        <Divider my="md" />
+       
         <Group style={{ justifyContent: 'center', gap: '2rem' }}>
           <div>
-            {/* <Text size="lg" style={{ textAlign: 'center' }}>{tagData.history.reduce((acc, day) => acc + parseInt(day.uses), 0)}</Text> */}
-            <Text size="sm" color="dimmed" style={{ textAlign: 'center' }}>Posts</Text>
+            <Text size="lg" style={{ textAlign: 'center' }}>
+              {tagData.history.reduce((acc: number, day: TagHistory) => acc + parseInt(day.uses), 0)}
+            </Text>
+            <Text size="sm" c="dimmed" style={{ textAlign: 'center' }}>Posts</Text>
           </div>
           <div>
-            {/* <Text size="lg" style={{ textAlign: 'center' }}>{tagData.history.reduce((acc, day) => acc + parseInt(day.accounts), 0)}</Text> */}
-            <Text size="sm" color="dimmed" style={{ textAlign: 'center' }}>Participants</Text>
+            <Text size="lg" style={{ textAlign: 'center' }}>
+              {tagData.history.reduce((acc: number, day: TagHistory) => acc + parseInt(day.accounts), 0)}
+            </Text>
+            <Text size="sm" c="dimmed" style={{ textAlign: 'center' }}>Participants</Text>
           </div>
         </Group>
       </Paper>
       <div style={{ marginTop: '20px' }}>
-        <Posts apiUrl={`${MastodonInstanceUrl}/api/v1//timelines/tag/${tagName}`} loadStackInfo={true} showSubmitAndSearch={false} />
+        <Posts apiUrl={`${MastodonInstanceUrl}/api/v1/timelines/tag/${tagName}`} loadStackInfo={true} showSubmitAndSearch={false} />
       </div>
     </div>
   );
