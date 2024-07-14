@@ -78,7 +78,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                     top: currentPostRef.current!.offsetTop,
                     behavior: 'smooth'
                 });
-            }, 100);
+            }, 200);
         }
     }, [relatedStacksLoaded, post]);
 
@@ -197,7 +197,7 @@ export default function PostView({ params }: { params: { id: string } }) {
     };
 
     const fetchRelatedStacks = async (stackId: string) => {
-        // 使用假数据来模拟 relatedStacks
+        
         const fakeRelatedStacks = [
             {
               stackId: "stack-1",
@@ -330,6 +330,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                 id={post.id}
                 text={post.content}
                 author={post.account.username}
+                account={post.account.acc}
                 avatar={post.account.avatar}
                 repliesCount={post.replies_count}
                 createdAt={post.created_at}

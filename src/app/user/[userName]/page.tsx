@@ -141,15 +141,8 @@ export default function UserPage() {
         </Group>
       </Paper>
       <div style={{ marginTop: '20px' }}>
-      {/* <Posts apiUrl={`${MastodonInstanceUrl}/api/v1/accounts/${userData.id}/statuses`}  loadStackInfo={true} /> */}
-        <PostList 
-          apiUrl={`${MastodonInstanceUrl}/api/v1/accounts/${userData.id}/statuses`} 
-          handleStackIconClick={() => {}} 
-          loadStackInfo={false} 
-          accessToken={accessToken} 
-          setIsModalOpen={() => {}} 
-          setIsExpandModalOpen={() => {}}
-        />
+      <Posts apiUrl={`${MastodonInstanceUrl}/api/v1/accounts/${userData.id}/statuses`}  loadStackInfo={true} showSubmitAndSearch={false} />
+       
       </div>
     </div>
   );

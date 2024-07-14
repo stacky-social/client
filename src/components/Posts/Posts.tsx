@@ -6,7 +6,7 @@ import SearchBar from '../SearchBar/SearchBar';
 import RelatedStacks from '../RelatedStacks';
 import PostList from '../PostList';
 
-export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadStackInfo: boolean }) {
+export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { apiUrl: string, loadStackInfo: boolean, showSubmitAndSearch: boolean }) {
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
@@ -49,11 +49,13 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
     return (
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem' }}>
             <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>
-                    <div style={{ width: '90%', marginLeft: '-3rem' }}>
-                        <SubmitPost />
+                {showSubmitAndSearch && (
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>
+                        <div style={{ width: '90%', marginLeft: '-3rem' }}>
+                            <SubmitPost />
+                        </div>
                     </div>
-                </div>
+                )}
                 <PostList
                     apiUrl={apiUrl}
                     handleStackIconClick={handleStackIconClick}
@@ -64,7 +66,7 @@ export default function Posts({ apiUrl, loadStackInfo }: { apiUrl: string, loadS
                 />
             </div>
             <div style={{ gridColumn: '2 / 3', position: 'relative' }}>
-                <SearchBar />
+                {showSubmitAndSearch && <SearchBar />}
                 <div style={{ marginRight: '10rem', position: 'relative' }} ref={relatedStacksRef}>
                     <AnimatePresence>
                         {relatedStacks.length > 0 && postPosition && (
