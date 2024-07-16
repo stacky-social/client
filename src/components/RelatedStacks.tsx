@@ -21,6 +21,7 @@ interface PostType {
     avatar: string;
     display_name: string;
   };
+  content_rewritten:string;
 }
 
 interface RelatedStackType {
@@ -86,7 +87,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
                 </div>
               </Group>
               <div style={{ paddingTop: '1rem', paddingLeft: '1rem', paddingRight: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: '3', WebkitBoxOrient: 'vertical' }}>
-                <div dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
+             
+                {
+                  stack.topPost.content_rewritten? <div dangerouslySetInnerHTML={{ __html: stack.topPost.content_rewritten }} /> : <div dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
+                }
               </div>
               <Text pl={54} pt="sm" size="sm">Post Id: {stack.topPost.id}</Text>
               <Text pl={54} pt="sm" size="sm">Stack Id: {stack.stackId}</Text>

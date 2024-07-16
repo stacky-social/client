@@ -4,6 +4,8 @@ import { PostType } from '../types/PostType';
 import Post from './Posts/Post';
 import axios from 'axios';
 
+const MastodonInstanceUrl = 'https://beta.stacky.social:3002';
+
 interface PostListProps {
     apiUrl: string;
     handleStackIconClick: (relatedStacks: any[], postId: string, position: { top: number, height: number }) => void;
@@ -58,18 +60,14 @@ const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadS
     }, [apiUrl, accessToken, loadStackInfo]);
 
     const loadStackData = async (posts: PostType[]) => {
-        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
         const updatedPosts = await Promise.all(posts.map(async (post) => {
             if (post.stackCount === -1) {
                 return post;
             }
-            await delay(1000);
             try {
-                const stackData = {
-                    size: Math.floor(Math.random() * 100),
-                    stackId: `stack-${post.postId}`
-                };
+                const response = await axios.get(`${MastodonInstanceUrl}/posts/${post.postId}/stack`, {
+                });
+                const stackData = response.data;
 
                 return {
                     ...post,
@@ -84,7 +82,6 @@ const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadS
 
         setPosts(updatedPosts);
     };
-
     const postElements = posts.map((post: PostType) => (
         <Post
             key={post.postId}
