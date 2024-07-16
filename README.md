@@ -15,10 +15,17 @@ Deployed at: `https://jhustacky.vercel.app`
 
 ## Usage
 
+
+To intall the necessary libraries and modules, first run the following command:
+
+```bash
+pnpm  i or pnpm install
+```
+
 To run the application in development mode, use the following command:
 
 ```bash
-pnpm run dev
+pnpm  dev
 ```
 
 This will start the development server, and you can view the application at `http://localhost:3000`.
@@ -26,13 +33,13 @@ This will start the development server, and you can view the application at `htt
 To build the application for production, use:
 
 ```bash
-pnpm run build
+pnpm build
 ```
 
 Once the build is complete, you can start the production server with:
 
 ```bash
-pnpm run start
+pnpm start
 ```
 
 ## Scripts
