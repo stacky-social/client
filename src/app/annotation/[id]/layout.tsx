@@ -1,13 +1,12 @@
-"use client"
+"use client";
 
-import {AppShell, Burger, Group} from '@mantine/core';
+import { AppShell, Burger, Group } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import { ReactNode } from 'react';
+import {Navbar} from "../../../components/NavBar/Navbar";
+import StackLogo from '../../../utils/StackLogo';
 
-import {Navbar} from "../../components/NavBar/Navbar";
-import StackLogo from '../../utils/StackLogo';
-
-
-export default function PostsPageLayout({ children }: {  children: React.ReactNode; }) {
+export default function AnnotationPageLayout({ children }: { children: ReactNode }) {
     const [opened, { toggle }] = useDisclosure();
 
     return (

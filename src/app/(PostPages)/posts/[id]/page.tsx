@@ -47,6 +47,7 @@ export default function PostView({ params }: { params: { id: string } }) {
     const searchParams = useSearchParams();
     const stackIdFromParams = searchParams.get('stackId');
     const { id } = params;
+    
     const [loading, setLoading] = useState(true);
     const [post, setPost] = useState<any | null>(null);
     const [replies, setReplies] = useState<any[]>([]);
@@ -131,6 +132,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                 id: reply.id,
                 created_at: reply.created_at,
                 replies_count: reply.replies_count,
+                in_reply_to_id: reply.in_reply_to_id,
                 favourites_count: reply.favourites_count,
                 favourited: reply.favourited,
                 bookmarked: reply.bookmarked,
@@ -321,9 +323,12 @@ export default function PostView({ params }: { params: { id: string } }) {
         setRelatedStacksLoaded(true);
     };
 
-    const renderPostWithStack = (post: any) => {
+    const renderAncestors  = (post: any) => {
         const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
         const { stackId, size } = stackData;
+        
+
+        
 
         return (
             <Post
@@ -332,8 +337,41 @@ export default function PostView({ params }: { params: { id: string } }) {
                 text={post.content}
                 author={post.account.username}
                 account={post.account.acc}
-                
                 avatar={post.account.avatar}
+                repliesCount={post.replies_count}
+               
+                createdAt={post.created_at}
+                stackCount={size}
+                stackId={stackId}
+                favouritesCount={post.favourites_count}
+                favourited={post.favourited}
+                bookmarked={post.bookmarked}
+                mediaAttachments={[]}
+                onStackIconClick={() => stackId && handleStackIconClick(stackId)}
+                setIsModalOpen={() => {}}
+                setIsExpandModalOpen={()=>{}}
+            />
+        );
+    };
+
+
+    const renderPostWithStack = (post: any) => {
+        const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
+        const { stackId, size } = stackData;
+
+        if (post.in_reply_to_id !== id) {
+            return null;
+        }
+
+        return (
+            <Post
+                key={post.id}
+                id={post.id}
+                text={post.content}
+                author={post.account.username}
+                account={post.account.acc}
+                avatar={post.account.avatar}
+            
                 repliesCount={post.replies_count}
                 createdAt={post.created_at}
                 stackCount={size}
@@ -374,7 +412,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                     <div style={{ position: 'relative', marginBottom: '2rem' }}>
                         {ancestors.map((ancestor) => (
                             <div key={ancestor.id} style={{ position: 'relative', marginBottom: '1rem' }}>
-                                {renderPostWithStack(ancestor)}
+                                {renderAncestors(ancestor)}
                                 <div style={{
                                     position: 'absolute',
                                     left: '20%',
