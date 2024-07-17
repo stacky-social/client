@@ -6,13 +6,13 @@ import { ReactNode } from 'react';
 import {Navbar} from "../../../components/NavBar/Navbar";
 import StackLogo from '../../../utils/StackLogo';
 
+
 export default function AnnotationPageLayout({ children }: { children: ReactNode }) {
     const [opened, { toggle }] = useDisclosure();
 
     return (
         <AppShell
             header={{ height: 60 }}
-            navbar={{ width: { sm: 200, lg: 300 }, breakpoint: 'sm', collapsed: { mobile: !opened } }}
             padding="md"
         >
             <AppShell.Header>
@@ -21,9 +21,7 @@ export default function AnnotationPageLayout({ children }: { children: ReactNode
                     <StackLogo size={30} />
                 </Group>
             </AppShell.Header>
-            <AppShell.Navbar p="md">
-                <Navbar />
-            </AppShell.Navbar>
+          
             <AppShell.Main>
                 {children}
             </AppShell.Main>
