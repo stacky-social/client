@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { Container, Paper, Group, Avatar, Text, LoadingOverlay, Divider, Button } from '@mantine/core';
-import { IconHeart, IconBookmark, IconMessageCircle, IconShare, IconHeartFilled, IconBookmarkFilled, IconGripVertical } from '@tabler/icons-react';
+import { IconHeart, IconBookmark, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconGripVertical, IconThumbUp, IconThumbDown, IconThumbUpFilled, IconThumbDownFilled } from '@tabler/icons-react';
 import { rem } from '@mantine/core';
 import axios from 'axios';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
@@ -21,6 +21,19 @@ interface PostType {
         display_name: string;
         username: string;
     };
+}
+
+interface RelatedPostType {
+    content: string;
+    postID: string;
+    agree: boolean;
+    disagree: boolean;
+}
+
+interface TaskType {
+    TaskID: string;
+    candidate_related_posts: RelatedPostType[];
+    focus_postID: string;
 }
 
 const PostCard = ({ post, isFocusPost }: { post: PostType, isFocusPost?: boolean }) => (
@@ -44,48 +57,42 @@ const PostCard = ({ post, isFocusPost }: { post: PostType, isFocusPost?: boolean
             <Button variant="subtle" size="sm" radius="lg" style={{ display: 'flex', alignItems: 'center' }}>
                 {post.bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
             </Button>
-            <Button variant="subtle" size="sm" radius="lg">
-                <IconShare size={20} />
-            </Button>
         </Group>
     </Paper>
 );
 
-const RightColumn = () => {
-    const [posts, setPosts] = useState<PostType[]>([]);
-    const [loading, setLoading] = useState(true);
+const RightColumn = ({ relatedPosts, setRelatedPosts }: { relatedPosts: RelatedPostType[], setRelatedPosts: React.Dispatch<React.SetStateAction<RelatedPostType[]>> }) => {
+    const handleAgree = (postID: string) => {
+        setRelatedPosts(prevPosts =>
+            prevPosts.map(post =>
+                post.postID === postID ? { ...post, agree: !post.agree } : post
+            )
+        );
+    };
 
-    useEffect(() => {
-        fetchPosts();
-    }, []);
-
-    const fetchPosts = async () => {
-        try {
-            const response = await axios.get(`${MastodonInstanceUrl}/api/v1/timelines/public`);
-            setPosts(response.data);
-        } catch (error) {
-            console.error('Failed to fetch posts:', error);
-        } finally {
-            setLoading(false);
-        }
+    const handleDisagree = (postID: string) => {
+        setRelatedPosts(prevPosts =>
+            prevPosts.map(post =>
+                post.postID === postID ? { ...post, disagree: !post.disagree } : post
+            )
+        );
     };
 
     return (
-        <div style={{ width: '50%', paddingLeft: rem(10) }}>
-            {loading && <LoadingOverlay visible={loading} />}
+        <div style={{ flex: 1, paddingLeft: rem(10) }}>
             <DragDropContext onDragEnd={({ destination, source }) => {
                 if (destination) {
-                    const reorderedPosts = Array.from(posts);
+                    const reorderedPosts = Array.from(relatedPosts);
                     const [removed] = reorderedPosts.splice(source.index, 1);
                     reorderedPosts.splice(destination.index, 0, removed);
-                    setPosts(reorderedPosts);
+                    setRelatedPosts(reorderedPosts);
                 }
             }}>
                 <Droppable droppableId="post-list" direction="vertical">
                     {(provided) => (
                         <div {...provided.droppableProps} ref={provided.innerRef}>
-                            {posts.map((post, index) => (
-                                <Draggable key={post.id} draggableId={post.id} index={index}>
+                            {relatedPosts.map((post, index) => (
+                                <Draggable key={post.postID} draggableId={post.postID} index={index}>
                                     {(provided, snapshot) => (
                                         <div
                                             ref={provided.innerRef}
@@ -105,7 +112,21 @@ const RightColumn = () => {
                                             <div {...provided.dragHandleProps} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', paddingRight: rem(10) }}>
                                                 <IconGripVertical style={{ width: rem(18), height: rem(18) }} stroke={1.5} />
                                             </div>
-                                            <PostCard post={post} />
+
+                                           
+                                                <Paper withBorder radius="md" p="lg">
+                                                    <Text size="sm">{post.content}</Text>
+                                                    <Divider my="md" />
+                                                    <Group>
+                                                        <Button variant="subtle" size="sm" radius="lg" onClick={() => handleAgree(post.postID)} style={{ display: 'flex', alignItems: 'center' }}>
+                                                            {post.agree ? <IconThumbUpFilled size={20} /> : <IconThumbUp size={20} />} <Text ml={4}>Agree</Text>
+                                                        </Button>
+                                                        <Button variant="subtle" size="sm" radius="lg" onClick={() => handleDisagree(post.postID)} style={{ display: 'flex', alignItems: 'center' }}>
+                                                            {post.disagree ? <IconThumbDownFilled size={20} /> : <IconThumbDown size={20} />} <Text ml={4}>Disagree</Text>
+                                                        </Button>
+                                                    </Group>
+                                                </Paper>
+                                            
                                         </div>
                                     )}
                                 </Draggable>
@@ -120,15 +141,18 @@ const RightColumn = () => {
 };
 
 export default function Annotation() {
-    const postId1 = "112794108401877536"; // 你的post ID
     const [post, setPost] = useState<PostType | null>(null);
     const [replies, setReplies] = useState<PostType[]>([]);
     const [ancestors, setAncestors] = useState<PostType[]>([]);
     const [loading, setLoading] = useState(true);
+    const [relatedPosts, setRelatedPosts] = useState<RelatedPostType[]>([]);
+    const [taskID, setTaskID] = useState<string | null>(null);
+    const [taskList, setTaskList] = useState<TaskType[]>([]);
+    const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
 
     useEffect(() => {
-        fetchPostAndReplies(postId1);
-    }, [postId1]);
+        fetchTaskList();
+    }, []);
 
     const fetchPostAndReplies = async (postId: string) => {
         const accessToken = localStorage.getItem('accessToken');
@@ -162,24 +186,96 @@ export default function Annotation() {
         }
     };
 
+    const fetchTaskList = async () => {
+        setLoading(true);
+        try {
+            const response = await axios.get('https://beta.stacky.social:3002/annotation/task'); // Assume this endpoint returns a list of tasks
+            const data: TaskType[] = response.data;
+            setTaskList(data);
+            setCurrentTaskIndex(0);
+            loadTask(data[0]);
+        } catch (error) {
+            console.error('Failed to fetch task list:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadTask = (task: TaskType) => {
+        console.log('Loading task:', task);
+        setTaskID(task.TaskID);
+        const placeholders: RelatedPostType[] = [
+            { content: "Above this is good", postID: "-1", agree: false, disagree: false },
+            { content: "Below this is bad", postID: "-2", agree: false, disagree: false },
+        ];
+        setRelatedPosts([...placeholders, ...task.candidate_related_posts]);
+        fetchPostAndReplies(task.focus_postID);
+    };
+
+    const handleNextTask = () => {
+        console.log('Current task index:', currentTaskIndex);
+        if (currentTaskIndex < taskList.length - 1) {
+            const nextIndex = currentTaskIndex + 1;
+            setCurrentTaskIndex(nextIndex);
+            loadTask(taskList[nextIndex]);
+        } else {
+            alert('No more tasks.');
+        }
+    };
+
+    const handleSubmit = async () => {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const userID = currentUser.id; 
+
+        if (!taskID || !userID) {
+            console.error('Task ID or User ID is missing.');
+            return;
+        }
+
+        const orderedRelatedPosts = relatedPosts.map(post => ({
+            postID: post.postID,
+            content: post.content,
+            agree: post.agree,
+            disagree: post.disagree
+        }));
+
+        const payload = {
+            taskID,
+            userID,
+            ordered_related_posts: orderedRelatedPosts
+        };
+
+        console.log('Submitting:', payload);
+
+        try {
+            await axios.post('https://beta.stacky.social:3002/annotation/submit', payload);
+            alert('Submission successful!');
+        } catch (error) {
+            console.error('Failed to submit:', error);
+            alert('Submission failed.');
+        }
+    };
+
     return (
-        <Container>
+        <Container fluid>
             <div style={{ marginBottom: rem(20) }}>
-                <Button style={{ marginRight: rem(20) }}>button1</Button>
-                <Button>button 2</Button>
+            <Button style={{ marginRight: rem(20) }} onClick={handleNextTask}>PREVIOUS</Button>
+                <Button style={{ marginRight: rem(20) }} onClick={fetchTaskList}>GET NEW TASK LIST</Button>
+                <Button style={{ marginRight: rem(20) }} onClick={handleSubmit}>SUBMIT</Button>
+                <Button onClick={handleNextTask}>NEXT</Button>
             </div>
-            <div style={{ display: 'flex' }}>
-                <div style={{ width: '50%', paddingRight: rem(10) }}>
+            <div style={{ display: 'flex', width: '100%' }}>
+                <div style={{ width: '35%', paddingRight: rem(10) }}>
                     {loading && <LoadingOverlay visible={loading} />}
                     {ancestors.map(ancestor => (
                         <PostCard key={ancestor.id} post={ancestor} />
                     ))}
                     {post && <PostCard post={post} isFocusPost={true} />}
-                    {replies.map(reply => (
+                    {/* {replies.map(reply => (
                         <PostCard key={reply.id} post={reply} />
-                    ))}
+                    ))} */}
                 </div>
-                <RightColumn />
+                <RightColumn relatedPosts={relatedPosts} setRelatedPosts={setRelatedPosts} />
             </div>
         </Container>
     );
