@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { Container, Paper, Group, Avatar, Text, LoadingOverlay, Divider, Button } from '@mantine/core';
+import { Container, Paper, Group, Avatar, Text, LoadingOverlay, Divider, Button, Card, Progress } from '@mantine/core';
 import { IconHeart, IconBookmark, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconGripVertical, IconThumbUp, IconThumbDown, IconThumbUpFilled, IconThumbDownFilled } from '@tabler/icons-react';
 import { rem } from '@mantine/core';
 import axios from 'axios';
@@ -79,7 +79,7 @@ const RightColumn = ({ relatedPosts, setRelatedPosts }: { relatedPosts: RelatedP
     };
 
     return (
-        <div style={{ flex: 1, paddingLeft: rem(10) }}>
+        <div style={{ flex: 1, paddingLeft: rem(10), paddingTop: rem(20) }}>
             <DragDropContext onDragEnd={({ destination, source }) => {
                 if (destination) {
                     const reorderedPosts = Array.from(relatedPosts);
@@ -93,43 +93,50 @@ const RightColumn = ({ relatedPosts, setRelatedPosts }: { relatedPosts: RelatedP
                         <div {...provided.droppableProps} ref={provided.innerRef}>
                             {relatedPosts.map((post, index) => (
                                 <Draggable key={post.postID} draggableId={post.postID} index={index}>
-                                    {(provided, snapshot) => (
-                                        <div
-                                            ref={provided.innerRef}
-                                            {...provided.draggableProps}
-                                            style={{
-                                                ...provided.draggableProps.style,
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                borderRadius: 'var(--mantine-radius-md)',
-                                                border: `${rem(1)} solid`,
-                                                padding: `${rem(10)} ${rem(20)}`,
-                                                paddingLeft: `calc(${rem(20)} - ${rem(10)})`,
-                                                backgroundColor: snapshot.isDragging ? 'lightgrey' : 'white',
-                                                marginBottom: `${rem(10)}`
-                                            }}
-                                        >
-                                            <div {...provided.dragHandleProps} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', paddingRight: rem(10) }}>
-                                                <IconGripVertical style={{ width: rem(18), height: rem(18) }} stroke={1.5} />
-                                            </div>
+                                    {(provided, snapshot) => {
+                                        const postIDNumber = Number(post.postID);
+                                        return (
+                                            <div
+                                                ref={provided.innerRef}
+                                                {...provided.draggableProps}
+                                                style={{
+                                                    ...provided.draggableProps.style,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    borderRadius: 'var(--mantine-radius-md)',
+                                                    border: `${rem(1)} solid`,
+                                                    borderColor: 'var(--mantine-color-gray-2)',
+                                                    padding: `${rem(10)} ${rem(20)}`,
+                                                    paddingLeft: `calc(${rem(20)} - ${rem(10)})`,
+                                                    backgroundColor: snapshot.isDragging ? 'lightgrey' : (postIDNumber < 0 ? "#ffcccc" : 'white'),
+                                                    marginBottom: `${rem(10)}`
+                                                }}
+                                            >
+                                                <div {...provided.dragHandleProps} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', paddingRight: rem(10) }}>
+                                                    <IconGripVertical style={{ width: rem(18), height: rem(18) }} stroke={1.5} />
+                                                </div>
 
-                                           
-                                                <Paper withBorder radius="md" p="lg">
+                                                {postIDNumber > 0 ? (
+                                                    <Paper withBorder radius="md" p="lg">
+                                                        <Text size="sm">{post.content}</Text>
+                                                        <Divider my="md" />
+                                                        <Group>
+                                                            <Button variant="subtle" size="sm" radius="lg" onClick={() => handleAgree(post.postID)} style={{ display: 'flex', alignItems: 'center' }}>
+                                                                {post.agree ? <IconThumbUpFilled size={20} /> : <IconThumbUp size={20} />} <Text ml={4}>Agree</Text>
+                                                            </Button>
+                                                            <Button variant="subtle" size="sm" radius="lg" onClick={() => handleDisagree(post.postID)} style={{ display: 'flex', alignItems: 'center' }}>
+                                                                {post.disagree ? <IconThumbDownFilled size={20} /> : <IconThumbDown size={20} />} <Text ml={4}>Disagree</Text>
+                                                            </Button>
+                                                        </Group>
+                                                    </Paper>
+                                                ) : (
                                                     <Text size="sm">{post.content}</Text>
-                                                    <Divider my="md" />
-                                                    <Group>
-                                                        <Button variant="subtle" size="sm" radius="lg" onClick={() => handleAgree(post.postID)} style={{ display: 'flex', alignItems: 'center' }}>
-                                                            {post.agree ? <IconThumbUpFilled size={20} /> : <IconThumbUp size={20} />} <Text ml={4}>Agree</Text>
-                                                        </Button>
-                                                        <Button variant="subtle" size="sm" radius="lg" onClick={() => handleDisagree(post.postID)} style={{ display: 'flex', alignItems: 'center' }}>
-                                                            {post.disagree ? <IconThumbDownFilled size={20} /> : <IconThumbDown size={20} />} <Text ml={4}>Disagree</Text>
-                                                        </Button>
-                                                    </Group>
-                                                </Paper>
-                                            
-                                        </div>
-                                    )}
+                                                )}
+                                            </div>
+                                        );
+                                    }}
                                 </Draggable>
+
                             ))}
                             {provided.placeholder}
                         </div>
@@ -137,6 +144,22 @@ const RightColumn = ({ relatedPosts, setRelatedPosts }: { relatedPosts: RelatedP
                 </Droppable>
             </DragDropContext>
         </div>
+    );
+};
+
+const ProgressCard = ({ currentTaskIndex, totalTasks }: { currentTaskIndex: number, totalTasks: number }) => {
+    const progress = ((currentTaskIndex + 1) / totalTasks) * 100;
+
+    return (
+        <Card withBorder radius="md" padding="xl" bg="var(--mantine-color-body)">
+            <Text fz="xs" tt="uppercase" fw={700} c="dimmed">
+                Task Progress
+            </Text>
+            <Text fz="lg" fw={500}>
+                {currentTaskIndex + 1} / {totalTasks}
+            </Text>
+            <Progress value={progress} mt="md" size="lg" radius="xl" />
+        </Card>
     );
 };
 
@@ -149,6 +172,7 @@ export default function Annotation() {
     const [taskID, setTaskID] = useState<string | null>(null);
     const [taskList, setTaskList] = useState<TaskType[]>([]);
     const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
+    const [taskChanges, setTaskChanges] = useState<Record<string, RelatedPostType[]>>({});
 
     useEffect(() => {
         fetchTaskList();
@@ -181,8 +205,6 @@ export default function Annotation() {
 
         } catch (error) {
             console.error('Failed to fetch post or replies:', error);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -204,16 +226,31 @@ export default function Annotation() {
     const loadTask = (task: TaskType) => {
         console.log('Loading task:', task);
         setTaskID(task.TaskID);
-        const placeholders: RelatedPostType[] = [
-            { content: "Above this is good", postID: "-1", agree: false, disagree: false },
-            { content: "Below this is bad", postID: "-2", agree: false, disagree: false },
-        ];
-        setRelatedPosts([...placeholders, ...task.candidate_related_posts]);
+        const savedChanges = taskChanges[task.TaskID];
+        if (savedChanges) {
+            setRelatedPosts(savedChanges);
+        } else {
+            const placeholders: RelatedPostType[] = [
+                { content: "Above this is good", postID: "-1", agree: false, disagree: false },
+                { content: "Below this is bad", postID: "-2", agree: false, disagree: false },
+            ];
+            setRelatedPosts([...placeholders, ...task.candidate_related_posts]);
+        }
         fetchPostAndReplies(task.focus_postID);
+    };
+
+    const saveCurrentTaskChanges = () => {
+        if (taskID) {
+            setTaskChanges(prev => ({
+                ...prev,
+                [taskID]: relatedPosts
+            }));
+        }
     };
 
     const handleNextTask = () => {
         console.log('Current task index:', currentTaskIndex);
+        saveCurrentTaskChanges();
         if (currentTaskIndex < taskList.length - 1) {
             const nextIndex = currentTaskIndex + 1;
             setCurrentTaskIndex(nextIndex);
@@ -223,7 +260,20 @@ export default function Annotation() {
         }
     };
 
+    const handlePreviousTask = () => {
+        console.log('Current task index:', currentTaskIndex);
+        saveCurrentTaskChanges();
+        if (currentTaskIndex > 0) {
+            const nextIndex = currentTaskIndex - 1;
+            setCurrentTaskIndex(nextIndex);
+            loadTask(taskList[nextIndex]);
+        } else {
+            alert('No more tasks.');
+        }
+    };
+
     const handleSubmit = async () => {
+        saveCurrentTaskChanges();
         const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
         const userID = currentUser.id; 
 
@@ -258,12 +308,15 @@ export default function Annotation() {
 
     return (
         <Container fluid>
-            <div style={{ marginBottom: rem(20) }}>
-            <Button style={{ marginRight: rem(20) }} onClick={handleNextTask}>PREVIOUS</Button>
+            <div style={{ 
+                marginTop: rem(20),
+                marginBottom: rem(20) }}>
                 <Button style={{ marginRight: rem(20) }} onClick={fetchTaskList}>GET NEW TASK LIST</Button>
+                <Button style={{ marginRight: rem(20) }} onClick={handlePreviousTask}>PREVIOUS</Button>
+                <Button style={{ marginRight: rem(20) }} onClick={handleNextTask}>NEXT</Button>
                 <Button style={{ marginRight: rem(20) }} onClick={handleSubmit}>SUBMIT</Button>
-                <Button onClick={handleNextTask}>NEXT</Button>
             </div>
+            <ProgressCard currentTaskIndex={currentTaskIndex} totalTasks={taskList.length}  />
             <div style={{ display: 'flex', width: '100%' }}>
                 <div style={{ width: '35%', paddingRight: rem(10) }}>
                     {loading && <LoadingOverlay visible={loading} />}
@@ -271,9 +324,6 @@ export default function Annotation() {
                         <PostCard key={ancestor.id} post={ancestor} />
                     ))}
                     {post && <PostCard post={post} isFocusPost={true} />}
-                    {/* {replies.map(reply => (
-                        <PostCard key={reply.id} post={reply} />
-                    ))} */}
                 </div>
                 <RightColumn relatedPosts={relatedPosts} setRelatedPosts={setRelatedPosts} />
             </div>
