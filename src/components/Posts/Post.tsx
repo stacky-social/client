@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Button, Divider } from '@mantine/core';
-import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled } from '@tabler/icons-react';
+import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconLink } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import StackCount from '../StackCount';
 import axios from 'axios';
@@ -283,6 +283,12 @@ export default function Post({ id, text, author, account,avatar, repliesCount, c
     setAnnotationModalOpen(true);
   };
 
+  const handleCopyLink=()=>{
+
+    navigator.clipboard.writeText(window.location.href);
+
+  }
+
   const handleStackCountClick = () => {
     const newRelatedStacks = fakeRelatedStacks;
     setRelatedStacks(newRelatedStacks);
@@ -413,6 +419,9 @@ export default function Post({ id, text, author, account,avatar, repliesCount, c
           </Button>
           <Button variant="subtle" size="sm" radius="lg" onClick={handleAnnotation} style={{ display: 'flex', alignItems: 'center' }}>
             <IconNote size={20} />
+          </Button>
+          <Button variant="subtle" size="sm" radius="lg" onClick={handleCopyLink} style={{ display: 'flex', alignItems: 'center' }}>
+            <IconLink size={20} />
           </Button>
         </Group>
 
