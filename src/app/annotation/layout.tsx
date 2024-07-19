@@ -4,7 +4,7 @@ import { AppShell, Burger, Group, Text, Title, Stack } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { ReactNode } from 'react';
 
-import StackLogo from '../../../utils/StackLogo';
+import StackLogo from '../../utils/StackLogo';
 
 export default function AnnotationPageLayout({ children }: { children: ReactNode }) {
     const [opened, { toggle }] = useDisclosure();
@@ -20,7 +20,7 @@ export default function AnnotationPageLayout({ children }: { children: ReactNode
                     <StackLogo size={30} />
                 </Group>
             </AppShell.Header>
-          
+
             <AppShell.Main>
                 <Stack >
                     <Title order={2}>Annotation Guidelines</Title>
@@ -43,7 +43,7 @@ export default function AnnotationPageLayout({ children }: { children: ReactNode
                         (6) Overall, does this post add to a conversation or argument about the topic?
                     </Text>
                 </Stack>
-                
+
                 {children}
             </AppShell.Main>
         </AppShell>
