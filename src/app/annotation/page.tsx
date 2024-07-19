@@ -45,6 +45,7 @@ interface TaskType {
     TaskID: string;
     candidate_related_posts: RelatedPostType[];
     focus_postID: string;
+    itemIndex: number;  // 添加 itemIndex 字段
 }
 
 const PostCard = ({ post, isFocusPost }: { post: PostType, isFocusPost?: boolean }) => (
@@ -187,7 +188,7 @@ export default function Annotation() {
     const [taskID, setTaskID] = useState<string | null>(null);
     const [taskList, setTaskList] = useState<TaskType[]>([]);
     const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
-    const [taskChanges, setTaskChanges] = useState<Record<string, RelatedPostType[]>>({});
+    const [taskChanges, setTaskChanges] = useState<Record<string, Record<number, RelatedPostType[]>>>({});
     const [avatar, setAvatar] = useState(avatars[0]); 
 
     const fetchPostAndReplies = async (postId: string) => {
@@ -212,7 +213,6 @@ export default function Annotation() {
                     'Authorization': `Bearer ${accessToken}`
                 }
             });
-            
 
             setReplies(repliesResponse.data.descendants);
             setAncestors(repliesResponse.data.ancestors);
@@ -231,9 +231,14 @@ export default function Annotation() {
                 params: { user_id: userID },
             }); 
             const data: TaskType[] = response.data;
-            setTaskList(data);
+            // 为每个任务添加 itemIndex 字段
+            const dataWithIndex = data.map((task, index) => ({
+                ...task,
+                itemIndex: index
+            }));
+            setTaskList(dataWithIndex);
             setCurrentTaskIndex(0);
-            loadTask(data[0]);
+            loadTask(dataWithIndex[0]);
         } catch (error) {
             console.error('Failed to fetch task list:', error);
         } finally {
@@ -245,7 +250,7 @@ export default function Annotation() {
     const loadTask = (task: TaskType) => {
         console.log('Loading task:', task);
         setTaskID(task.TaskID);
-        const savedChanges = taskChanges[task.TaskID];
+        const savedChanges = taskChanges[task.TaskID]?.[task.itemIndex];
         if (savedChanges) {
             setRelatedPosts(savedChanges);
         } else {
@@ -259,10 +264,13 @@ export default function Annotation() {
     };
 
     const saveCurrentTaskChanges = () => {
-        if (taskID) {
+        if (taskID !== null) {
             setTaskChanges(prev => ({
                 ...prev,
-                [taskID]: relatedPosts
+                [taskID]: {
+                    ...prev[taskID],
+                    [currentTaskIndex]: relatedPosts
+                }
             }));
         }
     };
@@ -298,28 +306,31 @@ export default function Annotation() {
         const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
         const userID = currentUser.id; 
 
-        if (!taskID || !userID) {
-            console.error('Task ID or User ID is missing.');
+        if (!userID) {
+            console.error('User ID is missing.');
             return;
         }
 
-        const orderedRelatedPosts = relatedPosts.map(post => ({
-            postID: post.postID,
-            content: post.content,
-            agree: post.agree,
-            disagree: post.disagree
-        }));
+        const allTasksPayload = taskList.map(task => {
+            const orderedRelatedPosts = taskChanges[task.TaskID]?.[task.itemIndex]?.map(post => ({
+                postID: post.postID,
+                content: post.content,
+                agree: post.agree,
+                disagree: post.disagree
+            })) || task.candidate_related_posts;
 
-        const payload = {
-            taskID,
-            userID,
-            ordered_related_posts: orderedRelatedPosts
-        };
+            return {
+                taskID: task.TaskID,
+                userID,
+                ordered_related_posts: orderedRelatedPosts,
+                itemIndex: task.itemIndex  // 添加 itemIndex 字段到 payload
+            };
+        });
 
-        console.log('Submitting:', payload);
+        console.log('Submitting all tasks:', allTasksPayload);
 
         try {
-            await axios.post('https://beta.stacky.social:3002/annotation/submit', payload);
+            await axios.post('https://beta.stacky.social:3002/annotation/submit', { tasks: allTasksPayload });
             alert('Submission successful!');
         } catch (error) {
             console.error('Failed to submit:', error);
