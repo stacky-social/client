@@ -3,7 +3,7 @@
 import { AppShell, Burger, Group, Text, Title, Stack } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { ReactNode } from 'react';
-import { Navbar } from "../../../components/NavBar/Navbar";
+
 import StackLogo from '../../../utils/StackLogo';
 
 export default function AnnotationPageLayout({ children }: { children: ReactNode }) {
