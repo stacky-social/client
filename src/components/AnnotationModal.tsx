@@ -18,20 +18,24 @@ interface AnnotationModalProps {
   stackId: string | null;
 }
 
+//fake data
+const questions: Question[] = [];
+
 const AnnotationModal: React.FC<AnnotationModalProps> = ({ isOpen, onClose, stackId }) => {
   const [answers, setAnswers] = useState<{ [questionId: string]: string }>({});
   const [questions, setQuestions] = useState<Question[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log("Fetching questions...");
+    // console.log("Fetching questions...");
     const fetchAnnotationQuestions = async () => {
       if (!stackId) return;
 
       try {
-        const response = await axios.get(`${MastodonInstanceUrl}/api/stacks/${stackId}/questions`);
-        const data = response.data;
-        console.log("Setting questions:", data);
+        // const response = await axios.get(`${MastodonInstanceUrl}/api/stacks/${stackId}/questions`);
+        // const data = response.data;
+        const data = questions;
+        // console.log("Setting questions:", data);
         setQuestions(data);
       } catch (error) {
         console.error('Error fetching annotation questions:', error);

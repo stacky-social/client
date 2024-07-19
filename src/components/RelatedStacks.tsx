@@ -21,6 +21,7 @@ interface PostType {
     avatar: string;
     display_name: string;
   };
+  content_rewritten:string;
 }
 
 interface RelatedStackType {
@@ -71,28 +72,50 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
           <Paper style={{
             position: 'relative',
             width: cardWidth,
-            backgroundColor: 'rgba(227, 250, 252, 0.8)',
+            backgroundColor: 'rgba(227, 250, 252, 1)',
             zIndex: 5,
             boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
             borderRadius: '8px',
             margin: '0 auto',
+             paddingTop: '40px',
           }} withBorder>
+            {stack.topPost.content_rewritten && (
+              <div style={{
+                position: 'absolute',
+                top: '10px',
+                left: '10px',
+                background: 'linear-gradient(to right, yellow, lightyellow)',
+                color: 'black',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontWeight: 'bold',
+                zIndex: 10,
+              }}>
+                Rewritten by AI
+              </div>
+            )}
             <UnstyledButton onClick={() => handleNavigate(stack.topPost.id, stack.stackId)} style={{ width: '100%' }}>
-              <Group>
+              <Group style={{ padding: '0 20px' }}>
                 <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
                 <div>
                   <Text size="sm">{stack.topPost.account.display_name}</Text>
                   <Text size="xs" color="dimmed">{formatDistanceToNow(new Date(stack.topPost.created_at))} ago</Text>
                 </div>
               </Group>
+              
               <div style={{ paddingTop: '1rem', paddingLeft: '1rem', paddingRight: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: '3', WebkitBoxOrient: 'vertical' }}>
-                <div dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
+             
+                {
+                  stack.topPost.content_rewritten? <div dangerouslySetInnerHTML={{ __html: stack.topPost.content_rewritten }} /> : <div dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
+                }
               </div>
               <Text pl={54} pt="sm" size="sm">Post Id: {stack.topPost.id}</Text>
               <Text pl={54} pt="sm" size="sm">Stack Id: {stack.stackId}</Text>
             </UnstyledButton>
+           
             <div className="rel-display">
               {randomEmojis[stack.rel] || randomEmojis["default"]} {stack.rel}
+              
             </div>
             <Divider my="md" />
             <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>

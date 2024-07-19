@@ -62,6 +62,8 @@ const fakeRelatedStacks = [
         avatar: "https://via.placeholder.com/150",
         display_name: "User 2",
       },
+      content_rewritten: "This is a fake rewritten post content for stack 2",
+
     },
   },
   {
