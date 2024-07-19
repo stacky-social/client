@@ -45,7 +45,8 @@ interface TaskType {
     TaskID: string;
     candidate_related_posts: RelatedPostType[];
     focus_postID: string;
-    itemIndex: number;  // 添加 itemIndex 字段
+    itemIndex: number;  
+    viewed:boolean;
 }
 
 const PostCard = ({ post, isFocusPost }: { post: PostType, isFocusPost?: boolean }) => (
@@ -135,10 +136,10 @@ const RightColumn = ({ relatedPosts, setRelatedPosts }: { relatedPosts: RelatedP
                                                         <Divider my="md" />
                                                         <Group>
                                                             <Button variant="subtle" size="sm" radius="lg" onClick={() => handleAgree(post.postID)} style={{ display: 'flex', alignItems: 'center' }}>
-                                                                {post.agree ? <IconThumbUpFilled size={20} /> : <IconThumbUp size={20} />} <Text ml={4}>Agree</Text>
+                                                                {post.agree ? <IconThumbUpFilled size={20} /> : <IconThumbUp size={20} />} <Text ml={4}>Agrees</Text>
                                                             </Button>
                                                             <Button variant="subtle" size="sm" radius="lg" onClick={() => handleDisagree(post.postID)} style={{ display: 'flex', alignItems: 'center' }}>
-                                                                {post.disagree ? <IconThumbDownFilled size={20} /> : <IconThumbDown size={20} />} <Text ml={4}>Disagree</Text>
+                                                                {post.disagree ? <IconThumbDownFilled size={20} /> : <IconThumbDown size={20} />} <Text ml={4}>Disagrees</Text>
                                                             </Button>
                                                         </Group>
                                                     </Paper>
@@ -190,6 +191,7 @@ export default function Annotation() {
     const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
     const [taskChanges, setTaskChanges] = useState<Record<string, Record<number, RelatedPostType[]>>>({});
     const [avatar, setAvatar] = useState(avatars[0]); 
+    
 
     const fetchPostAndReplies = async (postId: string) => {
         const accessToken = localStorage.getItem('accessToken');
@@ -231,11 +233,12 @@ export default function Annotation() {
                 params: { user_id: userID },
             }); 
             const data: TaskType[] = response.data;
-            // 为每个任务添加 itemIndex 字段
             const dataWithIndex = data.map((task, index) => ({
                 ...task,
-                itemIndex: index
+                itemIndex: index,
+                viewed: false
             }));
+            
             setTaskList(dataWithIndex);
             setCurrentTaskIndex(0);
             loadTask(dataWithIndex[0]);
@@ -261,6 +264,12 @@ export default function Annotation() {
             setRelatedPosts([...placeholders, ...task.candidate_related_posts]);
         }
         fetchPostAndReplies(task.focus_postID);
+
+        setTaskList(prevTasks =>
+            prevTasks.map(t =>
+                t.itemIndex === task.itemIndex ? { ...t, viewed: true } : t
+            )
+        );
     };
 
     const saveCurrentTaskChanges = () => {
@@ -311,6 +320,13 @@ export default function Annotation() {
             return;
         }
 
+        const allViewed = taskList.every(task => task.viewed);
+        console.log(taskList);
+        if (!allViewed) {
+            alert('You must view all tasks before submitting.');
+            return;
+        }
+
         const allTasksPayload = taskList.map(task => {
             const orderedRelatedPosts = taskChanges[task.TaskID]?.[task.itemIndex]?.map(post => ({
                 postID: post.postID,
@@ -323,7 +339,7 @@ export default function Annotation() {
                 taskID: task.TaskID,
                 userID,
                 ordered_related_posts: orderedRelatedPosts,
-                itemIndex: task.itemIndex  // 添加 itemIndex 字段到 payload
+                itemIndex: task.itemIndex 
             };
         });
 
