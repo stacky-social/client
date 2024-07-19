@@ -8,7 +8,6 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
 const MastodonInstanceUrl = "https://beta.stacky.social";
 
-
 const avatars = [
     '/avatar/stacky_angry.PNG',
     '/avatar/stacky_cracked.PNG',
@@ -158,14 +157,7 @@ const RightColumn = ({ relatedPosts, setRelatedPosts }: { relatedPosts: RelatedP
     );
 };
 
-const AvatarDisplay = () => {
-    const [avatar, setAvatar] = useState(avatars[0]); 
-
-    useEffect(() => {
-        const randomAvatar = avatars[Math.floor(Math.random() * avatars.length)];
-        setAvatar(randomAvatar);
-    }, []);
-
+const AvatarDisplay = ({ avatar }: { avatar: string }) => {
     return <Avatar src={avatar} alt="Random Avatar" radius="xl" size={rem(80)} />;
 };
 
@@ -189,17 +181,13 @@ export default function Annotation() {
     const [post, setPost] = useState<PostType | null>(null);
     const [replies, setReplies] = useState<PostType[]>([]);
     const [ancestors, setAncestors] = useState<PostType[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [relatedPosts, setRelatedPosts] = useState<RelatedPostType[]>([]);
     const [taskID, setTaskID] = useState<string | null>(null);
     const [taskList, setTaskList] = useState<TaskType[]>([]);
     const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
     const [taskChanges, setTaskChanges] = useState<Record<string, RelatedPostType[]>>({});
     const [avatar, setAvatar] = useState(avatars[0]); 
-
-    useEffect(() => {
-        fetchTaskList();
-    }, []);
 
     const fetchPostAndReplies = async (postId: string) => {
         const accessToken = localStorage.getItem('accessToken');
@@ -236,10 +224,8 @@ export default function Annotation() {
         const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
         const userID = currentUser.id; 
         try {
-            const response = await axios.post('https://beta.stacky.social:3002/annotation/task', {
-               
-                user_id: {userID},
-               
+            const response = await axios.get('https://beta.stacky.social:3002/annotation/task', {
+                params: { user_id: userID },
             }); 
             const data: TaskType[] = response.data;
             setTaskList(data);
@@ -250,6 +236,7 @@ export default function Annotation() {
         } finally {
             setLoading(false);
         }
+        refreshAvatar();
     };
 
     const loadTask = (task: TaskType) => {
@@ -287,6 +274,7 @@ export default function Annotation() {
         } else {
             alert('No more tasks.');
         }
+        refreshAvatar();
     };
 
     const handlePreviousTask = () => {
@@ -299,6 +287,7 @@ export default function Annotation() {
         } else {
             alert('No more tasks.');
         }
+        refreshAvatar();
     };
 
     const handleSubmit = async () => {
@@ -333,6 +322,12 @@ export default function Annotation() {
             console.error('Failed to submit:', error);
             alert('Submission failed.');
         }
+        refreshAvatar();
+    };
+
+    const refreshAvatar = () => {
+        const randomAvatar = avatars[Math.floor(Math.random() * avatars.length)];
+        setAvatar(randomAvatar);
     };
 
     return (
@@ -348,17 +343,15 @@ export default function Annotation() {
             
             <div style={{ display: 'flex', alignItems: 'center', width: '80%'  }}>
                 <div style={{width:'10%'}}>
-                <AvatarDisplay />
+                    <AvatarDisplay avatar={avatar} />
                 </div>
            
-           <div style={{width:'50%'}}>
-           <ProgressCard currentTaskIndex={currentTaskIndex} totalTasks={taskList.length} />
+                <div style={{width:'50%'}}>
+                    <ProgressCard currentTaskIndex={currentTaskIndex} totalTasks={taskList.length} />
                 </div>
           
             </div>
                
-             
-            
             <div style={{ display: 'flex', width: '100%' }}>
                 <div style={{ width: '35%', paddingRight: rem(10) }}>
                     {loading && <LoadingOverlay visible={loading} />}
