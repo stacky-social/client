@@ -283,11 +283,15 @@ export default function Post({ id, text, author, account,avatar, repliesCount, c
     setAnnotationModalOpen(true);
   };
 
-  const handleCopyLink=()=>{
-
-    navigator.clipboard.writeText(window.location.href);
-
-  }
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/posts/${id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      console.log('Link copied to clipboard:', url);
+    }).catch((error) => {
+      console.error('Error copying link:', error);
+    });
+  };
+  
 
   const handleStackCountClick = () => {
     const newRelatedStacks = fakeRelatedStacks;
