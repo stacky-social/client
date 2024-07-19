@@ -98,6 +98,7 @@ const RightColumn = ({ relatedPosts, setRelatedPosts }: { relatedPosts: RelatedP
                     const reorderedPosts = Array.from(relatedPosts);
                     const [removed] = reorderedPosts.splice(source.index, 1);
                     reorderedPosts.splice(destination.index, 0, removed);
+                    console.log('Reordered Posts:', reorderedPosts);
                     setRelatedPosts(reorderedPosts);
                 }
             }}>
@@ -229,6 +230,11 @@ export default function Annotation() {
         const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
         const userID = currentUser.id; 
         try {
+     
+            setTaskList([]);
+            setCurrentTaskIndex(0);
+            setRelatedPosts([]);
+            
             const response = await axios.get('https://beta.stacky.social:3002/annotation/task', {
                 params: { user_id: userID },
             }); 
@@ -240,7 +246,6 @@ export default function Annotation() {
             }));
             
             setTaskList(dataWithIndex);
-            setCurrentTaskIndex(0);
             loadTask(dataWithIndex[0]);
         } catch (error) {
             console.error('Failed to fetch task list:', error);
@@ -249,6 +254,7 @@ export default function Annotation() {
         }
         refreshAvatar();
     };
+    
 
     const loadTask = (task: TaskType) => {
         console.log('Loading task:', task);
