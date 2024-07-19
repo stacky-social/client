@@ -103,7 +103,8 @@ const RightColumn = ({ relatedPosts, setRelatedPosts }: { relatedPosts: RelatedP
                     {(provided) => (
                         <div {...provided.droppableProps} ref={provided.innerRef}>
                             {relatedPosts.map((post, index) => (
-                                <Draggable key={post.postID} draggableId={post.postID} index={index}>
+                               <Draggable key={post.postID} draggableId={String(post.postID)} index={index}>
+
                                     {(provided, snapshot) => {
                                         const postIDNumber = Number(post.postID);
                                         return (
@@ -204,12 +205,14 @@ export default function Annotation() {
                 }
             });
             setPost(postResponse.data);
+            console.log('Post:', postResponse.data);
 
             const repliesResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}/context`, {
                 headers: {
                     'Authorization': `Bearer ${accessToken}`
                 }
             });
+            
 
             setReplies(repliesResponse.data.descendants);
             setAncestors(repliesResponse.data.ancestors);
