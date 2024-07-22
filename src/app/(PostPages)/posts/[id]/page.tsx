@@ -14,7 +14,7 @@ import {
     Modal,
     Container
 } from "@mantine/core";
-import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconHeartFilled, IconBookmarkFilled } from "@tabler/icons-react";
+import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconHeartFilled, IconBookmarkFilled, IconLink  } from "@tabler/icons-react";
 import axios from 'axios';
 import ExpandModal from "../../../../components/ExpandModal";
 import RelatedStacks from '../../../../components/RelatedStacks';
@@ -317,6 +317,15 @@ export default function PostView({ params }: { params: { id: string } }) {
         console.log("Share post:", id);
     };
 
+    const handleCopyLink = () => {
+        const url = `${window.location.origin}/posts/${id}`;
+        navigator.clipboard.writeText(url).then(() => {
+          console.log('Link copied to clipboard:', url);
+        }).catch((error) => {
+          console.error('Error copying link:', error);
+        });
+      };
+
     const handleStackIconClick = async (stackId: string) => {
         const relatedStacks = await fetchRelatedStacks(stackId);
         setRelatedStacks(relatedStacks);
@@ -454,8 +463,8 @@ export default function PostView({ params }: { params: { id: string } }) {
                                 <Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
                                     {bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
                                 </Button>
-                                <Button variant="subtle" size="sm" radius="lg" onClick={handleShare}>
-                                    <IconShare size={20} />
+                                <Button variant="subtle" size="sm" radius="lg" onClick={handleCopyLink}>
+                                    <IconLink size={20} />
                                 </Button>
                             </Group>
                             {/* {stackId && (
