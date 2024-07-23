@@ -64,6 +64,7 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [relatedStacksLoaded, setRelatedStacksLoaded] = useState(false);
     const [postLoaded, setPostLoaded] = useState(false);
     const [postStackIds, setPostStackIds] = useState<{ [key: string]: StackData }>({});
+    const [showAllReplies, setShowAllReplies] = useState(false);
 
     useEffect(() => {
         fetchPostAndReplies(id);
@@ -335,10 +336,6 @@ export default function PostView({ params }: { params: { id: string } }) {
     const renderAncestors  = (post: any) => {
         const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
         const { stackId, size } = stackData;
-        
-
-        
-
         return (
             <Post
                 key={post.id}
@@ -363,8 +360,12 @@ export default function PostView({ params }: { params: { id: string } }) {
         );
     };
 
+    const handleShowMoreReplies = () => {
+        setShowAllReplies(true);
+    };
 
-    const renderPostWithStack = (post: any) => {
+
+    const renderReplies = (post: any) => {
         const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
         const { stackId, size } = stackData;
 
@@ -485,8 +486,25 @@ export default function PostView({ params }: { params: { id: string } }) {
                     />
 
                     <Divider my="md" />
+                    <Paper
+                     style={{
+                        padding: '20px',
+                        backgroundColor: '#f9f9f9',
+                        borderRadius: '8px',
+                        fontFamily: 'Roboto, sans-serif',
+                        fontSize: '14px',
+                    }}>
 
-                    {replies.map((reply) => renderPostWithStack(reply))}
+
+                {replies.slice(0, showAllReplies ? replies.length : 15).map((reply) => renderReplies(reply))}
+                {!showAllReplies && replies.length > 15 && (
+                    <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: '10px' }}>
+                        Show More
+                    </Button>
+                )}
+
+                    </Paper>
+                   
                     <div style={{ height: '100vh' }}></div>
                 </div>
                 <div style={{ gridColumn: '2 / 3' }}>
@@ -500,6 +518,8 @@ export default function PostView({ params }: { params: { id: string } }) {
                             setIsModalOpen={()=>{}}
                         />
                     )}
+
+
                 </div>
             </div>
         </Container>
