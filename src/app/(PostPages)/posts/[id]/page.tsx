@@ -65,6 +65,45 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [postLoaded, setPostLoaded] = useState(false);
     const [postStackIds, setPostStackIds] = useState<{ [key: string]: StackData }>({});
 
+    const [selectedTab, setSelectedTab] = useState(0);
+    const [showAllReplies, setShowAllReplies] = useState(false);
+
+const tabColors = ["#FFD700", "#ADFF2F", "#87CEEB", "#FF69B4"]; // 四个不同的颜色
+const tabNames = ["Time", "Quality", "Stacks", "Summary"]; // 标签页名称
+
+
+
+const handleTabClick = (index: number) => {
+    setSelectedTab(index);
+
+};
+
+const handleShowMoreReplies = () => {
+    setShowAllReplies(true);
+};
+
+<div style={{ display: 'flex', marginBottom: '0' }}>
+    {tabColors.map((color, index) => (
+        <div
+            key={index}
+            onClick={() => handleTabClick(index)}
+            style={{
+                backgroundColor: color,
+                padding: '10px 20px',
+                cursor: 'pointer',
+                borderRadius: index === 0 ? '8px 0 0 0' : index === tabColors.length - 1 ? '0 8px 0 0' : '0',
+                textAlign: 'center',
+                color: 'white',
+                fontWeight: 'bold',
+                flex: 1,
+                margin: 0
+            }}
+        >
+            {tabNames[index]}
+        </div>
+    ))}
+</div>
+
     useEffect(() => {
         fetchPostAndReplies(id);
     }, [id]);
@@ -486,7 +525,62 @@ export default function PostView({ params }: { params: { id: string } }) {
 
                     <Divider my="md" />
 
-                    {replies.map((reply) => renderPostWithStack(reply))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+    {tabColors.map((color, index) => (
+        <div
+            key={index}
+            onClick={() => setSelectedTab(index)}
+            style={{
+                backgroundColor: color,
+                padding: '10px 20px',
+                cursor: 'pointer',
+                borderRadius: index === 0 ? '8px 0 0 0' : index === tabColors.length - 1 ? '0 8px 0 0' : '0',
+                textAlign: 'center',
+                color: 'white',
+                fontWeight: 'bold',
+                flex: 1,
+                margin: 0
+            }}
+        >
+            Tab {index + 1}
+        </div>
+    ))}
+</div>
+
+
+                    {replies.length > 0 && (
+    <Paper
+        style={{
+            padding: '20px',
+            backgroundColor: tabColors[selectedTab],
+            borderRadius: '0 0 8px 8px', // 只在底部两个角有圆角
+            fontFamily: 'Roboto, sans-serif',
+            fontSize: '14px',
+            marginTop: 0 // 确保没有间距
+        }}
+    >
+        {selectedTab === 0 && (
+            <>
+                {replies.slice(0, showAllReplies ? replies.length : 15).map((reply) => renderPostWithStack(reply))}
+                {!showAllReplies && replies.length > 15 && (
+                    <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: '10px' }}>
+                        Show More
+                    </Button>
+                )}
+            </>
+        )}
+        {selectedTab === 1 && (
+            <div>This is tab for Quality</div>
+        )}
+        {selectedTab === 2 && (
+            <div>This is tab for Stacks</div>
+        )}
+        {selectedTab === 3 && (
+            <div>This is tab for Summary</div>
+        )}
+    </Paper>
+)}
+
                     <div style={{ height: '100vh' }}></div>
                 </div>
                 <div style={{ gridColumn: '2 / 3' }}>
