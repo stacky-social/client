@@ -64,12 +64,13 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [relatedStacksLoaded, setRelatedStacksLoaded] = useState(false);
     const [postLoaded, setPostLoaded] = useState(false);
     const [postStackIds, setPostStackIds] = useState<{ [key: string]: StackData }>({});
+    const [showAllReplies, setShowAllReplies] = useState(false);
 
     const [selectedTab, setSelectedTab] = useState(0);
     const [showAllReplies, setShowAllReplies] = useState(false);
 
-const tabColors = ["#FFD700", "#ADFF2F", "#87CEEB", "#FF69B4"]; // 四个不同的颜色
-const tabNames = ["Time", "Quality", "Stacks", "Summary"]; // 标签页名称
+const tabColors = ["#FFD700", "#ADFF2F", "#87CEEB", "#FF69B4"]; 
+const tabNames = ["Time", "Quality", "Stacks", "Summary"];
 
 
 
@@ -374,10 +375,6 @@ const handleShowMoreReplies = () => {
     const renderAncestors  = (post: any) => {
         const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
         const { stackId, size } = stackData;
-        
-
-        
-
         return (
             <Post
                 key={post.id}
@@ -402,8 +399,12 @@ const handleShowMoreReplies = () => {
         );
     };
 
+    const handleShowMoreReplies = () => {
+        setShowAllReplies(true);
+    };
 
-    const renderPostWithStack = (post: any) => {
+
+    const renderReplies = (post: any) => {
         const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
         const { stackId, size } = stackData;
 
@@ -553,20 +554,34 @@ const handleShowMoreReplies = () => {
         style={{
             padding: '20px',
             backgroundColor: tabColors[selectedTab],
-            borderRadius: '0 0 8px 8px', // 只在底部两个角有圆角
+            borderRadius: '0 0 8px 8px', 
             fontFamily: 'Roboto, sans-serif',
             fontSize: '14px',
-            marginTop: 0 // 确保没有间距
+            marginTop: 0 
         }}
     >
         {selectedTab === 0 && (
             <>
                 {replies.slice(0, showAllReplies ? replies.length : 15).map((reply) => renderPostWithStack(reply))}
+
+                    <Paper
+                     style={{
+                        padding: '20px',
+                        backgroundColor: '#f9f9f9',
+                        borderRadius: '8px',
+                        fontFamily: 'Roboto, sans-serif',
+                        fontSize: '14px',
+                    }}>
+
+
+                {replies.slice(0, showAllReplies ? replies.length : 15).map((reply) => renderReplies(reply))}
+
                 {!showAllReplies && replies.length > 15 && (
                     <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: '10px' }}>
                         Show More
                     </Button>
                 )}
+
             </>
         )}
         {selectedTab === 1 && (
@@ -581,6 +596,11 @@ const handleShowMoreReplies = () => {
     </Paper>
 )}
 
+
+
+                    </Paper>
+                   
+
                     <div style={{ height: '100vh' }}></div>
                 </div>
                 <div style={{ gridColumn: '2 / 3' }}>
@@ -594,6 +614,8 @@ const handleShowMoreReplies = () => {
                             setIsModalOpen={()=>{}}
                         />
                     )}
+
+
                 </div>
             </div>
         </Container>
