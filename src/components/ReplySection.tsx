@@ -71,11 +71,11 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
 
         debounceTimeoutRef.current = setTimeout(() => {
             fetchRealTimeFeedback(newContent);
-        }, 1000); // 等待1秒后发送请求
+        }, 1000); 
     };
 
     const fetchRealTimeFeedback = async (inputContent: string) => {
-        setLoading(true);  // 开始加载
+        setLoading(true); 
         try {
             const response = await axios.post('https://beta.stacky.social:3002/posts/feedback', {
                 draftID: draftId,
@@ -111,7 +111,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
         } catch (error) {
             console.error('Failed to fetch real-time feedback:', error);
         } finally {
-            setLoading(false);  // 加载结束
+            setLoading(false);  
         }
     };
 
