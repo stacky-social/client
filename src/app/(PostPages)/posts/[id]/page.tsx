@@ -38,7 +38,7 @@ interface PostType {
 }
 
 interface StackData {
-    stackId: string | null;
+   
     size: number;
 }
 
@@ -176,10 +176,10 @@ export default function PostView({ params }: { params: { id: string } }) {
     const fetchStackId = async (postId: string): Promise<StackData> => {
 
         const fakeStackData: { [key: string]: StackData } = {
-            "112701710903410105": { stackId: "stack-1", size: 20 },
-            "112712545788018654": { stackId: "stack-2", size: 15 },
-            "112718098683258328": { stackId: "stack-3", size: 10 },
-            "112718194195663750": { stackId: "stack-4", size: 5 },
+            // "112701710903410105": { stackId: "stack-1", size: 20 },
+            // "112712545788018654": { stackId: "stack-2", size: 15 },
+            // "112718098683258328": { stackId: "stack-3", size: 10 },
+            // "112718194195663750": { stackId: "stack-4", size: 5 },
         };
 
         return fakeStackData[postId] || { stackId: null, size: 0 };
@@ -192,8 +192,8 @@ export default function PostView({ params }: { params: { id: string } }) {
         });
 
         const stackIdResults = await Promise.all(stackIdPromises);
-        const newPostStackIds = stackIdResults.reduce((acc, { postId, stackId, size }) => {
-            acc[postId] = { stackId, size };
+        const newPostStackIds = stackIdResults.reduce((acc, { postId, size }) => {
+            acc[postId] = { size };
             return acc;
         }, {} as { [key: string]: StackData });
 
@@ -334,8 +334,8 @@ export default function PostView({ params }: { params: { id: string } }) {
     };
 
     const renderAncestors  = (post: any) => {
-        const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
-        const { stackId, size } = stackData;
+        // const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
+        // const { stackId, size } = stackData;
         return (
             <Post
                 key={post.id}
@@ -347,8 +347,8 @@ export default function PostView({ params }: { params: { id: string } }) {
                 repliesCount={post.replies_count}
                
                 createdAt={post.created_at}
-                stackCount={size}
-                stackId={stackId}
+                stackCount={9}
+            
                 favouritesCount={post.favourites_count}
                 favourited={post.favourited}
                 bookmarked={post.bookmarked}
@@ -367,8 +367,8 @@ export default function PostView({ params }: { params: { id: string } }) {
 
 
     const renderReplies = (post: any) => {
-        const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
-        const { stackId, size } = stackData;
+        // const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
+        // const { stackId, size } = stackData;
 
         if (post.in_reply_to_id !== id) {
             return null;
@@ -385,7 +385,7 @@ export default function PostView({ params }: { params: { id: string } }) {
             
                 repliesCount={post.replies_count}
                 createdAt={post.created_at}
-                stackCount={size}
+                stackCount={9}
           
                 favouritesCount={post.favourites_count}
                 favourited={post.favourited}
@@ -394,6 +394,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                 onStackIconClick={() => stackId && handleStackIconClick(stackId)}
                 setIsModalOpen={() => {}}
                 setIsExpandModalOpen={()=>{}}
+                relatedStacks={relatedStacks}
             />
         );
     };
@@ -513,7 +514,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                         <RelatedStacks
                             relatedStacks={relatedStacks}
                             cardWidth={400}
-                            cardHeight={200}
+                           
                             onStackClick={() => {}}
                             setIsExpandModalOpen={()=>{}}
                             setIsModalOpen={()=>{}}
