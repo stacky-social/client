@@ -13,6 +13,13 @@ import {
 } from '@tabler/icons-react';
 import classes from './NavbarSimple.module.css';
 import { useRouter, usePathname } from 'next/navigation';
+import axios from 'axios';
+import {BASE_URL} from "../../utils/DevMode";
+
+const MastodonInstanceUrl = 'https://beta.stacky.social';
+const redirectUri = `${BASE_URL}/`;
+const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
+const clientSecret = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_SECRET;
 
 const data = [
     { link: '/home', label: 'Home', icon: IconHome },
@@ -54,6 +61,35 @@ export function Navbar() {
         </a>
     ));
 
+    const handleLogOut = async () => {
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) {
+            console.error('Access token is missing.');
+            return;
+        }
+        try {
+            const response = await fetch(`${MastodonInstanceUrl}/oauth/revoke`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  client_id: clientId,
+                  client_secret: clientSecret,
+                  token: accessToken
+                }),
+              });
+            console.log(response)
+            // Clear the access token from localStorage
+            localStorage.removeItem('accessToken');
+
+            // Redirect to home page
+            router.push('/');
+        } catch (error) {
+            console.error('Failed to log out:', error);
+        }
+    };
+
     return (
         <nav className={classes.navbar}>
             <div className={classes.navbarMain}>
@@ -61,7 +97,7 @@ export function Navbar() {
             </div>
 
             <div className={classes.footer}>
-                <a href="#" className={classes.link} onClick={(event) => event.preventDefault()}>
+                <a href="#" className={classes.link} onClick={handleLogOut}>
                     <IconLogout className={classes.linkIcon} stroke={1.5} />
                     <span>Logout</span>
                 </a>
