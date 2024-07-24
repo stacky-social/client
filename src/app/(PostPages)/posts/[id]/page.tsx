@@ -506,6 +506,8 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"]; // 标签页名称
                     <Divider my="md" />
 
 
+{
+    replies.length > 0 && (
 <div style={{ display: 'flex', marginBottom: '0' }}>
     {tabColors.map((color, index) => (
         <div
@@ -527,6 +529,9 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"]; // 标签页名称
         </div>
     ))}
 </div>
+    )
+}
+
 {replies.length > 0 && (
     <Paper
         style={{
