@@ -20,7 +20,8 @@ export interface PostType {
     favourited: boolean; 
     bookmarked: boolean;
     stackCount: number | null; 
-    stackId: string | null;
+
     mediaAttachments: string[];
     replies_count: number;
+    relatedStacks: any[];
 }

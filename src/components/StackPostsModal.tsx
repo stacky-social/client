@@ -11,7 +11,6 @@ interface StackPostsModalProps {
   stackId: string | null;
 }
 
-const testurl='https://beta.stacky.social/api/v1/timelines/public';
 
 function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -48,7 +47,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
           stackId ? <ExpandModal stackId={stackId} /> : null
         ) : (
           <PostList
-            apiUrl={testurl}
+            apiUrl={apiUrl}
             handleStackIconClick={handleStackIconClick}
             loadStackInfo={false}
             accessToken={accessToken}

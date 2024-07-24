@@ -356,6 +356,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                 onStackIconClick={() => stackId && handleStackIconClick(stackId)}
                 setIsModalOpen={() => {}}
                 setIsExpandModalOpen={()=>{}}
+                relatedStacks={relatedStacks}
             />
         );
     };
@@ -385,7 +386,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                 repliesCount={post.replies_count}
                 createdAt={post.created_at}
                 stackCount={size}
-                stackId={stackId}
+          
                 favouritesCount={post.favourites_count}
                 favourited={post.favourited}
                 bookmarked={post.bookmarked}
