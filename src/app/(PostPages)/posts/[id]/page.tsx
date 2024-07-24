@@ -68,8 +68,8 @@ export default function PostView({ params }: { params: { id: string } }) {
 
     const [selectedTab, setSelectedTab] = useState(0);
 
-const tabColors = ["#FFD700", "#ADFF2F", "#87CEEB", "#FF69B4"]; // 四个不同的颜色
-const tabNames = ["Time", "Quality", "Stacks", "Summary"]; // 标签页名称
+const tabColors = ["#f8d86a", "#b9dec9", "#b0d5df", "#f1c4cd"]; 
+const tabNames = ["Time", "Quality", "Stacks", "Summary"]; 
 
 
     useEffect(() => {
@@ -537,10 +537,10 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"]; // 标签页名称
         style={{
             padding: '20px',
             backgroundColor: tabColors[selectedTab],
-            borderRadius: '0 0 8px 8px', // 只在底部两个角有圆角
+            borderRadius: '0 0 8px 8px', 
             fontFamily: 'Roboto, sans-serif',
             fontSize: '14px',
-            marginTop: 0 // 确保没有间距
+            marginTop: 0 
         }}
     >
         {selectedTab === 0 && (
