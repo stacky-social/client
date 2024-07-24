@@ -1,8 +1,14 @@
 // emojiMapping.ts
 export const randomEmojis: { [key: string]: string } = {
-    "disagree": "❌",
-    "prediction": "🔮",
-    "funny": "😂",
-    "evidence": "📜",
-    "default": "📦",
+    "uncategorized": "🌐",
+    "predictions": "🔮",
+    "evidence_public": "📰",
+    "evidence_personal": "📒",
+    "connections": "🔗",
+    "pointers": "👉",
+    "proposals": "💡",
+    "humor": "😂",
+    "values": "❤️",
+    "framing": "🖼️",
+    "questions": "❓",
 };

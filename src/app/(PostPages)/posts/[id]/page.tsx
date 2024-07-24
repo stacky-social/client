@@ -38,7 +38,7 @@ interface PostType {
 }
 
 interface StackData {
-    stackId: string | null;
+   
     size: number;
 }
 
@@ -65,6 +65,12 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [postLoaded, setPostLoaded] = useState(false);
     const [postStackIds, setPostStackIds] = useState<{ [key: string]: StackData }>({});
     const [showAllReplies, setShowAllReplies] = useState(false);
+
+    const [selectedTab, setSelectedTab] = useState(0);
+
+const tabColors = ["#FFD700", "#ADFF2F", "#87CEEB", "#FF69B4"]; // 四个不同的颜色
+const tabNames = ["Time", "Quality", "Stacks", "Summary"]; // 标签页名称
+
 
     useEffect(() => {
         fetchPostAndReplies(id);
@@ -176,10 +182,10 @@ export default function PostView({ params }: { params: { id: string } }) {
     const fetchStackId = async (postId: string): Promise<StackData> => {
 
         const fakeStackData: { [key: string]: StackData } = {
-            "112701710903410105": { stackId: "stack-1", size: 20 },
-            "112712545788018654": { stackId: "stack-2", size: 15 },
-            "112718098683258328": { stackId: "stack-3", size: 10 },
-            "112718194195663750": { stackId: "stack-4", size: 5 },
+            // "112701710903410105": { stackId: "stack-1", size: 20 },
+            // "112712545788018654": { stackId: "stack-2", size: 15 },
+            // "112718098683258328": { stackId: "stack-3", size: 10 },
+            // "112718194195663750": { stackId: "stack-4", size: 5 },
         };
 
         return fakeStackData[postId] || { stackId: null, size: 0 };
@@ -192,8 +198,8 @@ export default function PostView({ params }: { params: { id: string } }) {
         });
 
         const stackIdResults = await Promise.all(stackIdPromises);
-        const newPostStackIds = stackIdResults.reduce((acc, { postId, stackId, size }) => {
-            acc[postId] = { stackId, size };
+        const newPostStackIds = stackIdResults.reduce((acc, { postId, size }) => {
+            acc[postId] = { size };
             return acc;
         }, {} as { [key: string]: StackData });
 
@@ -334,8 +340,10 @@ export default function PostView({ params }: { params: { id: string } }) {
     };
 
     const renderAncestors  = (post: any) => {
-        const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
-        const { stackId, size } = stackData;
+
+        // const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
+        // const { stackId, size } = stackData;
+
         return (
             <Post
                 key={post.id}
@@ -347,8 +355,8 @@ export default function PostView({ params }: { params: { id: string } }) {
                 repliesCount={post.replies_count}
                
                 createdAt={post.created_at}
-                stackCount={size}
-                stackId={stackId}
+                stackCount={9}
+            
                 favouritesCount={post.favourites_count}
                 favourited={post.favourited}
                 bookmarked={post.bookmarked}
@@ -356,6 +364,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                 onStackIconClick={() => stackId && handleStackIconClick(stackId)}
                 setIsModalOpen={() => {}}
                 setIsExpandModalOpen={()=>{}}
+                relatedStacks={relatedStacks}
             />
         );
     };
@@ -364,10 +373,18 @@ export default function PostView({ params }: { params: { id: string } }) {
         setShowAllReplies(true);
     };
 
+    const handleTabClick = (index: number) => {
+        setSelectedTab(index);
+        // 根据需要，可以在这里添加额外的逻辑，比如调用API获取数据
+    };
+    
+
 
     const renderReplies = (post: any) => {
-        const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
-        const { stackId, size } = stackData;
+
+        // const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
+        // const { stackId, size } = stackData;
+
 
         if (post.in_reply_to_id !== id) {
             return null;
@@ -384,8 +401,8 @@ export default function PostView({ params }: { params: { id: string } }) {
             
                 repliesCount={post.replies_count}
                 createdAt={post.created_at}
-                stackCount={size}
-                stackId={stackId}
+                stackCount={9}
+          
                 favouritesCount={post.favourites_count}
                 favourited={post.favourited}
                 bookmarked={post.bookmarked}
@@ -393,6 +410,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                 onStackIconClick={() => stackId && handleStackIconClick(stackId)}
                 setIsModalOpen={() => {}}
                 setIsExpandModalOpen={()=>{}}
+                relatedStacks={relatedStacks}
             />
         );
     };
@@ -486,25 +504,67 @@ export default function PostView({ params }: { params: { id: string } }) {
                     />
 
                     <Divider my="md" />
-                    <Paper
-                     style={{
-                        padding: '20px',
-                        backgroundColor: '#f9f9f9',
-                        borderRadius: '8px',
-                        fontFamily: 'Roboto, sans-serif',
-                        fontSize: '14px',
-                    }}>
 
 
+{
+    replies.length > 0 && (
+<div style={{ display: 'flex', marginBottom: '0' }}>
+    {tabColors.map((color, index) => (
+        <div
+            key={index}
+            onClick={() => handleTabClick(index)}
+            style={{
+                backgroundColor: color,
+                padding: '10px 20px',
+                cursor: 'pointer',
+                borderRadius: index === 0 ? '8px 0 0 0' : index === tabColors.length - 1 ? '0 8px 0 0' : '0',
+                textAlign: 'center',
+                color: 'white',
+                fontWeight: 'bold',
+                flex: 1,
+                margin: 0
+            }}
+        >
+            {tabNames[index]}
+        </div>
+    ))}
+</div>
+    )
+}
+
+{replies.length > 0 && (
+    <Paper
+        style={{
+            padding: '20px',
+            backgroundColor: tabColors[selectedTab],
+            borderRadius: '0 0 8px 8px', // 只在底部两个角有圆角
+            fontFamily: 'Roboto, sans-serif',
+            fontSize: '14px',
+            marginTop: 0 // 确保没有间距
+        }}
+    >
+        {selectedTab === 0 && (
+            <>
                 {replies.slice(0, showAllReplies ? replies.length : 15).map((reply) => renderReplies(reply))}
                 {!showAllReplies && replies.length > 15 && (
                     <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: '10px' }}>
                         Show More
                     </Button>
                 )}
+            </>
+        )}
+        {selectedTab === 1 && (
+            <div>This is tab for Quality</div>
+        )}
+        {selectedTab === 2 && (
+            <div>This is tab for Stacks</div>
+        )}
+        {selectedTab === 3 && (
+            <div>This is tab for Summary</div>
+        )}
+    </Paper>
+)}
 
-                    </Paper>
-                   
                     <div style={{ height: '100vh' }}></div>
                 </div>
                 <div style={{ gridColumn: '2 / 3' }}>
@@ -512,7 +572,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                         <RelatedStacks
                             relatedStacks={relatedStacks}
                             cardWidth={400}
-                            cardHeight={200}
+                           
                             onStackClick={() => {}}
                             setIsExpandModalOpen={()=>{}}
                             setIsModalOpen={()=>{}}
