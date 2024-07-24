@@ -54,7 +54,7 @@ const AnnotationModal: React.FC<AnnotationModalProps> = ({ isOpen, onClose, stac
   }, []);
 
   useEffect(() => {
-    console.log("Questions state updated:", questions);
+    // console.log("Questions state updated:", questions);
   }, [questions]);
 
   const handleTextChange = (questionId: string, text: string) => {

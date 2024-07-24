@@ -1,11 +1,10 @@
-import React from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button } from '@mantine/core';
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
-import RelatedStackCount from './RelatedStackCount'; 
+import RelatedStackCount from './RelatedStackCount';
 import StackPostsModal from './StackPostsModal';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 import './RelatedStacks.css';
 import { randomEmojis } from '../utils/emojiMapping';
 
@@ -21,7 +20,7 @@ interface PostType {
     avatar: string;
     display_name: string;
   };
-  content_rewritten:string;
+  content_rewritten: string;
 }
 
 interface RelatedStackType {
@@ -34,17 +33,24 @@ interface RelatedStackType {
 interface RelatedStacksProps {
   relatedStacks: RelatedStackType[];
   cardWidth: number;
-  cardHeight: number;
   onStackClick: (stackId: string) => void;
   setIsModalOpen: (isOpen: boolean) => void;
-  setIsExpandModalOpen: (isOpen: boolean) => void; 
+  setIsExpandModalOpen: (isOpen: boolean) => void;
 }
 
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, cardHeight, onStackClick, setIsExpandModalOpen }) => {
+const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, onStackClick, setIsExpandModalOpen }) => {
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [currentStackId, setCurrentStackId] = useState('');
   const router = useRouter();
   const [maxStacksToShow, setMaxStacksToShow] = useState(3);
+  const [cardHeight, setCardHeight] = useState(0);
+  const paperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (paperRef.current) {
+      setCardHeight(paperRef.current.offsetHeight);
+    }
+  }, [relatedStacks]);
 
   const handleStackCountClick = (stackId: string) => {
     setCurrentStackId(stackId);
@@ -69,7 +75,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
             width: cardWidth,
           }}
         >
-          <Paper style={{
+          <Paper ref={paperRef} style={{
             position: 'relative',
             width: cardWidth,
             backgroundColor: 'rgba(227, 250, 252, 1)',
@@ -77,7 +83,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
             boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
             borderRadius: '8px',
             margin: '0 auto',
-             paddingTop: '40px',
+            paddingTop: '40px',
           }} withBorder>
             {stack.topPost.content_rewritten && (
               <div style={{
@@ -104,9 +110,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
               </Group>
               
               <div style={{ paddingTop: '1rem', paddingLeft: '1rem', paddingRight: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: '3', WebkitBoxOrient: 'vertical' }}>
-             
                 {
-                  stack.topPost.content_rewritten? <div dangerouslySetInnerHTML={{ __html: stack.topPost.content_rewritten }} /> : <div dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
+                  stack.topPost.content_rewritten ? <div dangerouslySetInnerHTML={{ __html: stack.topPost.content_rewritten }} /> : <div dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
                 }
               </div>
               <Text pl={54} pt="sm" size="sm">Post Id: {stack.topPost.id}</Text>
@@ -115,7 +120,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
            
             <div className="rel-display">
               {randomEmojis[stack.rel] || randomEmojis["default"]} {stack.rel}
-              
             </div>
             <Divider my="md" />
             <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>

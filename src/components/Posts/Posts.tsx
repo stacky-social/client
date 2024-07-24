@@ -28,11 +28,17 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
     }, []);
 
     const handleStackIconClick = (relatedStacks: any[], postId: string, position: { top: number, height: number }) => {
-        setRelatedStacks([...relatedStacks]); 
-        setActivePostId(postId);
-        setPostPosition(position);
+        if (Array.isArray(relatedStacks)) {
+            setRelatedStacks([...relatedStacks]);
+            setActivePostId(postId);
+            setPostPosition(position);
+        } else {
+            console.error("relatedStacks is not an array:", relatedStacks);
+            setRelatedStacks([]); // 设置为空数组，防止出错
+        }
     };
-
+    
+    
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (isExpandModalOpen) return;
@@ -69,6 +75,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
                 {showSubmitAndSearch && <SearchBar />}
                 <div style={{ marginRight: '10rem', position: 'relative' }} ref={relatedStacksRef}>
                     <AnimatePresence>
+                        
                         {relatedStacks.length > 0 && postPosition && (
                             <motion.div
                                 id="related-stacks"
@@ -81,10 +88,10 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
                                 transition={{ duration: 0.2 }}
                             >
                                 <RelatedStacks
-                                    key={relatedStacks.map(stack => stack.stackId).join(',')} 
+                                    key={relatedStacks.map((_, index) => index).join(',')} 
                                     relatedStacks={relatedStacks}
                                     cardWidth={450}
-                                    cardHeight={200}
+                             
                                     onStackClick={() => { }}
                                     setIsModalOpen={setIsModalOpen} 
                                     setIsExpandModalOpen={setIsExpandModalOpen} 
