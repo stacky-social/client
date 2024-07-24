@@ -38,7 +38,7 @@ interface PostType {
 }
 
 interface StackData {
-    stackId: string | null;
+   
     size: number;
 }
 
@@ -182,10 +182,10 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"]; // 标签页名称
     const fetchStackId = async (postId: string): Promise<StackData> => {
 
         const fakeStackData: { [key: string]: StackData } = {
-            "112701710903410105": { stackId: "stack-1", size: 20 },
-            "112712545788018654": { stackId: "stack-2", size: 15 },
-            "112718098683258328": { stackId: "stack-3", size: 10 },
-            "112718194195663750": { stackId: "stack-4", size: 5 },
+            // "112701710903410105": { stackId: "stack-1", size: 20 },
+            // "112712545788018654": { stackId: "stack-2", size: 15 },
+            // "112718098683258328": { stackId: "stack-3", size: 10 },
+            // "112718194195663750": { stackId: "stack-4", size: 5 },
         };
 
         return fakeStackData[postId] || { stackId: null, size: 0 };
@@ -198,8 +198,8 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"]; // 标签页名称
         });
 
         const stackIdResults = await Promise.all(stackIdPromises);
-        const newPostStackIds = stackIdResults.reduce((acc, { postId, stackId, size }) => {
-            acc[postId] = { stackId, size };
+        const newPostStackIds = stackIdResults.reduce((acc, { postId, size }) => {
+            acc[postId] = { size };
             return acc;
         }, {} as { [key: string]: StackData });
 
@@ -340,8 +340,10 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"]; // 标签页名称
     };
 
     const renderAncestors  = (post: any) => {
-        const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
-        const { stackId, size } = stackData;
+
+        // const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
+        // const { stackId, size } = stackData;
+
         return (
             <Post
                 key={post.id}
@@ -353,8 +355,8 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"]; // 标签页名称
                 repliesCount={post.replies_count}
                
                 createdAt={post.created_at}
-                stackCount={size}
-                stackId={stackId}
+                stackCount={9}
+            
                 favouritesCount={post.favourites_count}
                 favourited={post.favourited}
                 bookmarked={post.bookmarked}
@@ -362,6 +364,7 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"]; // 标签页名称
                 onStackIconClick={() => stackId && handleStackIconClick(stackId)}
                 setIsModalOpen={() => {}}
                 setIsExpandModalOpen={()=>{}}
+                relatedStacks={relatedStacks}
             />
         );
     };
@@ -378,8 +381,10 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"]; // 标签页名称
 
 
     const renderReplies = (post: any) => {
-        const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
-        const { stackId, size } = stackData;
+
+        // const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
+        // const { stackId, size } = stackData;
+
 
         if (post.in_reply_to_id !== id) {
             return null;
@@ -396,8 +401,8 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"]; // 标签页名称
             
                 repliesCount={post.replies_count}
                 createdAt={post.created_at}
-                stackCount={size}
-                stackId={stackId}
+                stackCount={9}
+          
                 favouritesCount={post.favourites_count}
                 favourited={post.favourited}
                 bookmarked={post.bookmarked}
@@ -405,6 +410,7 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"]; // 标签页名称
                 onStackIconClick={() => stackId && handleStackIconClick(stackId)}
                 setIsModalOpen={() => {}}
                 setIsExpandModalOpen={()=>{}}
+                relatedStacks={relatedStacks}
             />
         );
     };
@@ -561,7 +567,7 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"]; // 标签页名称
                         <RelatedStacks
                             relatedStacks={relatedStacks}
                             cardWidth={400}
-                            cardHeight={200}
+                           
                             onStackClick={() => {}}
                             setIsExpandModalOpen={()=>{}}
                             setIsModalOpen={()=>{}}
