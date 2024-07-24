@@ -334,8 +334,10 @@ export default function PostView({ params }: { params: { id: string } }) {
     };
 
     const renderAncestors  = (post: any) => {
+
         // const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
         // const { stackId, size } = stackData;
+
         return (
             <Post
                 key={post.id}
@@ -367,8 +369,10 @@ export default function PostView({ params }: { params: { id: string } }) {
 
 
     const renderReplies = (post: any) => {
+
         // const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
         // const { stackId, size } = stackData;
+
 
         if (post.in_reply_to_id !== id) {
             return null;
