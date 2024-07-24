@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Paper, Text, Transition,Loader } from '@mantine/core';
+import { Paper, Text, Transition, Loader } from '@mantine/core';
 import { IconStack } from '@tabler/icons-react';
 import { randomEmojis } from '../utils/emojiMapping';
 
 interface StackCountProps {
-    count: number|null;
-    onClick: () => void; 
-    onStackClick: (index: number) => void; 
+    count: number | null;
+    onClick: () => void;
+    onStackClick: (index: number) => void;
     relatedStacks: Array<{ rel: string, stackId: string, size: number }>;
     expanded: boolean;
 }
@@ -24,6 +24,8 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
         onClick();
         setIsExpanded(true);
     };
+
+    const isTwoColumnLayout = relatedStacks.length >= 5;
 
     return (
         <Paper
@@ -57,7 +59,15 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
             </div>
             <Transition mounted={isExpanded} transition="slide-down" duration={300} timingFunction="ease">
                 {(styles) => (
-                    <div style={{ ...styles, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                    <div style={{ 
+                        ...styles, 
+                        display: isTwoColumnLayout ? 'grid' : 'flex', 
+                        gridTemplateColumns: isTwoColumnLayout ? 'repeat(2, 1fr)' : undefined,
+                        gridAutoRows: isTwoColumnLayout ? 'auto' : undefined,
+                        flexDirection: isTwoColumnLayout ? undefined : 'column',
+                        gap: '5px',
+                        width: '100%',
+                    }}>
                         {relatedStacks.map((stack, index) => (
                             <div 
                                 key={index} 
@@ -65,8 +75,6 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
                                     display: 'flex', 
                                     flexDirection: 'column', 
                                     alignItems: 'center', 
-                                    marginTop: '5px', 
-                                    marginBottom: '5px', 
                                     backgroundColor: hoveredIndex === index ? 'rgba(0, 0, 0, 0.1)' : 'transparent',
                                     transition: 'background-color 0.3s ease',
                                     width: '100%' 
