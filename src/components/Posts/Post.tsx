@@ -6,6 +6,7 @@ import { formatDistanceToNow } from 'date-fns';
 import StackCount from '../StackCount';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface PreviewCard {
   title: string;
@@ -267,28 +268,28 @@ const handleStackClick = (index: number) => {
   return (
     <div style={{ position: 'relative', margin: '15px', marginBottom: '2rem', width: "90%" }}>
       <Paper
-        ref={paperRef}
-        style={{
-          position: 'relative',
-          width: "100%",
-          backgroundColor: '#fff',
-          zIndex: 5,
-          boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-          borderRadius: '8px',
-          padding: '10px ',
-        }}
-        withBorder
-        onMouseEnter={() => {
-          if (paperRef.current) {
-            paperRef.current.style.backgroundColor = 'rgba(245, 245, 245)';
-          }
-        }}
-        onMouseLeave={() => {
-          if (paperRef.current) {
-            paperRef.current.style.backgroundColor = 'rgba(255, 255, 255, 1)';
-          }
-        }}
-      >
+  ref={paperRef}
+  style={{
+    position: 'relative',
+    width: "100%",
+    backgroundColor: isExpanded ? '#c6e6e8' : '#fff',
+    zIndex: 5,
+    boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+    borderRadius: '8px',
+    padding: '10px ',
+  }}
+  withBorder
+  onMouseEnter={() => {
+    if (!isExpanded && paperRef.current) {
+      paperRef.current.style.backgroundColor = 'rgba(245, 245, 245)';
+    }
+  }}
+  onMouseLeave={() => {
+    if (!isExpanded && paperRef.current) {
+      paperRef.current.style.backgroundColor = 'rgba(255, 255, 255, 1)';
+    }
+  }}
+>
         <UnstyledButton onClick={handleNavigate} style={{ width: '100%' }}>
           <Group>
             <UnstyledButton onClick={handleNavigateToUser}>
@@ -363,24 +364,31 @@ const handleStackClick = (index: number) => {
         </UnstyledButton>
 
       </Paper>
-      
-      {stackCount !== null && [...Array(4)].map((_, index) => (
-        <div
-          key={index}
-          style={{
-            position: 'absolute',
-            bottom: `${20 - 5 * (index + 1)}px`,
-            left: `${20 - 5 * (index + 1)}px`,
-            width: "100%",
-            height: `${cardHeight}px`,
-            backgroundColor: '#fff',
-            zIndex: index + 1,
-            boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-            borderRadius: '8px',
-            border: '1px solid rgba(0, 0, 0, 0.1)',
-          }}
-        />
-      ))}
+      {stackCount !== null && (
+  <AnimatePresence>
+    {!isExpanded && [...Array(4)].map((_, index) => (
+      <motion.div
+        key={index}
+        initial={{ opacity: 1 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.5 }}
+        style={{
+          position: 'absolute',
+          bottom: `${20 - 5 * (index + 1)}px`,
+          left: `${20 - 5 * (index + 1)}px`,
+          width: "100%",
+          height: `${cardHeight}px`,
+          backgroundColor: '#fff',
+          zIndex: index + 1,
+          boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+          borderRadius: '8px',
+          border: '1px solid rgba(0, 0, 0, 0.1)',
+        }}
+      />
+    ))}
+  </AnimatePresence>
+)}
       <AnnotationModal
         isOpen={annotationModalOpen}
         onClose={() => setAnnotationModalOpen(false)}
