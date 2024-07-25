@@ -34,7 +34,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
             setPostPosition(position);
         } else {
             console.error("relatedStacks is not an array:", relatedStacks);
-            setRelatedStacks([]); // 设置为空数组，防止出错
+            setRelatedStacks([]); 
         }
     };
     
@@ -93,7 +93,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
                                     cardWidth={450}
                              
                                     onStackClick={() => { }}
-                                    setIsModalOpen={setIsModalOpen} 
+                                    // setIsModalOpen={setIsModalOpen} 
                                     setIsExpandModalOpen={setIsExpandModalOpen} 
                                 />
                             </motion.div>

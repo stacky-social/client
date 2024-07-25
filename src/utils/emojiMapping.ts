@@ -1,4 +1,5 @@
-// emojiMapping.ts
+import { IconReportMedical } from "@tabler/icons-react";
+
 export const randomEmojis: { [key: string]: string } = {
     "uncategorized": "🌐",
     "predictions": "🔮",
