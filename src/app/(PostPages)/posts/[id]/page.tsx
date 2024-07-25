@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Post from '../../../../components/Posts/Post';
 import {
     Avatar,
@@ -44,8 +44,6 @@ interface StackData {
 
 export default function PostView({ params }: { params: { id: string } }) {
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const stackIdFromParams = searchParams.get('stackId');
     const { id } = params;
     
     const [loading, setLoading] = useState(true);
@@ -58,18 +56,16 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [liked, setLiked] = useState(false);
     const [bookmarked, setBookmarked] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
-    const stackId = stackIdFromParams || null;
+
     const currentPostRef = useRef<HTMLDivElement>(null);
     const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
-    const [relatedStacksLoaded, setRelatedStacksLoaded] = useState(false);
+    
     const [postLoaded, setPostLoaded] = useState(false);
-    const [postStackIds, setPostStackIds] = useState<{ [key: string]: StackData }>({});
     const [showAllReplies, setShowAllReplies] = useState(false);
-
     const [selectedTab, setSelectedTab] = useState(0);
 
-const tabColors = ["#f8d86a", "#b9dec9", "#b0d5df", "#f1c4cd"]; 
-const tabNames = ["Time", "Quality", "Stacks", "Summary"]; 
+    const tabColors = ["#f8d86a", "#b9dec9", "#b0d5df", "#f1c4cd"]; 
+    const tabNames = ["Time", "Recommend", "Stacks of Summary", "Summary"]; 
 
 
     useEffect(() => {
@@ -87,9 +83,9 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"];
                     top: currentPostRef.current!.offsetTop,
                     behavior: 'smooth'
                 });
-            }, 200);
+            }, 300);
         }
-    }, [relatedStacksLoaded, post]);
+    }, [ post,postLoaded]);
 
     const fetchCurrentUser = async () => {
         const accessToken = localStorage.getItem('accessToken');
@@ -171,7 +167,7 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"];
             setPostLoaded(true);
 
             // Fetch stack IDs for each ancestor and reply
-            await fetchAllStackIds([...formattedAncestors, ...formattedReplies]);
+          
         } catch (error) {
             console.error('Failed to fetch post or replies:', error);
         } finally {
@@ -179,94 +175,8 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"];
         }
     };
 
-    const fetchStackId = async (postId: string): Promise<StackData> => {
 
-        const fakeStackData: { [key: string]: StackData } = {
-            // "112701710903410105": { stackId: "stack-1", size: 20 },
-            // "112712545788018654": { stackId: "stack-2", size: 15 },
-            // "112718098683258328": { stackId: "stack-3", size: 10 },
-            // "112718194195663750": { stackId: "stack-4", size: 5 },
-        };
-
-        return fakeStackData[postId] || { stackId: null, size: 0 };
-    };
-
-    const fetchAllStackIds = async (posts: any[]) => {
-        const stackIdPromises = posts.map(async (post) => {
-            const stackData = await fetchStackId(post.id);
-            return { postId: post.id, ...stackData };
-        });
-
-        const stackIdResults = await Promise.all(stackIdPromises);
-        const newPostStackIds = stackIdResults.reduce((acc, { postId, size }) => {
-            acc[postId] = { size };
-            return acc;
-        }, {} as { [key: string]: StackData });
-
-        setPostStackIds(newPostStackIds);
-    };
-
-    const fetchRelatedStacks = async (stackId: string) => {
-        
-        const fakeRelatedStacks = [
-            {
-              stackId: "stack-1",
-              rel: "disagree",
-              size: 20,
-              topPost: {
-                id: "post-1",
-                created_at: new Date().toISOString(),
-                replies_count: 5,
-                favourites_count: 10,
-                favourited: false,
-                bookmarked: false,
-                content: "This is a fake post content for stack 1",
-                account: {
-                  avatar: "https://via.placeholder.com/150",
-                  display_name: "User 1",
-                },
-              },
-            },
-            {
-              stackId: "stack-2",
-              rel: "prediction",
-              size: 15,
-              topPost: {
-                id: "post-2",
-                created_at: new Date().toISOString(),
-                replies_count: 3,
-                favourites_count: 7,
-                favourited: true,
-                bookmarked: false,
-                content: "This is a fake post content for stack 2",
-                account: {
-                  avatar: "https://via.placeholder.com/150",
-                  display_name: "User 2",
-                },
-              },
-            },
-            {
-              stackId: "stack-3",
-              rel: "history",
-              size: 15,
-              topPost: {
-                id: "post-2",
-                created_at: new Date().toISOString(),
-                replies_count: 3,
-                favourites_count: 7,
-                favourited: true,
-                bookmarked: false,
-                content: "This is a fake post content for stack 2",
-                account: {
-                  avatar: "https://via.placeholder.com/150",
-                  display_name: "User 2",
-                },
-              },
-            }
-            // Add more fake data as needed
-          ];
-        return fakeRelatedStacks;
-    };
+    
 
     const handleNavigate = (replyId: string) => {
         router.push(`/posts/${replyId}`);
@@ -320,9 +230,7 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"];
         }
     };
 
-    const handleShare = () => {
-        console.log("Share post:", id);
-    };
+   
 
     const handleCopyLink = () => {
         const url = `${window.location.origin}/posts/${id}`;
@@ -333,10 +241,10 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"];
         });
       };
 
-    const handleStackIconClick = async (stackId: string) => {
-        const relatedStacks = await fetchRelatedStacks(stackId);
-        setRelatedStacks(relatedStacks);
-        setRelatedStacksLoaded(true);
+    const handleStackIconClick = async (postID: string) => {
+        // const relatedStacks = await fetchRelatedStacks(postID);
+        // setRelatedStacks(relatedStacks);
+        // setRelatedStacksLoaded(true);
     };
 
     const renderAncestors  = (post: any) => {
@@ -353,15 +261,13 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"];
                 account={post.account.acc}
                 avatar={post.account.avatar}
                 repliesCount={post.replies_count}
-               
                 createdAt={post.created_at}
                 stackCount={9}
-            
                 favouritesCount={post.favourites_count}
                 favourited={post.favourited}
                 bookmarked={post.bookmarked}
                 mediaAttachments={[]}
-                onStackIconClick={() => stackId && handleStackIconClick(stackId)}
+                onStackIconClick={() => post.id && handleStackIconClick(post.id)}
                 setIsModalOpen={() => {}}
                 setIsExpandModalOpen={()=>{}}
                 relatedStacks={relatedStacks}
@@ -375,16 +281,12 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"];
 
     const handleTabClick = (index: number) => {
         setSelectedTab(index);
-        // 根据需要，可以在这里添加额外的逻辑，比如调用API获取数据
+        
     };
     
 
 
     const renderReplies = (post: any) => {
-
-        // const stackData = postStackIds[post.id] || { stackId: null, size: 0 };
-        // const { stackId, size } = stackData;
-
 
         if (post.in_reply_to_id !== id) {
             return null;
@@ -407,7 +309,7 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"];
                 favourited={post.favourited}
                 bookmarked={post.bookmarked}
                 mediaAttachments={[]}
-                onStackIconClick={() => stackId && handleStackIconClick(stackId)}
+                onStackIconClick={() => post.id && handleStackIconClick(post.id)}
                 setIsModalOpen={() => {}}
                 setIsExpandModalOpen={()=>{}}
                 relatedStacks={relatedStacks}
@@ -432,7 +334,7 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"];
                 centered
                 size="auto"
             >
-                {stackId && <ExpandModal stackId={modalContent} />}
+                {/* {post.id && <ExpandModal stackId={modalContent} />} */}
             </Modal>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%' }}>
@@ -470,7 +372,7 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"];
                                 </div>
                             ))}
                             <Text pl={54} pt="sm" size="sm">Post Id: {post?.id}</Text>
-                            <Text pl={54} pt="sm" size="sm">Stack Id: {stackId}</Text>
+                            
                             <Divider my="md" />
                             <Group justify="space-between" mx="20">
                                 <Button variant="subtle" size="sm" radius="lg" onClick={() => handleNavigate(id)}>
@@ -486,13 +388,7 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"];
                                     <IconLink size={20} />
                                 </Button>
                             </Group>
-                            {/* {stackId && (
-                                <StackCount
-                                    count={size}
-                                    onClick={() => handleStackIconClick(stackId)}
-                                    relatedStacks={relatedStacks}
-                                />
-                            )} */}
+                           
                         </Paper>
                     </div>
                     <Divider my="md" />
@@ -508,7 +404,7 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"];
 
 {
     replies.length > 0 && (
-<div style={{ display: 'flex', marginBottom: '0' }}>
+    <div style={{ display: 'flex', marginBottom: '0' }}>
     {tabColors.map((color, index) => (
         <div
             key={index}
@@ -575,7 +471,7 @@ const tabNames = ["Time", "Quality", "Stacks", "Summary"];
                            
                             onStackClick={() => {}}
                             setIsExpandModalOpen={()=>{}}
-                            setIsModalOpen={()=>{}}
+                            // setIsModalOpen={()=>{}}
                         />
                     )}
 
