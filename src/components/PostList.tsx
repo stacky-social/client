@@ -40,14 +40,14 @@ const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadS
                     favourited: post.favourited,
                     bookmarked: post.bookmarked,
                     mediaAttachments: post.media_attachments,
-                    relatedStacks: [] // 初始化为空数组
+                    relatedStacks: [] 
                 }));
 
                 setPosts(data);
                 setLoading(false);
 
                 if (loadStackInfo) {
-                    await loadStackDataInBatches(data, 5); // 每次处理5个
+                    await loadStackDataInBatches(data, 2); 
                 }
             } catch (error) {
                 console.error('Error fetching Mastodon data:', error);
@@ -102,7 +102,7 @@ const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadS
             onStackIconClick={handleStackIconClick}
             setIsModalOpen={setIsModalOpen}
             setIsExpandModalOpen={setIsExpandModalOpen}
-            relatedStacks={post.relatedStacks} // 传递相关堆栈
+            relatedStacks={post.relatedStacks} 
         />
     ));
 
