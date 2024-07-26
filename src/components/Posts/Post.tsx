@@ -112,6 +112,7 @@ useEffect(() => {
 
   const handleNavigate = () => {
     const url = `/posts/${id}`;
+    localStorage.setItem('relatedStacks', JSON.stringify(tempRelatedStacks));
     router.push(url);
   };
 
@@ -212,7 +213,7 @@ useEffect(() => {
   const handleCopyLink = () => {
     const url = `${window.location.origin}/posts/${id}`;
     navigator.clipboard.writeText(url).then(() => {
-      console.log('Link copied to clipboard:', url);
+
     }).catch((error) => {
       console.error('Error copying link:', error);
     });
@@ -222,21 +223,18 @@ useEffect(() => {
     setIsExpanded(true);
     const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
     const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
-    console.log('Calculated Position:', adjustedPosition); 
     onStackIconClick(tempRelatedStacks, id, adjustedPosition);
 };
 
 
 const handleStackClick = (index: number) => {
-  console.log('Clicked stack index:', index);
+  
   const newRelatedStacks = [...tempRelatedStacks];
   const [clickedStack] = newRelatedStacks.splice(index, 1);
-  console.log('Clicked stack:', clickedStack);
-  console.log('Related stacks before:', newRelatedStacks);
 
   newRelatedStacks.unshift(clickedStack);
   setTempRelatedStacks(newRelatedStacks);
-  console.log('Updated related stacks:', newRelatedStacks);
+ 
 
   const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
   const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
@@ -254,7 +252,7 @@ const handleStackClick = (index: number) => {
 
   useEffect(() => {
     const links = document.querySelectorAll('.post-content a');
-    console.log('Links:', links);
+   
     links.forEach(link => {
       link.addEventListener('click', handleLinkClick as EventListener);
     });
