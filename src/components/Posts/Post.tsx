@@ -64,7 +64,7 @@ export default function Post({ id, text, author, account, avatar, repliesCount, 
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
   const paperRef = useRef<HTMLDivElement>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const [isExpandModalOpen, setIsExpandModalOpen] = useState(false);
 
   const [liked, setLiked] = useState(favourited);
