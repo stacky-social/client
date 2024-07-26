@@ -19,26 +19,28 @@ import axios from 'axios';
 import ExpandModal from "../../../../components/ExpandModal";
 import RelatedStacks from '../../../../components/RelatedStacks';
 import ReplySection from '../../../../components/ReplySection';
-import { set } from 'date-fns';
-
-const MastodonInstanceUrl = 'https://beta.stacky.social';
+import { AnimatePresence, motion } from 'framer-motion';
 
 interface PostType {
     id: string;
-    created_at: string;
+    content: string;
+    account: {
+        username: string;
+        acc: string;
+        avatar: string;
+    };
     replies_count: number;
+    created_at: string;
+    stackCount: number | null;
     favourites_count: number;
     favourited: boolean;
     bookmarked: boolean;
-    content: string;
-    account: {
-        avatar: string;
-        display_name: string;
-        username: string; 
-    };
+    media_attachments: any[];
     relatedStacks: any[];
-    stackCount: number | null;
 }
+
+
+const MastodonInstanceUrl = 'https://beta.stacky.social';
 
 export default function PostView({ params }: { params: { id: string } }) {
     const router = useRouter();
@@ -49,7 +51,6 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [replies, setReplies] = useState<any[]>([]);
     const [ancestors, setAncestors] = useState<any[]>([]);
     const [modalOpened, setModalOpened] = useState(false);
-    const [modalContent, setModalContent] = useState<string>('');
     const [currentUser, setCurrentUser] = useState<any | null>(null);
     const [liked, setLiked] = useState(false);
     const [bookmarked, setBookmarked] = useState(false);
@@ -74,19 +75,6 @@ export default function PostView({ params }: { params: { id: string } }) {
     const tabNames = ["Time", "Recommend", "Stacks Replies", "Summary"]; 
 
     useEffect(() => {
-        if (isExpandModalOpen) return;
-        const handleClickOutside = (event: MouseEvent) => {
-          if (!isExpandModalOpen && paperRef.current && !paperRef.current.contains(event.target as Node)) {
-            setIsExpanded(false);
-          }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-          document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [isExpandModalOpen]);
-
-    useEffect(() => {
         fetchPostAndReplies(id);
     }, [id]);
 
@@ -103,11 +91,13 @@ export default function PostView({ params }: { params: { id: string } }) {
                 });
             }, 300);
         }
-    }, [ post,postLoaded]);
+    }, [post, postLoaded]);
 
     useEffect(() => {
         if (postLoaded) {
-            // fetchAllRelatedStacks();
+            fetchRelatedStacks(post);
+            replies.forEach(reply => fetchRelatedStacks(reply));
+            ancestors.forEach(ancestor => fetchRelatedStacks(ancestor));
         }
     }, [postLoaded]);
 
@@ -184,6 +174,44 @@ export default function PostView({ params }: { params: { id: string } }) {
         }
     };
 
+    const fetchRelatedStacks = async (post: any) => {
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) {
+            console.error('Access token is missing.');
+            return;
+        }
+
+        try {
+            const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${post.id}/related_fake`, {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                }
+            });
+            const stackData = response.data.relatedStacks || [];
+            const stackCount = response.data.size;
+            setPost((prevPost: PostType | null) => ({
+                ...prevPost,
+                relatedStacks: post.id === prevPost?.id ? stackData : prevPost?.relatedStacks,
+                stackCount: post.id === prevPost?.id ? stackCount : prevPost?.stackCount
+            }));
+            setReplies((prevReplies) =>
+                prevReplies.map((p) =>
+                    p.id === post.id
+                        ? { ...p, stackCount: stackCount, relatedStacks: stackData }
+                        : p
+                )
+            );
+            setAncestors((prevAncestors) =>
+                prevAncestors.map((p) =>
+                    p.id === post.id
+                        ? { ...p, stackCount: stackCount, relatedStacks: stackData }
+                        : p
+                )
+            );
+        } catch (error) {
+            console.error(`Error fetching stack data for post ${post.id}:`, error);
+        }
+    };
 
     const handleNavigate = (replyId: string) => {
         router.push(`/posts/${replyId}`);
@@ -249,15 +277,17 @@ export default function PostView({ params }: { params: { id: string } }) {
     const handleStackIconClick = (
         relatedStacks: any[],
         postId: string,
-        position: { top: number, height: number },
+        position: { top: number, height: number }
     ) => {
         setIsExpanded(true);
+        console.log('Received Position:', position);
         setRelatedStacks(relatedStacks);
         setActivePostId(postId);
         setPostPosition(position);
     };
+    
 
-    const renderAncestors  = (post: any) => {
+    const renderAncestors = (post: any) => {
         return (
             <Post
                 key={post.id}
@@ -273,9 +303,9 @@ export default function PostView({ params }: { params: { id: string } }) {
                 favourited={post.favourited}
                 bookmarked={post.bookmarked}
                 mediaAttachments={[]}
-                onStackIconClick={() => post.id && handleStackIconClick(post.relatedStacks, post.id, { top: 0, height: 0 })}
+                onStackIconClick={handleStackIconClick}
                 setIsModalOpen={() => {}}
-                setIsExpandModalOpen={()=>{}}
+                setIsExpandModalOpen={() => {}}
                 relatedStacks={post.relatedStacks}
             />
         );
@@ -322,9 +352,9 @@ export default function PostView({ params }: { params: { id: string } }) {
                 favourited={post.favourited}
                 bookmarked={post.bookmarked}
                 mediaAttachments={[]}
-                onStackIconClick={() => post.id && handleStackIconClick(post.relatedStacks, post.id, { top: 0, height: 0 })}
+                onStackIconClick={handleStackIconClick}
                 setIsModalOpen={() => {}}
-                setIsExpandModalOpen={()=>{}}
+                setIsExpandModalOpen={() => {}}
                 relatedStacks={post.relatedStacks}
             />
         );
@@ -350,9 +380,9 @@ export default function PostView({ params }: { params: { id: string } }) {
                 favourited={post.favourited}
                 bookmarked={post.bookmarked}
                 mediaAttachments={[]}
-                onStackIconClick={() => post.id && handleStackIconClick(post.relatedStacks, post.id, { top: 0, height: 0 })}
+                onStackIconClick={handleStackIconClick}
                 setIsModalOpen={() => {}}
-                setIsExpandModalOpen={()=>{}}
+                setIsExpandModalOpen={() => {}}
                 relatedStacks={post.relatedStacks}
             />
         );
@@ -428,7 +458,6 @@ export default function PostView({ params }: { params: { id: string } }) {
                                     <IconLink size={20} />
                                 </Button>
                             </Group>
-                           
                         </Paper>
                     </div>
                     <Divider my="md" />
@@ -503,16 +532,34 @@ export default function PostView({ params }: { params: { id: string } }) {
                     <div style={{ height: '100vh' }}></div>
                 </div>
                 <div style={{ gridColumn: '2 / 3' }}>
-                    <div ref={relatedStacksRef}>
-                        {relatedStacks.length > 0 && (
-                            <RelatedStacks
-                                relatedStacks={relatedStacks}
-                                cardWidth={450}
-                                onStackClick={() => {}}
-                                setIsExpandModalOpen={() => {}}
-                            />
-                        )}
-                    </div>
+
+                <div ref={relatedStacksRef} style={{ position: 'relative' }}>
+    <AnimatePresence>
+        {relatedStacks.length > 0 && postPosition && (
+            <motion.div
+                style={{
+                    position: 'absolute',
+                    top: postPosition.top-100,
+                    left: 20,
+                    zIndex: 10
+                }}
+                initial={{ opacity: 0, x: -200 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -200 }}
+                transition={{ duration: 0.2 }}
+            >
+                <RelatedStacks
+                    relatedStacks={relatedStacks}
+                    cardWidth={450}
+                    onStackClick={() => {}}
+                    setIsExpandModalOpen={() => {}}
+                />
+            </motion.div>
+        )}
+    </AnimatePresence>
+</div>
+              
+
                 </div>
             </div>
         </Container>

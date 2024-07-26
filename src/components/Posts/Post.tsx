@@ -78,10 +78,10 @@ export default function Post({ id, text, author, account, avatar, repliesCount, 
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>([]);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
 
-useEffect(() => {
-    console.log('real Related stacks:', relatedStacks);
-    console.log('Temp Related stacks:', tempRelatedStacks);
-}, [relatedStacks, tempRelatedStacks]);
+// useEffect(() => {
+//     console.log('real Related stacks:', relatedStacks);
+//     console.log('Temp Related stacks:', tempRelatedStacks);
+// }, [relatedStacks, tempRelatedStacks]);
 
 useEffect(() => {
   setTempRelatedStacks(relatedStacks);
@@ -222,6 +222,7 @@ useEffect(() => {
     setIsExpanded(true);
     const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
     const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+    console.log('Calculated Position:', adjustedPosition); 
     onStackIconClick(tempRelatedStacks, id, adjustedPosition);
 };
 
