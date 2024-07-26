@@ -37,6 +37,8 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
             setRelatedStacks([]); 
         }
     };
+
+    
     
     
     useEffect(() => {
@@ -93,7 +95,6 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
                                     cardWidth={450}
                              
                                     onStackClick={() => { }}
-                                    // setIsModalOpen={setIsModalOpen} 
                                     setIsExpandModalOpen={setIsExpandModalOpen} 
                                 />
                             </motion.div>
