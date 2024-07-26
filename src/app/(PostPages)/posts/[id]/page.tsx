@@ -16,7 +16,7 @@ import {
 } from "@mantine/core";
 import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconHeartFilled, IconBookmarkFilled, IconLink  } from "@tabler/icons-react";
 import axios from 'axios';
-import ExpandModal from "../../../../components/ExpandModal";
+
 import RelatedStacks from '../../../../components/RelatedStacks';
 import ReplySection from '../../../../components/ReplySection';
 import { AnimatePresence, motion } from 'framer-motion';
