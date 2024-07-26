@@ -182,7 +182,7 @@ export default function PostView({ params }: { params: { id: string } }) {
         }
 
         try {
-            const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${post.id}/related_fake`, {
+            const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${post.id}/related`, {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
                 }
