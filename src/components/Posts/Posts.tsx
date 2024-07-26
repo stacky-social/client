@@ -41,18 +41,18 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
     
     
     
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (isExpandModalOpen) return;
-            if (relatedStacksRef.current && !relatedStacksRef.current.contains(event.target as Node)) {
-                setRelatedStacks([]);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [relatedStacks, isExpandModalOpen]);
+    // useEffect(() => {
+    //     const handleClickOutside = (event: MouseEvent) => {
+    //         if (isExpandModalOpen) return;
+    //         if (relatedStacksRef.current && !relatedStacksRef.current.contains(event.target as Node)) {
+    //             setRelatedStacks([]);
+    //         }
+    //     };
+    //     document.addEventListener('mousedown', handleClickOutside);
+    //     return () => {
+    //         document.removeEventListener('mousedown', handleClickOutside);
+    //     };
+    // }, [relatedStacks, isExpandModalOpen]);
 
     return (
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem' }}>
