@@ -15,6 +15,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
     const [isModalOpen, setIsModalOpen] = useState(false); 
     const [isExpandModalOpen, setIsExpandModalOpen] = useState(false); 
 
+
     const relatedStacksRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -30,6 +31,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
     const handleStackIconClick = (relatedStacks: any[], postId: string, position: { top: number, height: number }) => {
         if (Array.isArray(relatedStacks)) {
             setRelatedStacks([...relatedStacks]);
+         
             setActivePostId(postId);
             setPostPosition(position);
             setIsExpandModalOpen(false);

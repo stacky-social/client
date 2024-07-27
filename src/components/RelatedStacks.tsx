@@ -35,6 +35,8 @@ interface RelatedStacksProps {
   cardWidth: number;
   onStackClick: (stackId: string) => void;
   setIsExpandModalOpen: (isOpen: boolean) => void;
+  
+  
 }
 
 const iconMapping: { [key: string]: JSX.Element } = {
@@ -59,6 +61,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
   const [maxStacksToShow, setMaxStacksToShow] = useState(3);
   const [cardHeight, setCardHeight] = useState(0);
   const paperRef = useRef<HTMLDivElement>(null);
+  const [isInitialDisplay, setIsInitialDisplay] = useState(true);
 
   useEffect(() => {
     if (paperRef.current) {
@@ -106,6 +109,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
       initial="hidden"
       animate="show"
       style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center', width: '100%' }}
+    
     >
       {relatedStacks.slice(0, maxStacksToShow).map((stack, index) => (
         <motion.div
@@ -206,10 +210,14 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
                 <IconShare size={20} />
               </Button>
             </Group>
-            <RelatedStackCount count={stack.size} onClick={() => handleStackCountClick(stack.stackId)} />
+            {
+              stack.size !== null && stack.size > 1 &&
+              <RelatedStackCount count={stack.size} onClick={() => handleStackCountClick(stack.stackId)} />
+            }
+            {/* <RelatedStackCount count={stack.size} onClick={() => handleStackCountClick(stack.stackId)} /> */}
           </Paper>
 
-          {stack.size !== null &&
+          {stack.size !== null && stack.size > 1 && 
             [...Array(4)].map((_, index) => (
               <div
                 key={index}
