@@ -13,9 +13,20 @@ interface PostListProps {
     accessToken: string | null;
     setIsModalOpen: (isOpen: boolean) => void;
     setIsExpandModalOpen: (isOpen: boolean) => void;
+    activePostId: string | null;  // 新增
+    setActivePostId: (id: string | null) => void;  // 新增
 }
 
-const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadStackInfo, accessToken, setIsModalOpen, setIsExpandModalOpen }) => {
+const PostList: React.FC<PostListProps> = ({
+    apiUrl,
+    handleStackIconClick,
+    loadStackInfo,
+    accessToken,
+    setIsModalOpen,
+    setIsExpandModalOpen,
+    activePostId,
+    setActivePostId,
+}) => {
     const [posts, setPosts] = useState<PostType[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -63,7 +74,7 @@ const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadS
             const batch = posts.slice(i, i + batchSize);
             await Promise.all(batch.map(async (post) => {
                 try {
-                    const response = await axios.get(`${MastodonInstanceUrl}/stacks/${post.postId}/related`, {
+                    const response = await axios.get(`${MastodonInstanceUrl}/stacks/${post.postId}/related_fake`, {
                         headers: {
                             Authorization: `Bearer ${accessToken}`,
                         }
@@ -102,7 +113,9 @@ const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadS
             onStackIconClick={handleStackIconClick}
             setIsModalOpen={setIsModalOpen}
             setIsExpandModalOpen={setIsExpandModalOpen}
-            relatedStacks={post.relatedStacks} 
+            relatedStacks={post.relatedStacks}
+            activePostId={activePostId}  // 新增
+            setActivePostId={setActivePostId}  // 新增
         />
     ));
 

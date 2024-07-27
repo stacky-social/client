@@ -57,10 +57,28 @@ interface PostProps {
   onStackIconClick: (relatedStacks: any[], postId: string, position: { top: number, height: number }) => void;
   setIsModalOpen: (isOpen: boolean) => void;
   setIsExpandModalOpen: (isOpen: boolean) => void;
-  relatedStacks: any[]; 
+  relatedStacks: any[];
+  activePostId: string | null;  // 新增
+  setActivePostId: (id: string | null) => void;  // 新增
 }
 
-export default function Post({ id, text, author, account, avatar, repliesCount, createdAt, stackCount, favouritesCount, favourited, bookmarked, onStackIconClick, relatedStacks }: PostProps) {
+export default function Post({
+  id,
+  text,
+  author,
+  account,
+  avatar,
+  repliesCount,
+  createdAt,
+  stackCount,
+  favouritesCount,
+  favourited,
+  bookmarked,
+  onStackIconClick,
+  relatedStacks,
+  activePostId,
+  setActivePostId,
+}: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
   const paperRef = useRef<HTMLDivElement>(null);
@@ -78,14 +96,9 @@ export default function Post({ id, text, author, account, avatar, repliesCount, 
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>([]);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
 
-// useEffect(() => {
-//     console.log('real Related stacks:', relatedStacks);
-//     console.log('Temp Related stacks:', tempRelatedStacks);
-// }, [relatedStacks, tempRelatedStacks]);
-
-useEffect(() => {
-  setTempRelatedStacks(relatedStacks);
-}, [relatedStacks]);
+  useEffect(() => {
+    setTempRelatedStacks(relatedStacks);
+  }, [relatedStacks]);
 
   useEffect(() => {
     if (paperRef.current) {
@@ -98,17 +111,10 @@ useEffect(() => {
   }, []);
 
   useEffect(() => {
-    if (isExpandModalOpen) return;
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!isExpandModalOpen && paperRef.current && !paperRef.current.contains(event.target as Node)) {
-        setIsExpanded(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isExpandModalOpen]);
+    if (activePostId !== id && isExpanded) {
+      setIsExpanded(false); // 关闭当前的StackCount
+    }
+  }, [activePostId]);
 
   const handleNavigate = () => {
     const url = `/posts/${id}`;
@@ -223,24 +229,21 @@ useEffect(() => {
     setIsExpanded(true);
     const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
     const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+
     onStackIconClick(tempRelatedStacks, id, adjustedPosition);
-};
+    setActivePostId(id); // 设置当前活跃的Post ID
+  };
 
+  const handleStackClick = (index: number) => {
+    const newRelatedStacks = [...tempRelatedStacks];
+    const [clickedStack] = newRelatedStacks.splice(index, 1);
+    newRelatedStacks.unshift(clickedStack);
+    setTempRelatedStacks(newRelatedStacks);
 
-const handleStackClick = (index: number) => {
-  
-  const newRelatedStacks = [...tempRelatedStacks];
-  const [clickedStack] = newRelatedStacks.splice(index, 1);
-
-  newRelatedStacks.unshift(clickedStack);
-  setTempRelatedStacks(newRelatedStacks);
- 
-
-  const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
-  const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
-  onStackIconClick(newRelatedStacks, id, adjustedPosition);
-};
-
+    const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
+    const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+    onStackIconClick(newRelatedStacks, id, adjustedPosition);
+  };
 
   const handleLinkClick = (e: MouseEvent) => {
     e.preventDefault();
@@ -252,11 +255,9 @@ const handleStackClick = (index: number) => {
 
   useEffect(() => {
     const links = document.querySelectorAll('.post-content a');
-   
     links.forEach(link => {
       link.addEventListener('click', handleLinkClick as EventListener);
     });
-
     return () => {
       links.forEach(link => {
         link.removeEventListener('click', handleLinkClick as EventListener);
@@ -267,28 +268,28 @@ const handleStackClick = (index: number) => {
   return (
     <div style={{ position: 'relative', margin: '15px', marginBottom: '2rem', width: "90%" }}>
       <Paper
-  ref={paperRef}
-  style={{
-    position: 'relative',
-    width: "100%",
-    backgroundColor: isExpanded ? '#c6e6e8' : '#fff',
-    zIndex: 5,
-    boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-    borderRadius: '8px',
-    padding: '10px ',
-  }}
-  withBorder
-  onMouseEnter={() => {
-    if (!isExpanded && paperRef.current) {
-      paperRef.current.style.backgroundColor = 'rgba(245, 245, 245)';
-    }
-  }}
-  onMouseLeave={() => {
-    if (!isExpanded && paperRef.current) {
-      paperRef.current.style.backgroundColor = 'rgba(255, 255, 255, 1)';
-    }
-  }}
->
+        ref={paperRef}
+        style={{
+          position: 'relative',
+          width: "100%",
+          backgroundColor: isExpanded ? '#c6e6e8' : '#fff',
+          zIndex: 5,
+          boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+          borderRadius: '8px',
+          padding: '10px ',
+        }}
+        withBorder
+        onMouseEnter={() => {
+          if (!isExpanded && paperRef.current) {
+            paperRef.current.style.backgroundColor = 'rgba(245, 245, 245)';
+          }
+        }}
+        onMouseLeave={() => {
+          if (!isExpanded && paperRef.current) {
+            paperRef.current.style.backgroundColor = 'rgba(255, 255, 255, 1)';
+          }
+        }}
+      >
         <UnstyledButton onClick={handleNavigate} style={{ width: '100%' }}>
           <Group>
             <UnstyledButton onClick={handleNavigateToUser}>
@@ -301,7 +302,7 @@ const handleStackClick = (index: number) => {
           </Group>
 
           <Text pl={54} pt="sm" size="sm" className="post-content" dangerouslySetInnerHTML={{ __html: text }} />
-         
+
           {mediaAttachments.length > 0 && (
             <div style={{ paddingLeft: '54px', paddingRight: '54px', paddingTop: '1rem' }}>
               {mediaAttachments.map((url, index) => (
@@ -357,37 +358,36 @@ const handleStackClick = (index: number) => {
             count={stackCount}
             onClick={handleStackCountClick}
             onStackClick={handleStackClick}
-            relatedStacks={tempRelatedStacks  }
+            relatedStacks={tempRelatedStacks}
             expanded={isExpanded}
           />
         </UnstyledButton>
-
       </Paper>
       {stackCount !== null && (
-  <AnimatePresence>
-    {!isExpanded && [...Array(4)].map((_, index) => (
-      <motion.div
-        key={index}
-        initial={{ opacity: 1 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.5 }}
-        style={{
-          position: 'absolute',
-          bottom: `${20 - 5 * (index + 1)}px`,
-          left: `${20 - 5 * (index + 1)}px`,
-          width: "100%",
-          height: `${cardHeight}px`,
-          backgroundColor: '#fff',
-          zIndex: index + 1,
-          boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-          borderRadius: '8px',
-          border: '1px solid rgba(0, 0, 0, 0.1)',
-        }}
-      />
-    ))}
-  </AnimatePresence>
-)}
+        <AnimatePresence>
+          {!isExpanded && [...Array(4)].map((_, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 1 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              style={{
+                position: 'absolute',
+                bottom: `${20 - 5 * (index + 1)}px`,
+                left: `${20 - 5 * (index + 1)}px`,
+                width: "100%",
+                height: `${cardHeight}px`,
+                backgroundColor: '#fff',
+                zIndex: index + 1,
+                boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+                borderRadius: '8px',
+                border: '1px solid rgba(0, 0, 0, 0.1)',
+              }}
+            />
+          ))}
+        </AnimatePresence>
+      )}
       <AnnotationModal
         isOpen={annotationModalOpen}
         onClose={() => setAnnotationModalOpen(false)}

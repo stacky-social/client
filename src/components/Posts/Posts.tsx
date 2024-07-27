@@ -32,27 +32,12 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
             setRelatedStacks([...relatedStacks]);
             setActivePostId(postId);
             setPostPosition(position);
+            setIsExpandModalOpen(false);
         } else {
             console.error("relatedStacks is not an array:", relatedStacks);
             setRelatedStacks([]); 
         }
     };
-
-    
-    
-    
-    // useEffect(() => {
-    //     const handleClickOutside = (event: MouseEvent) => {
-    //         if (isExpandModalOpen) return;
-    //         if (relatedStacksRef.current && !relatedStacksRef.current.contains(event.target as Node)) {
-    //             setRelatedStacks([]);
-    //         }
-    //     };
-    //     document.addEventListener('mousedown', handleClickOutside);
-    //     return () => {
-    //         document.removeEventListener('mousedown', handleClickOutside);
-    //     };
-    // }, [relatedStacks, isExpandModalOpen]);
 
     return (
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem' }}>
@@ -71,13 +56,14 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
                     accessToken={accessToken}
                     setIsModalOpen={setIsModalOpen} 
                     setIsExpandModalOpen={setIsExpandModalOpen}
+                    activePostId={activePostId}  // 新增
+                    setActivePostId={setActivePostId}  // 新增
                 />
             </div>
             <div style={{ gridColumn: '2 / 3', position: 'relative' }}>
                 {showSubmitAndSearch && <SearchBar />}
                 <div style={{ marginRight: '10rem', position: 'relative' }} ref={relatedStacksRef}>
                     <AnimatePresence>
-                        
                         {relatedStacks.length > 0 && postPosition && (
                             <motion.div
                                 id="related-stacks"
@@ -93,7 +79,6 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
                                     key={relatedStacks.map((_, index) => index).join(',')} 
                                     relatedStacks={relatedStacks}
                                     cardWidth={450}
-                             
                                     onStackClick={() => { }}
                                     setIsExpandModalOpen={setIsExpandModalOpen} 
                                 />
