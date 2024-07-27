@@ -16,6 +16,7 @@ const Sidebar: React.FC<SidebarProps> = ({ relatedStacks }) => {
                     cardWidth={450}
                     onStackClick={() => {}}
                     setIsExpandModalOpen={()=>{}}
+                    showupdate={true}
         
                 />
             )}

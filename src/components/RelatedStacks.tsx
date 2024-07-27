@@ -35,7 +35,7 @@ interface RelatedStacksProps {
   cardWidth: number;
   onStackClick: (stackId: string) => void;
   setIsExpandModalOpen: (isOpen: boolean) => void;
-  
+  showupdate: boolean;
   
 }
 
@@ -54,14 +54,14 @@ const iconMapping: { [key: string]: JSX.Element } = {
   default: <IconStack size={24} />,
 };
 
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, onStackClick, setIsExpandModalOpen }) => {
+const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, onStackClick, setIsExpandModalOpen,showupdate }) => {
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [currentStackId, setCurrentStackId] = useState('');
   const router = useRouter();
   const [maxStacksToShow, setMaxStacksToShow] = useState(3);
   const [cardHeight, setCardHeight] = useState(0);
   const paperRef = useRef<HTMLDivElement>(null);
-  const [isInitialDisplay, setIsInitialDisplay] = useState(true);
+
 
   useEffect(() => {
     if (paperRef.current) {
@@ -91,7 +91,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
   };
 
   const itemVariants = (index: number) => ({
-    hidden: { opacity: 0, x: -200, y: -200 * (index + 1) },
+    hidden: showupdate ? { opacity: 0, x: -200, y: -200 * (index + 1) } : { opacity: 0, y: 200 },
     show: { 
       opacity: 1, 
       x: 0, 
@@ -214,7 +214,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
               stack.size !== null && stack.size > 1 &&
               <RelatedStackCount count={stack.size} onClick={() => handleStackCountClick(stack.stackId)} />
             }
-            {/* <RelatedStackCount count={stack.size} onClick={() => handleStackCountClick(stack.stackId)} /> */}
+           
           </Paper>
 
           {stack.size !== null && stack.size > 1 && 

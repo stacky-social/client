@@ -639,6 +639,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                                 cardWidth={450}
                                 onStackClick={() => {}}
                                 setIsExpandModalOpen={() => {}}
+                                showupdate={true}
                           
                             />
                         </motion.div>
@@ -671,6 +672,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                     cardWidth={450}
                     onStackClick={() => {}}
                     setIsExpandModalOpen={() => {}}
+                    showupdate={true}
               
                 />
             </motion.div>

@@ -14,6 +14,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
     const [postPosition, setPostPosition] = useState<{ top: number, height: number } | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false); 
     const [isExpandModalOpen, setIsExpandModalOpen] = useState(false); 
+    const [previousPostId, setPreviousPostId] = useState<string | null>(null);
 
 
     const relatedStacksRef = useRef<HTMLDivElement>(null);
@@ -31,7 +32,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
     const handleStackIconClick = (relatedStacks: any[], postId: string, position: { top: number, height: number }) => {
         if (Array.isArray(relatedStacks)) {
             setRelatedStacks([...relatedStacks]);
-         
+            setPreviousPostId(activePostId);
             setActivePostId(postId);
             setPostPosition(position);
             setIsExpandModalOpen(false);
@@ -42,7 +43,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
     };
 
     
-
+    const shouldUpdate = activePostId !== previousPostId;
     return (
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem' }}>
             <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
@@ -85,6 +86,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
                                     cardWidth={450}
                                     onStackClick={() => { }}
                                     setIsExpandModalOpen={setIsExpandModalOpen} 
+                                    showupdate={shouldUpdate}
                                 />
                             </motion.div>
                         )}
