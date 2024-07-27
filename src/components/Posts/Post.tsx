@@ -20,7 +20,7 @@ const MastodonInstanceUrl = 'https://beta.stacky.social';
 const extractLinks = (text: string): string[] => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(text, 'text/html');
-  const anchors = doc.querySelectorAll('a:not(.mention.hashtag)') as NodeListOf<HTMLAnchorElement>; // 明确指定为 HTMLAnchorElement 类型并排除hashtag链接
+  const anchors = doc.querySelectorAll('a:not(.mention.hashtag)') as NodeListOf<HTMLAnchorElement>;
   return Array.from(anchors)
     .map(anchor => anchor.href)
     .filter(href => href.startsWith('http')); 
@@ -58,8 +58,8 @@ interface PostProps {
   setIsModalOpen: (isOpen: boolean) => void;
   setIsExpandModalOpen: (isOpen: boolean) => void;
   relatedStacks: any[];
-  activePostId: string | null;  // 新增
-  setActivePostId: (id: string | null) => void;  // 新增
+  activePostId: string | null;
+  setActivePostId: (id: string | null) => void;
 }
 
 export default function Post({
@@ -112,7 +112,13 @@ export default function Post({
 
   useEffect(() => {
     if (activePostId !== id && isExpanded) {
-      setIsExpanded(false); // 关闭当前的StackCount
+      setIsExpanded(false);
+    }
+  }, [activePostId]);
+
+  useEffect(() => {
+    if (activePostId === id) {
+      handleStackCountClick();
     }
   }, [activePostId]);
 
