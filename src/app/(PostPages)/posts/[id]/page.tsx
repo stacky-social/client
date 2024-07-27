@@ -21,6 +21,7 @@ import axios from 'axios';
 import RelatedStacks from '../../../../components/RelatedStacks';
 import ReplySection from '../../../../components/ReplySection';
 import { AnimatePresence, motion } from 'framer-motion';
+import { set } from 'date-fns';
 
 interface PostType {
     id: string;
@@ -39,6 +40,7 @@ interface PostType {
     media_attachments: any[];
     relatedStacks: any[];
 }
+
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
@@ -59,6 +61,8 @@ export default function PostView({ params }: { params: { id: string } }) {
     const relatedStacksRef = useRef<HTMLDivElement>(null);
     const currentPostRef = useRef<HTMLDivElement>(null);
     const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
+
+    
     
     const [postLoaded, setPostLoaded] = useState(false);
     const [showAllReplies, setShowAllReplies] = useState(false);
@@ -73,8 +77,11 @@ export default function PostView({ params }: { params: { id: string } }) {
    
     const [recommendedPosts, setRecommendedPosts] = useState<any[]>([]);
 
+    const [hasScrolled, setHasScrolled] = useState(false); 
+ 
+
     const tabColors = ["#f8d86a", "#b9dec9", "#b0d5df", "#f1c4cd"]; 
-    const tabNames = ["Time", "Recommend", "Stacks Replies", "Summary"]; 
+    const tabNames = ["Time", "Recommended", "Stacked", "Summary"]; 
 
     useEffect(() => {
         const storedRelatedStacks = localStorage.getItem('relatedStacks');
@@ -100,16 +107,20 @@ export default function PostView({ params }: { params: { id: string } }) {
     }, []);
 
     useEffect(() => {
-        if (currentPostRef.current !== null) {
+        if (currentPostRef.current !== null && !hasScrolled) {
             setFocusPostPosition({ top: currentPostRef.current.offsetTop, height: currentPostRef.current.offsetHeight });
             setTimeout(() => {
                 window.scrollTo({
                     top: currentPostRef.current!.offsetTop,
                     behavior: 'smooth'
                 });
+                setHasScrolled(true); // 设置已滑动标志
             }, 300);
         }
-    }, [post, postLoaded]);
+    }, [post, postLoaded, hasScrolled]);
+
+   
+
 
     useEffect(() => {
         if (postLoaded) {
@@ -182,6 +193,7 @@ export default function PostView({ params }: { params: { id: string } }) {
             }));
 
             setAncestors(formattedAncestors);
+    
 
             setPostLoaded(true);
 
@@ -200,7 +212,7 @@ export default function PostView({ params }: { params: { id: string } }) {
         }
 
         try {
-            const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${post.id}/related_fake`, {
+            const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${post.id}/related`, {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
                 }
@@ -226,11 +238,12 @@ export default function PostView({ params }: { params: { id: string } }) {
                         : p
                 )
             );
-            setRecommendedPosts((prevPosts) => prevPosts.map((p) =>
+            setRecommendedPosts((prevPosts) =>prevPosts.map((p) =>
                 p.id === post.id
                     ? { ...p, stackCount: stackCount, relatedStacks: stackData }
                     : p
-            ));
+            )
+        );
         } catch (error) {
             console.error(`Error fetching stack data for post ${post.id}:`, error);
         }
@@ -302,14 +315,18 @@ export default function PostView({ params }: { params: { id: string } }) {
         postId: string,
         position: { top: number, height: number }
     ) => {
+      
         setShowFocusRelatedStacks(false);
         setRelatedStacks(relatedStacks);
         setActivePostId(postId);
         setPostPosition(position);
     };
+    
 
     const handleFocusPostClick = () => {
         setShowFocusRelatedStacks(true);
+        setActivePostId(null);
+        
     }
 
     const renderAncestors = (post: any) => {
@@ -332,8 +349,9 @@ export default function PostView({ params }: { params: { id: string } }) {
                 setIsModalOpen={() => {}}
                 setIsExpandModalOpen={() => {}}
                 relatedStacks={post.relatedStacks}
-                activePostId={activePostId}
                 setActivePostId={setActivePostId}
+                activePostId={activePostId}
+
             />
         );
     };
@@ -374,6 +392,7 @@ export default function PostView({ params }: { params: { id: string } }) {
         }
     };
     
+    
     const renderRecommendedPosts = (post: any) => {
         return (
             <Post
@@ -394,8 +413,8 @@ export default function PostView({ params }: { params: { id: string } }) {
                 setIsModalOpen={() => {}}
                 setIsExpandModalOpen={() => {}}
                 relatedStacks={post.relatedStacks}
-                activePostId={activePostId}
                 setActivePostId={setActivePostId}
+                activePostId={activePostId}
             />
         );
     };
@@ -424,8 +443,8 @@ export default function PostView({ params }: { params: { id: string } }) {
                 setIsModalOpen={() => {}}
                 setIsExpandModalOpen={() => {}}
                 relatedStacks={post.relatedStacks}
-                activePostId={activePostId}
                 setActivePostId={setActivePostId}
+                activePostId={activePostId}
             />
         );
     };
@@ -453,56 +472,69 @@ export default function PostView({ params }: { params: { id: string } }) {
                 <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
                     <div style={{ position: 'relative', marginBottom: '2rem' }}>
                         {ancestors.map((ancestor) => (
-                            <div key={ancestor.id} style={{ position: 'relative', marginBottom: '1rem' }}>
+                            <div key={ancestor.id} style={{ position: 'relative', marginBottom: '1rem', marginLeft: '40px'}}>
                                 {renderAncestors(ancestor)}
                                 <div style={{
                                     position: 'absolute',
-                                    left: '20%',
+                                    left: '10%',
                                     bottom: '-2rem',
                                     width: '2px',
                                     height: '2rem',
-                                    backgroundColor: '#000',
+                                    backgroundColor: '#393733', // Change to light gray
                                     transform: 'translateX(-50%)'
                                 }}></div>
                             </div>
                         ))}
 
-                        <Paper ref={currentPostRef} withBorder radius="md" mt={20} p="lg" style={{ position: 'relative', zIndex: 5, backgroundColor: '#C5F6FA' }} shadow="lg">
-                            <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
-                            <UnstyledButton onClick={handleFocusPostClick}>
-                                <Group>
-                                    <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl" />
-                                    <div>
-                                        <Text size="sm">{post?.account.username}</Text>
-                                        <Text size="xs">{new Date(post?.created_at).toLocaleString()}</Text>
-                                    </div>
-                                </Group>
-                                <Text pl={54} pt="sm" size="sm" dangerouslySetInnerHTML={{ __html: post?.content }} />
-                                {post?.media_attachments && post.media_attachments.map((attachment: any) => (
-                                    <div key={attachment.id}>
-                                        {attachment.type === 'image' && (
-                                            <img src={attachment.url} alt={attachment.description} style={{ maxWidth: '100%', marginTop: '10px' }} />
-                                        )}
-                                    </div>
-                                ))}
-                                <Text pl={54} pt="sm" size="sm">Post Id: {post?.id}</Text>
-                            </UnstyledButton>
-                            <Divider my="md" />
-                            <Group justify="space-between" mx="20">
-                                <Button variant="subtle" size="sm" radius="lg" onClick={() => handleNavigate(id)}>
-                                    <IconMessageCircle size={20} /> <Text ml={4}>{post?.replies_count}</Text>
-                                </Button>
-                                <Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
-                                    {liked ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{likeCount}</Text>
-                                </Button>
-                                <Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
-                                    {bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
-                                </Button>
-                                <Button variant="subtle" size="sm" radius="lg" onClick={handleCopyLink}>
-                                    <IconLink size={20} />
-                                </Button>
-                            </Group>
-                        </Paper>
+<Paper 
+    ref={currentPostRef} 
+    withBorder 
+    radius="md" 
+    mt={20} 
+    p="lg" 
+    style={{ 
+        position: 'relative', 
+        zIndex: 5, 
+        backgroundColor: showFocusRelatedStacks ? '#C5F6FA' : '#FFFFFF' 
+    }} 
+    shadow="lg"
+>
+    <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
+    <UnstyledButton onClick={handleFocusPostClick}>
+        <Group>
+            <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl" />
+            <div>
+                <Text size="lg">{post?.account.username}</Text> {/* 调整此处 */}
+                <Text size="md">{new Date(post?.created_at).toLocaleString()}</Text> {/* 调整此处 */}
+            </div>
+        </Group>
+        <Text pl={54} pt="sm" size="lg" dangerouslySetInnerHTML={{ __html: post?.content }} /> {/* 调整此处 */}
+        {post?.media_attachments && post.media_attachments.map((attachment: any) => (
+            <div key={attachment.id}>
+                {attachment.type === 'image' && (
+                    <img src={attachment.url} alt={attachment.description} style={{ maxWidth: '100%', marginTop: '10px' }} />
+                )}
+            </div>
+        ))}
+        <Text pl={54} pt="sm" size="lg">Post Id: {post?.id}</Text> {/* 调整此处 */}
+    </UnstyledButton>
+    <Divider my="md" />
+    <Group justify="space-between" mx="20">
+        <Button variant="subtle" size="sm" radius="lg" onClick={() => handleNavigate(id)}>
+            <IconMessageCircle size={20} /> <Text ml={4}>{post?.replies_count}</Text>
+        </Button>
+        <Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
+            {liked ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{likeCount}</Text>
+        </Button>
+        <Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
+            {bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
+        </Button>
+        <Button variant="subtle" size="sm" radius="lg" onClick={handleCopyLink}>
+            <IconLink size={20} />
+        </Button>
+    </Group>
+</Paper>
+
                     </div>
                     <Divider my="md" />
 
@@ -546,7 +578,9 @@ export default function PostView({ params }: { params: { id: string } }) {
                                 borderRadius: '0 0 8px 8px', 
                                 fontFamily: 'Roboto, sans-serif',
                                 fontSize: '14px',
-                                marginTop: 0 
+                                marginTop: 0,
+                                maxWidth: '800px',
+                                width:'100%'
                             }}
                         >
                             {selectedTab === 0 && (
@@ -576,57 +610,73 @@ export default function PostView({ params }: { params: { id: string } }) {
                     <div style={{ height: '100vh' }}></div>
                 </div>
                 <div style={{ gridColumn: '2 / 3' }}>
-                    <div ref={relatedStacksRef} style={{ position: 'relative' }}>
-                        {showFocusRelatedStacks && focus_relatedStacks.length > 0 && (
-                            <AnimatePresence>
-                                {focuspostPosition && (
-                                    <motion.div
-                                        style={{
-                                            position: 'absolute',
-                                            top: focuspostPosition.top,
-                                            left: 20,
-                                            zIndex: 10
-                                        }}
-                                        initial={{ opacity: 0, x: -200 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, x: -200 }}
-                                        transition={{ duration: 0.2 }}
-                                    >
-                                        <RelatedStacks
-                                            relatedStacks={focus_relatedStacks}
-                                            cardWidth={450}
-                                            onStackClick={() => {}}
-                                            setIsExpandModalOpen={() => {}}
-                                        />
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        )}
 
-                        <AnimatePresence>
-                            {!showFocusRelatedStacks && postPosition && (
-                                <motion.div
-                                    style={{
-                                        position: 'absolute',
-                                        top: postPosition.top - 100,
-                                        left: 20,
-                                        zIndex: 10
-                                    }}
-                                    initial={{ opacity: 0, x: -200 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -200 }}
-                                    transition={{ duration: 0.2 }}
-                                >
-                                    <RelatedStacks
-                                        relatedStacks={relatedStacks}
-                                        cardWidth={450}
-                                        onStackClick={() => {}}
-                                        setIsExpandModalOpen={() => {}}
-                                    />
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
+                <div ref={relatedStacksRef} style={{ position: 'relative' }}>
+              
+
+
+                {
+                showFocusRelatedStacks &&
+                focus_relatedStacks.length > 0 && (
+                    <AnimatePresence>
+                    { focuspostPosition && (
+                        <motion.div
+                            style={{
+                                position: 'absolute',
+                                top: focuspostPosition.top,
+                                left: 20,
+                                zIndex: 10
+                            }}
+                            initial={{ opacity: 0, x: -200 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -200 }}
+                            transition={{ duration: 0.2 }}
+                        >
+            
+            
+                            <RelatedStacks
+                                relatedStacks={focus_relatedStacks}
+                                cardWidth={450}
+                                onStackClick={() => {}}
+                                setIsExpandModalOpen={() => {}}
+                            />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+                )
+              } 
+
+    
+
+    <AnimatePresence>
+        { !showFocusRelatedStacks && 
+        postPosition && (
+            <motion.div
+                style={{
+                    position: 'absolute',
+                    top: postPosition.top-100,
+                    left: 20,
+                    zIndex: 10
+                }}
+                initial={{ opacity: 0, x: -200 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -200 }}
+                transition={{ duration: 0.2 }}
+            >
+
+
+                <RelatedStacks
+                    relatedStacks={relatedStacks}
+                    cardWidth={450}
+                    onStackClick={() => {}}
+                    setIsExpandModalOpen={() => {}}
+                />
+            </motion.div>
+        )}
+    </AnimatePresence>
+</div>
+              
+
                 </div>
             </div>
         </Container>

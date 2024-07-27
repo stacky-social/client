@@ -39,6 +39,8 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
         }
     };
 
+    
+
     return (
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem' }}>
             <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
@@ -56,8 +58,8 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
                     accessToken={accessToken}
                     setIsModalOpen={setIsModalOpen} 
                     setIsExpandModalOpen={setIsExpandModalOpen}
-                    activePostId={activePostId}  // 新增
-                    setActivePostId={setActivePostId}  // 新增
+                    activePostId={activePostId}  
+                    setActivePostId={setActivePostId}  
                 />
             </div>
             <div style={{ gridColumn: '2 / 3', position: 'relative' }}>

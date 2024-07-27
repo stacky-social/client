@@ -12,6 +12,7 @@ import {
   IconHeart,
   IconFrame,
   IconUser,
+  IconCards,
 } from '@tabler/icons-react';
 
 interface StackCountProps {
@@ -23,7 +24,7 @@ interface StackCountProps {
 }
 
 const iconMapping: { [key: string]: JSX.Element } = {
-  uncategorized: <IconStack size={24} />,
+  uncategorized: <IconCards size={24} />,
   predictions: <IconBulb size={24} />,
   evidence_public: <IconQuote size={24} />,
   evidence_personal: <IconUser size={24} />,

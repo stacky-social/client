@@ -231,7 +231,7 @@ export default function Post({
     const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
 
     onStackIconClick(tempRelatedStacks, id, adjustedPosition);
-    setActivePostId(id); // 设置当前活跃的Post ID
+    setActivePostId(id); 
   };
 
   const handleStackClick = (index: number) => {
