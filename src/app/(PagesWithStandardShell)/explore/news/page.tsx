@@ -1,4 +1,4 @@
-// src/app/explore/news.tsx
+
 "use client";
 
 const NewsPage = () => {

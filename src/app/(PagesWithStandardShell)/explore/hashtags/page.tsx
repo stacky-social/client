@@ -1,4 +1,4 @@
-// src/app/explore/hashtags.tsx
+
 "use client";
 
 const HashtagsPage = () => {

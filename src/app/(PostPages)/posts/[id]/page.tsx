@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import React, {useState, useEffect, useRef} from 'react';
+import {useRouter} from 'next/navigation';
 import Post from '../../../../components/Posts/Post';
 import {
     Avatar,
@@ -15,14 +15,21 @@ import {
     Container,
     UnstyledButton
 } from "@mantine/core";
-import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconHeartFilled, IconBookmarkFilled, IconLink  } from "@tabler/icons-react";
+import {
+    IconBookmark,
+    IconHeart,
+    IconMessageCircle,
+    IconShare,
+    IconHeartFilled,
+    IconBookmarkFilled,
+    IconLink
+} from "@tabler/icons-react";
 import axios from 'axios';
 
 import RelatedStacks from '../../../../components/RelatedStacks';
 import ReplySection from '../../../../components/ReplySection';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Loader } from '@mantine/core';
-import { set } from 'date-fns';
+import {AnimatePresence, motion} from 'framer-motion';
+import {Loader} from '@mantine/core';
 
 interface PostType {
     id: string;
@@ -45,10 +52,10 @@ interface PostType {
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
-export default function PostView({ params }: { params: { id: string } }) {
+export default function PostView({params}: { params: { id: string } }) {
     const router = useRouter();
-    const { id } = params;
-    
+    const {id} = params;
+
     const [loading, setLoading] = useState(true);
     const [post, setPost] = useState<any | null>(null);
     const [replies, setReplies] = useState<any[]>([]);
@@ -63,11 +70,11 @@ export default function PostView({ params }: { params: { id: string } }) {
     const currentPostRef = useRef<HTMLDivElement>(null);
     const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
     const [loadingMoreReplies, setLoadingMoreReplies] = useState(false);
-    
+
 
     const [visibleReplies, setVisibleReplies] = useState(15);
-    
-    
+
+
     const [postLoaded, setPostLoaded] = useState(false);
     const [showAllReplies, setShowAllReplies] = useState(false);
     const [selectedTab, setSelectedTab] = useState(0);
@@ -78,19 +85,19 @@ export default function PostView({ params }: { params: { id: string } }) {
 
     const [showFocusRelatedStacks, setShowFocusRelatedStacks] = useState(true);
     const [focus_relatedStacks, setFocus_relatedStacks] = useState<any[]>([]);
-   
+
     const [recommendedPosts, setRecommendedPosts] = useState<any[]>([]);
     const [recommendedLoading, setRecommendedLoading] = useState(false);
 
-    const [hasScrolled, setHasScrolled] = useState(false); 
+    const [hasScrolled, setHasScrolled] = useState(false);
 
     useEffect(() => {
         console.log('Recommended Loading changed:', recommendedLoading);
     }, [recommendedLoading]);
- 
 
-    const tabColors = ["#f8d86a", "#b9dec9", "#b0d5df", "#f1c4cd"]; 
-    const tabNames = ["Time", "Recommended", "Stacked", "Summary"]; 
+
+    const tabColors = ["#f8d86a", "#b9dec9", "#b0d5df", "#f1c4cd"];
+    const tabNames = ["Time", "Recommended", "Stacked", "Summary"];
 
     useEffect(() => {
         const storedRelatedStacks = localStorage.getItem('relatedStacks');
@@ -117,7 +124,7 @@ export default function PostView({ params }: { params: { id: string } }) {
 
     useEffect(() => {
         if (currentPostRef.current !== null && !hasScrolled) {
-            setFocusPostPosition({ top: currentPostRef.current.offsetTop, height: currentPostRef.current.offsetHeight });
+            setFocusPostPosition({top: currentPostRef.current.offsetTop, height: currentPostRef.current.offsetHeight});
             setTimeout(() => {
                 window.scrollTo({
                     top: currentPostRef.current!.offsetTop,
@@ -127,8 +134,6 @@ export default function PostView({ params }: { params: { id: string } }) {
             }, 300);
         }
     }, [post, postLoaded, hasScrolled]);
-
-   
 
 
     useEffect(() => {
@@ -168,7 +173,7 @@ export default function PostView({ params }: { params: { id: string } }) {
             setLoading(false);
             return;
         }
-    
+
         try {
             const postResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}`, {
                 headers: {
@@ -183,32 +188,32 @@ export default function PostView({ params }: { params: { id: string } }) {
             setLiked(postResponse.data.favourited);
             setBookmarked(postResponse.data.bookmarked);
             setLikeCount(postResponse.data.favourites_count);
-    
+
             const repliesResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}/context`, {
                 headers: {
                     'Authorization': `Bearer ${accessToken}`
                 }
             });
-    
+
             const formattedReplies = repliesResponse.data.descendants.map((reply: any) => ({
                 ...reply,
                 relatedStacks: [],
                 stackCount: null
             }));
-    
+
             console.log("Formatted Replies:", formattedReplies);
             setReplies(formattedReplies);
-    
+
             const formattedAncestors = repliesResponse.data.ancestors.map((ancestor: any) => ({
                 ...ancestor,
                 relatedStacks: [],
                 stackCount: null
             }));
-    
+
             setAncestors(formattedAncestors);
-    
+
             setPostLoaded(true);
-    
+
         } catch (error) {
             console.error('Failed to fetch post or replies:', error);
         } finally {
@@ -239,26 +244,26 @@ export default function PostView({ params }: { params: { id: string } }) {
             setReplies((prevReplies) =>
                 prevReplies.map((p) =>
                     p.id === post.id
-                        ? { ...p, stackCount: stackCount, relatedStacks: stackData }
+                        ? {...p, stackCount: stackCount, relatedStacks: stackData}
                         : p
                 )
             );
             setAncestors((prevAncestors) =>
                 prevAncestors.map((p) =>
                     p.id === post.id
-                        ? { ...p, stackCount: stackCount, relatedStacks: stackData }
+                        ? {...p, stackCount: stackCount, relatedStacks: stackData}
                         : p
                 )
             );
-            setRecommendedPosts((prevPosts) =>prevPosts.map((p) =>
-                p.id === post.id
-                    ? { ...p, stackCount: stackCount, relatedStacks: stackData }
-                    : p
-            )
-        );
+            setRecommendedPosts((prevPosts) => prevPosts.map((p) =>
+                    p.id === post.id
+                        ? {...p, stackCount: stackCount, relatedStacks: stackData}
+                        : p
+                )
+            );
         } catch (error) {
             console.error(`Error fetching stack data for post ${post.id}:`, error);
-      
+
         }
     };
 
@@ -317,9 +322,9 @@ export default function PostView({ params }: { params: { id: string } }) {
     const handleCopyLink = () => {
         const url = `${window.location.origin}/posts/${id}`;
         navigator.clipboard.writeText(url).then(() => {
-          console.log('Link copied to clipboard:', url);
+            console.log('Link copied to clipboard:', url);
         }).catch((error) => {
-          console.error('Error copying link:', error);
+            console.error('Error copying link:', error);
         });
     };
 
@@ -328,18 +333,18 @@ export default function PostView({ params }: { params: { id: string } }) {
         postId: string,
         position: { top: number, height: number }
     ) => {
-      
+
         setShowFocusRelatedStacks(false);
         setRelatedStacks(relatedStacks);
         setActivePostId(postId);
         setPostPosition(position);
     };
-    
+
 
     const handleFocusPostClick = () => {
         setShowFocusRelatedStacks(true);
         setActivePostId(null);
-        
+
     }
 
     const renderAncestors = (post: any) => {
@@ -359,8 +364,10 @@ export default function PostView({ params }: { params: { id: string } }) {
                 bookmarked={post.bookmarked}
                 mediaAttachments={[]}
                 onStackIconClick={handleStackIconClick}
-                setIsModalOpen={() => {}}
-                setIsExpandModalOpen={() => {}}
+                setIsModalOpen={() => {
+                }}
+                setIsExpandModalOpen={() => {
+                }}
                 relatedStacks={post.relatedStacks}
                 setActivePostId={setActivePostId}
                 activePostId={activePostId}
@@ -382,34 +389,34 @@ export default function PostView({ params }: { params: { id: string } }) {
 
     const handleTabClick = async (index: number) => {
         setSelectedTab(index);
-    
+
         if (index === 1) { // 1 corresponds to the "Recommend" tab
             console.log('Fetching recommended posts...');
-            
-            setRecommendedLoading(true); 
+
+            setRecommendedLoading(true);
             console.log('Recommended Loading:', recommendedLoading);
             try {
                 console.log('Fetching recommended posts...');
-                const response = await axios.get(`https://beta.stacky.social:3002/replies/${id}/list`); 
+                const response = await axios.get(`https://beta.stacky.social:3002/replies/${id}/list`);
                 console.log('Response data:', response.data);
-    
+
                 const posts = response.data;
                 const formattedPosts: PostType[] = posts.map((post: PostType) => ({
                     ...post,
                     relatedStacks: [],
                     stackCount: null
                 }));
-    
+
                 console.log('Formatted posts:', formattedPosts);
-    
+
                 setPostLoaded(false);
                 setRecommendedPosts(formattedPosts);
                 console.log('Recommended Posts:', recommendedPosts);
                 setRecommendedLoading(false);
                 console.log('Recommended Loading:', recommendedLoading);
                 setPostLoaded(true);
-                
-    
+
+
                 formattedPosts.forEach((post: PostType) => {
                     console.log('Fetching related stacks for post:', post);
                     fetchRelatedStacks(post);
@@ -419,12 +426,12 @@ export default function PostView({ params }: { params: { id: string } }) {
             }
         }
     };
-    
-    
+
+
     const renderRecommendedPosts = (post: any) => {
         return (
-            <div style={{ position: 'relative' }}>
-                
+            <div style={{position: 'relative'}}>
+
                 <Post
                     key={post.id}
                     id={post.id}
@@ -440,8 +447,10 @@ export default function PostView({ params }: { params: { id: string } }) {
                     bookmarked={post.bookmarked}
                     mediaAttachments={[]}
                     onStackIconClick={handleStackIconClick}
-                    setIsModalOpen={() => {}}
-                    setIsExpandModalOpen={() => {}}
+                    setIsModalOpen={() => {
+                    }}
+                    setIsExpandModalOpen={() => {
+                    }}
                     relatedStacks={post.relatedStacks}
                     setActivePostId={setActivePostId}
                     activePostId={activePostId}
@@ -449,10 +458,10 @@ export default function PostView({ params }: { params: { id: string } }) {
             </div>
         );
     };
-    
-    
+
+
     const renderReplies = (post: any) => {
-       
+
         return (
             <Post
                 key={post.id}
@@ -469,8 +478,10 @@ export default function PostView({ params }: { params: { id: string } }) {
                 bookmarked={post.bookmarked}
                 mediaAttachments={[]}
                 onStackIconClick={handleStackIconClick}
-                setIsModalOpen={() => {}}
-                setIsExpandModalOpen={() => {}}
+                setIsModalOpen={() => {
+                }}
+                setIsExpandModalOpen={() => {
+                }}
                 relatedStacks={post.relatedStacks}
                 setActivePostId={setActivePostId}
                 activePostId={activePostId}
@@ -497,11 +508,12 @@ export default function PostView({ params }: { params: { id: string } }) {
             >
             </Modal>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%' }}>
-                <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
-                    <div style={{ position: 'relative', marginBottom: '2rem' }}>
+            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%'}}>
+                <div style={{gridColumn: '1 / 2', position: 'relative'}}>
+                    <div style={{position: 'relative', marginBottom: '2rem'}}>
                         {ancestors.map((ancestor) => (
-                            <div key={ancestor.id} style={{ position: 'relative', marginBottom: '1rem', marginLeft: '40px'}}>
+                            <div key={ancestor.id}
+                                 style={{position: 'relative', marginBottom: '1rem', marginLeft: '40px'}}>
                                 {renderAncestors(ancestor)}
                                 <div style={{
                                     position: 'absolute',
@@ -515,57 +527,63 @@ export default function PostView({ params }: { params: { id: string } }) {
                             </div>
                         ))}
 
-<Paper 
-    ref={currentPostRef} 
-    withBorder 
-    radius="md" 
-    mt={20} 
-    p="lg" 
-    style={{ 
-        position: 'relative', 
-        zIndex: 5, 
-        backgroundColor: showFocusRelatedStacks ? '#C5F6FA' : '#FFFFFF' 
-    }} 
-    shadow="lg"
->
-    <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
-    <UnstyledButton onClick={handleFocusPostClick}>
-        <Group>
-            <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl" />
-            <div>
-                <Text size="lg">{post?.account.username}</Text> {/* 调整此处 */}
-                <Text size="md">{new Date(post?.created_at).toLocaleString()}</Text> {/* 调整此处 */}
-            </div>
-        </Group>
-        <Text pl={54} pt="sm" size="lg" dangerouslySetInnerHTML={{ __html: post?.content }} /> {/* 调整此处 */}
-        {post?.media_attachments && post.media_attachments.map((attachment: any) => (
-            <div key={attachment.id}>
-                {attachment.type === 'image' && (
-                    <img src={attachment.url} alt={attachment.description} style={{ maxWidth: '100%', marginTop: '10px' }} />
-                )}
-            </div>
-        ))}
-        <Text pl={54} pt="sm" size="lg">Post Id: {post?.id}</Text> {/* 调整此处 */}
-    </UnstyledButton>
-    <Divider my="md" />
-    <Group justify="space-between" mx="20">
-        <Button variant="subtle" size="sm" radius="lg" onClick={() => handleNavigate(id)}>
-            <IconMessageCircle size={20} /> <Text ml={4}>{post?.replies_count}</Text>
-        </Button>
-        <Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
-            {liked ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{likeCount}</Text>
-        </Button>
-        <Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
-            {bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
-        </Button>
-        <Button variant="subtle" size="sm" radius="lg" onClick={handleCopyLink}>
-            <IconLink size={20} />
-        </Button>
-    </Group>
-</Paper>
+                        <Paper
+                            ref={currentPostRef}
+                            withBorder
+                            radius="md"
+                            mt={20}
+                            p="lg"
+                            style={{
+                                position: 'relative',
+                                zIndex: 5,
+                                backgroundColor: showFocusRelatedStacks ? '#C5F6FA' : '#FFFFFF'
+                            }}
+                            shadow="lg"
+                        >
+                            <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{radius: "sm", blur: 2}}/>
+                            <UnstyledButton onClick={handleFocusPostClick}>
+                                <Group>
+                                    <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl"/>
+                                    <div>
+                                        <Text size="lg">{post?.account.username}</Text> {/* 调整此处 */}
+                                        <Text
+                                            size="md">{new Date(post?.created_at).toLocaleString()}</Text> {/* 调整此处 */}
+                                    </div>
+                                </Group>
+                                <Text pl={54} pt="sm" size="lg"
+                                      dangerouslySetInnerHTML={{__html: post?.content}}/> {/* 调整此处 */}
+                                {post?.media_attachments && post.media_attachments.map((attachment: any) => (
+                                    <div key={attachment.id}>
+                                        {attachment.type === 'image' && (
+                                            <img src={attachment.url} alt={attachment.description}
+                                                 style={{maxWidth: '100%', marginTop: '10px'}}/>
+                                        )}
+                                    </div>
+                                ))}
+                                <Text pl={54} pt="sm" size="lg">Post Id: {post?.id}</Text> {/* 调整此处 */}
+                            </UnstyledButton>
+                            <Divider my="md"/>
+                            <Group justify="space-between" mx="20">
+                                <Button variant="subtle" size="sm" radius="lg" onClick={() => handleNavigate(id)}>
+                                    <IconMessageCircle size={20}/> <Text ml={4}>{post?.replies_count}</Text>
+                                </Button>
+                                <Button variant="subtle" size="sm" radius="lg" onClick={handleLike}
+                                        style={{display: 'flex', alignItems: 'center'}}>
+                                    {liked ? <IconHeartFilled size={20}/> : <IconHeart size={20}/>} <Text
+                                    ml={4}>{likeCount}</Text>
+                                </Button>
+                                <Button variant="subtle" size="sm" radius="lg" onClick={handleSave}
+                                        style={{display: 'flex', alignItems: 'center'}}>
+                                    {bookmarked ? <IconBookmarkFilled size={20}/> : <IconBookmark size={20}/>}
+                                </Button>
+                                <Button variant="subtle" size="sm" radius="lg" onClick={handleCopyLink}>
+                                    <IconLink size={20}/>
+                                </Button>
+                            </Group>
+                        </Paper>
 
                     </div>
-                    <Divider my="md" />
+                    <Divider my="md"/>
 
                     <ReplySection
                         postId={id}
@@ -573,10 +591,10 @@ export default function PostView({ params }: { params: { id: string } }) {
                         fetchPostAndReplies={fetchPostAndReplies}
                     />
 
-                    <Divider my="md" />
+                    <Divider my="md"/>
 
                     {replies.length > 0 && (
-                        <div style={{ display: 'flex', marginBottom: '0' }}>
+                        <div style={{display: 'flex', marginBottom: '0'}}>
                             {tabColors.map((color, index) => (
                                 <div
                                     key={index}
@@ -599,121 +617,118 @@ export default function PostView({ params }: { params: { id: string } }) {
                         </div>
                     )}
 
-{replies.length > 0 && (
-    <Paper
-        style={{
-            padding: '20px',
-            backgroundColor: tabColors[selectedTab],
-            borderRadius: '0 0 8px 8px', 
-            fontFamily: 'Roboto, sans-serif',
-            fontSize: '14px',
-            marginTop: 0,
-            maxWidth: '100%',
-            width:'100%'
-        }}
-    >
-         {selectedTab === 0 && (
-            <>
-                {filteredReplies.slice(0, visibleReplies).map((reply) => renderReplies(reply))}
-                {visibleReplies < filteredReplies.length && (
-                    <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: '10px' }}>
-                        {loadingMoreReplies ? 'Loading...' : 'More Replies'}
-                    </Button>
-                )}
-            </>
-        )}
+                    {replies.length > 0 && (
+                        <Paper
+                            style={{
+                                padding: '20px',
+                                backgroundColor: tabColors[selectedTab],
+                                borderRadius: '0 0 8px 8px',
+                                fontFamily: 'Roboto, sans-serif',
+                                fontSize: '14px',
+                                marginTop: 0,
+                                maxWidth: '100%',
+                                width: '100%'
+                            }}
+                        >
+                            {selectedTab === 0 && (
+                                <>
+                                    {filteredReplies.slice(0, visibleReplies).map((reply) => renderReplies(reply))}
+                                    {visibleReplies < filteredReplies.length && (
+                                        <Button onClick={handleShowMoreReplies} variant="outline" fullWidth
+                                                style={{marginTop: '10px'}}>
+                                            {loadingMoreReplies ? 'Loading...' : 'More Replies'}
+                                        </Button>
+                                    )}
+                                </>
+                            )}
 
-{selectedTab === 1 && (
-                                <div style={{ textAlign: 'center' }}>
+                            {selectedTab === 1 && (
+                                <div style={{textAlign: 'center'}}>
                                     {recommendedLoading ? (
-                                        <Loader size="lg" />
+                                        <Loader size="lg"/>
                                     ) : (
                                         recommendedPosts.map((post) => renderRecommendedPosts(post))
                                     )}
-                                    </div>
+                                </div>
                             )}
-        {selectedTab === 2 && (
-            <div>This is tab for Stacks</div>
-        )}
-        {selectedTab === 3 && (
-            <div>This is tab for Summary</div>
-        )}
-    </Paper>
-)}
-                    <div style={{ height: '100vh' }}></div>
-                </div>
-                <div style={{ gridColumn: '2 / 3' }}>
-
-                <div ref={relatedStacksRef} style={{ position: 'relative' }}>
-              
-
-
-                {
-                showFocusRelatedStacks &&
-                focus_relatedStacks.length > 0 && (
-                    <AnimatePresence>
-                    { focuspostPosition && (
-                        <motion.div
-                            style={{
-                                position: 'absolute',
-                                top: focuspostPosition.top,
-                                left: 20,
-                                zIndex: 10
-                            }}
-                            initial={{ opacity: 0, x: -200 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -200 }}
-                            transition={{ duration: 0.2 }}
-                        >
-            
-            
-                            <RelatedStacks
-                                relatedStacks={focus_relatedStacks}
-                                cardWidth={450}
-                                onStackClick={() => {}}
-                                setIsExpandModalOpen={() => {}}
-                                showupdate={true}
-                          
-                            />
-                        </motion.div>
+                            {selectedTab === 2 && (
+                                <div>This is tab for Stacks</div>
+                            )}
+                            {selectedTab === 3 && (
+                                <div>This is tab for Summary</div>
+                            )}
+                        </Paper>
                     )}
-                </AnimatePresence>
-                )
-              } 
+                    <div style={{height: '100vh'}}></div>
+                </div>
+                <div style={{gridColumn: '2 / 3'}}>
 
-    
-
-    <AnimatePresence>
-        { !showFocusRelatedStacks && 
-        postPosition && (
-            <motion.div
-                style={{
-                    position: 'absolute',
-                    top: postPosition.top-100,
-                    left: 20,
-                    zIndex: 10
-                }}
-                initial={{ opacity: 0, x: -200 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -200 }}
-                transition={{ duration: 0.2 }}
-            >
+                    <div ref={relatedStacksRef} style={{position: 'relative'}}>
 
 
-                <RelatedStacks
-                    relatedStacks={relatedStacks}
-                    cardWidth={450}
-                    onStackClick={() => {}}
-                    setIsExpandModalOpen={() => {}}
-                    showupdate={true}
-              
-                />
-            </motion.div>
-        )}
-    </AnimatePresence>
-</div>
-              
+                        {
+                            showFocusRelatedStacks &&
+                            focus_relatedStacks.length > 0 && (
+                                <AnimatePresence>
+                                    {focuspostPosition && (
+                                        <motion.div
+                                            style={{
+                                                position: 'absolute',
+                                                top: focuspostPosition.top,
+                                                left: 20,
+                                                zIndex: 10
+                                            }}
+                                            initial={{opacity: 0, x: -200}}
+                                            animate={{opacity: 1, x: 0}}
+                                            exit={{opacity: 0, x: -200}}
+                                            transition={{duration: 0.2}}
+                                        >
 
+
+                                            <RelatedStacks
+                                                relatedStacks={focus_relatedStacks}
+                                                cardWidth={450}
+                                                onStackClick={() => {
+                                                }}
+                                                setIsExpandModalOpen={() => {
+                                                }}
+                                                showupdate={true}
+
+                                            />
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            )
+                        }
+                        <AnimatePresence>
+                            {!showFocusRelatedStacks &&
+                                postPosition && (
+                                    <motion.div
+                                        style={{
+                                            position: 'absolute',
+                                            top: postPosition.top - 100,
+                                            left: 20,
+                                            zIndex: 10
+                                        }}
+                                        initial={{opacity: 0, x: -200}}
+                                        animate={{opacity: 1, x: 0}}
+                                        exit={{opacity: 0, x: -200}}
+                                        transition={{duration: 0.2}}
+                                    >
+                                        <RelatedStacks
+                                            relatedStacks={relatedStacks}
+                                            cardWidth={450}
+                                            onStackClick={() => {
+                                            }}
+                                            setIsExpandModalOpen={() => {
+                                            }}
+                                            showupdate={true}
+
+                                        />
+                                    </motion.div>
+                                )}
+                        </AnimatePresence>
+                    </div>
                 </div>
             </div>
         </Container>
