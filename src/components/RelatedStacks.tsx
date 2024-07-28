@@ -58,13 +58,16 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
   const [currentStackId, setCurrentStackId] = useState('');
   const router = useRouter();
   const [maxStacksToShow, setMaxStacksToShow] = useState(3);
-  const [cardHeight, setCardHeight] = useState(0);
-  const paperRef = useRef<HTMLDivElement>(null);
+  const [cardHeights, setCardHeights] = useState<number[]>([]);
+  const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
-    if (paperRef.current) {
-      setCardHeight(paperRef.current.offsetHeight);
-    }
+    const heights = paperRefs.current.map(ref => ref?.offsetHeight || 0);
+    setCardHeights(heights);
+    heights.forEach((height, index) => {
+      console.log(`Paper ${index} height:`, height);
+      console.log(`Stacked div ${index} height:`, height);
+    });
   }, [relatedStacks]);
 
   const handleStackCountClick = (stackId: string) => {
@@ -119,7 +122,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
           }}
         >
           <Paper
-            ref={paperRef}
+            ref={(el) => {
+              paperRefs.current[index] = el;
+            }}
             style={{
               position: 'relative',
               width: cardWidth,
@@ -216,7 +221,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
                   bottom: `${15 - 5 * idx}px`,
                   left: `${15 - 5 * idx}px`,
                   width: cardWidth,
-                  height: `${cardHeight}px`,
+                  height: `${cardHeights[index] || 0}px`,
                   backgroundColor: '#93d5dc',
                   zIndex: idx + 1,
                   boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
