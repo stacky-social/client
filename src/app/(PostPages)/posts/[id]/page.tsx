@@ -404,6 +404,7 @@ export default function PostView({ params }: { params: { id: string } }) {
     
                 setPostLoaded(false);
                 setRecommendedPosts(formattedPosts);
+                console.log('Recommended Posts:', recommendedPosts);
                 setRecommendedLoading(false);
                 console.log('Recommended Loading:', recommendedLoading);
                 setPostLoaded(true);
@@ -424,7 +425,6 @@ export default function PostView({ params }: { params: { id: string } }) {
         return (
             <div style={{ position: 'relative' }}>
                 
-                <LoadingOverlay visible={recommendedLoading} />
                 <Post
                     key={post.id}
                     id={post.id}
@@ -612,26 +612,26 @@ export default function PostView({ params }: { params: { id: string } }) {
             width:'100%'
         }}
     >
-        {selectedTab === 0 && (
-            <>
-                {filteredReplies.slice(0, showAllReplies ? filteredReplies.length : 15).map((reply) => renderReplies(reply))}
-                {!showAllReplies && filteredReplies.length > 15 && (
-                    <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: '10px' }}>
-                         {loadingMoreReplies ? 'Loading...' : 'More Replies'}
-                    </Button>
-                )}
-            </>
-        )}
          {selectedTab === 0 && (
             <>
                 {filteredReplies.slice(0, visibleReplies).map((reply) => renderReplies(reply))}
                 {visibleReplies < filteredReplies.length && (
                     <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: '10px' }}>
-                        {loadingMoreReplies ? 'Loading...' : 'Show More'}
+                        {loadingMoreReplies ? 'Loading...' : 'More Replies'}
                     </Button>
                 )}
             </>
         )}
+
+{selectedTab === 1 && (
+                                <div style={{ textAlign: 'center' }}>
+                                    {recommendedLoading ? (
+                                        <Loader size="lg" />
+                                    ) : (
+                                        recommendedPosts.map((post) => renderRecommendedPosts(post))
+                                    )}
+                                    </div>
+                            )}
         {selectedTab === 2 && (
             <div>This is tab for Stacks</div>
         )}
