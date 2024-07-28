@@ -608,7 +608,7 @@ export default function PostView({ params }: { params: { id: string } }) {
             fontFamily: 'Roboto, sans-serif',
             fontSize: '14px',
             marginTop: 0,
-            maxWidth: '800px',
+            maxWidth: '100%',
             width:'100%'
         }}
     >
