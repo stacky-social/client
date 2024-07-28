@@ -21,6 +21,7 @@ import axios from 'axios';
 import RelatedStacks from '../../../../components/RelatedStacks';
 import ReplySection from '../../../../components/ReplySection';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Loader } from '@mantine/core';
 import { set } from 'date-fns';
 
 interface PostType {
@@ -61,6 +62,8 @@ export default function PostView({ params }: { params: { id: string } }) {
     const relatedStacksRef = useRef<HTMLDivElement>(null);
     const currentPostRef = useRef<HTMLDivElement>(null);
     const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
+    const [loadingMoreReplies, setLoadingMoreReplies] = useState(false);
+    
 
     
     
@@ -76,8 +79,13 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [focus_relatedStacks, setFocus_relatedStacks] = useState<any[]>([]);
    
     const [recommendedPosts, setRecommendedPosts] = useState<any[]>([]);
+    const [recommendedLoading, setRecommendedLoading] = useState(false);
 
     const [hasScrolled, setHasScrolled] = useState(false); 
+
+    useEffect(() => {
+        console.log('Recommended Loading changed:', recommendedLoading);
+    }, [recommendedLoading]);
  
 
     const tabColors = ["#f8d86a", "#b9dec9", "#b0d5df", "#f1c4cd"]; 
@@ -130,6 +138,9 @@ export default function PostView({ params }: { params: { id: string } }) {
         }
     }, [postLoaded]);
 
+    const filteredReplies = replies.filter(reply => reply.in_reply_to_id === id);
+
+
     const fetchCurrentUser = async () => {
         const accessToken = localStorage.getItem('accessToken');
         if (!accessToken) {
@@ -156,7 +167,7 @@ export default function PostView({ params }: { params: { id: string } }) {
             setLoading(false);
             return;
         }
-
+    
         try {
             const postResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}`, {
                 headers: {
@@ -171,32 +182,32 @@ export default function PostView({ params }: { params: { id: string } }) {
             setLiked(postResponse.data.favourited);
             setBookmarked(postResponse.data.bookmarked);
             setLikeCount(postResponse.data.favourites_count);
-
+    
             const repliesResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}/context`, {
                 headers: {
                     'Authorization': `Bearer ${accessToken}`
                 }
             });
-
+    
             const formattedReplies = repliesResponse.data.descendants.map((reply: any) => ({
                 ...reply,
                 relatedStacks: [],
                 stackCount: null
             }));
-
+    
+            console.log("Formatted Replies:", formattedReplies);
             setReplies(formattedReplies);
-
+    
             const formattedAncestors = repliesResponse.data.ancestors.map((ancestor: any) => ({
                 ...ancestor,
                 relatedStacks: [],
                 stackCount: null
             }));
-
+    
             setAncestors(formattedAncestors);
     
-
             setPostLoaded(true);
-
+    
         } catch (error) {
             console.error('Failed to fetch post or replies:', error);
         } finally {
@@ -246,6 +257,7 @@ export default function PostView({ params }: { params: { id: string } }) {
         );
         } catch (error) {
             console.error(`Error fetching stack data for post ${post.id}:`, error);
+      
         }
     };
 
@@ -357,16 +369,24 @@ export default function PostView({ params }: { params: { id: string } }) {
     };
 
     const handleShowMoreReplies = () => {
-        setShowAllReplies(true);
+        setLoadingMoreReplies(true);
+  
+            setShowAllReplies(true);
+            setLoadingMoreReplies(false); 
+ 
     };
 
     const handleTabClick = async (index: number) => {
         setSelectedTab(index);
     
         if (index === 1) { // 1 corresponds to the "Recommend" tab
+            console.log('Fetching recommended posts...');
+            
+            setRecommendedLoading(true); 
+            console.log('Recommended Loading:', recommendedLoading);
             try {
                 console.log('Fetching recommended posts...');
-                const response = await axios.get(`https://beta.stacky.social/api/v1/timelines/public`);
+                const response = await axios.get(`https://beta.stacky.social:3002/replies/${id}/list`); 
                 console.log('Response data:', response.data);
     
                 const posts = response.data;
@@ -380,7 +400,10 @@ export default function PostView({ params }: { params: { id: string } }) {
     
                 setPostLoaded(false);
                 setRecommendedPosts(formattedPosts);
+                setRecommendedLoading(false);
+                console.log('Recommended Loading:', recommendedLoading);
                 setPostLoaded(true);
+                
     
                 formattedPosts.forEach((post: PostType) => {
                     console.log('Fetching related stacks for post:', post);
@@ -395,35 +418,37 @@ export default function PostView({ params }: { params: { id: string } }) {
     
     const renderRecommendedPosts = (post: any) => {
         return (
-            <Post
-                key={post.id}
-                id={post.id}
-                text={post.content}
-                author={post.account.username}
-                account={post.account.acc}
-                avatar={post.account.avatar}
-                repliesCount={post.replies_count}
-                createdAt={post.created_at}
-                stackCount={post.stackCount}
-                favouritesCount={post.favourites_count}
-                favourited={post.favourited}
-                bookmarked={post.bookmarked}
-                mediaAttachments={[]}
-                onStackIconClick={handleStackIconClick}
-                setIsModalOpen={() => {}}
-                setIsExpandModalOpen={() => {}}
-                relatedStacks={post.relatedStacks}
-                setActivePostId={setActivePostId}
-                activePostId={activePostId}
-            />
+            <div style={{ position: 'relative' }}>
+                
+                <LoadingOverlay visible={recommendedLoading} />
+                <Post
+                    key={post.id}
+                    id={post.id}
+                    text={post.content}
+                    author={post.account.username}
+                    account={post.account.acc}
+                    avatar={post.account.avatar}
+                    repliesCount={post.replies_count}
+                    createdAt={post.created_at}
+                    stackCount={post.stackCount}
+                    favouritesCount={post.favourites_count}
+                    favourited={post.favourited}
+                    bookmarked={post.bookmarked}
+                    mediaAttachments={[]}
+                    onStackIconClick={handleStackIconClick}
+                    setIsModalOpen={() => {}}
+                    setIsExpandModalOpen={() => {}}
+                    relatedStacks={post.relatedStacks}
+                    setActivePostId={setActivePostId}
+                    activePostId={activePostId}
+                />
+            </div>
         );
     };
     
+    
     const renderReplies = (post: any) => {
-        if (post.in_reply_to_id !== id) {
-            return null;
-        }
-
+       
         return (
             <Post
                 key={post.id}
@@ -570,43 +595,46 @@ export default function PostView({ params }: { params: { id: string } }) {
                         </div>
                     )}
 
-                    {replies.length > 0 && (
-                        <Paper
-                            style={{
-                                padding: '20px',
-                                backgroundColor: tabColors[selectedTab],
-                                borderRadius: '0 0 8px 8px', 
-                                fontFamily: 'Roboto, sans-serif',
-                                fontSize: '14px',
-                                marginTop: 0,
-                                maxWidth: '800px',
-                                width:'100%'
-                            }}
-                        >
-                            {selectedTab === 0 && (
-                                <>
-                                    {replies.slice(0, showAllReplies ? replies.length : 15).map((reply) => renderReplies(reply))}
-                                    {!showAllReplies && replies.length > 15 && (
-                                        <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: '10px' }}>
-                                            Show More
-                                        </Button>
+{replies.length > 0 && (
+    <Paper
+        style={{
+            padding: '20px',
+            backgroundColor: tabColors[selectedTab],
+            borderRadius: '0 0 8px 8px', 
+            fontFamily: 'Roboto, sans-serif',
+            fontSize: '14px',
+            marginTop: 0,
+            maxWidth: '800px',
+            width:'100%'
+        }}
+    >
+        {selectedTab === 0 && (
+            <>
+                {filteredReplies.slice(0, showAllReplies ? filteredReplies.length : 15).map((reply) => renderReplies(reply))}
+                {!showAllReplies && filteredReplies.length > 15 && (
+                    <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: '10px' }}>
+                         {loadingMoreReplies ? 'Loading...' : 'Show More'}
+                    </Button>
+                )}
+            </>
+        )}
+      {selectedTab === 1 && (
+                                <div style={{ textAlign: 'center' }}>
+                                    {recommendedLoading ? (
+                                        <Loader size="lg" />
+                                    ) : (
+                                        recommendedPosts.map((post) => renderRecommendedPosts(post))
                                     )}
-                                </>
+                                </div>
                             )}
-                            {selectedTab === 1 && (
-                                <>
-                                    {recommendedPosts.map((post) => renderRecommendedPosts(post))}
-                                </>
-                            )}
-                            {selectedTab === 2 && (
-                                <div>This is tab for Stacks</div>
-                            )}
-                            {selectedTab === 3 && (
-                                <div>This is tab for Summary</div>
-                            )}
-                        </Paper>
-                    )}
-
+        {selectedTab === 2 && (
+            <div>This is tab for Stacks</div>
+        )}
+        {selectedTab === 3 && (
+            <div>This is tab for Summary</div>
+        )}
+    </Paper>
+)}
                     <div style={{ height: '100vh' }}></div>
                 </div>
                 <div style={{ gridColumn: '2 / 3' }}>
