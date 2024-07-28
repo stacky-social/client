@@ -70,33 +70,33 @@ const PostList: React.FC<PostListProps> = ({
         fetchPosts();
     }, [apiUrl, accessToken, loadStackInfo]);
 
-    // useEffect(() => {
-    //     const handleScroll = () => {
-    //         let found = false;
-    //         for (let i = 0; i < postRefs.current.length; i++) {
-    //             const ref = postRefs.current[i];
-    //             if (ref && ref.getBoundingClientRect().top >= 0 && ref.getBoundingClientRect().bottom <= window.innerHeight) {
-    //                 const post = posts[i];
-    //                 if (post && post.postId !== activePostId) {
-    //                     setActivePostId(post.postId);
-    //                     const position = ref.getBoundingClientRect();
-    //                     const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
-    //                     handleStackIconClick(post.relatedStacks, post.postId, adjustedPosition);
-    //                 }
-    //                 found = true;
-    //                 break;
-    //             }
-    //         }
-    //         if (!found) {
-    //             setActivePostId(null);
-    //         }
-    //     };
+    useEffect(() => {
+        const handleScroll = () => {
+            let found = false;
+            for (let i = 0; i < postRefs.current.length; i++) {
+                const ref = postRefs.current[i];
+                if (ref && ref.getBoundingClientRect().top >= 0 && ref.getBoundingClientRect().bottom <= window.innerHeight) {
+                    const post = posts[i];
+                    if (post && post.postId !== activePostId) {
+                        setActivePostId(post.postId);
+                        const position = ref.getBoundingClientRect();
+                        const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+                        handleStackIconClick(post.relatedStacks, post.postId, adjustedPosition);
+                    }
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                setActivePostId(null);
+            }
+        };
 
-    //     window.addEventListener('scroll', handleScroll);
-    //     return () => {
-    //         window.removeEventListener('scroll', handleScroll);
-    //     };
-    // }, [posts, activePostId, handleStackIconClick, setActivePostId]);
+        window.addEventListener('scroll', handleScroll);
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+        };
+    }, [posts, activePostId, handleStackIconClick, setActivePostId]);
 
     const loadStackDataInBatches = async (posts: PostType[], batchSize: number) => {
         for (let i = 0; i < posts.length; i += batchSize) {
