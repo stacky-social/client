@@ -12,6 +12,7 @@ import {
   IconHeart,
   IconFrame,
   IconUser,
+  IconCards,
 } from '@tabler/icons-react';
 
 interface StackCountProps {
@@ -23,7 +24,7 @@ interface StackCountProps {
 }
 
 const iconMapping: { [key: string]: JSX.Element } = {
-  uncategorized: <IconStack size={24} />,
+  uncategorized: <IconCards size={24} />,
   predictions: <IconBulb size={24} />,
   evidence_public: <IconQuote size={24} />,
   evidence_personal: <IconUser size={24} />,
@@ -58,16 +59,25 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
       onClick={handlePaperClick}
       style={{
         position: 'absolute',
-        top: '10px',
-        right: '-50px',
+        top: '-1px',
+        right: '-53px',
         width: '55px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+        // boxShadow: '3px 0px 10px rgba(0,0,0,0.1)', // 只显示右边和下边的阴影
         cursor: 'pointer',
         transition: 'height 0.3s ease',
+        backgroundColor:isExpanded ? '#c6e6e8' : '#fff',
+  
+        borderTopLeftRadius: '0px', // 左上角不圆角
+        borderTopRightRadius: '8px', // 右上角圆角
+        borderBottomRightRadius: '8px', // 右下角圆角
+        borderBottomLeftRadius: '0px', // 左下角圆角
+        borderLeft: '0px solid transparent', // 确保左边没有边框
+       
+        
       }}
       withBorder
     >

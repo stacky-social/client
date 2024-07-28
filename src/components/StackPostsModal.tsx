@@ -191,6 +191,9 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
             accessToken={accessToken}
             setIsModalOpen={() => {}}
             setIsExpandModalOpen={() => {}}
+            setActivePostId={() => {}}
+            activePostId={null}
+            
           />
         )}
       </ScrollArea>
