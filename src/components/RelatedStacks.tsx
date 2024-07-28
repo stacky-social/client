@@ -36,7 +36,6 @@ interface RelatedStacksProps {
   onStackClick: (stackId: string) => void;
   setIsExpandModalOpen: (isOpen: boolean) => void;
   showupdate: boolean;
-  
 }
 
 const iconMapping: { [key: string]: JSX.Element } = {
@@ -54,19 +53,21 @@ const iconMapping: { [key: string]: JSX.Element } = {
   default: <IconStack size={24} />,
 };
 
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, onStackClick, setIsExpandModalOpen,showupdate }) => {
+const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, onStackClick, setIsExpandModalOpen, showupdate }) => {
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [currentStackId, setCurrentStackId] = useState('');
   const router = useRouter();
   const [maxStacksToShow, setMaxStacksToShow] = useState(3);
-  const [cardHeight, setCardHeight] = useState(0);
-  const paperRef = useRef<HTMLDivElement>(null);
-
+  const [cardHeights, setCardHeights] = useState<number[]>([]);
+  const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
-    if (paperRef.current) {
-      setCardHeight(paperRef.current.offsetHeight);
-    }
+    const heights = paperRefs.current.map(ref => ref?.offsetHeight || 0);
+    setCardHeights(heights);
+    heights.forEach((height, index) => {
+      console.log(`Paper ${index} height:`, height);
+      console.log(`Stacked div ${index} height:`, height);
+    });
   }, [relatedStacks]);
 
   const handleStackCountClick = (stackId: string) => {
@@ -101,7 +102,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
       }
     },
   });
-  
 
   return (
     <motion.div
@@ -109,7 +109,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
       initial="hidden"
       animate="show"
       style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center', width: '100%' }}
-    
     >
       {relatedStacks.slice(0, maxStacksToShow).map((stack, index) => (
         <motion.div
@@ -123,7 +122,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
           }}
         >
           <Paper
-            ref={paperRef}
+            ref={(el) => {
+              paperRefs.current[index] = el;
+            }}
             style={{
               position: 'relative',
               width: cardWidth,
@@ -137,7 +138,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
             }}
             withBorder
           >
-            {stack.topPost &&stack.topPost.content_rewritten && (
+            {stack.topPost && stack.topPost.content_rewritten && (
               <div
                 style={{
                   position: 'absolute',
@@ -166,18 +167,18 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
               </Group>
 
               <div
-  style={{
-    paddingTop: '1rem',
-    paddingLeft: '1rem',
-    paddingRight: '1rem',
-  }}
->
-  {stack.topPost.content_rewritten ? (
-    <div dangerouslySetInnerHTML={{ __html: stack.topPost.content_rewritten }} />
-  ) : (
-    <div dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
-  )}
-</div>
+                style={{
+                  paddingTop: '1rem',
+                  paddingLeft: '1rem',
+                  paddingRight: '1rem',
+                }}
+              >
+                {stack.topPost.content_rewritten ? (
+                  <div dangerouslySetInnerHTML={{ __html: stack.topPost.content_rewritten }} />
+                ) : (
+                  <div dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
+                )}
+              </div>
 
               <Text pl={54} pt="sm" size="sm">
                 Post Id: {stack.topPost.id}
@@ -206,28 +207,26 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
                 <IconShare size={20} />
               </Button>
             </Group>
-            {
-              stack.size !== null && stack.size > 1 &&
+            {stack.size !== null && stack.size > 1 && (
               <RelatedStackCount count={stack.size} onClick={() => handleStackCountClick(stack.stackId)} />
-            }
-           
+            )}
           </Paper>
 
           {stack.size !== null && stack.size > 1 && 
-            [...Array(4)].map((_, index) => (
+            [...Array(4)].map((_, idx) => (
               <div
-                key={index}
+                key={idx}
                 style={{
                   position: 'absolute',
-                  bottom: `${15 - 5 * index}px`,
-                  left: `${15 - 5 * index}px`,
-                  width: '100%',
-                  height: `${cardHeight}px`,
+                  bottom: `${15 - 5 * idx}px`,
+                  left: `${15 - 5 * idx}px`,
+                  width: cardWidth,
+                  height: `${cardHeights[index] || 0}px`,
                   backgroundColor: '#93d5dc',
-                  zIndex: index + 1,
+                  zIndex: idx + 1,
                   boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
                   borderRadius: '8px',
-                  border: '1.5px solid  white',
+                  border: '1.5px solid white',
                 }}
               />
             ))}
