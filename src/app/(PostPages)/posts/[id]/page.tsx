@@ -65,6 +65,7 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [loadingMoreReplies, setLoadingMoreReplies] = useState(false);
     
 
+    const [visibleReplies, setVisibleReplies] = useState(15);
     
     
     const [postLoaded, setPostLoaded] = useState(false);
@@ -370,10 +371,13 @@ export default function PostView({ params }: { params: { id: string } }) {
 
     const handleShowMoreReplies = () => {
         setLoadingMoreReplies(true);
-  
-            setShowAllReplies(true);
-            setLoadingMoreReplies(false); 
- 
+        setTimeout(() => {
+            setVisibleReplies((prevVisibleReplies) => {
+                const newVisibleReplies = prevVisibleReplies + 15;
+                return newVisibleReplies >= filteredReplies.length ? filteredReplies.length : newVisibleReplies;
+            });
+            setLoadingMoreReplies(false);
+        }, 0);
     };
 
     const handleTabClick = async (index: number) => {
@@ -613,20 +617,21 @@ export default function PostView({ params }: { params: { id: string } }) {
                 {filteredReplies.slice(0, showAllReplies ? filteredReplies.length : 15).map((reply) => renderReplies(reply))}
                 {!showAllReplies && filteredReplies.length > 15 && (
                     <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: '10px' }}>
-                         {loadingMoreReplies ? 'Loading...' : 'Show More'}
+                         {loadingMoreReplies ? 'Loading...' : 'More Replies'}
                     </Button>
                 )}
             </>
         )}
-      {selectedTab === 1 && (
-                                <div style={{ textAlign: 'center' }}>
-                                    {recommendedLoading ? (
-                                        <Loader size="lg" />
-                                    ) : (
-                                        recommendedPosts.map((post) => renderRecommendedPosts(post))
-                                    )}
-                                </div>
-                            )}
+         {selectedTab === 0 && (
+            <>
+                {filteredReplies.slice(0, visibleReplies).map((reply) => renderReplies(reply))}
+                {visibleReplies < filteredReplies.length && (
+                    <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: '10px' }}>
+                        {loadingMoreReplies ? 'Loading...' : 'Show More'}
+                    </Button>
+                )}
+            </>
+        )}
         {selectedTab === 2 && (
             <div>This is tab for Stacks</div>
         )}
