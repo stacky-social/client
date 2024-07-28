@@ -103,6 +103,25 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
     },
   });
 
+  let clickTimeout: NodeJS.Timeout;
+let preventClick = false;
+const handleSingleClick = (postId: string, stackId: string) => {
+  clickTimeout = setTimeout(() => {
+    if (!preventClick) {
+      handleNavigate(postId, stackId);
+    }
+    preventClick = false;
+  }, 300); // 延迟以区分单击和双击
+};
+
+const handleDoubleClick = (stackId: string) => {
+  clearTimeout(clickTimeout); // 清除单击事件的计时器
+  preventClick = true;
+  handleStackCountClick(stackId);
+};
+
+
+
   return (
     <motion.div
       variants={containerVariants}
@@ -155,7 +174,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
                 Rewritten by AI
               </div>
             )}
-            <UnstyledButton onClick={() => handleNavigate(stack.topPost.id, stack.stackId)} style={{ width: '100%' }}>
+            <UnstyledButton
+  onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
+  onDoubleClick={() => handleDoubleClick(stack.stackId)}
+  style={{ width: '100%' }}
+>
               <Group style={{ padding: '0 20px' }}>
                 <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
                 <div>
