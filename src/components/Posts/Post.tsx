@@ -259,6 +259,26 @@ export default function Post({
     }
   };
 
+  let clickTimeout: NodeJS.Timeout;
+let preventClick = false;
+
+const handleSingleClick = (e: React.MouseEvent) => {
+  e.stopPropagation();  // 防止事件冒泡
+  clickTimeout = setTimeout(() => {
+    if (!preventClick) {
+      handleNavigate();
+    }
+    preventClick = false;
+  }, 300); // 延迟以区分单击和双击
+};
+
+const handleDoubleClick = (e: React.MouseEvent) => {
+  e.stopPropagation();  // 防止事件冒泡
+  clearTimeout(clickTimeout);  // 清除单击事件的计时器
+  preventClick = true;
+  handleStackCountClick();
+};
+
   useEffect(() => {
     const links = document.querySelectorAll('.post-content a');
     links.forEach(link => {
@@ -273,17 +293,19 @@ export default function Post({
 
   return (
     <div style={{ position: 'relative', margin: '15px', marginBottom: '2rem', width: "90%" }}>
-      <Paper
-        ref={paperRef}
-        style={{
-          position: 'relative',
-          width: "100%",
-          backgroundColor: isExpanded ? '#c6e6e8' : '#fff',
-          zIndex: 5,
-          boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-          borderRadius: '8px',
-          padding: '10px ',
-        }}
+     <Paper
+  ref={paperRef}
+  style={{
+    position: 'relative',
+    width: "100%",
+    backgroundColor: isExpanded ? '#c6e6e8' : '#fff',
+    zIndex: 5,
+    boxShadow: '0 3px 10px rgba(0,0,0,0.1)', // 调整阴影，只在其他三边显示
+    borderRadius: '8px', // 全局圆角
+    borderTopRightRadius: '0px', // 右上角无圆角
+    padding: '10px ',
+  }}
+
         withBorder
         onMouseEnter={() => {
           if (!isExpanded && paperRef.current) {
@@ -296,7 +318,11 @@ export default function Post({
           }
         }}
       >
-        <UnstyledButton onClick={handleNavigate} style={{ width: '100%' }}>
+        <UnstyledButton 
+          onClick={handleSingleClick} 
+          onDoubleClick={handleDoubleClick} 
+          style={{ width: '100%' }}
+        >
           <Group>
             <UnstyledButton onClick={handleNavigateToUser}>
               <Avatar src={avatar} alt={author} radius="xl" />
