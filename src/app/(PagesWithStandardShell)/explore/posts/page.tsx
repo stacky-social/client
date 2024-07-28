@@ -1,4 +1,4 @@
-// src/app/explore/posts.tsx
+
 "use client";
 
 const PostPage = () => {
