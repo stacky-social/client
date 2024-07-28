@@ -75,6 +75,10 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
     };
 
     const fetchRealTimeFeedback = async (inputContent: string) => {
+        if (inputContent.length < 10) {
+            console.log("Input content is too short, not sending post.");
+            return;
+        }
         setLoading(true); 
         try {
             const response = await axios.post('https://beta.stacky.social:3002/posts/feedback', {

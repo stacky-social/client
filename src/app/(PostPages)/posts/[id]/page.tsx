@@ -21,6 +21,7 @@ import axios from 'axios';
 import RelatedStacks from '../../../../components/RelatedStacks';
 import ReplySection from '../../../../components/ReplySection';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Loader } from '@mantine/core';
 import { set } from 'date-fns';
 
 interface PostType {
@@ -61,6 +62,10 @@ export default function PostView({ params }: { params: { id: string } }) {
     const relatedStacksRef = useRef<HTMLDivElement>(null);
     const currentPostRef = useRef<HTMLDivElement>(null);
     const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
+    const [loadingMoreReplies, setLoadingMoreReplies] = useState(false);
+    
+
+    
     
     const [postLoaded, setPostLoaded] = useState(false);
     const [showAllReplies, setShowAllReplies] = useState(false);
@@ -74,9 +79,17 @@ export default function PostView({ params }: { params: { id: string } }) {
     const [focus_relatedStacks, setFocus_relatedStacks] = useState<any[]>([]);
    
     const [recommendedPosts, setRecommendedPosts] = useState<any[]>([]);
+    const [recommendedLoading, setRecommendedLoading] = useState(false);
+
+    const [hasScrolled, setHasScrolled] = useState(false); 
+
+    useEffect(() => {
+        console.log('Recommended Loading changed:', recommendedLoading);
+    }, [recommendedLoading]);
+ 
 
     const tabColors = ["#f8d86a", "#b9dec9", "#b0d5df", "#f1c4cd"]; 
-    const tabNames = ["Time", "Recommend", "Stacks Replies", "Summary"]; 
+    const tabNames = ["Time", "Recommended", "Stacked", "Summary"]; 
 
     useEffect(() => {
         const storedRelatedStacks = localStorage.getItem('relatedStacks');
@@ -102,16 +115,17 @@ export default function PostView({ params }: { params: { id: string } }) {
     }, []);
 
     useEffect(() => {
-        if (currentPostRef.current !== null) {
+        if (currentPostRef.current !== null && !hasScrolled) {
             setFocusPostPosition({ top: currentPostRef.current.offsetTop, height: currentPostRef.current.offsetHeight });
             setTimeout(() => {
                 window.scrollTo({
                     top: currentPostRef.current!.offsetTop,
                     behavior: 'smooth'
                 });
+                setHasScrolled(true); // 设置已滑动标志
             }, 300);
         }
-    }, [post, postLoaded]);
+    }, [post, postLoaded, hasScrolled]);
 
    
 
@@ -123,6 +137,9 @@ export default function PostView({ params }: { params: { id: string } }) {
             ancestors.forEach(ancestor => fetchRelatedStacks(ancestor));
         }
     }, [postLoaded]);
+
+    const filteredReplies = replies.filter(reply => reply.in_reply_to_id === id);
+
 
     const fetchCurrentUser = async () => {
         const accessToken = localStorage.getItem('accessToken');
@@ -150,7 +167,7 @@ export default function PostView({ params }: { params: { id: string } }) {
             setLoading(false);
             return;
         }
-
+    
         try {
             const postResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}`, {
                 headers: {
@@ -165,31 +182,32 @@ export default function PostView({ params }: { params: { id: string } }) {
             setLiked(postResponse.data.favourited);
             setBookmarked(postResponse.data.bookmarked);
             setLikeCount(postResponse.data.favourites_count);
-
+    
             const repliesResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}/context`, {
                 headers: {
                     'Authorization': `Bearer ${accessToken}`
                 }
             });
-
+    
             const formattedReplies = repliesResponse.data.descendants.map((reply: any) => ({
                 ...reply,
                 relatedStacks: [],
                 stackCount: null
             }));
-
+    
+            console.log("Formatted Replies:", formattedReplies);
             setReplies(formattedReplies);
-
+    
             const formattedAncestors = repliesResponse.data.ancestors.map((ancestor: any) => ({
                 ...ancestor,
                 relatedStacks: [],
                 stackCount: null
             }));
-
+    
             setAncestors(formattedAncestors);
-
+    
             setPostLoaded(true);
-
+    
         } catch (error) {
             console.error('Failed to fetch post or replies:', error);
         } finally {
@@ -239,6 +257,7 @@ export default function PostView({ params }: { params: { id: string } }) {
         );
         } catch (error) {
             console.error(`Error fetching stack data for post ${post.id}:`, error);
+      
         }
     };
 
@@ -318,6 +337,7 @@ export default function PostView({ params }: { params: { id: string } }) {
 
     const handleFocusPostClick = () => {
         setShowFocusRelatedStacks(true);
+        setActivePostId(null);
         
     }
 
@@ -341,21 +361,32 @@ export default function PostView({ params }: { params: { id: string } }) {
                 setIsModalOpen={() => {}}
                 setIsExpandModalOpen={() => {}}
                 relatedStacks={post.relatedStacks}
+                setActivePostId={setActivePostId}
+                activePostId={activePostId}
+
             />
         );
     };
 
     const handleShowMoreReplies = () => {
-        setShowAllReplies(true);
+        setLoadingMoreReplies(true);
+  
+            setShowAllReplies(true);
+            setLoadingMoreReplies(false); 
+ 
     };
 
     const handleTabClick = async (index: number) => {
         setSelectedTab(index);
     
         if (index === 1) { // 1 corresponds to the "Recommend" tab
+            console.log('Fetching recommended posts...');
+            
+            setRecommendedLoading(true); 
+            console.log('Recommended Loading:', recommendedLoading);
             try {
                 console.log('Fetching recommended posts...');
-                const response = await axios.get(`https://beta.stacky.social/api/v1/timelines/public`);
+                const response = await axios.get(`https://beta.stacky.social:3002/replies/${id}/list`); 
                 console.log('Response data:', response.data);
     
                 const posts = response.data;
@@ -369,7 +400,10 @@ export default function PostView({ params }: { params: { id: string } }) {
     
                 setPostLoaded(false);
                 setRecommendedPosts(formattedPosts);
+                setRecommendedLoading(false);
+                console.log('Recommended Loading:', recommendedLoading);
                 setPostLoaded(true);
+                
     
                 formattedPosts.forEach((post: PostType) => {
                     console.log('Fetching related stacks for post:', post);
@@ -384,33 +418,37 @@ export default function PostView({ params }: { params: { id: string } }) {
     
     const renderRecommendedPosts = (post: any) => {
         return (
-            <Post
-                key={post.id}
-                id={post.id}
-                text={post.content}
-                author={post.account.username}
-                account={post.account.acc}
-                avatar={post.account.avatar}
-                repliesCount={post.replies_count}
-                createdAt={post.created_at}
-                stackCount={post.stackCount}
-                favouritesCount={post.favourites_count}
-                favourited={post.favourited}
-                bookmarked={post.bookmarked}
-                mediaAttachments={[]}
-                onStackIconClick={handleStackIconClick}
-                setIsModalOpen={() => {}}
-                setIsExpandModalOpen={() => {}}
-                relatedStacks={post.relatedStacks}
-            />
+            <div style={{ position: 'relative' }}>
+                
+                <LoadingOverlay visible={recommendedLoading} />
+                <Post
+                    key={post.id}
+                    id={post.id}
+                    text={post.content}
+                    author={post.account.username}
+                    account={post.account.acc}
+                    avatar={post.account.avatar}
+                    repliesCount={post.replies_count}
+                    createdAt={post.created_at}
+                    stackCount={post.stackCount}
+                    favouritesCount={post.favourites_count}
+                    favourited={post.favourited}
+                    bookmarked={post.bookmarked}
+                    mediaAttachments={[]}
+                    onStackIconClick={handleStackIconClick}
+                    setIsModalOpen={() => {}}
+                    setIsExpandModalOpen={() => {}}
+                    relatedStacks={post.relatedStacks}
+                    setActivePostId={setActivePostId}
+                    activePostId={activePostId}
+                />
+            </div>
         );
     };
     
+    
     const renderReplies = (post: any) => {
-        if (post.in_reply_to_id !== id) {
-            return null;
-        }
-
+       
         return (
             <Post
                 key={post.id}
@@ -430,6 +468,8 @@ export default function PostView({ params }: { params: { id: string } }) {
                 setIsModalOpen={() => {}}
                 setIsExpandModalOpen={() => {}}
                 relatedStacks={post.relatedStacks}
+                setActivePostId={setActivePostId}
+                activePostId={activePostId}
             />
         );
     };
@@ -457,58 +497,69 @@ export default function PostView({ params }: { params: { id: string } }) {
                 <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
                     <div style={{ position: 'relative', marginBottom: '2rem' }}>
                         {ancestors.map((ancestor) => (
-                            <div key={ancestor.id} style={{ position: 'relative', marginBottom: '1rem' }}>
+                            <div key={ancestor.id} style={{ position: 'relative', marginBottom: '1rem', marginLeft: '40px'}}>
                                 {renderAncestors(ancestor)}
                                 <div style={{
                                     position: 'absolute',
-                                    left: '20%',
+                                    left: '10%',
                                     bottom: '-2rem',
                                     width: '2px',
                                     height: '2rem',
-                                    backgroundColor: '#000',
+                                    backgroundColor: '#393733', // Change to light gray
                                     transform: 'translateX(-50%)'
                                 }}></div>
                             </div>
                         ))}
 
-                        
-                        <Paper ref={currentPostRef} withBorder radius="md" mt={20} p="lg" style={{ position: 'relative', zIndex: 5, backgroundColor: '#C5F6FA' }} shadow="lg">
-                            <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
-                            <UnstyledButton onClick={handleFocusPostClick}>
-                            
-                            <Group>
-                                <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl" />
-                                <div>
-                                    <Text size="sm">{post?.account.username}</Text>
-                                    <Text size="xs">{new Date(post?.created_at).toLocaleString()}</Text>
-                                </div>
-                            </Group>
-                            <Text pl={54} pt="sm" size="sm" dangerouslySetInnerHTML={{ __html: post?.content }} />
-                            {post?.media_attachments && post.media_attachments.map((attachment: any) => (
-                                <div key={attachment.id}>
-                                    {attachment.type === 'image' && (
-                                        <img src={attachment.url} alt={attachment.description} style={{ maxWidth: '100%', marginTop: '10px' }} />
-                                    )}
-                                </div>
-                            ))}
-                            <Text pl={54} pt="sm" size="sm">Post Id: {post?.id}</Text>
-                        </UnstyledButton>
-                            <Divider my="md" />
-                            <Group justify="space-between" mx="20">
-                                <Button variant="subtle" size="sm" radius="lg" onClick={() => handleNavigate(id)}>
-                                    <IconMessageCircle size={20} /> <Text ml={4}>{post?.replies_count}</Text>
-                                </Button>
-                                <Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
-                                    {liked ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{likeCount}</Text>
-                                </Button>
-                                <Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
-                                    {bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
-                                </Button>
-                                <Button variant="subtle" size="sm" radius="lg" onClick={handleCopyLink}>
-                                    <IconLink size={20} />
-                                </Button>
-                            </Group>
-                        </Paper>
+<Paper 
+    ref={currentPostRef} 
+    withBorder 
+    radius="md" 
+    mt={20} 
+    p="lg" 
+    style={{ 
+        position: 'relative', 
+        zIndex: 5, 
+        backgroundColor: showFocusRelatedStacks ? '#C5F6FA' : '#FFFFFF' 
+    }} 
+    shadow="lg"
+>
+    <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
+    <UnstyledButton onClick={handleFocusPostClick}>
+        <Group>
+            <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl" />
+            <div>
+                <Text size="lg">{post?.account.username}</Text> {/* 调整此处 */}
+                <Text size="md">{new Date(post?.created_at).toLocaleString()}</Text> {/* 调整此处 */}
+            </div>
+        </Group>
+        <Text pl={54} pt="sm" size="lg" dangerouslySetInnerHTML={{ __html: post?.content }} /> {/* 调整此处 */}
+        {post?.media_attachments && post.media_attachments.map((attachment: any) => (
+            <div key={attachment.id}>
+                {attachment.type === 'image' && (
+                    <img src={attachment.url} alt={attachment.description} style={{ maxWidth: '100%', marginTop: '10px' }} />
+                )}
+            </div>
+        ))}
+        <Text pl={54} pt="sm" size="lg">Post Id: {post?.id}</Text> {/* 调整此处 */}
+    </UnstyledButton>
+    <Divider my="md" />
+    <Group justify="space-between" mx="20">
+        <Button variant="subtle" size="sm" radius="lg" onClick={() => handleNavigate(id)}>
+            <IconMessageCircle size={20} /> <Text ml={4}>{post?.replies_count}</Text>
+        </Button>
+        <Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
+            {liked ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{likeCount}</Text>
+        </Button>
+        <Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
+            {bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
+        </Button>
+        <Button variant="subtle" size="sm" radius="lg" onClick={handleCopyLink}>
+            <IconLink size={20} />
+        </Button>
+    </Group>
+</Paper>
+
                     </div>
                     <Divider my="md" />
 
@@ -544,41 +595,46 @@ export default function PostView({ params }: { params: { id: string } }) {
                         </div>
                     )}
 
-                    {replies.length > 0 && (
-                        <Paper
-                            style={{
-                                padding: '20px',
-                                backgroundColor: tabColors[selectedTab],
-                                borderRadius: '0 0 8px 8px', 
-                                fontFamily: 'Roboto, sans-serif',
-                                fontSize: '14px',
-                                marginTop: 0 
-                            }}
-                        >
-                            {selectedTab === 0 && (
-                                <>
-                                    {replies.slice(0, showAllReplies ? replies.length : 15).map((reply) => renderReplies(reply))}
-                                    {!showAllReplies && replies.length > 15 && (
-                                        <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: '10px' }}>
-                                            Show More
-                                        </Button>
+{replies.length > 0 && (
+    <Paper
+        style={{
+            padding: '20px',
+            backgroundColor: tabColors[selectedTab],
+            borderRadius: '0 0 8px 8px', 
+            fontFamily: 'Roboto, sans-serif',
+            fontSize: '14px',
+            marginTop: 0,
+            maxWidth: '800px',
+            width:'100%'
+        }}
+    >
+        {selectedTab === 0 && (
+            <>
+                {filteredReplies.slice(0, showAllReplies ? filteredReplies.length : 15).map((reply) => renderReplies(reply))}
+                {!showAllReplies && filteredReplies.length > 15 && (
+                    <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: '10px' }}>
+                         {loadingMoreReplies ? 'Loading...' : 'Show More'}
+                    </Button>
+                )}
+            </>
+        )}
+      {selectedTab === 1 && (
+                                <div style={{ textAlign: 'center' }}>
+                                    {recommendedLoading ? (
+                                        <Loader size="lg" />
+                                    ) : (
+                                        recommendedPosts.map((post) => renderRecommendedPosts(post))
                                     )}
-                                </>
+                                </div>
                             )}
-                            {selectedTab === 1 && (
-                                <>
-                                    {recommendedPosts.map((post) => renderRecommendedPosts(post))}
-                                </>
-                            )}
-                            {selectedTab === 2 && (
-                                <div>This is tab for Stacks</div>
-                            )}
-                            {selectedTab === 3 && (
-                                <div>This is tab for Summary</div>
-                            )}
-                        </Paper>
-                    )}
-
+        {selectedTab === 2 && (
+            <div>This is tab for Stacks</div>
+        )}
+        {selectedTab === 3 && (
+            <div>This is tab for Summary</div>
+        )}
+    </Paper>
+)}
                     <div style={{ height: '100vh' }}></div>
                 </div>
                 <div style={{ gridColumn: '2 / 3' }}>
@@ -611,6 +667,8 @@ export default function PostView({ params }: { params: { id: string } }) {
                                 cardWidth={450}
                                 onStackClick={() => {}}
                                 setIsExpandModalOpen={() => {}}
+                                showupdate={true}
+                          
                             />
                         </motion.div>
                     )}
@@ -642,6 +700,8 @@ export default function PostView({ params }: { params: { id: string } }) {
                     cardWidth={450}
                     onStackClick={() => {}}
                     setIsExpandModalOpen={() => {}}
+                    showupdate={true}
+              
                 />
             </motion.div>
         )}
