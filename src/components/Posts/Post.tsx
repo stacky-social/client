@@ -302,7 +302,9 @@ const handleDoubleClick = (e: React.MouseEvent) => {
     zIndex: 5,
     boxShadow: '0 3px 10px rgba(0,0,0,0.1)', // 调整阴影，只在其他三边显示
     borderRadius: '8px', // 全局圆角
-    borderTopRightRadius: '0px', // 右上角无圆角
+   
+    borderTopRightRadius: stackCount !== null && stackCount > 1  ?'0px' : '8px', // 右上角不圆角
+
     padding: '10px ',
   }}
 
@@ -367,7 +369,10 @@ const handleDoubleClick = (e: React.MouseEvent) => {
           <Text pl={54} pt="sm" size="sm">Post Id: {id}</Text>
         </UnstyledButton>
         <Divider my="md" />
-        <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px', marginBottom: '-20px' }}>
+        <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px', 
+          // marginBottom: '-20px',
+          marginBottom:stackCount !== null && stackCount > 1 ? '-20px' : '0px',
+           }}>
           <Button variant="subtle" size="sm" radius="lg" onClick={handleReply} style={{ display: 'flex', alignItems: 'center' }}>
             <IconMessageCircle size={20} /> <Text ml={4}>{replyCount}</Text>
           </Button>
@@ -385,7 +390,9 @@ const handleDoubleClick = (e: React.MouseEvent) => {
           </Button>
         </Group>
 
-        <UnstyledButton onClick={handleStackCountClick}>
+        {
+          stackCount !== null && stackCount > 1 && (
+<UnstyledButton onClick={handleStackCountClick}>
           <StackCount
             count={stackCount}
             onClick={handleStackCountClick}
@@ -394,8 +401,14 @@ const handleDoubleClick = (e: React.MouseEvent) => {
             expanded={isExpanded}
           />
         </UnstyledButton>
+          )
+        }
+
+        
       </Paper>
-      {stackCount !== null && (
+      {stackCount !== null && 
+        stackCount >1 &&
+       (
         <AnimatePresence>
           {!isExpanded && [...Array(4)].map((_, index) => (
             <motion.div

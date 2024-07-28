@@ -93,7 +93,20 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
           {count !== null ? count : <Loader size="xs" />}
         </Text>
       </div>
+      {
+        isExpanded&&(
+            <div style={{
+                width: '100%',
+                borderBottom: '1px solid #a9a9a9', // 更深的灰色
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)', // 更深的阴影效果
+                marginBottom: '5px',
+              }}></div>
+        )
+      }
+      
+    
       <Transition mounted={isExpanded} transition="slide-down" duration={300} timingFunction="ease">
+        
         {(styles) => (
           <div style={{ 
             ...styles, 
@@ -104,6 +117,7 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
             gap: '5px',
             width: '100%',
           }}>
+            
             {relatedStacks.map((stack, index) => (
               <div 
                 key={index} 
@@ -123,6 +137,7 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
                   setIsExpanded(true);
                 }}
               >
+                  
                 {iconMapping[stack.rel] || iconMapping["default"]}
                 <Text size="xs" style={{ margin: '0' }}>{stack.size}</Text>
               </div>
