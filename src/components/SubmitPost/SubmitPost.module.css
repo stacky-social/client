@@ -1,12 +1,13 @@
 .PostBar{
     display: flex; /* Maintain flex layout */
     align-items: center;
-    justify-content: space-between;
-    width: auto; /* Set a fixed width, adjust this value as needed */
+    /* justify-content: space-between; */
+    width: "auto"; /* Set a fixed width, adjust this value as needed */
     /* border: 1px solid #ccc; Add a light grey border */
     /* border-radius: 8px; Optional: add rounded corners */
     padding: 10px; /* Add some padding inside the borders */
     background-color: white;
+    
 }
 
 .EmojiPicker {
