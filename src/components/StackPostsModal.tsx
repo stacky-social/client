@@ -44,6 +44,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
   const [substacks, setSubstacks] = useState<Substack[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const router = useRouter();
+  const [activePostId, setActivePostId] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -55,6 +56,8 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
       fetchSubstacks(stackId);
     }
   }, [stackId]);
+
+  
 
   const fetchSubstacks = async (id: string) => {
     try {
@@ -191,9 +194,8 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
             accessToken={accessToken}
             setIsModalOpen={() => {}}
             setIsExpandModalOpen={() => {}}
-            setActivePostId={() => {}}
-            activePostId={null}
-            
+            activePostId={activePostId}  
+            setActivePostId={setActivePostId}  
           />
         )}
       </ScrollArea>
