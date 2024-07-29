@@ -12,6 +12,7 @@ import {
   IconHeart,
   IconFrame,
   IconUser,
+  IconCards,
 } from '@tabler/icons-react';
 
 interface StackCountProps {
@@ -23,7 +24,7 @@ interface StackCountProps {
 }
 
 const iconMapping: { [key: string]: JSX.Element } = {
-  uncategorized: <IconStack size={24} />,
+  uncategorized: <IconCards size={24} />,
   predictions: <IconBulb size={24} />,
   evidence_public: <IconQuote size={24} />,
   evidence_personal: <IconUser size={24} />,
@@ -58,16 +59,25 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
       onClick={handlePaperClick}
       style={{
         position: 'absolute',
-        top: '10px',
-        right: '-50px',
+        top: '-1px',
+        right: '-53px',
         width: '55px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+        // boxShadow: '3px 0px 10px rgba(0,0,0,0.1)', // 只显示右边和下边的阴影
         cursor: 'pointer',
         transition: 'height 0.3s ease',
+        backgroundColor:isExpanded ? '#c6e6e8' : '#fff',
+  
+        borderTopLeftRadius: '0px', // 左上角不圆角
+        borderTopRightRadius: '8px', // 右上角圆角
+        borderBottomRightRadius: '8px', // 右下角圆角
+        borderBottomLeftRadius: '0px', // 左下角圆角
+        borderLeft: '0px solid transparent', // 确保左边没有边框
+       
+        
       }}
       withBorder
     >
@@ -83,7 +93,20 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
           {count !== null ? count : <Loader size="xs" />}
         </Text>
       </div>
+      {
+        isExpanded&&(
+            <div style={{
+                width: '100%',
+                borderBottom: '1px solid #a9a9a9', // 更深的灰色
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)', // 更深的阴影效果
+                marginBottom: '5px',
+              }}></div>
+        )
+      }
+      
+    
       <Transition mounted={isExpanded} transition="slide-down" duration={300} timingFunction="ease">
+        
         {(styles) => (
           <div style={{ 
             ...styles, 
@@ -94,6 +117,7 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
             gap: '5px',
             width: '100%',
           }}>
+            
             {relatedStacks.map((stack, index) => (
               <div 
                 key={index} 
@@ -113,6 +137,7 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
                   setIsExpanded(true);
                 }}
               >
+                  
                 {iconMapping[stack.rel] || iconMapping["default"]}
                 <Text size="xs" style={{ margin: '0' }}>{stack.size}</Text>
               </div>

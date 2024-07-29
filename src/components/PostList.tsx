@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { LoadingOverlay } from "@mantine/core";
 import { PostType } from '../types/PostType';
 import Post from './Posts/Post';
@@ -13,11 +13,23 @@ interface PostListProps {
     accessToken: string | null;
     setIsModalOpen: (isOpen: boolean) => void;
     setIsExpandModalOpen: (isOpen: boolean) => void;
+    activePostId: string | null;
+    setActivePostId: (id: string | null) => void;
 }
 
-const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadStackInfo, accessToken, setIsModalOpen, setIsExpandModalOpen }) => {
+const PostList: React.FC<PostListProps> = ({
+    apiUrl,
+    handleStackIconClick,
+    loadStackInfo,
+    accessToken,
+    setIsModalOpen,
+    setIsExpandModalOpen,
+    activePostId,
+    setActivePostId,
+}) => {
     const [posts, setPosts] = useState<PostType[]>([]);
     const [loading, setLoading] = useState(true);
+    const postRefs = useRef<Array<HTMLDivElement | null>>([]);
 
     useEffect(() => {
         const fetchPosts = async () => {
@@ -58,6 +70,34 @@ const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadS
         fetchPosts();
     }, [apiUrl, accessToken, loadStackInfo]);
 
+    useEffect(() => {
+        const handleScroll = () => {
+            let found = false;
+            for (let i = 0; i < postRefs.current.length; i++) {
+                const ref = postRefs.current[i];
+                if (ref && ref.getBoundingClientRect().top >= 0 && ref.getBoundingClientRect().bottom <= window.innerHeight) {
+                    const post = posts[i];
+                    if (post && post.postId !== activePostId) {
+                        setActivePostId(post.postId);
+                        const position = ref.getBoundingClientRect();
+                        const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+                        handleStackIconClick(post.relatedStacks, post.postId, adjustedPosition);
+                    }
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                setActivePostId(null);
+            }
+        };
+
+        window.addEventListener('scroll', handleScroll);
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+        };
+    }, [posts, activePostId, handleStackIconClick, setActivePostId]);
+
     const loadStackDataInBatches = async (posts: PostType[], batchSize: number) => {
         for (let i = 0; i < posts.length; i += batchSize) {
             const batch = posts.slice(i, i + batchSize);
@@ -84,26 +124,34 @@ const PostList: React.FC<PostListProps> = ({ apiUrl, handleStackIconClick, loadS
         }
     };
 
-    const postElements = posts.map((post: PostType) => (
-        <Post
+    const postElements = posts.map((post: PostType, index) => (
+        <div
             key={post.postId}
-            id={post.postId}
-            text={post.text}
-            author={post.author}
-            account={post.account}
-            avatar={post.avatar}
-            repliesCount={post.replies_count}
-            createdAt={post.createdAt}
-            stackCount={post.stackCount}
-            favouritesCount={post.favouritesCount}
-            favourited={post.favourited}
-            bookmarked={post.bookmarked}
-            mediaAttachments={post.mediaAttachments}
-            onStackIconClick={handleStackIconClick}
-            setIsModalOpen={setIsModalOpen}
-            setIsExpandModalOpen={setIsExpandModalOpen}
-            relatedStacks={post.relatedStacks} 
-        />
+            ref={(el) => {
+                postRefs.current[index] = el;
+            }}
+        >
+            <Post
+                id={post.postId}
+                text={post.text}
+                author={post.author}
+                account={post.account}
+                avatar={post.avatar}
+                repliesCount={post.replies_count}
+                createdAt={post.createdAt}
+                stackCount={post.stackCount}
+                favouritesCount={post.favouritesCount}
+                favourited={post.favourited}
+                bookmarked={post.bookmarked}
+                mediaAttachments={post.mediaAttachments}
+                onStackIconClick={handleStackIconClick}
+                setIsModalOpen={setIsModalOpen}
+                setIsExpandModalOpen={setIsExpandModalOpen}
+                relatedStacks={post.relatedStacks}
+                activePostId={activePostId}
+                setActivePostId={setActivePostId}
+            />
+        </div>
     ));
 
     return (
