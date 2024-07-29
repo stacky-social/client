@@ -48,6 +48,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
   const [substacks, setSubstacks] = useState<Substack[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const router = useRouter();
+  const [activePostId, setActivePostId] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<string | null>('first');
 
@@ -61,6 +62,8 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
       fetchSubstacks(stackId);
     }
   }, [stackId]);
+
+  
 
   const fetchSubstacks = async (id: string) => {
     try {
@@ -227,6 +230,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
             </div>
             <SimpleGrid cols={2} spacing="lg">{cards}</SimpleGrid>
           </Container>
+
           </Tabs.Panel>
 
       <Tabs.Panel value="summary">
@@ -236,6 +240,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
         </ScrollArea>
       </Tabs.Panel>
     </Tabs>
+
     </Modal>
   );
 }
