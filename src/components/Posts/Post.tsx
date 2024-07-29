@@ -298,7 +298,7 @@ const handleDoubleClick = (e: React.MouseEvent) => {
   style={{
     position: 'relative',
     width: "100%",
-    backgroundColor: isExpanded ? '#c6e6e8' : '#fff',
+    backgroundColor: isExpanded ? '#FFFAE6' : '#fff',
     zIndex: 5,
     boxShadow: '0 3px 10px rgba(0,0,0,0.1)', // 调整阴影，只在其他三边显示
     // borderRadius: '8px', // 全局圆角
@@ -445,11 +445,11 @@ const handleDoubleClick = (e: React.MouseEvent) => {
              
               style={{
                 position: 'absolute',
-                bottom: `${15 - 5 * (index)}px`,
+                bottom: `${-15 + 5 * (index)}px`,
                 left: `${15 - 5 * (index)}px`,
                 width: "100%",
                 height: `${cardHeight}px`,
-                backgroundColor: '#405D72',
+                backgroundColor: '#758694',
                 
                
                 // boxShadow: '3px 3px 3px rgba(0,0,0,0.2)',
