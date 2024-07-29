@@ -27,6 +27,7 @@ import {
 import axios from 'axios';
 
 import RelatedStacks from '../../../../components/RelatedStacks';
+import RepliesStack from '../../../../components/RepliesStack';
 import ReplySection from '../../../../components/ReplySection';
 import {AnimatePresence, motion} from 'framer-motion';
 import {Loader} from '@mantine/core';
@@ -90,6 +91,9 @@ export default function PostView({params}: { params: { id: string } }) {
     const [recommendedLoading, setRecommendedLoading] = useState(false);
 
     const [hasScrolled, setHasScrolled] = useState(false);
+
+    const [repliesStack, setRepliesStack] = useState<any[]>([]); // 添加用于存储 repliesStack 的状态
+    const [loadingRepliesStack, setLoadingRepliesStack] = useState(false); // 添加加载状态
 
     useEffect(() => {
         console.log('Recommended Loading changed:', recommendedLoading);
@@ -220,6 +224,33 @@ export default function PostView({params}: { params: { id: string } }) {
             setLoading(false);
         }
     };
+
+    const fetchRepliesStack = async (postId: string) => { // 添加用于获取 repliesStack 的函数
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) {
+            console.error('Access token is missing.');
+            return;
+        }
+
+        setLoadingRepliesStack(true);
+
+        try {
+            const response = await axios.get(`https://beta.stacky.social:3002/replies/${postId}/stacks`, {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                }
+            });
+            setRepliesStack(response.data);
+        } catch (error) {
+            console.error(`Error fetching replies stack data for post ${postId}:`, error);
+        } finally {
+            setLoadingRepliesStack(false);
+        }
+    };
+
+
+
+
 
     const fetchRelatedStacks = async (post: any) => {
         const accessToken = localStorage.getItem('accessToken');
@@ -424,6 +455,10 @@ export default function PostView({params}: { params: { id: string } }) {
             } catch (error) {
                 console.error('Failed to fetch recommended posts:', error);
             }
+            
+        }
+        else if (index === 2) { // 2 corresponds to the "Stacked" tab
+            await fetchRepliesStack(id); // 调用获取 replies stack 的函数
         }
     };
 
@@ -651,8 +686,20 @@ export default function PostView({params}: { params: { id: string } }) {
                                     )}
                                 </div>
                             )}
-                            {selectedTab === 2 && (
-                                <div>This is tab for Stacks</div>
+                            {selectedTab === 2 && ( // 在 Tab 2 下显示 repliesStack
+                                <div style={{ textAlign: 'center' }}>
+                                    {loadingRepliesStack ? (
+                                        <Loader size="lg" />
+                                    ) : (
+                                        <RepliesStack
+                                            repliesStacks={repliesStack}
+                                            cardWidth={450}
+                                            onStackClick={() => { }}
+                                            setIsExpandModalOpen={() => { }}
+                                            showupdate={true}
+                                        />
+                                    )}
+                                </div>
                             )}
                             {selectedTab === 3 && (
                                 <div>This is tab for Summary</div>
