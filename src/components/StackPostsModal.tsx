@@ -198,15 +198,13 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
 
       <Tabs.Panel value="list">
       <ScrollArea style={{ height: 600 }}>
-      <PostList
+          <PostList
             apiUrl={apiUrl}
             handleStackIconClick={handleStackIconClick}
             loadStackInfo={false}
             accessToken={accessToken}
             setIsModalOpen={() => {}}
             setIsExpandModalOpen={() => {}}
-            activePostId={null}
-            setActivePostId={() => {}}
           />
       </ScrollArea>
       </Tabs.Panel>
