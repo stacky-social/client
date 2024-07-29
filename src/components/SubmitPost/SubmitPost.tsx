@@ -161,7 +161,9 @@ export function SubmitPost() {
         <div className={classes.ButtonArea}>
           <div className="iconlist">
             <Group>
-              <ActionIcon style={iconStyle} onClick={() => fileInputRef.current?.click()}>
+              <ActionIcon 
+              className={classes.actionIcon}
+              style={iconStyle} onClick={() => fileInputRef.current?.click()}>
                 <IconPhoto size={20} />
               </ActionIcon>
               <input
@@ -170,13 +172,19 @@ export function SubmitPost() {
                 style={{ display: 'none' }}
                 accept="image/*"
               />
-              <ActionIcon style={iconStyle}>
+              <ActionIcon 
+              className={classes.actionIcon}
+              style={iconStyle}>
                 <IconChartBar size={20} />
               </ActionIcon>
-              <ActionIcon style={iconStyle}>
+              <ActionIcon 
+              className={classes.actionIcon}
+              style={iconStyle}>
                 <IconAlertTriangle size={20} />
               </ActionIcon>
-              <ActionIcon style={iconStyle} onClick={toggleEmojiPicker}>
+              <ActionIcon 
+              className={classes.actionIcon}
+              style={iconStyle} onClick={toggleEmojiPicker}>
                 <IconMoodSmile size={20} />
               </ActionIcon>
               {showEmojiPicker && (
