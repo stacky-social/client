@@ -188,8 +188,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     <Modal
       opened={isOpen}
       onClose={onClose}
-      // title={title}
-      size="70%"
+      size="80%"
       centered
     >
       <Tabs value={activeTab} onChange={setActiveTab}>
