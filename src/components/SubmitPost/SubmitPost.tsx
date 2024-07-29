@@ -145,14 +145,17 @@ export function SubmitPost() {
         )}
       </div>
 
-      <div className={classes.inputArea}>
-        <div className={classes.textArea}>
+      <div className={classes.inputArea}
+      >
+        <div className={classes.textArea}
+        >
           <textarea
             ref={textareaRef}
             placeholder="What's on your mind?"
             value={postText}
             onChange={(event) => setPostText(event.currentTarget.value)}
             className={classes.textarea}
+            
           />
         </div>
         <div className={classes.ButtonArea}>

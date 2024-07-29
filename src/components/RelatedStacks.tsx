@@ -149,11 +149,11 @@ const handleDoubleClick = (stackId: string) => {
               width: cardWidth,
               backgroundColor: 'rgba(227, 250, 252, 1)',
               zIndex: 5,
-              boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+              // boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
               borderRadius: '8px',
               margin: '0 auto',
               paddingTop: '40px',
-              border: '1.5px solid  white',
+              // border: '1.5px solid  white',
             }}
             withBorder
           >
@@ -249,7 +249,7 @@ const handleDoubleClick = (stackId: string) => {
                   zIndex: idx + 1,
                   boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
                   borderRadius: '8px',
-                  border: '1.5px solid white',
+                  // border: '1.5px solid white',
                 }}
               />
             ))}

@@ -34,6 +34,7 @@ const PostList: React.FC<PostListProps> = ({
     useEffect(() => {
         const fetchPosts = async () => {
             try {
+                console.log('Fetching posts from:', apiUrl);
                 const response = await axios.get(apiUrl, {
                     headers: {
                         Authorization: `Bearer ${accessToken}`,

@@ -25,7 +25,13 @@ export default function PostsPageLayout({ children }: {  children: React.ReactNo
             <AppShell.Navbar p="md">
                 <Navbar />
             </AppShell.Navbar>
-            <AppShell.Main>
+            <AppShell.Main
+            style={
+                {
+                   backgroundColor: 'F1FAFF',
+                }
+            }
+            >
                 {children}
             </AppShell.Main>
         </AppShell>

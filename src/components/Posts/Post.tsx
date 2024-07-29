@@ -301,14 +301,15 @@ const handleDoubleClick = (e: React.MouseEvent) => {
     backgroundColor: isExpanded ? '#c6e6e8' : '#fff',
     zIndex: 5,
     boxShadow: '0 3px 10px rgba(0,0,0,0.1)', // 调整阴影，只在其他三边显示
-    borderRadius: '8px', // 全局圆角
+    // borderRadius: '8px', // 全局圆角
+    borderRadius: '0px', // 左上角圆角
    
     borderTopRightRadius: stackCount !== null && stackCount > 1  ?'0px' : '8px', // 右上角不圆角
 
     padding: '10px ',
   }}
 
-        withBorder
+        // withBorder
         onMouseEnter={() => {
           if (!isExpanded && paperRef.current) {
             paperRef.current.style.backgroundColor = 'rgba(245, 245, 245)';
@@ -320,7 +321,7 @@ const handleDoubleClick = (e: React.MouseEvent) => {
           }
         }}
       >
-        <UnstyledButton 
+        <UnstyledButton
           onClick={handleSingleClick} 
           onDoubleClick={handleDoubleClick} 
           style={{ width: '100%' }}
@@ -406,7 +407,7 @@ const handleDoubleClick = (e: React.MouseEvent) => {
 
         
       </Paper>
-      {stackCount !== null && 
+      {/* {stackCount !== null && 
         stackCount >1 &&
        (
         <AnimatePresence>
@@ -432,7 +433,36 @@ const handleDoubleClick = (e: React.MouseEvent) => {
             />
           ))}
         </AnimatePresence>
+      )} */}
+
+  {stackCount !== null && 
+        stackCount >1 &&
+       (
+       
+          !isExpanded && [...Array(3)].map((_, index) => (
+            <div
+              key={index}
+             
+              style={{
+                position: 'absolute',
+                bottom: `${15 - 5 * (index)}px`,
+                left: `${15 - 5 * (index)}px`,
+                width: "100%",
+                height: `${cardHeight}px`,
+                backgroundColor: '#405D72',
+                
+               
+                // boxShadow: '3px 3px 3px rgba(0,0,0,0.2)',
+
+                // borderRadius: '8px',
+                border: '0.5px solid #FCFBF5',
+              }}
+            />
+          ))
+    
       )}
+
+
       <AnnotationModal
         isOpen={annotationModalOpen}
         onClose={() => setAnnotationModalOpen(false)}
