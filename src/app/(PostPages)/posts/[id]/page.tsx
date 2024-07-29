@@ -119,8 +119,10 @@ export default function PostView({params}: { params: { id: string } }) {
 
 
     useEffect(() => {
+        
         fetchPostAndReplies(id);
     }, [id]);
+
 
     useEffect(() => {
         fetchCurrentUser();
@@ -573,9 +575,10 @@ export default function PostView({params}: { params: { id: string } }) {
                                 zIndex: 5,
                                 backgroundColor: showFocusRelatedStacks ? '#C5F6FA' : '#FFFFFF'
                             }}
+                
                             shadow="lg"
                         >
-                            <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{radius: "sm", blur: 2}}/>
+                  
                             <UnstyledButton onClick={handleFocusPostClick}>
                                 <Group>
                                     <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl"/>
