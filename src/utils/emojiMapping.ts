@@ -1,8 +1,15 @@
-// emojiMapping.ts
+import { IconReportMedical } from "@tabler/icons-react";
+
 export const randomEmojis: { [key: string]: string } = {
-    "disagree": "❌",
-    "prediction": "🔮",
-    "funny": "😂",
-    "evidence": "📜",
-    "default": "📦",
+    "uncategorized": "🌐",
+    "predictions": "🔮",
+    "evidence_public": "📰",
+    "evidence_personal": "📒",
+    "connections": "🔗",
+    "pointers": "👉",
+    "proposals": "💡",
+    "humor": "😂",
+    "values": "❤️",
+    "framing": "🖼️",
+    "questions": "❓",
 };

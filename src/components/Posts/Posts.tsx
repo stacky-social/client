@@ -14,6 +14,8 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
     const [postPosition, setPostPosition] = useState<{ top: number, height: number } | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false); 
     const [isExpandModalOpen, setIsExpandModalOpen] = useState(false); 
+    const [previousPostId, setPreviousPostId] = useState<string | null>(null);
+
 
     const relatedStacksRef = useRef<HTMLDivElement>(null);
 
@@ -28,24 +30,20 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
     }, []);
 
     const handleStackIconClick = (relatedStacks: any[], postId: string, position: { top: number, height: number }) => {
-        setRelatedStacks([...relatedStacks]); 
-        setActivePostId(postId);
-        setPostPosition(position);
+        if (Array.isArray(relatedStacks)) {
+            setRelatedStacks([...relatedStacks]);
+            setPreviousPostId(activePostId);
+            setActivePostId(postId);
+            setPostPosition(position);
+            setIsExpandModalOpen(false);
+        } else {
+            console.error("relatedStacks is not an array:", relatedStacks);
+            setRelatedStacks([]); 
+        }
     };
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (isExpandModalOpen) return;
-            if (relatedStacksRef.current && !relatedStacksRef.current.contains(event.target as Node)) {
-                setRelatedStacks([]);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [relatedStacks, isExpandModalOpen]);
-
+    
+    const shouldUpdate = activePostId !== previousPostId;
     return (
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem' }}>
             <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
@@ -63,6 +61,8 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
                     accessToken={accessToken}
                     setIsModalOpen={setIsModalOpen} 
                     setIsExpandModalOpen={setIsExpandModalOpen}
+                    activePostId={activePostId}  
+                    setActivePostId={setActivePostId}  
                 />
             </div>
             <div style={{ gridColumn: '2 / 3', position: 'relative' }}>
@@ -81,13 +81,12 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
                                 transition={{ duration: 0.2 }}
                             >
                                 <RelatedStacks
-                                    key={relatedStacks.map(stack => stack.stackId).join(',')} 
+                                    key={relatedStacks.map((_, index) => index).join(',')} 
                                     relatedStacks={relatedStacks}
                                     cardWidth={450}
-                                    cardHeight={200}
                                     onStackClick={() => { }}
-                                    setIsModalOpen={setIsModalOpen} 
                                     setIsExpandModalOpen={setIsExpandModalOpen} 
+                                    showupdate={shouldUpdate}
                                 />
                             </motion.div>
                         )}

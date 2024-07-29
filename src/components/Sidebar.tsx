@@ -14,10 +14,10 @@ const Sidebar: React.FC<SidebarProps> = ({ relatedStacks }) => {
                 <RelatedStacks
                     relatedStacks={relatedStacks}
                     cardWidth={450}
-                    cardHeight={200}
                     onStackClick={() => {}}
                     setIsExpandModalOpen={()=>{}}
-                    setIsModalOpen={()=>{}}
+                    showupdate={true}
+        
                 />
             )}
         </div>

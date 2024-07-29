@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import { Text, Avatar, Group, Paper, Divider, Button } from '@mantine/core';
 import axios from 'axios';
 import Posts from '../../../components/Posts/Posts'; 
-import PostList from '../../../components/PostList';
+
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 

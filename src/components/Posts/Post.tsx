@@ -1,92 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Button, Divider } from '@mantine/core';
-import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled } from '@tabler/icons-react';
+import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconLink } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import StackCount from '../StackCount';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
-
-
-
-const fakeRelatedStacks = [
-  {
-    stackId: "stack-1",
-    rel: "disagree",
-    size: 20,
-    topPost: {
-      id: "post-1",
-      created_at: new Date().toISOString(),
-      replies_count: 5,
-      favourites_count: 10,
-      favourited: false,
-      bookmarked: false,
-      content: "This is a fake post content for stack 1",
-      account: {
-        avatar: "https://via.placeholder.com/150",
-        display_name: "User 1",
-      },
-    },
-  },
-  {
-    stackId: "stack-2",
-    rel: "prediction",
-    size: 15,
-    topPost: {
-      id: "post-2",
-      created_at: new Date().toISOString(),
-      replies_count: 3,
-      favourites_count: 7,
-      favourited: true,
-      bookmarked: false,
-      content: "This is a fake post content for stack 2",
-      account: {
-        avatar: "https://via.placeholder.com/150",
-        display_name: "User 2",
-      },
-    },
-  },
-  {
-    stackId: "stack-3",
-    rel: "funny",
-    size: 15,
-    topPost: {
-      id: "post-2",
-      created_at: new Date().toISOString(),
-      replies_count: 3,
-      favourites_count: 7,
-      favourited: true,
-      bookmarked: false,
-      content: "This is a fake post content for stack 2",
-      account: {
-        avatar: "https://via.placeholder.com/150",
-        display_name: "User 2",
-      },
-      content_rewritten: "This is a fake rewritten post content for stack 2",
-
-    },
-  },
-  {
-    stackId: "stack-4",
-    rel: "evidence",
-    size: 15,
-    topPost: {
-      id: "post-2",
-      created_at: new Date().toISOString(),
-      replies_count: 3,
-      favourites_count: 7,
-      favourited: true,
-      bookmarked: false,
-      content: "This is a fake post content for stack 2",
-      account: {
-        avatar: "https://via.placeholder.com/150",
-        display_name: "User 2",
-      },
-    },
-  }
-];
-
-const MastodonInstanceUrl = 'https://beta.stacky.social';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface PreviewCard {
   title: string;
@@ -95,16 +15,16 @@ interface PreviewCard {
   url: string;
 }
 
+const MastodonInstanceUrl = 'https://beta.stacky.social';
+
 const extractLinks = (text: string): string[] => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(text, 'text/html');
-  const anchors = doc.querySelectorAll('a:not(.mention.hashtag)') as NodeListOf<HTMLAnchorElement>; // 明确指定为 HTMLAnchorElement 类型并排除hashtag链接
+  const anchors = doc.querySelectorAll('a:not(.mention.hashtag)') as NodeListOf<HTMLAnchorElement>;
   return Array.from(anchors)
     .map(anchor => anchor.href)
     .filter(href => href.startsWith('http')); 
 };
-
-
 
 const fetchPreviewCard = async (url: string): Promise<PreviewCard | null> => {
   try {
@@ -125,12 +45,11 @@ interface PostProps {
   id: string;
   text: string;
   author: string;
-  account:string;
+  account: string;
   avatar: string;
   repliesCount: number;
   createdAt: string;
   stackCount: number | null;
-  stackId: string | null;
   favouritesCount: number;
   favourited: boolean;
   bookmarked: boolean;
@@ -138,15 +57,32 @@ interface PostProps {
   onStackIconClick: (relatedStacks: any[], postId: string, position: { top: number, height: number }) => void;
   setIsModalOpen: (isOpen: boolean) => void;
   setIsExpandModalOpen: (isOpen: boolean) => void;
+  relatedStacks: any[];
+  activePostId: string | null;
+  setActivePostId: (id: string | null) => void;
 }
 
-
-
-export default function Post({ id, text, author, account,avatar, repliesCount, createdAt, stackCount, stackId, favouritesCount, favourited, bookmarked, onStackIconClick}: PostProps) {
+export default function Post({
+  id,
+  text,
+  author,
+  account,
+  avatar,
+  repliesCount,
+  createdAt,
+  stackCount,
+  favouritesCount,
+  favourited,
+  bookmarked,
+  onStackIconClick,
+  relatedStacks,
+  activePostId,
+  setActivePostId,
+}: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
   const paperRef = useRef<HTMLDivElement>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const [isExpandModalOpen, setIsExpandModalOpen] = useState(false);
 
   const [liked, setLiked] = useState(favourited);
@@ -155,14 +91,18 @@ export default function Post({ id, text, author, account,avatar, repliesCount, c
   const [replyCount, setReplyCount] = useState(repliesCount);
   const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
   const [mediaAttachments, setMediaAttachments] = useState<string[]>([]);
-  const [relatedStacks, setRelatedStacks] = useState<Array<{ rel: string, stackId: string, size: number }>>([]);
   const [isExpanded, setIsExpanded] = useState(false);
 
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>([]);
+  const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
+
+  useEffect(() => {
+    setTempRelatedStacks(relatedStacks);
+  }, [relatedStacks]);
+
   useEffect(() => {
     if (paperRef.current) {
       setCardHeight(paperRef.current.clientHeight);
-      
     }
   }, [text, mediaAttachments, previewCards]);
 
@@ -171,20 +111,20 @@ export default function Post({ id, text, author, account,avatar, repliesCount, c
   }, []);
 
   useEffect(() => {
-    if (isExpandModalOpen) return;
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!isExpandModalOpen && paperRef.current && !paperRef.current.contains(event.target as Node)) {
-        setIsExpanded(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isExpandModalOpen]);
+    if (activePostId !== id && isExpanded) {
+      setIsExpanded(false);
+    }
+  }, [activePostId]);
+
+  useEffect(() => {
+    if (activePostId === id) {
+      handleStackCountClick();
+    }
+  }, [activePostId]);
 
   const handleNavigate = () => {
-    const url = `/posts/${id}?stackId=${stackId || ''}`;
+    const url = `/posts/${id}`;
+    localStorage.setItem('relatedStacks', JSON.stringify(tempRelatedStacks));
     router.push(url);
   };
 
@@ -199,7 +139,7 @@ export default function Post({ id, text, author, account,avatar, repliesCount, c
   const fetchPostData = async () => {
     const accessToken = getAccessToken();
     if (!accessToken) return;
-  
+
     try {
       const response = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${id}`, {
         headers: {
@@ -213,9 +153,9 @@ export default function Post({ id, text, author, account,avatar, repliesCount, c
       setLiked(data.favourited);
       setBookmarkedState(data.bookmarked);
       setMediaAttachments(mediaAttachments);
-  
-      const links = extractLinks(data.content); 
-      
+
+      const links = extractLinks(data.content);
+
       const previewCardsPromises = links.map(link => fetchPreviewCard(link));
       const previewCards = await Promise.all(previewCardsPromises);
       setPreviewCards(previewCards.filter(card => card !== null) as PreviewCard[]);
@@ -223,7 +163,6 @@ export default function Post({ id, text, author, account,avatar, repliesCount, c
       console.error('Error fetching post data:', error);
     }
   };
-  
 
   const handleNavigateToUser = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -273,7 +212,7 @@ export default function Post({ id, text, author, account,avatar, repliesCount, c
           },
         });
       }
-      await fetchPostData(); // Fetch the updated count from the API
+      await fetchPostData();
     } catch (error) {
       console.error('Error bookmarking post:', error);
     }
@@ -283,24 +222,29 @@ export default function Post({ id, text, author, account,avatar, repliesCount, c
     setAnnotationModalOpen(true);
   };
 
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/posts/${id}`;
+    navigator.clipboard.writeText(url).then(() => {
+
+    }).catch((error) => {
+      console.error('Error copying link:', error);
+    });
+  };
+
   const handleStackCountClick = () => {
-    const newRelatedStacks = fakeRelatedStacks;
-    setRelatedStacks(newRelatedStacks);
     setIsExpanded(true);
     const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
     const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
-    onStackIconClick(newRelatedStacks, id, adjustedPosition);
+
+    onStackIconClick(tempRelatedStacks, id, adjustedPosition);
+    setActivePostId(id); 
   };
 
   const handleStackClick = (index: number) => {
-    console.log('Clicked stack index:', index);
-    const newRelatedStacks = [...relatedStacks];
+    const newRelatedStacks = [...tempRelatedStacks];
     const [clickedStack] = newRelatedStacks.splice(index, 1);
-    console.log('Clicked stack:', clickedStack);
-
     newRelatedStacks.unshift(clickedStack);
-    setRelatedStacks(newRelatedStacks);
-    console.log('Updated related stacks:', newRelatedStacks);
+    setTempRelatedStacks(newRelatedStacks);
 
     const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
     const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
@@ -315,13 +259,31 @@ export default function Post({ id, text, author, account,avatar, repliesCount, c
     }
   };
 
+  let clickTimeout: NodeJS.Timeout;
+let preventClick = false;
+
+const handleSingleClick = (e: React.MouseEvent) => {
+  e.stopPropagation();  // 防止事件冒泡
+  clickTimeout = setTimeout(() => {
+    if (!preventClick) {
+      handleNavigate();
+    }
+    preventClick = false;
+  }, 300); // 延迟以区分单击和双击
+};
+
+const handleDoubleClick = (e: React.MouseEvent) => {
+  e.stopPropagation();  // 防止事件冒泡
+  clearTimeout(clickTimeout);  // 清除单击事件的计时器
+  preventClick = true;
+  handleStackCountClick();
+};
+
   useEffect(() => {
     const links = document.querySelectorAll('.post-content a');
-    console.log('Links:', links);
     links.forEach(link => {
       link.addEventListener('click', handleLinkClick as EventListener);
     });
-
     return () => {
       links.forEach(link => {
         link.removeEventListener('click', handleLinkClick as EventListener);
@@ -331,30 +293,38 @@ export default function Post({ id, text, author, account,avatar, repliesCount, c
 
   return (
     <div style={{ position: 'relative', margin: '15px', marginBottom: '2rem', width: "90%" }}>
-      <Paper
-        ref={paperRef}
-        style={{
-          position: 'relative',
-          width: "100%",
-          backgroundColor: '#fff',
-          zIndex: 5,
-          boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-          borderRadius: '8px',
-          padding: '10px ',
-        }}
+     <Paper
+  ref={paperRef}
+  style={{
+    position: 'relative',
+    width: "100%",
+    backgroundColor: isExpanded ? '#c6e6e8' : '#fff',
+    zIndex: 5,
+    boxShadow: '0 3px 10px rgba(0,0,0,0.1)', // 调整阴影，只在其他三边显示
+    borderRadius: '8px', // 全局圆角
+   
+    borderTopRightRadius: stackCount !== null && stackCount > 1  ?'0px' : '8px', // 右上角不圆角
+
+    padding: '10px ',
+  }}
+
         withBorder
         onMouseEnter={() => {
-          if (paperRef.current) {
+          if (!isExpanded && paperRef.current) {
             paperRef.current.style.backgroundColor = 'rgba(245, 245, 245)';
           }
         }}
         onMouseLeave={() => {
-          if (paperRef.current) {
+          if (!isExpanded && paperRef.current) {
             paperRef.current.style.backgroundColor = 'rgba(255, 255, 255, 1)';
           }
         }}
       >
-        <UnstyledButton onClick={handleNavigate} style={{ width: '100%' }}>
+        <UnstyledButton 
+          onClick={handleSingleClick} 
+          onDoubleClick={handleDoubleClick} 
+          style={{ width: '100%' }}
+        >
           <Group>
             <UnstyledButton onClick={handleNavigateToUser}>
               <Avatar src={avatar} alt={author} radius="xl" />
@@ -366,42 +336,43 @@ export default function Post({ id, text, author, account,avatar, repliesCount, c
           </Group>
 
           <Text pl={54} pt="sm" size="sm" className="post-content" dangerouslySetInnerHTML={{ __html: text }} />
-         
 
           {mediaAttachments.length > 0 && (
-           <div style={{ paddingLeft: '54px', paddingRight: '54px', paddingTop: '1rem' }}>
-            {mediaAttachments.map((url, index) => (
-              <img key={index} src={url} alt={`Attachment ${index + 1}`} style={{ width: '100%', marginBottom: '10px' }} />
-            ))}
-          </div>
-        )}
-
-      {previewCards.map((card, index) => (
-          <div key={index} style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            padding: '1rem',
-            border: '1px solid rgba(0, 0, 0, 0.1)',
-            borderRadius: '8px',
-            overflow: 'hidden',
-            boxShadow: '0 3px 3px rgba(0, 0, 0, 0.1)',
-            marginTop: '1rem',
-          }} onClick={(e) => { e.stopPropagation(); window.open(card.url, '_blank'); }}>
-            {card.image && (
-              <img src={card.image} alt={card.title} style={{ width: '150px', margin: '10px' }} />
-            )}
-            <div>
-              <Text size="sm">{card.title}</Text>
-              <Text size="xs" c="dimmed">{card.description}</Text>
+            <div style={{ paddingLeft: '54px', paddingRight: '54px', paddingTop: '1rem' }}>
+              {mediaAttachments.map((url, index) => (
+                <img key={index} src={url} alt={`Attachment ${index + 1}`} style={{ width: '100%', marginBottom: '10px' }} />
+              ))}
             </div>
-          </div>
-        ))}
+          )}
+
+          {previewCards.map((card, index) => (
+            <div key={index} style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              padding: '1rem',
+              border: '1px solid rgba(0, 0, 0, 0.1)',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              boxShadow: '0 3px 3px rgba(0, 0, 0, 0.1)',
+              marginTop: '1rem',
+            }} onClick={(e) => { e.stopPropagation(); window.open(card.url, '_blank'); }}>
+              {card.image && (
+                <img src={card.image} alt={card.title} style={{ width: '150px', margin: '10px' }} />
+              )}
+              <div>
+                <Text size="sm">{card.title}</Text>
+                <Text size="xs" c="dimmed">{card.description}</Text>
+              </div>
+            </div>
+          ))}
 
           <Text pl={54} pt="sm" size="sm">Post Id: {id}</Text>
-          <Text pl={54} pt="sm" size="sm">Stack Id: {stackId}</Text>
         </UnstyledButton>
         <Divider my="md" />
-        <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px', marginBottom: '-20px' }}>
+        <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px', 
+          // marginBottom: '-20px',
+          marginBottom:stackCount !== null && stackCount > 1 ? '-20px' : '0px',
+           }}>
           <Button variant="subtle" size="sm" radius="lg" onClick={handleReply} style={{ display: 'flex', alignItems: 'center' }}>
             <IconMessageCircle size={20} /> <Text ml={4}>{replyCount}</Text>
           </Button>
@@ -414,40 +385,58 @@ export default function Post({ id, text, author, account,avatar, repliesCount, c
           <Button variant="subtle" size="sm" radius="lg" onClick={handleAnnotation} style={{ display: 'flex', alignItems: 'center' }}>
             <IconNote size={20} />
           </Button>
+          <Button variant="subtle" size="sm" radius="lg" onClick={handleCopyLink} style={{ display: 'flex', alignItems: 'center' }}>
+            <IconLink size={20} />
+          </Button>
         </Group>
 
-        <UnstyledButton onClick={handleStackCountClick}>
-           <StackCount
+        {
+          stackCount !== null && stackCount > 1 && (
+<UnstyledButton onClick={handleStackCountClick}>
+          <StackCount
             count={stackCount}
             onClick={handleStackCountClick}
             onStackClick={handleStackClick}
-            relatedStacks={relatedStacks}
+            relatedStacks={tempRelatedStacks}
             expanded={isExpanded}
           />
         </UnstyledButton>
+          )
+        }
 
+        
       </Paper>
-      {stackId !== null && [...Array(4)].map((_, index) => (
-        <div
-          key={index}
-          style={{
-            position: 'absolute',
-            bottom: `${20 - 5 * (index + 1)}px`,
-            left: `${20 - 5 * (index + 1)}px`,
-            width: "100%",
-            height: `${cardHeight}px`,
-            backgroundColor: '#fff',
-            zIndex: index + 1,
-            boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-            borderRadius: '8px',
-            border: '1px solid rgba(0, 0, 0, 0.1)',
-          }}
-        />
-      ))}
+      {stackCount !== null && 
+        stackCount >1 &&
+       (
+        <AnimatePresence>
+          {!isExpanded && [...Array(4)].map((_, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 1 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              style={{
+                position: 'absolute',
+                bottom: `${20 - 5 * (index + 1)}px`,
+                left: `${20 - 5 * (index + 1)}px`,
+                width: "100%",
+                height: `${cardHeight}px`,
+                backgroundColor: '#fff',
+                zIndex: index + 1,
+                boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+                borderRadius: '8px',
+                border: '1px solid rgba(0, 0, 0, 0.1)',
+              }}
+            />
+          ))}
+        </AnimatePresence>
+      )}
       <AnnotationModal
         isOpen={annotationModalOpen}
         onClose={() => setAnnotationModalOpen(false)}
-        stackId={stackId}
+        stackId={id}
       />
     </div>
   );

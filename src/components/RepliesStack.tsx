@@ -23,15 +23,15 @@ interface PostType {
   content_rewritten: string;
 }
 
-interface RelatedStackType {
+interface RepliesStackType {
   stackId: string;
   rel: string;
   size: number;
   topPost: PostType;
 }
 
-interface RelatedStacksProps {
-  relatedStacks: RelatedStackType[];
+interface RepliesStackProps {
+  repliesStacks: RepliesStackType[];
   cardWidth: number;
   onStackClick: (stackId: string) => void;
   setIsExpandModalOpen: (isOpen: boolean) => void;
@@ -53,11 +53,11 @@ const iconMapping: { [key: string]: JSX.Element } = {
   default: <IconStack size={24} />,
 };
 
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, onStackClick, setIsExpandModalOpen, showupdate }) => {
+const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, onStackClick, setIsExpandModalOpen, showupdate }) => {
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [currentStackId, setCurrentStackId] = useState('');
   const router = useRouter();
-  const [maxStacksToShow, setMaxStacksToShow] = useState(3);
+  const [maxStacksToShow, setMaxStacksToShow] = useState(4);
   const [cardHeights, setCardHeights] = useState<number[]>([]);
   const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -68,7 +68,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
       console.log(`Paper ${index} height:`, height);
       console.log(`Stacked div ${index} height:`, height);
     });
-  }, [relatedStacks]);
+  }, [repliesStacks]);
 
   const handleStackCountClick = (stackId: string) => {
     setCurrentStackId(stackId);
@@ -104,23 +104,21 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
   });
 
   let clickTimeout: NodeJS.Timeout;
-let preventClick = false;
-const handleSingleClick = (postId: string, stackId: string) => {
-  clickTimeout = setTimeout(() => {
-    if (!preventClick) {
-      handleNavigate(postId, stackId);
-    }
-    preventClick = false;
-  }, 300); // 延迟以区分单击和双击
-};
+  let preventClick = false;
+  const handleSingleClick = (postId: string, stackId: string) => {
+    clickTimeout = setTimeout(() => {
+      if (!preventClick) {
+        handleNavigate(postId, stackId);
+      }
+      preventClick = false;
+    }, 300); // 延迟以区分单击和双击
+  };
 
-const handleDoubleClick = (stackId: string) => {
-  clearTimeout(clickTimeout); // 清除单击事件的计时器
-  preventClick = true;
-  handleStackCountClick(stackId);
-};
-
-
+  const handleDoubleClick = (stackId: string) => {
+    clearTimeout(clickTimeout); // 清除单击事件的计时器
+    preventClick = true;
+    handleStackCountClick(stackId);
+  };
 
   return (
     <motion.div
@@ -129,7 +127,7 @@ const handleDoubleClick = (stackId: string) => {
       animate="show"
       style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center', width: '100%' }}
     >
-      {relatedStacks.slice(0, maxStacksToShow).map((stack, index) => (
+      {repliesStacks.slice(0, maxStacksToShow).map((stack, index) => (
         <motion.div
           key={stack.stackId}
           variants={itemVariants(index)}
@@ -175,10 +173,10 @@ const handleDoubleClick = (stackId: string) => {
               </div>
             )}
             <UnstyledButton
-  onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
-  onDoubleClick={() => handleDoubleClick(stack.stackId)}
-  style={{ width: '100%' }}
->
+              onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
+              onDoubleClick={() => handleDoubleClick(stack.stackId)}
+              style={{ width: '100%' }}
+            >
               <Group style={{ padding: '0 20px' }}>
                 <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
                 <div>
@@ -269,4 +267,4 @@ const handleDoubleClick = (stackId: string) => {
   );
 };
 
-export default RelatedStacks;
+export default RepliesStack;
