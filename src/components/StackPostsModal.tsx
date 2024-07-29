@@ -3,12 +3,16 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, ScrollArea, Switch, SimpleGrid, Text, Container, Group, Avatar, Button, Divider, Paper, UnstyledButton, TextInput, rem } from '@mantine/core';
 import axios from 'axios';
-import { IconBookmark, IconHeart, IconMessageCircle, IconShare, IconHeartFilled, IconBookmarkFilled, IconSearch } from "@tabler/icons-react";
+import { IconBookmark, IconHeart, IconMessageCircle, IconPhoto, IconSettings,IconShare, IconHeartFilled, IconBookmarkFilled, IconSearch } from "@tabler/icons-react";
 import { formatDistanceToNow } from 'date-fns';
 import { Code } from '@mantine/core';
 import { useRouter } from 'next/navigation';
 import classes from './expandModal.module.css';
 import PostList from './PostList';
+import test from 'node:test';
+import SubStackCount from './SubStackCount';
+import { Tabs } from '@mantine/core';
+
 
 interface StackPostsModalProps {
   isOpen: boolean;
@@ -46,6 +50,8 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
   const router = useRouter();
   const [activePostId, setActivePostId] = useState<string | null>(null);
 
+  const [activeTab, setActiveTab] = useState<string | null>('first');
+
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     setAccessToken(token);
@@ -62,7 +68,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
   const fetchSubstacks = async (id: string) => {
     try {
       console.log("Fetching substacks for stack:", id);
-      const response = await axios.get(`https://beta.stacky.social:3002/stacks/${id}/substacks_fake`);
+      const response = await axios.get(`https://beta.stacky.social:3002/stacks/${id}/substacks`);
       const substacksData = response.data.map((item: any) => ({
         substackId: item.substackId,
         size: item.size,
@@ -97,17 +103,24 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
 
   const handleStackClick = (topPostId: string) => {
     console.log(`Navigating to /posts/${topPostId}`);
-    router.push(`/posts/${topPostId}`);
+    // router.push(`/posts/${topPostId}`);
   };
 
   const handleStackIconClick = (relatedStacks: any[]) => {
     setRelatedStacks(relatedStacks);
   };
 
-  const title = showAdvanced ? "Substack" : "Post in Stack";
+  const handleStackCountClick = (topPostId: string) => {
+    console.log(topPostId);
+    fetchSubstacks(topPostId);
+  };
+  
+
+  const title = "";
 
   const cards = substacks.map((stack) => (
-    <div key={stack.substackId} style={{ margin: '20px', width: '100%' }}>
+    <div key={stack.substackId} style={{ margin: '20px', width: '100%', position: 'relative'}}>
+      <SubStackCount count={stack.size} onClick={() => handleStackCountClick(stack.topPost.id)} />
       <Paper
         style={{
           backgroundColor: '#fff',
@@ -146,11 +159,28 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
           <Button variant="subtle" size="sm" radius="lg">
             {stack.topPost.bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
           </Button>
-          <Button variant="subtle" size="sm" radius="lg">
+          {/* <Button variant="subtle" size="sm" radius="lg">
             <IconSearch size={20} />
-          </Button>
+          </Button> */}
         </Group>
       </Paper>
+      {/* {[...Array(4)].map((_, index) => (
+      <div
+        key={index}
+        style={{
+          position: 'absolute',
+          bottom: `${20 - 5 * (index + 1)}px`,
+          left: `${20 - 5 * (index + 1)}px`,
+          width: "100%",
+          height: `400px`,
+          backgroundColor: '#fff',
+          zIndex: index + 1,
+          boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+          borderRadius: '8px',
+          border: '1px solid rgba(0, 0, 0, 0.1)',
+        }}
+      />
+    ))} */}
     </div>
   ));
 
@@ -158,19 +188,33 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     <Modal
       opened={isOpen}
       onClose={onClose}
-      title={title}
-      size="100%"
+      // title={title}
+      size="70%"
       centered
     >
-      <Switch
-        label="Switch to see posts in stack/substack"
-        checked={showAdvanced}
-        onChange={() => setShowAdvanced(!showAdvanced)}
-        style={{ marginBottom: 20 }}
-      />
+      <Tabs value={activeTab} onChange={setActiveTab}>
+      <Tabs.List>
+        <Tabs.Tab value="list">List</Tabs.Tab>
+        <Tabs.Tab value="stacked">Stacked</Tabs.Tab>
+        <Tabs.Tab value="summary">Summary</Tabs.Tab>
+      </Tabs.List>
+
+      <Tabs.Panel value="list">
       <ScrollArea style={{ height: 600 }}>
-        {showAdvanced ? (
-          <Container py="xl" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+      <PostList
+            apiUrl={apiUrl}
+            handleStackIconClick={handleStackIconClick}
+            loadStackInfo={false}
+            accessToken={accessToken}
+            setIsModalOpen={() => {}}
+            setIsExpandModalOpen={() => {}}
+            activePostId={null}
+            setActivePostId={() => {}}
+          />
+      </ScrollArea>
+      </Tabs.Panel>
+      <Tabs.Panel value="stacked">                   
+        <Container py="xl" style={{ maxWidth: '1000px', margin: '0 auto' }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
               <TextInput
                 placeholder="Search"
@@ -186,19 +230,17 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
             </div>
             <SimpleGrid cols={2} spacing="lg">{cards}</SimpleGrid>
           </Container>
-        ) : (
-          <PostList
-            apiUrl={apiUrl}
-            handleStackIconClick={handleStackIconClick}
-            loadStackInfo={false}
-            accessToken={accessToken}
-            setIsModalOpen={() => {}}
-            setIsExpandModalOpen={() => {}}
-            activePostId={activePostId}  
-            setActivePostId={setActivePostId}  
-          />
-        )}
-      </ScrollArea>
+
+          </Tabs.Panel>
+
+      <Tabs.Panel value="summary">
+        <ScrollArea style={{ height: 600 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+            </div>
+        </ScrollArea>
+      </Tabs.Panel>
+    </Tabs>
+
     </Modal>
   );
 }
