@@ -9,7 +9,6 @@ import { Code } from '@mantine/core';
 import { useRouter } from 'next/navigation';
 import classes from './expandModal.module.css';
 import PostList from './PostList';
-import ExpandModal from './ExpandModal';
 import test from 'node:test';
 import SubStackCount from './SubStackCount';
 import { Tabs } from '@mantine/core';
