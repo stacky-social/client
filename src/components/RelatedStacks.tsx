@@ -205,13 +205,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
                 )}
               </div>
             </div>
-
+{/* 
             <Text pl={54} pt="sm" size="sm">
               Post Id: {stack.topPost.id}
             </Text>
             <Text pl={54} pt="sm" size="sm">
               Stack Id: {stack.stackId} 
-            </Text>
+            </Text> */}
 
             <div className="rel-display">
               {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
