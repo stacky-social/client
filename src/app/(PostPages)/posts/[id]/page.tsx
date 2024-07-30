@@ -309,7 +309,7 @@ export default function PostView({params}: { params: { id: string } }) {
         }
     };
 
-    
+
 
 
 
@@ -764,7 +764,10 @@ export default function PostView({params}: { params: { id: string } }) {
                                 </div>
                             )}
                             {selectedTab === 3 && (
-                                <div>This is tab for Summary</div>
+                                <div>This is tab for Summary
+                                    {summary}
+                                </div>
+
                             )}
                         </Paper>
                     )}
