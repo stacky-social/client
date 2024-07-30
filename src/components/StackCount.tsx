@@ -24,18 +24,18 @@ interface StackCountProps {
 }
 
 const iconMapping: { [key: string]: JSX.Element } = {
-  uncategorized: <IconCards size={24} />,
-  predictions: <IconBulb size={24} />,
-  evidence_public: <IconQuote size={24} />,
-  evidence_personal: <IconUser size={24} />,
-  connections: <IconLink size={24} />,
-  pointers: <IconPointer size={24} />,
-  proposals: <IconBook size={24} />,
-  humor: <IconMoodSmile size={24} />,
-  values: <IconHeart size={24} />,
-  framing: <IconFrame size={24} />,
-  questions: <IconQuestionMark size={24} />,
-  default: <IconStack size={24} />,
+  uncategorized: <IconCards  style={{ color: '#011445' }} size={24} />,
+  predictions: <IconBulb  style={{ color: '#011445' }} size={24} />,
+  evidence_public: <IconQuote  style={{ color: '#011445' }} size={24} />,
+  evidence_personal: <IconUser  style={{ color: '#011445' }} size={24} />,
+  connections: <IconLink  style={{ color: '#011445' }} size={24} />,
+  pointers: <IconPointer style={{ color: '#011445' }} size={24} />,
+  proposals: <IconBook  style={{ color: '#011445' }} size={24} />,
+  humor: <IconMoodSmile   style={{ color: '#011445' }} size={24} />,
+  values: <IconHeart  style={{ color: '#011445' }} size={24} />,
+  framing: <IconFrame  style={{ color: '#011445' }} size={24} />,
+  questions: <IconQuestionMark  style={{ color: '#011445' }} size={24} />,
+  default: <IconStack  style={{ color: '#011445' }} size={24} />,
 };
 
 const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, relatedStacks, expanded }) => {
@@ -88,8 +88,10 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
         justifyContent: 'center',
         height: '50px',
       }}>
-        <IconStack size={24} />
-        <Text size="sm">
+        <IconStack 
+        style={{ color: '#011445' }}
+        size={24} />
+        <Text     style={{ color: '#011445' }} size="sm">
           {count !== null ? count : <Loader size="xs" />}
         </Text>
       </div>

@@ -163,10 +163,10 @@ const handleDoubleClick = (stackId: string) => {
                   position: 'absolute',
                   top: '10px',
                   left: '10px',
-                  background: 'linear-gradient(to right, yellow, lightyellow)',
-                  color: 'black',
+                  background: '#FF5F00',
+                  color: 'white',
                   padding: '2px 6px',
-                  borderRadius: '4px',
+         
                   fontWeight: 'bold',
                   zIndex: 10,
                 }}
@@ -254,7 +254,7 @@ const handleDoubleClick = (stackId: string) => {
                   left: `${15 - 5 * idx}px`,
                   width: cardWidth,
                   height: `${cardHeights[index] || 0}px`,
-                  backgroundColor: '#93d5dc',
+                  backgroundColor: '#002379',
                   zIndex: idx + 1,
                   // boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
                   borderRadius: '0px',

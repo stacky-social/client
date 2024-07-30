@@ -372,7 +372,7 @@ export default function Post({
               <img src={card.image} alt={card.title} style={{ width: '150px', margin: '10px' }} />
             )}
             <div>
-              <Text size="sm">{card.title}</Text>
+              <Text  c="#011445"  fw="700" size="sm">{card.title}</Text>
               <Text size="xs" c="dimmed">{card.description}</Text>
             </div>
           </div>
@@ -431,7 +431,7 @@ export default function Post({
               left: `${15 - 5 * (index)}px`,
               width: "100%",
               height: `${cardHeight}px`,
-              backgroundColor: '#758694',
+              backgroundColor: '#002379',
               border: '1.5px solid #FCFBF5',
             }}
           />

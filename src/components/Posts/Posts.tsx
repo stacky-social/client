@@ -72,7 +72,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
                 />
             </div>
             <div style={{ gridColumn: '2 / 3', position: 'relative' }}>
-                {showSubmitAndSearch && <SearchBar />}
+                {/* {showSubmitAndSearch && <SearchBar />} */}
                 <div style={{ marginRight: '10rem', position: 'relative' }} ref={relatedStacksRef}>
                     <AnimatePresence>
                         {relatedStacks.length > 0 && postPosition && (
