@@ -60,7 +60,7 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
       style={{
         position: 'absolute',
         top: '-1px',
-        right: '-53px',
+        right: '-60px',
         width: '55px',
         display: 'flex',
         flexDirection: 'column',
@@ -69,7 +69,7 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
         // boxShadow: '3px 0px 10px rgba(0,0,0,0.1)', // 只显示右边和下边的阴影
         cursor: 'pointer',
         transition: 'height 0.3s ease',
-        backgroundColor:isExpanded ? '#c6e6e8' : '#fff',
+        backgroundColor:isExpanded ? '#FF9F66' : '#FF9F66',
   
         borderTopLeftRadius: '0px', // 左上角不圆角
         borderTopRightRadius: '8px', // 右上角圆角
@@ -79,7 +79,7 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
        
         
       }}
-      withBorder
+   
     >
       <div style={{
         display: 'flex',
@@ -93,17 +93,7 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
           {count !== null ? count : <Loader size="xs" />}
         </Text>
       </div>
-      {
-        isExpanded&&(
-            <div style={{
-                width: '100%',
-                borderBottom: '1px solid #a9a9a9', // 更深的灰色
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)', // 更深的阴影效果
-                marginBottom: '5px',
-              }}></div>
-        )
-      }
-      
+  
     
       <Transition mounted={isExpanded} transition="slide-down" duration={300} timingFunction="ease">
         
@@ -116,6 +106,7 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
             flexDirection: isTwoColumnLayout ? undefined : 'column',
             gap: '5px',
             width: '100%',
+          
           }}>
             
             {relatedStacks.map((stack, index) => (
@@ -125,7 +116,8 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
                   display: 'flex', 
                   flexDirection: 'column', 
                   alignItems: 'center', 
-                  backgroundColor: hoveredIndex === index ? 'rgba(0, 0, 0, 0.1)' : 'transparent',
+                  backgroundColor: hoveredIndex === index ? '#FF5F00' : '#FF9F66',
+            
                   transition: 'background-color 0.3s ease',
                   width: '100%' 
                 }}
