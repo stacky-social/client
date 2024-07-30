@@ -195,7 +195,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
 
             <div
               onMouseUp={() => handleMouseUp(stack.topPost.id, stack.stackId)}
-              style={{ paddingLeft: '54px', paddingTop: '1rem', paddingRight: '1rem', cursor: 'pointer' }}
+              style={{ paddingLeft: '54px', paddingTop: '1rem', paddingRight: '1rem'
+                // , cursor: 'pointer' 
+                }}
             >
               <div>
                 {stack.topPost.content_rewritten ? (

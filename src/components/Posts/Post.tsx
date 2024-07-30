@@ -404,7 +404,7 @@ export default function Post({
           </Button>
         </Group>
 
-        {stackCount !== null && stackCount > 1 && (
+        {
           <UnstyledButton onClick={handleStackCountClick}>
             <StackCount
               count={stackCount}
@@ -414,7 +414,7 @@ export default function Post({
               expanded={isExpanded}
             />
           </UnstyledButton>
-        )}
+       }
       </Paper>
 
       {stackCount !== null && stackCount >1 && (
