@@ -109,6 +109,8 @@ const PostList: React.FC<PostListProps> = ({
                             Authorization: `Bearer ${accessToken}`,
                         }
                     });
+                    console.log("id:", post.postId);
+                    console.log('Stack data:', response.data);
                     const stackData = response.data.relatedStacks || [];
                     const stackCount = response.data.size;
                     setPosts((prevPosts) =>

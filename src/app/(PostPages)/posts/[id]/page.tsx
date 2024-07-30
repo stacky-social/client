@@ -380,6 +380,13 @@ export default function PostView({params}: { params: { id: string } }) {
 
     }
 
+    const handleMouseUp = () => {
+        const selection = window.getSelection();
+        if (selection && selection.toString().length === 0) {
+            handleFocusPostClick();
+        }
+    };
+
     const renderAncestors = (post: any) => {
         return (
             <Post
@@ -566,56 +573,67 @@ export default function PostView({params}: { params: { id: string } }) {
 
                         <Paper
                             ref={currentPostRef}
-                            withBorder
-                            radius="md"
+                            // withBorder
+                            // radius="md"
+                            radius={0}
                             mt={20}
                             p="lg"
                             style={{
                                 position: 'relative',
                                 zIndex: 5,
-                                backgroundColor: showFocusRelatedStacks ? '#C5F6FA' : '#FFFFFF'
+                                backgroundColor: showFocusRelatedStacks ? '#FFFAE6' : '#FFFFFF'
                             }}
                 
                             shadow="lg"
                         >
                   
-                            <UnstyledButton onClick={handleFocusPostClick}>
-                                <Group>
-                                    <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl"/>
-                                    <div>
-                                        <Text size="lg">{post?.account.username}</Text> {/* 调整此处 */}
-                                        <Text
-                                            size="md">{new Date(post?.created_at).toLocaleString()}</Text> {/* 调整此处 */}
-                                    </div>
-                                </Group>
-                                <Text pl={54} pt="sm" size="lg"
-                                      dangerouslySetInnerHTML={{__html: post?.content}}/> {/* 调整此处 */}
-                                {post?.media_attachments && post.media_attachments.map((attachment: any) => (
-                                    <div key={attachment.id}>
-                                        {attachment.type === 'image' && (
-                                            <img src={attachment.url} alt={attachment.description}
-                                                 style={{maxWidth: '100%', marginTop: '10px'}}/>
-                                        )}
-                                    </div>
-                                ))}
-                                <Text pl={54} pt="sm" size="lg">Post Id: {post?.id}</Text> {/* 调整此处 */}
-                            </UnstyledButton>
+                  
+<UnstyledButton onClick={handleFocusPostClick}>
+    <Group>
+        <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl" />
+        <div>
+            <Text style={{ color: '#011445' }} fw={700} size="xl">{post?.account.username}</Text>
+            <Text c='dimmed' size="md">{new Date(post?.created_at).toLocaleString()}</Text>
+        </div>
+    </Group>
+    </UnstyledButton>
+    <div onMouseUp={handleMouseUp}>
+    <div>
+        <Text 
+            pl={54} 
+            pt="sm" 
+            size="lg" 
+            fw="500"
+            style={{ color: '#011445' }} 
+            dangerouslySetInnerHTML={{ __html: post?.content }}
+        />
+            </div>
+    </div>
+    
+    {post?.media_attachments && post.media_attachments.map((attachment: any) => (
+        <div key={attachment.id}>
+            {attachment.type === 'image' && (
+                <img src={attachment.url} alt={attachment.description} style={{ maxWidth: '100%', marginTop: '10px' }} />
+            )}
+        </div>
+    ))}
+
                             <Divider my="md"/>
                             <Group justify="space-between" mx="20">
                                 <Button variant="subtle" size="sm" radius="lg" onClick={() => handleNavigate(id)}>
-                                    <IconMessageCircle size={20}/> <Text ml={4}>{post?.replies_count}</Text>
+                                    <IconMessageCircle size={30}  style={{ color: '#002379' }} /> <Text  style={{ color: '#002379' }}  ml={4}>{post?.replies_count}</Text>
                                 </Button>
                                 <Button variant="subtle" size="sm" radius="lg" onClick={handleLike}
                                         style={{display: 'flex', alignItems: 'center'}}>
-                                    {liked ? <IconHeartFilled size={20}/> : <IconHeart size={20}/>} <Text
-                                    ml={4}>{likeCount}</Text>
+                                    {liked ? <IconHeartFilled size={30}  style={{ color: '#002379' }} /> : <IconHeart size={30}  style={{ color: '#002379' }} />} <Text
+                                   style={{ color: '#002379' }}   ml={4}>{likeCount}</Text>
                                 </Button>
                                 <Button variant="subtle" size="sm" radius="lg" onClick={handleSave}
                                         style={{display: 'flex', alignItems: 'center'}}>
-                                    {bookmarked ? <IconBookmarkFilled size={20}/> : <IconBookmark size={20}/>}
+                                    {bookmarked ? <IconBookmarkFilled size={30}  style={{ color: '#002379' }} /> : <IconBookmark size={30} style={{ color: '#002379' }} />}
                                 </Button>
                                 <Button variant="subtle" size="sm" radius="lg" onClick={handleCopyLink}>
-                                    <IconLink size={20}/>
+                                    <IconLink size={30}  style={{ color: '#002379' }} />
                                 </Button>
                             </Group>
                         </Paper>
