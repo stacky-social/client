@@ -1,11 +1,13 @@
 .PostBar{
     display: flex; /* Maintain flex layout */
     align-items: center;
-    justify-content: space-between;
-    width: auto; /* Set a fixed width, adjust this value as needed */
-    border: 1px solid #ccc; /* Add a light grey border */
-    border-radius: 8px; /* Optional: add rounded corners */
+    /* justify-content: space-between; */
+    width: "auto"; /* Set a fixed width, adjust this value as needed */
+    /* border: 1px solid #ccc; Add a light grey border */
+    /* border-radius: 8px; Optional: add rounded corners */
     padding: 10px; /* Add some padding inside the borders */
+    background-color: white;
+    
 }
 
 .EmojiPicker {
@@ -22,13 +24,16 @@
     max-height: 200px;
     overflow: hidden;
     resize: none;
-    border-radius: 10px;
     padding: 10px;
     font-size: 16px;
     line-height: 1.5;
-    border: 1px solid #ccc;
+    background-color: #FCFBF5; /* Light blue background color */
+    border: none; /* Remove the border */
+    outline: none; /* Remove the outline */
     box-sizing: border-box;
-  }
+    border-radius: 8px; /* Optional: add rounded corners */
+}
+
   
 
 .AvatarArea{
@@ -43,9 +48,11 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    
 }
 .textArea {
     padding: 12px 0;
+    background-color: "#F1FAFF";
 }
 
 .ButtonArea{
@@ -58,4 +65,18 @@
 .button {
     width: 70px;
     height: 36px;
-  }
+    background-color: #002379; /* Button color */
+    color: white; /* Text color */
+}
+
+
+.actionIcon {
+    background-color: #002379; /* Icon button background color */
+    color: white; /* Icon color */
+    border-radius: 4px; /* Optional: add rounded corners */
+    display: flex; /* Center the icon within the button */
+    justify-content: center; /* Center the icon within the button */
+    align-items: center; /* Center the icon within the button */
+    width: 36px; /* Set a fixed width */
+    height: 36px; /* Set a fixed height */
+}

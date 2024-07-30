@@ -260,24 +260,24 @@ export default function Post({
   };
 
   let clickTimeout: NodeJS.Timeout;
-let preventClick = false;
+  let preventClick = false;
 
-const handleSingleClick = (e: React.MouseEvent) => {
-  e.stopPropagation();  // 防止事件冒泡
-  clickTimeout = setTimeout(() => {
-    if (!preventClick) {
-      handleNavigate();
-    }
-    preventClick = false;
-  }, 300); // 延迟以区分单击和双击
-};
+  const handleSingleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();  // 防止事件冒泡
+    clickTimeout = setTimeout(() => {
+      if (!preventClick) {
+        handleNavigate();
+      }
+      preventClick = false;
+    }, 300); // 延迟以区分单击和双击
+  };
 
-const handleDoubleClick = (e: React.MouseEvent) => {
-  e.stopPropagation();  // 防止事件冒泡
-  clearTimeout(clickTimeout);  // 清除单击事件的计时器
-  preventClick = true;
-  handleStackCountClick();
-};
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();  // 防止事件冒泡
+    clearTimeout(clickTimeout);  // 清除单击事件的计时器
+    preventClick = true;
+    handleStackCountClick();
+  };
 
   useEffect(() => {
     const links = document.querySelectorAll('.post-content a');
@@ -293,22 +293,22 @@ const handleDoubleClick = (e: React.MouseEvent) => {
 
   return (
     <div style={{ position: 'relative', margin: '15px', marginBottom: '2rem', width: "90%" }}>
-     <Paper
-  ref={paperRef}
-  style={{
-    position: 'relative',
-    width: "100%",
-    backgroundColor: isExpanded ? '#c6e6e8' : '#fff',
-    zIndex: 5,
-    boxShadow: '0 3px 10px rgba(0,0,0,0.1)', // 调整阴影，只在其他三边显示
-    borderRadius: '8px', // 全局圆角
-   
-    borderTopRightRadius: stackCount !== null && stackCount > 1  ?'0px' : '8px', // 右上角不圆角
+      <Paper
+        ref={paperRef}
+        style={{
+          position: 'relative',
+          width: "100%",
+          backgroundColor: isExpanded ? '#FFFAE6' : '#fff',
+       
+          zIndex: 5,
+          boxShadow: '0 3px 10px rgba(0,0,0,0.1)', // 调整阴影，只在其他三边显示
+          // borderRadius: '8px', // 全局圆角
+          borderRadius: '0px', // 左上角圆角
+          borderTopRightRadius: stackCount !== null && stackCount > 1  ?'0px' : '8px', // 右上角不圆角
+          padding: '10px ',
+        }}
 
-    padding: '10px ',
-  }}
-
-        withBorder
+        // withBorder
         onMouseEnter={() => {
           if (!isExpanded && paperRef.current) {
             paperRef.current.style.backgroundColor = 'rgba(245, 245, 245)';
@@ -320,7 +320,7 @@ const handleDoubleClick = (e: React.MouseEvent) => {
           }
         }}
       >
-        <UnstyledButton 
+        <UnstyledButton
           onClick={handleSingleClick} 
           onDoubleClick={handleDoubleClick} 
           style={{ width: '100%' }}
@@ -330,109 +330,114 @@ const handleDoubleClick = (e: React.MouseEvent) => {
               <Avatar src={avatar} alt={author} radius="xl" />
             </UnstyledButton>
             <div>
-              <Text size="sm">{author}</Text>
+              <Text size="md" fw={700}
+              c="#011445"
+              >{author}</Text>
               <Text size="xs" c="dimmed">{formatDistanceToNow(new Date(createdAt))} ago</Text>
             </div>
           </Group>
-
-          <Text pl={54} pt="sm" size="sm" className="post-content" dangerouslySetInnerHTML={{ __html: text }} />
-
-          {mediaAttachments.length > 0 && (
-            <div style={{ paddingLeft: '54px', paddingRight: '54px', paddingTop: '1rem' }}>
-              {mediaAttachments.map((url, index) => (
-                <img key={index} src={url} alt={`Attachment ${index + 1}`} style={{ width: '100%', marginBottom: '10px' }} />
-              ))}
-            </div>
-          )}
-
-          {previewCards.map((card, index) => (
-            <div key={index} style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              padding: '1rem',
-              border: '1px solid rgba(0, 0, 0, 0.1)',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              boxShadow: '0 3px 3px rgba(0, 0, 0, 0.1)',
-              marginTop: '1rem',
-            }} onClick={(e) => { e.stopPropagation(); window.open(card.url, '_blank'); }}>
-              {card.image && (
-                <img src={card.image} alt={card.title} style={{ width: '150px', margin: '10px' }} />
-              )}
-              <div>
-                <Text size="sm">{card.title}</Text>
-                <Text size="xs" c="dimmed">{card.description}</Text>
-              </div>
-            </div>
-          ))}
-
-          <Text pl={54} pt="sm" size="sm">Post Id: {id}</Text>
         </UnstyledButton>
+
+        <div className=""
+        style={{ paddingLeft: '54px', paddingTop: '1rem' }}
+        >
+
+        <div onClick={e => e.stopPropagation()} >
+          <Text
+          c="#011445" 
+          size="sm"  dangerouslySetInnerHTML={{ __html: text }} />
+        </div>
+
+        {mediaAttachments.length > 0 && (
+          <div style={{ paddingLeft: '54px', paddingRight: '54px', paddingTop: '1rem' }}>
+            {mediaAttachments.map((url, index) => (
+              <img key={index} src={url} alt={`Attachment ${index + 1}`} style={{ width: '100%', marginBottom: '10px' }} />
+            ))}
+          </div>
+        )}
+
+        {previewCards.slice(0,1).map((card, index) => (
+          <div key={index} style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+    
+            border: '1px solid rgba(0, 0, 0, 0.1)',
+            borderRadius: '8px',
+            overflow: 'hidden',
+            boxShadow: '0 3px 3px rgba(0, 0, 0, 0.1)',
+            marginTop: '1rem',
+            marginRight: '1rem',
+          }} onClick={(e) => { e.stopPropagation(); window.open(card.url, '_blank'); }}>
+            {card.image && (
+              <img src={card.image} alt={card.title} style={{ width: '150px', margin: '10px' }} />
+            )}
+            <div>
+              <Text  c="#011445"  fw="700" size="sm">{card.title}</Text>
+              <Text size="xs" c="dimmed">{card.description}</Text>
+            </div>
+          </div>
+        ))}
+
+
+        </div>
+
+       
+        {/* <Text pl={54} pt="sm" size="sm">Post Id: {id}</Text> */}
+
         <Divider my="md" />
         <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px', 
           // marginBottom: '-20px',
           marginBottom:stackCount !== null && stackCount > 1 ? '-20px' : '0px',
            }}>
           <Button variant="subtle" size="sm" radius="lg" onClick={handleReply} style={{ display: 'flex', alignItems: 'center' }}>
-            <IconMessageCircle size={20} /> <Text ml={4}>{replyCount}</Text>
-          </Button>
-          <Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
-            {liked ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{likeCount}</Text>
-          </Button>
-          <Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
-            {bookmarkedState ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
-          </Button>
-          <Button variant="subtle" size="sm" radius="lg" onClick={handleAnnotation} style={{ display: 'flex', alignItems: 'center' }}>
-            <IconNote size={20} />
-          </Button>
-          <Button variant="subtle" size="sm" radius="lg" onClick={handleCopyLink} style={{ display: 'flex', alignItems: 'center' }}>
-            <IconLink size={20} />
-          </Button>
+  <IconMessageCircle size={20} style={{ color: '#002379' }} /> <Text ml={4} style={{ color: '#002379' }}>{replyCount}</Text>
+</Button>
+<Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
+  {liked ? <IconHeartFilled size={20} style={{ color: '#002379' }} /> : <IconHeart size={20} style={{ color: '#002379' }} />} <Text ml={4} style={{ color: '#002379' }}>{likeCount}</Text>
+</Button>
+<Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
+  {bookmarkedState ? <IconBookmarkFilled size={20} style={{ color: '#002379' }} /> : <IconBookmark size={20} style={{ color: '#002379' }} />}
+</Button>
+<Button variant="subtle" size="sm" radius="lg" onClick={handleAnnotation} style={{ display: 'flex', alignItems: 'center' }}>
+  <IconNote size={20} style={{ color: '#002379' }} />
+</Button>
+<Button variant="subtle" size="sm" radius="lg" onClick={handleCopyLink} style={{ display: 'flex', alignItems: 'center' }}>
+  <IconLink size={20} style={{ color: '#002379' }} />
+</Button>
+
+
         </Group>
 
-        {
-          stackCount !== null && stackCount > 1 && (
-<UnstyledButton onClick={handleStackCountClick}>
-          <StackCount
-            count={stackCount}
-            onClick={handleStackCountClick}
-            onStackClick={handleStackClick}
-            relatedStacks={tempRelatedStacks}
-            expanded={isExpanded}
-          />
-        </UnstyledButton>
-          )
-        }
-
-        
-      </Paper>
-      {stackCount !== null && 
-        stackCount >1 &&
-       (
-        <AnimatePresence>
-          {!isExpanded && [...Array(4)].map((_, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 1 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              style={{
-                position: 'absolute',
-                bottom: `${20 - 5 * (index + 1)}px`,
-                left: `${20 - 5 * (index + 1)}px`,
-                width: "100%",
-                height: `${cardHeight}px`,
-                backgroundColor: '#fff',
-                zIndex: index + 1,
-                boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-                borderRadius: '8px',
-                border: '1px solid rgba(0, 0, 0, 0.1)',
-              }}
+        {stackCount !== null && stackCount > 1 && (
+          <UnstyledButton onClick={handleStackCountClick}>
+            <StackCount
+              count={stackCount}
+              onClick={handleStackCountClick}
+              onStackClick={handleStackClick}
+              relatedStacks={tempRelatedStacks}
+              expanded={isExpanded}
             />
-          ))}
-        </AnimatePresence>
+          </UnstyledButton>
+        )}
+      </Paper>
+
+      {stackCount !== null && stackCount >1 && (
+        !isExpanded && [...Array(3)].map((_, index) => (
+          <div
+            key={index}
+            style={{
+              position: 'absolute',
+              bottom: `${-15 + 5 * (index)}px`,
+              left: `${15 - 5 * (index)}px`,
+              width: "100%",
+              height: `${cardHeight}px`,
+              backgroundColor: '#002379',
+              border: '1.5px solid #FCFBF5',
+            }}
+          />
+        ))
       )}
+
       <AnnotationModal
         isOpen={annotationModalOpen}
         onClose={() => setAnnotationModalOpen(false)}

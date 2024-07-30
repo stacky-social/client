@@ -45,11 +45,17 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
     
     const shouldUpdate = activePostId !== previousPostId;
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem',
+            
+         }}>
             <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
                 {showSubmitAndSearch && (
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>
-                        <div style={{ width: '90%', marginLeft: '-3rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem'
+                        ,marginLeft: '1rem', marginRight: '3rem'
+                     }}>
+                        <div style={{ width: '100%'}
+                    
+                    }>
                             <SubmitPost />
                         </div>
                     </div>
@@ -66,7 +72,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
                 />
             </div>
             <div style={{ gridColumn: '2 / 3', position: 'relative' }}>
-                {showSubmitAndSearch && <SearchBar />}
+                {/* {showSubmitAndSearch && <SearchBar />} */}
                 <div style={{ marginRight: '10rem', position: 'relative' }} ref={relatedStacksRef}>
                     <AnimatePresence>
                         {relatedStacks.length > 0 && postPosition && (

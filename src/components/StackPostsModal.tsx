@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, ScrollArea, Switch, SimpleGrid, Text, Container, Group, Avatar, Button, Divider, Paper, UnstyledButton, TextInput, rem } from '@mantine/core';
 import axios from 'axios';
 import { IconBookmark, IconHeart, IconMessageCircle, IconPhoto, IconSettings,IconShare, IconHeartFilled, IconBookmarkFilled, IconSearch } from "@tabler/icons-react";
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, sub } from 'date-fns';
 import { Code } from '@mantine/core';
 import { useRouter } from 'next/navigation';
 import classes from './expandModal.module.css';
@@ -50,7 +50,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
   const router = useRouter();
   const [activePostId, setActivePostId] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<string | null>('first');
+  const [activeTab, setActiveTab] = useState<string | null>('list');
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -110,22 +110,38 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     setRelatedStacks(relatedStacks);
   };
 
-  const handleStackCountClick = (topPostId: string) => {
+  const handleStackCountClick = (topPostId: string, substackID:string) => {
     console.log(topPostId);
-    fetchSubstacks(topPostId);
+    // fetchSubstacks(topPostId);
+    apiUrl = `https://beta.stacky.social:3002/stacks/${topPostId}/substacks`;
+    stackId= substackID;
+    console.log(substackID);
+    fetchSubstacks(substackID);
+
   };
+
+  useEffect(() => { 
+    console.log("Substacks:", substacks);
+  }, [substacks]);
+
   
 
   const title = "";
 
   const cards = substacks.map((stack) => (
     <div key={stack.substackId} style={{ margin: '20px', width: '100%', position: 'relative'}}>
-      <SubStackCount count={stack.size} onClick={() => handleStackCountClick(stack.topPost.id)} />
+      {
+        stack.size !== null && stack.size > 1 && (
+          <SubStackCount count={stack.size} onClick={() => handleStackCountClick(stack.topPost.id,stack.substackId)} />
+        )
+      }
+    
       <Paper
         style={{
           backgroundColor: '#fff',
           boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
           borderRadius: '8px',
+          position: 'relative',
         }}
         withBorder
       >
@@ -164,25 +180,33 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
           </Button> */}
         </Group>
       </Paper>
-      {/* {[...Array(4)].map((_, index) => (
-      <div
-        key={index}
-        style={{
-          position: 'absolute',
-          bottom: `${20 - 5 * (index + 1)}px`,
-          left: `${20 - 5 * (index + 1)}px`,
-          width: "100%",
-          height: `400px`,
-          backgroundColor: '#fff',
-          zIndex: index + 1,
-          boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-          borderRadius: '8px',
-          border: '1px solid rgba(0, 0, 0, 0.1)',
-        }}
-      />
-    ))} */}
+
+      {/* {stack.size !== null && stack.size > 1 && 
+            [...Array(4)].map((_, idx) => (
+              <div
+                key={idx}
+                style={{
+                  position: 'absolute',
+                  bottom: `${15 - 5 * idx}px`,
+                  left: `${15 - 5 * idx}px`,
+                  height: 'calc(100% - 10px)',
+                  width: 'calc(100% - 10px)',
+                  backgroundColor: '#93d5dc',
+                  zIndex: idx + 1,
+                  boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+                  borderRadius: '8px',
+                  border: '1.5px solid white',
+                }}
+              />
+            ))}
+       */}
     </div>
-  ));
+
+    
+  )
+
+
+);
 
   return (
     <Modal
@@ -192,14 +216,17 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
       size="70%"
       centered
     >
-      <Tabs value={activeTab} onChange={setActiveTab}>
+      <Tabs 
+
+      value={activeTab} 
+      onChange={setActiveTab}>
       <Tabs.List>
         <Tabs.Tab value="list">List</Tabs.Tab>
         <Tabs.Tab value="stacked">Stacked</Tabs.Tab>
         <Tabs.Tab value="summary">Summary</Tabs.Tab>
       </Tabs.List>
 
-      <Tabs.Panel value="list">
+      <Tabs.Panel value="list" >
       <ScrollArea style={{ height: 600 }}>
       <PostList
             apiUrl={apiUrl}

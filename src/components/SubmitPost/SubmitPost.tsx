@@ -145,20 +145,25 @@ export function SubmitPost() {
         )}
       </div>
 
-      <div className={classes.inputArea}>
-        <div className={classes.textArea}>
+      <div className={classes.inputArea}
+      >
+        <div className={classes.textArea}
+        >
           <textarea
             ref={textareaRef}
             placeholder="What's on your mind?"
             value={postText}
             onChange={(event) => setPostText(event.currentTarget.value)}
             className={classes.textarea}
+            
           />
         </div>
         <div className={classes.ButtonArea}>
           <div className="iconlist">
             <Group>
-              <ActionIcon style={iconStyle} onClick={() => fileInputRef.current?.click()}>
+              <ActionIcon 
+              className={classes.actionIcon}
+              style={iconStyle} onClick={() => fileInputRef.current?.click()}>
                 <IconPhoto size={20} />
               </ActionIcon>
               <input
@@ -167,13 +172,19 @@ export function SubmitPost() {
                 style={{ display: 'none' }}
                 accept="image/*"
               />
-              <ActionIcon style={iconStyle}>
+              <ActionIcon 
+              className={classes.actionIcon}
+              style={iconStyle}>
                 <IconChartBar size={20} />
               </ActionIcon>
-              <ActionIcon style={iconStyle}>
+              <ActionIcon 
+              className={classes.actionIcon}
+              style={iconStyle}>
                 <IconAlertTriangle size={20} />
               </ActionIcon>
-              <ActionIcon style={iconStyle} onClick={toggleEmojiPicker}>
+              <ActionIcon 
+              className={classes.actionIcon}
+              style={iconStyle} onClick={toggleEmojiPicker}>
                 <IconMoodSmile size={20} />
               </ActionIcon>
               {showEmojiPicker && (
