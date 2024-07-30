@@ -39,7 +39,7 @@ const iconMapping: { [key: string]: JSX.Element } = {
 };
 
 const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, relatedStacks, expanded }) => {
-  console.log("StackCount loaded with count:", count); 
+ 
   if (count === -1) return null;
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [isExpanded, setIsExpanded] = useState(expanded);
