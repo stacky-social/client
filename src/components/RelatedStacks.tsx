@@ -147,15 +147,15 @@ const handleDoubleClick = (stackId: string) => {
             style={{
               position: 'relative',
               width: cardWidth,
-              backgroundColor: 'rgba(227, 250, 252, 1)',
+              backgroundColor: '#FFFAE6',
               zIndex: 5,
-              boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-              borderRadius: '8px',
+              // boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+              borderRadius: '0px',
               margin: '0 auto',
               paddingTop: '40px',
-              border: '1.5px solid  white',
+              // border: '1.5px solid  white',
             }}
-            withBorder
+          
           >
             {stack.topPost && stack.topPost.content_rewritten && (
               <div
@@ -163,10 +163,10 @@ const handleDoubleClick = (stackId: string) => {
                   position: 'absolute',
                   top: '10px',
                   left: '10px',
-                  background: 'linear-gradient(to right, yellow, lightyellow)',
-                  color: 'black',
+                  background: '#FF5F00',
+                  color: 'white',
                   padding: '2px 6px',
-                  borderRadius: '4px',
+         
                   fontWeight: 'bold',
                   zIndex: 10,
                 }}
@@ -182,52 +182,61 @@ const handleDoubleClick = (stackId: string) => {
               <Group style={{ padding: '0 20px' }}>
                 <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
                 <div>
-                  <Text size="sm">{stack.topPost.account.display_name}</Text>
-                  <Text size="xs" color="dimmed">
+                  <Text size="md" fw={700} c="#011445" >{stack.topPost.account.display_name}</Text>
+                  <Text size="xs" c="dimmed">
                     {formatDistanceToNow(new Date(stack.topPost.created_at))} ago
                   </Text>
                 </div>
               </Group>
 
               <div
-                style={{
-                  paddingTop: '1rem',
-                  paddingLeft: '1rem',
-                  paddingRight: '1rem',
-                }}
+               style={{ paddingLeft: '54px', paddingTop: '1rem',paddingRight:'1rem' }}
               >
-                {stack.topPost.content_rewritten ? (
-                  <div dangerouslySetInnerHTML={{ __html: stack.topPost.content_rewritten }} />
-                ) : (
-                  <div dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
-                )}
+
+<div onClick={e => e.stopPropagation()} >
+  {
+     stack.topPost.content_rewritten ? (
+      <Text
+      c="#011445" 
+      size="sm"
+      dangerouslySetInnerHTML={{ __html: stack.topPost.content_rewritten }} />
+    ) : (
+      <Text
+      c="#011445" 
+      size="sm" dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
+    )
+
+  }
+        
+        </div>
+               
               </div>
 
-              <Text pl={54} pt="sm" size="sm">
+              {/* <Text pl={54} pt="sm" size="sm">
                 Post Id: {stack.topPost.id}
               </Text>
               <Text pl={54} pt="sm" size="sm">
-                Stack Id: {stack.stackId}
-              </Text>
+                Stack Id: {stack.stackId} */}
+              {/* </Text> */}
             </UnstyledButton>
 
             <div className="rel-display">
               {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
             </div>
-            <Divider my="md" color="#1a94bc" />
-            <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
+            <Divider my="md" />
+            <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 10px' }}>
               <Button variant="subtle" size="sm" radius="lg">
-                <IconMessageCircle size={20} /> <Text ml={4}>{stack.topPost.replies_count}</Text>
+                <IconMessageCircle size={20} style={{ color: '#002379' }} /> <Text style={{ color: '#002379' }} ml={4}>{stack.topPost.replies_count}</Text>
               </Button>
               <Button variant="subtle" size="sm" radius="lg">
-                {stack.topPost.favourited ? <IconHeartFilled size={20} /> : <IconHeart size={20} />}{' '}
-                <Text ml={4}>{stack.topPost.favourites_count}</Text>
+                {stack.topPost.favourited ? <IconHeartFilled size={20} style={{ color: '#002379' }} /> : <IconHeart size={20} style={{ color: '#002379' }}/>}{' '}
+                <Text ml={4} style={{ color: '#002379' }}>{stack.topPost.favourites_count}</Text>
               </Button>
               <Button variant="subtle" size="sm" radius="lg">
-                {stack.topPost.bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
+                {stack.topPost.bookmarked ? <IconBookmarkFilled size={20} style={{ color: '#002379' }} /> : <IconBookmark size={20} style={{ color: '#002379' }}/>}
               </Button>
               <Button variant="subtle" size="sm" radius="lg">
-                <IconShare size={20} />
+                <IconShare size={20} style={{ color: '#002379' }} />
               </Button>
             </Group>
             {stack.size !== null && stack.size > 1 && (
@@ -236,20 +245,21 @@ const handleDoubleClick = (stackId: string) => {
           </Paper>
 
           {stack.size !== null && stack.size > 1 && 
-            [...Array(4)].map((_, idx) => (
+            [...Array(3)].map((_, idx) => (
               <div
                 key={idx}
                 style={{
                   position: 'absolute',
-                  bottom: `${15 - 5 * idx}px`,
+                  bottom: `${-15 + 5 * idx}px`,
                   left: `${15 - 5 * idx}px`,
                   width: cardWidth,
                   height: `${cardHeights[index] || 0}px`,
-                  backgroundColor: '#93d5dc',
+                  backgroundColor: '#002379',
                   zIndex: idx + 1,
-                  boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-                  borderRadius: '8px',
+                  // boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+                  borderRadius: '0px',
                   border: '1.5px solid white',
+                  
                 }}
               />
             ))}

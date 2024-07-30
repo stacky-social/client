@@ -31,7 +31,12 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
             <AppShell.Navbar p="md">
                 <Navbar />
             </AppShell.Navbar>
-            <AppShell.Main>
+            <AppShell.Main
+            style={
+                {
+                    backgroundColor: '#FCFBF5',
+                }
+            }>
                 {children}
             </AppShell.Main>
             {/* <AppShell.Aside p="lg">

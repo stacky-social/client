@@ -16,6 +16,7 @@ export function Shell({ children }: ShellProps) {
     const [opened, { toggle }] = useDisclosure();
     return (
         <AppShell
+
         header={{ height: 60 }}
         navbar={{ width: { sm: 200, lg: 300 }, breakpoint: 'md', collapsed: { mobile: !opened } }}
         aside={{ width: 500, breakpoint: 'md', collapsed: { desktop: false, mobile: true } }}
@@ -33,7 +34,9 @@ export function Shell({ children }: ShellProps) {
                 </Group>
                 <Navbar />
             </AppShell.Navbar>
-            <AppShell.Main>
+            <AppShell.Main
+            
+            >
                 {children}
             </AppShell.Main>
               <AppShell.Aside p="lg">

@@ -145,7 +145,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
             style={{
               position: 'relative',
               width: cardWidth,
-              backgroundColor: 'rgba(227, 250, 252, 1)',
+              backgroundColor: '#FFFAE6',
               zIndex: 5,
               boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
               borderRadius: '8px',
