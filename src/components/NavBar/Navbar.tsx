@@ -10,6 +10,7 @@ import {
     IconStar,
     IconList,
     IconLogout,
+    IconSearch
 } from '@tabler/icons-react';
 import classes from './NavbarSimple.module.css';
 import { useRouter, usePathname } from 'next/navigation';
@@ -30,6 +31,9 @@ const data = [
     { link: '/bookmarks', label: 'Bookmarks', icon: IconBookmark },
     { link: '/favorites', label: 'Favorites', icon: IconStar },
     { link: '/lists', label: 'Lists', icon: IconList },
+    {
+        link:'/search',label:"Search",icon:IconSearch
+    }
 ];
 
 export function Navbar() {
