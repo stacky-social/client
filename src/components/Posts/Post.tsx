@@ -279,6 +279,13 @@ export default function Post({
     handleStackCountClick();
   };
 
+  const handleMouseUp = () => {
+    const selection = window.getSelection();
+    if (selection && selection.toString().length === 0) {
+      handleNavigate();
+    }
+  };
+
   useEffect(() => {
     const links = document.querySelectorAll('.post-content a');
     links.forEach(link => {
@@ -299,7 +306,6 @@ export default function Post({
           position: 'relative',
           width: "100%",
           backgroundColor: isExpanded ? '#FFFAE6' : '#fff',
-       
           zIndex: 5,
           boxShadow: '0 3px 10px rgba(0,0,0,0.1)', // 调整阴影，只在其他三边显示
           // borderRadius: '8px', // 全局圆角
@@ -330,82 +336,72 @@ export default function Post({
               <Avatar src={avatar} alt={author} radius="xl" />
             </UnstyledButton>
             <div>
-              <Text size="md" fw={700}
-              c="#011445"
-              >{author}</Text>
+              <Text size="md" fw={700} c="#011445">{author}</Text>
               <Text size="xs" c="dimmed">{formatDistanceToNow(new Date(createdAt))} ago</Text>
             </div>
           </Group>
         </UnstyledButton>
 
-        <div className=""
-        style={{ paddingLeft: '54px', paddingTop: '1rem' }}
+        <div
+          style={{ paddingLeft: '54px', paddingTop: '1rem' }}
+          onMouseUp={handleMouseUp}
         >
-
-        <div onClick={e => e.stopPropagation()} >
-          <Text
-          c="#011445" 
-          size="sm"  dangerouslySetInnerHTML={{ __html: text }} />
-        </div>
-
-        {mediaAttachments.length > 0 && (
-          <div style={{ paddingLeft: '54px', paddingRight: '54px', paddingTop: '1rem' }}>
-            {mediaAttachments.map((url, index) => (
-              <img key={index} src={url} alt={`Attachment ${index + 1}`} style={{ width: '100%', marginBottom: '10px' }} />
-            ))}
+          <div>
+            <Text
+              c="#011445" 
+              size="sm" 
+              className="post-content" 
+              dangerouslySetInnerHTML={{ __html: text }} 
+            />
           </div>
-        )}
 
-        {previewCards.slice(0,1).map((card, index) => (
-          <div key={index} style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-    
-            border: '1px solid rgba(0, 0, 0, 0.1)',
-            borderRadius: '8px',
-            overflow: 'hidden',
-            boxShadow: '0 3px 3px rgba(0, 0, 0, 0.1)',
-            marginTop: '1rem',
-            marginRight: '1rem',
-          }} onClick={(e) => { e.stopPropagation(); window.open(card.url, '_blank'); }}>
-            {card.image && (
-              <img src={card.image} alt={card.title} style={{ width: '150px', margin: '10px' }} />
-            )}
-            <div>
-              <Text  c="#011445"  fw="700" size="sm">{card.title}</Text>
-              <Text size="xs" c="dimmed">{card.description}</Text>
+          {mediaAttachments.length > 0 && (
+            <div style={{ paddingLeft: '54px', paddingRight: '54px', paddingTop: '1rem' }}>
+              {mediaAttachments.map((url, index) => (
+                <img key={index} src={url} alt={`Attachment ${index + 1}`} style={{ width: '100%', marginBottom: '10px' }} />
+              ))}
             </div>
-          </div>
-        ))}
+          )}
 
-
+          {previewCards.slice(0,1).map((card, index) => (
+            <div key={index} style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              border: '1px solid rgba(0, 0, 0, 0.1)',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              boxShadow: '0 3px 3px rgba(0, 0, 0, 0.1)',
+              marginTop: '1rem',
+              marginRight: '1rem',
+            }} onClick={(e) => { e.stopPropagation(); window.open(card.url, '_blank'); }}>
+              {card.image && (
+                <img src={card.image} alt={card.title} style={{ width: '150px', margin: '10px' }} />
+              )}
+              <div>
+                <Text c="#011445" fw="700" size="sm">{card.title}</Text>
+                <Text size="xs" c="dimmed">{card.description}</Text>
+              </div>
+            </div>
+          ))}
         </div>
-
-       
-        {/* <Text pl={54} pt="sm" size="sm">Post Id: {id}</Text> */}
 
         <Divider my="md" />
-        <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px', 
-          // marginBottom: '-20px',
-          marginBottom:stackCount !== null && stackCount > 1 ? '-20px' : '0px',
-           }}>
+        <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px', marginBottom: stackCount !== null && stackCount > 1 ? '-20px' : '0px' }}>
           <Button variant="subtle" size="sm" radius="lg" onClick={handleReply} style={{ display: 'flex', alignItems: 'center' }}>
-  <IconMessageCircle size={20} style={{ color: '#002379' }} /> <Text ml={4} style={{ color: '#002379' }}>{replyCount}</Text>
-</Button>
-<Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
-  {liked ? <IconHeartFilled size={20} style={{ color: '#002379' }} /> : <IconHeart size={20} style={{ color: '#002379' }} />} <Text ml={4} style={{ color: '#002379' }}>{likeCount}</Text>
-</Button>
-<Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
-  {bookmarkedState ? <IconBookmarkFilled size={20} style={{ color: '#002379' }} /> : <IconBookmark size={20} style={{ color: '#002379' }} />}
-</Button>
-<Button variant="subtle" size="sm" radius="lg" onClick={handleAnnotation} style={{ display: 'flex', alignItems: 'center' }}>
-  <IconNote size={20} style={{ color: '#002379' }} />
-</Button>
-<Button variant="subtle" size="sm" radius="lg" onClick={handleCopyLink} style={{ display: 'flex', alignItems: 'center' }}>
-  <IconLink size={20} style={{ color: '#002379' }} />
-</Button>
-
-
+            <IconMessageCircle size={20} style={{ color: '#002379' }} /> <Text ml={4} style={{ color: '#002379' }}>{replyCount}</Text>
+          </Button>
+          <Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
+            {liked ? <IconHeartFilled size={20} style={{ color: '#002379' }} /> : <IconHeart size={20} style={{ color: '#002379' }} />} <Text ml={4} style={{ color: '#002379' }}>{likeCount}</Text>
+          </Button>
+          <Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
+            {bookmarkedState ? <IconBookmarkFilled size={20} style={{ color: '#002379' }} /> : <IconBookmark size={20} style={{ color: '#002379' }} />}
+          </Button>
+          <Button variant="subtle" size="sm" radius="lg" onClick={handleAnnotation} style={{ display: 'flex', alignItems: 'center' }}>
+            <IconNote size={20} style={{ color: '#002379' }} />
+          </Button>
+          <Button variant="subtle" size="sm" radius="lg" onClick={handleCopyLink} style={{ display: 'flex', alignItems: 'center' }}>
+            <IconLink size={20} style={{ color: '#002379' }} />
+          </Button>
         </Group>
 
         {stackCount !== null && stackCount > 1 && (

@@ -104,23 +104,28 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
   });
 
   let clickTimeout: NodeJS.Timeout;
-let preventClick = false;
-const handleSingleClick = (postId: string, stackId: string) => {
-  clickTimeout = setTimeout(() => {
-    if (!preventClick) {
+  let preventClick = false;
+  const handleSingleClick = (postId: string, stackId: string) => {
+    clickTimeout = setTimeout(() => {
+      if (!preventClick) {
+        handleNavigate(postId, stackId);
+      }
+      preventClick = false;
+    }, 300); // 延迟以区分单击和双击
+  };
+
+  const handleDoubleClick = (stackId: string) => {
+    clearTimeout(clickTimeout); // 清除单击事件的计时器
+    preventClick = true;
+    handleStackCountClick(stackId);
+  };
+
+  const handleMouseUp = (postId: string, stackId: string) => {
+    const selection = window.getSelection();
+    if (selection && selection.toString().length === 0) {
       handleNavigate(postId, stackId);
     }
-    preventClick = false;
-  }, 300); // 延迟以区分单击和双击
-};
-
-const handleDoubleClick = (stackId: string) => {
-  clearTimeout(clickTimeout); // 清除单击事件的计时器
-  preventClick = true;
-  handleStackCountClick(stackId);
-};
-
-
+  };
 
   return (
     <motion.div
@@ -155,7 +160,6 @@ const handleDoubleClick = (stackId: string) => {
               paddingTop: '40px',
               // border: '1.5px solid  white',
             }}
-          
           >
             {stack.topPost && stack.topPost.content_rewritten && (
               <div
@@ -166,7 +170,6 @@ const handleDoubleClick = (stackId: string) => {
                   background: '#FF5F00',
                   color: 'white',
                   padding: '2px 6px',
-         
                   fontWeight: 'bold',
                   zIndex: 10,
                 }}
@@ -175,10 +178,10 @@ const handleDoubleClick = (stackId: string) => {
               </div>
             )}
             <UnstyledButton
-  onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
-  onDoubleClick={() => handleDoubleClick(stack.stackId)}
-  style={{ width: '100%' }}
->
+              onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
+              onDoubleClick={() => handleDoubleClick(stack.stackId)}
+              style={{ width: '100%' }}
+            >
               <Group style={{ padding: '0 20px' }}>
                 <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
                 <div>
@@ -188,37 +191,27 @@ const handleDoubleClick = (stackId: string) => {
                   </Text>
                 </div>
               </Group>
-
-              <div
-               style={{ paddingLeft: '54px', paddingTop: '1rem',paddingRight:'1rem' }}
-              >
-
-<div onClick={e => e.stopPropagation()} >
-  {
-     stack.topPost.content_rewritten ? (
-      <Text
-      c="#011445" 
-      size="sm"
-      dangerouslySetInnerHTML={{ __html: stack.topPost.content_rewritten }} />
-    ) : (
-      <Text
-      c="#011445" 
-      size="sm" dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
-    )
-
-  }
-        
-        </div>
-               
-              </div>
-
-              {/* <Text pl={54} pt="sm" size="sm">
-                Post Id: {stack.topPost.id}
-              </Text>
-              <Text pl={54} pt="sm" size="sm">
-                Stack Id: {stack.stackId} */}
-              {/* </Text> */}
             </UnstyledButton>
+
+            <div
+              onMouseUp={() => handleMouseUp(stack.topPost.id, stack.stackId)}
+              style={{ paddingLeft: '54px', paddingTop: '1rem', paddingRight: '1rem', cursor: 'pointer' }}
+            >
+              <div>
+                {stack.topPost.content_rewritten ? (
+                  <Text c="#011445" size="sm" dangerouslySetInnerHTML={{ __html: stack.topPost.content_rewritten }} />
+                ) : (
+                  <Text c="#011445" size="sm" dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
+                )}
+              </div>
+            </div>
+
+            <Text pl={54} pt="sm" size="sm">
+              Post Id: {stack.topPost.id}
+            </Text>
+            <Text pl={54} pt="sm" size="sm">
+              Stack Id: {stack.stackId} 
+            </Text>
 
             <div className="rel-display">
               {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
@@ -259,7 +252,6 @@ const handleDoubleClick = (stackId: string) => {
                   // boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
                   borderRadius: '0px',
                   border: '1.5px solid white',
-                  
                 }}
               />
             ))}
