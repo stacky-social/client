@@ -717,7 +717,9 @@ setIsExpanded(false);
                                 }}></div>
                             </div>
                         ))}
-
+ <div className=""
+ 
+ >
                         <Paper
                             ref={currentPostRef}
                             // withBorder
@@ -728,8 +730,10 @@ setIsExpanded(false);
                             style={{
                                 position: 'relative',
                                 zIndex: 5,
-                                backgroundColor: showFocusRelatedStacks ? '#f6f3e1' : '#FFFFFF'
+                                backgroundColor: showFocusRelatedStacks ? '#f6f3e1' : '#FFFFFF',
+                                width: '90%',
                             }}
+            
                 
                             shadow="lg"
                         >
@@ -738,7 +742,7 @@ setIsExpanded(false);
           <UnstyledButton onClick={handleFocusPostClick}>
             
             <StackCount
-                cardHeight={600}
+            cardHeight={600}
               count={size}
               onClick={handleFocusPostClick}
               onStackClick={handleStackClick}
@@ -799,7 +803,9 @@ setIsExpanded(false);
                                 </Button>
                             </Group>
                         </Paper>
- {/* {renderPost(post)} */}
+                       </div>
+ 
+
                     </div>
                     <Divider my="md"/>
 
