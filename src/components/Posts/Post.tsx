@@ -299,19 +299,21 @@ export default function Post({
   }, [text]);
 
   return (
-    <div style={{ position: 'relative', margin: '15px', marginBottom: '2rem', width: "90%" }}>
+    <div style={{ position: 'relative', marginLeft: '15px', marginBottom: '3rem',marginTop: '3rem', width: "90%",boxShadow: '0 10px 10px rgba(0,0,0,0.1)'}}>
       <Paper
         ref={paperRef}
         style={{
           position: 'relative',
           width: "100%",
-          backgroundColor: isExpanded ? '#FFFAE6' : '#fff',
+          backgroundColor: isExpanded ? '#f6f3e1' : '#fff',
           zIndex: 5,
-          boxShadow: '0 3px 10px rgba(0,0,0,0.1)', // 调整阴影，只在其他三边显示
+          // boxShadow: '0 0px 0px rgba(0,0,0,0.1)', // 调整阴影，只在其他三边显示
           // borderRadius: '8px', // 全局圆角
           borderRadius: '0px', // 左上角圆角
-          borderTopRightRadius: stackCount !== null && stackCount > 1  ?'0px' : '8px', // 右上角不圆角
-          padding: '10px ',
+          //borderTopRightRadius: stackCount !== null && stackCount > 1  ?'0px' : '8px', // 右上角不圆角
+          paddingLeft: '1rem',
+          paddingRight: '1rem',
+          paddingTop: '1rem'
         }}
 
         // withBorder
@@ -326,6 +328,18 @@ export default function Post({
           }
         }}
       >
+        {
+          <UnstyledButton onClick={handleStackCountClick}>
+            <StackCount
+              count={stackCount}
+              onClick={handleStackCountClick}
+              onStackClick={handleStackClick}
+              relatedStacks={tempRelatedStacks}
+              expanded={isExpanded}
+              cardHeight = {cardHeight}
+            />
+          </UnstyledButton>
+       }
         <UnstyledButton
           onClick={handleSingleClick} 
           onDoubleClick={handleDoubleClick} 
@@ -343,20 +357,20 @@ export default function Post({
         </UnstyledButton>
 
         <div
-          style={{ paddingLeft: '54px', paddingTop: '1rem' }}
+          style={{ paddingLeft: '3rem', paddingRight:'1rem'}}
           onMouseUp={handleMouseUp}
         >
           <div>
             <Text
               c="#011445" 
-              size="sm" 
+              size="1rem" 
               className="post-content" 
               dangerouslySetInnerHTML={{ __html: text }} 
             />
           </div>
 
           {mediaAttachments.length > 0 && (
-            <div style={{ paddingLeft: '54px', paddingRight: '54px', paddingTop: '1rem' }}>
+            <div style={{ paddingLeft: '3rem', paddingRight: '4rem', paddingTop: '1rem' }}>
               {mediaAttachments.map((url, index) => (
                 <img key={index} src={url} alt={`Attachment ${index + 1}`} style={{ width: '100%', marginBottom: '10px' }} />
               ))}
@@ -368,11 +382,11 @@ export default function Post({
               display: 'flex',
               alignItems: 'flex-start',
               border: '1px solid rgba(0, 0, 0, 0.1)',
-              borderRadius: '8px',
+              borderRadius: '15px',
               overflow: 'hidden',
-              boxShadow: '0 3px 3px rgba(0, 0, 0, 0.1)',
-              marginTop: '1rem',
-              marginRight: '1rem',
+              boxShadow: '0 0px 0px rgba(0, 0, 0, 0.1)',
+              marginTop: '0.5rem',
+              marginRight: '0.5rem',
             }} onClick={(e) => { e.stopPropagation(); window.open(card.url, '_blank'); }}>
               {card.image && (
                 <img src={card.image} alt={card.title} style={{ width: '150px', margin: '10px' }} />
@@ -385,8 +399,8 @@ export default function Post({
           ))}
         </div>
 
-        <Divider my="md" />
-        <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px', marginBottom: stackCount !== null && stackCount > 1 ? '-20px' : '0px' }}>
+        <Divider style={{ marginTop:'1rem'}}/>
+        <Group style={{ display: 'flex', justifyContent: 'space-between', paddingTop:'0.1rem', paddingBottom:'0.1rem', marginBottom: stackCount !== null && stackCount > 1 ? '0px' : '0px' }}>
           <Button variant="subtle" size="sm" radius="lg" onClick={handleReply} style={{ display: 'flex', alignItems: 'center' }}>
             <IconMessageCircle size={20} style={{ color: '#002379' }} /> <Text ml={4} style={{ color: '#002379' }}>{replyCount}</Text>
           </Button>
@@ -403,32 +417,19 @@ export default function Post({
             <IconLink size={20} style={{ color: '#002379' }} />
           </Button>
         </Group>
-
-        {
-          <UnstyledButton onClick={handleStackCountClick}>
-            <StackCount
-              count={stackCount}
-              onClick={handleStackCountClick}
-              onStackClick={handleStackClick}
-              relatedStacks={tempRelatedStacks}
-              expanded={isExpanded}
-            />
-          </UnstyledButton>
-       }
       </Paper>
-
-      {stackCount !== null && stackCount >1 && (
+      {stackCount != null && stackCount > 1 && (
         !isExpanded && [...Array(3)].map((_, index) => (
           <div
             key={index}
             style={{
               position: 'absolute',
-              bottom: `${-15 + 5 * (index)}px`,
-              left: `${15 - 5 * (index)}px`,
+              top: `${16 - 5 * (index)}px`,
+              right: `${-16 + 5 * (index)}px`,
               width: "100%",
               height: `${cardHeight}px`,
-              backgroundColor: '#002379',
-              border: '1.5px solid #FCFBF5',
+              backgroundColor: '#5a71a8',
+              border: '0.5px solid #FCFBF5',
             }}
           />
         ))

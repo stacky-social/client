@@ -13,8 +13,8 @@ const RelatedStackCount: React.FC<RelatedStackCountProps> = ({ count, onClick })
       onClick={onClick}
       style={{
         position: 'absolute',
-        top: '1px',
-        right: '-60px',
+        top: '0px',
+        right: '-54px',
         width: '55px',
         display: 'flex',
         flexDirection: 'column',
@@ -22,7 +22,7 @@ const RelatedStackCount: React.FC<RelatedStackCountProps> = ({ count, onClick })
         justifyContent: 'center',
         // boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
         cursor: 'pointer',
-        backgroundColor: '#FF9F66',
+        backgroundColor: '#f6f3e1',
         transition: 'height 0.3s ease',
         borderTopLeftRadius: '0px', // 左上角不圆角
         borderTopRightRadius: '8px', // 右上角圆角

@@ -104,7 +104,7 @@ const PostList: React.FC<PostListProps> = ({
             const batch = posts.slice(i, i + batchSize);
             await Promise.all(batch.map(async (post) => {
                 try {
-                    const response = await axios.get(`${MastodonInstanceUrl}/stacks/${post.postId}/related`, {
+                    const response = await axios.get(`${MastodonInstanceUrl}/stacks/${post.postId}/related_fake`, {
                         headers: {
                             Authorization: `Bearer ${accessToken}`,
                         }

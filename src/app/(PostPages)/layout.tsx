@@ -12,23 +12,23 @@ export default function PostsPageLayout({ children }: {  children: React.ReactNo
 
     return (
         <AppShell
-            header={{ height: 60 }}
+            // header={{ height: 50 }}
             navbar={{ width: { sm: 200, lg: 300 }, breakpoint: 'sm', collapsed: { mobile: !opened } }}
             padding="md"
         >
-            <AppShell.Header>
+            {/* <AppShell.Header>
                 <Group h="100%" px="md">
                     <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
                     <StackLogo size={30} />
                 </Group>
-            </AppShell.Header>
+            </AppShell.Header> */}
             <AppShell.Navbar p="md">
                 <Navbar />
             </AppShell.Navbar>
             <AppShell.Main
             style={
                 {
-                   backgroundColor: 'F1FAFF',
+                   backgroundColor: '#FEFEFF',
                 }
             }
             >
