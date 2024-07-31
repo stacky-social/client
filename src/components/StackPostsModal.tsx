@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useEffect, useState } from 'react';
 import { Modal, ScrollArea, Switch, SimpleGrid, Text, Container, Group, Avatar, Button, Divider, Paper, UnstyledButton, TextInput, rem } from '@mantine/core';
 import axios from 'axios';
@@ -48,11 +46,14 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
   const router = useRouter();
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>('list');
+  const [currentUrl, setCurrentUrl] = useState<string | null>(apiUrl);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     setAccessToken(token);
-  }, []);
+    console.log("api", apiUrl);
+    setCurrentUrl(apiUrl);
+  }, [apiUrl]); // 添加 apiUrl 作为依赖项
 
   useEffect(() => {
     if (stackId) {
@@ -61,16 +62,14 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
   }, [stackId]);
 
   useEffect(() => {
-    // Logic to reload PostList when apiUrl changes
-    if (apiUrl) {
-      fetchSubstacks(stackId);
-    }
-  }, [apiUrl]);
+    console.log("currentURL:", currentUrl);
+  }, [currentUrl]);
 
   const fetchSubstacks = async (id: string | null) => {
     if (!id) return;
     try {
       console.log("Fetching substacks for stack:", id);
+
       const response = await axios.get(`https://beta.stacky.social:3002/stacks/${id}/substacks`);
       const substacksData = response.data.map((item: any) => ({
         substackId: item.substackId,
@@ -115,9 +114,8 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
 
   const handleStackCountClick = (topPostId: string, substackID: string) => {
     console.log(topPostId);
-    apiUrl = `https://beta.stacky.social:3002/stacks/${topPostId}/substacks`;
-    stackId = substackID;
-    console.log(substackID);
+    const newUrl = `https://beta.stacky.social:3002/stacks/${substackID}/posts`;
+    setCurrentUrl(newUrl);
     fetchSubstacks(substackID);
   };
 
@@ -194,33 +192,22 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
 
         <Tabs.Panel value="list">
           <ScrollArea style={{ height: 600 }}>
-            <PostList
-              apiUrl={apiUrl}
-              handleStackIconClick={handleStackIconClick}
-              loadStackInfo={false}
-              accessToken={accessToken}
-              setIsModalOpen={() => {}}
-              setIsExpandModalOpen={() => {}}
-              activePostId={null}
-              setActivePostId={() => {}}
-            />
+            {currentUrl && (
+              <PostList
+                apiUrl={currentUrl}
+                handleStackIconClick={handleStackIconClick}
+                loadStackInfo={false}
+                accessToken={accessToken}
+                setIsModalOpen={() => { }}
+                setIsExpandModalOpen={() => { }}
+                activePostId={null}
+                setActivePostId={() => { }}
+              />
+            )}
           </ScrollArea>
         </Tabs.Panel>
         <Tabs.Panel value="stacked">
           <Container py="xl" style={{ maxWidth: '1000px', margin: '0 auto' }}>
-            {/* <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-              <TextInput
-                placeholder="Search"
-                size="md"
-                leftSection={<IconSearch style={{ width: rem(16), height: rem(16) }} stroke={1.5} />}
-                rightSectionWidth={70}
-                rightSection={<Code className={classes.searchCode}>Enter</Code>}
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.currentTarget.value)}
-                onKeyDown={handleSearch}
-                styles={{ input: { fontSize: '16px', width: '100%' }, root: { width: '100%', maxWidth: '800px' } }}
-              />
-            </div> */}
             <SimpleGrid cols={2} spacing="lg">{cards}</SimpleGrid>
           </Container>
         </Tabs.Panel>
