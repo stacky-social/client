@@ -71,7 +71,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     if (!id) return;
     try {
       console.log("Fetching substacks for stack:", id);
-      const response = await axios.get(`${apiUrl}/stacks/${id}/substacks`);
+      const response = await axios.get(`https://beta.stacky.social:3002/stacks/${id}/substacks`);
       const substacksData = response.data.map((item: any) => ({
         substackId: item.substackId,
         size: item.size,
