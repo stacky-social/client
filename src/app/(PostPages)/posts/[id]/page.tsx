@@ -95,6 +95,11 @@ export default function PostView({params}: { params: { id: string } }) {
     const [repliesStack, setRepliesStack] = useState<any[]>([]); // 添加用于存储 repliesStack 的状态
     const [loadingRepliesStack, setLoadingRepliesStack] = useState(false); // 添加加载状态
 
+    const [summary, setSummary] = useState<string | null>(null);
+
+    const[focusPostLoaded, setFocusPostLoaded] = useState(false);
+
+
     useEffect(() => {
         console.log('Recommended Loading changed:', recommendedLoading);
     }, [recommendedLoading]);
@@ -119,9 +124,17 @@ export default function PostView({params}: { params: { id: string } }) {
 
 
     useEffect(() => {
-        
+        fetchPost(id);
+
+  
+    },[id])
+    
+    useEffect(() => {
+    
+
         fetchPostAndReplies(id);
-    }, [id]);
+    },[focusPostLoaded])
+   
 
 
     useEffect(() => {
@@ -129,17 +142,17 @@ export default function PostView({params}: { params: { id: string } }) {
     }, []);
 
     useEffect(() => {
-        if (currentPostRef.current !== null && !hasScrolled) {
+        if (post!== null &&currentPostRef.current !== null && !hasScrolled) {
             setFocusPostPosition({top: currentPostRef.current.offsetTop, height: currentPostRef.current.offsetHeight});
             setTimeout(() => {
                 window.scrollTo({
                     top: currentPostRef.current!.offsetTop,
-                    behavior: 'smooth'
+                    // behavior: 'smooth'
                 });
-                setHasScrolled(true); // 设置已滑动标志
-            }, 300);
+                setHasScrolled(true);
+            },300);
         }
-    }, [post, postLoaded, hasScrolled]);
+    }, [focusPostLoaded, hasScrolled]);
 
 
     useEffect(() => {
@@ -151,6 +164,7 @@ export default function PostView({params}: { params: { id: string } }) {
     }, [postLoaded]);
 
     const filteredReplies = replies.filter(reply => reply.in_reply_to_id === id);
+    const replyIDs = filteredReplies.map(reply => reply.id); 
 
 
     const fetchCurrentUser = async () => {
@@ -172,8 +186,10 @@ export default function PostView({params}: { params: { id: string } }) {
         }
     };
 
-    const fetchPostAndReplies = async (postId: string) => {
+
+    const fetchPost= async (postId: string) => {
         const accessToken = localStorage.getItem('accessToken');
+        console.log("fetching post");
         if (!accessToken) {
             console.error('Access token is missing.');
             setLoading(false);
@@ -188,12 +204,44 @@ export default function PostView({params}: { params: { id: string } }) {
             });
             setPost({
                 ...postResponse.data,
-                relatedStacks: [],
+                relatedStacks: focus_relatedStacks,
                 stackCount: null
             });
             setLiked(postResponse.data.favourited);
             setBookmarked(postResponse.data.bookmarked);
             setLikeCount(postResponse.data.favourites_count);
+            setFocusPostLoaded(true);
+        } catch (error) {
+            console.error('Failed to fetch post:', error);
+        } finally {
+            setLoading(false);
+        }
+
+        if (post!== null &&currentPostRef.current !== null) {
+            setFocusPostPosition({top: currentPostRef.current.offsetTop, height: currentPostRef.current.offsetHeight});
+            setTimeout(() => {
+                window.scrollTo({
+                    top: currentPostRef.current!.offsetTop,
+                    // behavior: 'smooth'
+                });
+                setHasScrolled(true);
+            },0);
+        }
+    }
+
+    
+
+    const fetchPostAndReplies = async (postId: string) => {
+    
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) {
+            console.error('Access token is missing.');
+            setLoading(false);
+            return;
+        }
+
+        try {
+            console.log('Fetching ancestor & replies...');
 
             const repliesResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}/context`, {
                 headers: {
@@ -225,7 +273,12 @@ export default function PostView({params}: { params: { id: string } }) {
         } finally {
             setLoading(false);
         }
+    
+
+            
     };
+
+
 
     const fetchRepliesStack = async (postId: string) => { // 添加用于获取 repliesStack 的函数
         const accessToken = localStorage.getItem('accessToken');
@@ -237,11 +290,16 @@ export default function PostView({params}: { params: { id: string } }) {
         setLoadingRepliesStack(true);
 
         try {
-            const response = await axios.get(`https://beta.stacky.social:3002/replies/${postId}/stacks`, {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                }
-            });
+          
+
+            const accessToken = localStorage.getItem('accessToken');
+                const response = await axios.post(`https://beta.stacky.social:3002/replies/${id}/stacks`, {
+                    immediateReplyIDs: replyIDs
+                }, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    }
+                });
             setRepliesStack(response.data);
         } catch (error) {
             console.error(`Error fetching replies stack data for post ${postId}:`, error);
@@ -299,6 +357,10 @@ export default function PostView({params}: { params: { id: string } }) {
 
         }
     };
+
+
+
+
 
     const handleNavigate = (replyId: string) => {
         router.push(`/posts/${replyId}`);
@@ -437,7 +499,16 @@ export default function PostView({params}: { params: { id: string } }) {
             console.log('Recommended Loading:', recommendedLoading);
             try {
                 console.log('Fetching recommended posts...');
-                const response = await axios.get(`https://beta.stacky.social:3002/replies/${id}/list`);
+                // const response = await axios.get(`https://beta.stacky.social:3002/replies/${id}/list`);
+                console.log("Reply IDs:", replyIDs);
+                const accessToken = localStorage.getItem('accessToken');
+                const response = await axios.post(`https://beta.stacky.social:3002/replies/${id}/list`, {
+                    immediateReplyIDs: replyIDs
+                }, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    }
+                });
                 console.log('Response data:', response.data);
 
                 const posts = response.data;
@@ -468,6 +539,25 @@ export default function PostView({params}: { params: { id: string } }) {
         }
         else if (index === 2) { // 2 corresponds to the "Stacked" tab
             await fetchRepliesStack(id); // 调用获取 replies stack 的函数
+        }
+        else if(index==3){
+
+            try {
+                const accessToken = localStorage.getItem('accessToken');
+                const response = await axios.post(`https://beta.stacky.social:3002/replies/${id}/summary`, {
+                    immediateReplyIDs: replyIDs
+                }, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    }
+                });
+                console.log('Summary Response:', response.data);
+                setSummary(response.data.summary); 
+                
+            } catch (error) {
+                console.error('Failed to fetch summary:', error);
+            }
+
         }
     };
 
@@ -558,6 +648,7 @@ export default function PostView({params}: { params: { id: string } }) {
                         {ancestors.map((ancestor) => (
                             <div key={ancestor.id}
                                  style={{position: 'relative', marginBottom: '1rem', marginLeft: '40px'}}>
+                               
                                 {renderAncestors(ancestor)}
                                 <div style={{
                                     position: 'absolute',
@@ -723,7 +814,10 @@ export default function PostView({params}: { params: { id: string } }) {
                                 </div>
                             )}
                             {selectedTab === 3 && (
-                                <div>This is tab for Summary</div>
+                                <div>This is tab for Summary
+                                    {summary}
+                                </div>
+
                             )}
                         </Paper>
                     )}
