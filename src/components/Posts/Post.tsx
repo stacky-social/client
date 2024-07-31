@@ -330,7 +330,7 @@ export default function Post({
           }
         }}
       >
-        
+
         {
           <UnstyledButton onClick={handleStackCountClick}>
             <StackCount
@@ -339,6 +339,7 @@ export default function Post({
               onStackClick={handleStackClick}
               relatedStacks={tempRelatedStacks}
               expanded={isExpanded}
+              cardHeight = {cardHeight}
           
             />
           </UnstyledButton>
