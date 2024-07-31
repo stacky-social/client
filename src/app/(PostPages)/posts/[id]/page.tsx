@@ -26,11 +26,17 @@ import {
 } from "@tabler/icons-react";
 import axios from 'axios';
 
+import StackCount from '../../../../components/StackCount';
+
 import RelatedStacks from '../../../../components/RelatedStacks';
 import RepliesStack from '../../../../components/RepliesStack';
 import ReplySection from '../../../../components/ReplySection';
 import {AnimatePresence, motion} from 'framer-motion';
 import {Loader} from '@mantine/core';
+
+import { Tabs } from '@mantine/core';
+
+import { set } from 'date-fns';
 
 interface PostType {
     id: string;
@@ -75,6 +81,7 @@ export default function PostView({params}: { params: { id: string } }) {
 
     const [visibleReplies, setVisibleReplies] = useState(15);
 
+    const [size, setSize] = useState(0);
 
     const [postLoaded, setPostLoaded] = useState(false);
     const [showAllReplies, setShowAllReplies] = useState(false);
@@ -98,21 +105,41 @@ export default function PostView({params}: { params: { id: string } }) {
     const [summary, setSummary] = useState<string | null>(null);
 
     const[focusPostLoaded, setFocusPostLoaded] = useState(false);
+    const [postRendered, setPostRendered] = useState(false); // 新增状态变量
 
+    const [isExpanded, setIsExpanded] = useState(true);
+
+    const handleStackClick = (index: number) => {
+        const newRelatedStacks = [...focus_relatedStacks];
+        const [clickedStack] = newRelatedStacks.splice(index, 1);
+        newRelatedStacks.unshift(clickedStack);
+        setFocus_relatedStacks(newRelatedStacks);
+    
+        const position = currentPostRef.current ? currentPostRef.current.getBoundingClientRect() : { top: 0, height: 0 };
+        const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+
+        setFocusPostPosition(adjustedPosition);
+
+      };
+    
 
     useEffect(() => {
         console.log('Recommended Loading changed:', recommendedLoading);
     }, [recommendedLoading]);
 
-
-    const tabColors = ["#f8d86a", "#b9dec9", "#b0d5df", "#f1c4cd"];
+    
+    // const tabColors = ["#f8d86a", "#b9dec9", "#b0d5df", "#f1c4cd"];
+    const tabColors = ["#fdf7e0", "#b9dec9", "#b0d5df", "#f1c4cd"];
     const tabNames = ["Time", "Recommended", "Stacked", "Summary"];
 
     useEffect(() => {
         const storedRelatedStacks = localStorage.getItem('relatedStacks');
-        if (storedRelatedStacks) {
+        const storedsize=localStorage.getItem('relatedStacksSize');
+        if (storedRelatedStacks&&storedsize) {
             const parsedStacks = JSON.parse(storedRelatedStacks);
             setFocus_relatedStacks(parsedStacks);
+            setSize(parseInt(storedsize));
+
             console.log('Parsed Stacks:', parsedStacks);
 
         }
@@ -124,16 +151,20 @@ export default function PostView({params}: { params: { id: string } }) {
 
 
     useEffect(() => {
+     
+        fetchPostAndReplies(id);
         fetchPost(id);
-
+        const position = currentPostRef.current ? currentPostRef.current.getBoundingClientRect() : { top: 0, height: 0 };
+        const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+        setFocusPostPosition(adjustedPosition);
   
     },[id])
     
-    useEffect(() => {
+    // useEffect(() => {
     
 
-        fetchPostAndReplies(id);
-    },[focusPostLoaded])
+    //     fetchPostAndReplies(id);
+    // },[focusPostLoaded])
    
 
 
@@ -142,18 +173,36 @@ export default function PostView({params}: { params: { id: string } }) {
     }, []);
 
     useEffect(() => {
-        if (post!== null &&currentPostRef.current !== null && !hasScrolled) {
-            setFocusPostPosition({top: currentPostRef.current.offsetTop, height: currentPostRef.current.offsetHeight});
+        if (post !== null && currentPostRef.current !== null && !hasScrolled) {
+            const position = currentPostRef.current.getBoundingClientRect();
+            const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+            setFocusPostPosition(adjustedPosition);
             setTimeout(() => {
                 window.scrollTo({
                     top: currentPostRef.current!.offsetTop,
                     // behavior: 'smooth'
                 });
                 setHasScrolled(true);
-            },300);
+            }, 300);
         }
+        const position = currentPostRef.current ? currentPostRef.current.getBoundingClientRect() : { top: 0, height: 0 };
+        const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+        setFocusPostPosition(adjustedPosition);
     }, [focusPostLoaded, hasScrolled]);
+    
 
+    useEffect(() => {
+        const position = currentPostRef.current ? currentPostRef.current.getBoundingClientRect() : { top: 0, height: 0 };
+    const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+    setFocusPostPosition(adjustedPosition);
+},[currentPostRef.current])
+    
+
+    
+    useEffect(()=>{
+
+        console.log("Focus Post Position:", focuspostPosition);
+    },[focuspostPosition])
 
     useEffect(() => {
         if (postLoaded) {
@@ -217,16 +266,16 @@ export default function PostView({params}: { params: { id: string } }) {
             setLoading(false);
         }
 
-        if (post!== null &&currentPostRef.current !== null) {
-            setFocusPostPosition({top: currentPostRef.current.offsetTop, height: currentPostRef.current.offsetHeight});
-            setTimeout(() => {
-                window.scrollTo({
-                    top: currentPostRef.current!.offsetTop,
-                    // behavior: 'smooth'
-                });
-                setHasScrolled(true);
-            },0);
-        }
+        // if (post!== null &&currentPostRef.current !== null) {
+        //     setFocusPostPosition({top: currentPostRef.current.offsetTop, height: currentPostRef.current.offsetHeight});
+        //     setTimeout(() => {
+        //         window.scrollTo({
+        //             top: currentPostRef.current!.offsetTop,
+        //             // behavior: 'smooth'
+        //         });
+        //         setHasScrolled(true);
+        //     },0);
+        // }
     }
 
     
@@ -428,7 +477,7 @@ export default function PostView({params}: { params: { id: string } }) {
         postId: string,
         position: { top: number, height: number }
     ) => {
-
+setIsExpanded(false);
         setShowFocusRelatedStacks(false);
         setRelatedStacks(relatedStacks);
         setActivePostId(postId);
@@ -437,7 +486,11 @@ export default function PostView({params}: { params: { id: string } }) {
 
 
     const handleFocusPostClick = () => {
+        setIsExpanded(true);
         setShowFocusRelatedStacks(true);
+        const position = currentPostRef.current ? currentPostRef.current.getBoundingClientRect() : { top: 0, height: 0 };
+        const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+        setFocusPostPosition(adjustedPosition);
         setActivePostId(null);
 
     }
@@ -450,6 +503,7 @@ export default function PostView({params}: { params: { id: string } }) {
     };
 
     const renderAncestors = (post: any) => {
+        console.log('Rendering ancestor:', post);
         return (
             <Post
                 key={post.id}
@@ -538,7 +592,7 @@ export default function PostView({params}: { params: { id: string } }) {
             
         }
         else if (index === 2) { // 2 corresponds to the "Stacked" tab
-            await fetchRepliesStack(id); // 调用获取 replies stack 的函数
+            await fetchRepliesStack(id); 
         }
         else if(index==3){
 
@@ -645,19 +699,21 @@ export default function PostView({params}: { params: { id: string } }) {
             <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%'}}>
                 <div style={{gridColumn: '1 / 2', position: 'relative'}}>
                     <div style={{position: 'relative', marginBottom: '2rem'}}>
-                        {ancestors.map((ancestor) => (
-                            <div key={ancestor.id}
-                                 style={{position: 'relative', marginBottom: '1rem', marginLeft: '40px'}}>
-                               
+           
+                    {ancestors.map((ancestor) => (
+                            <div key={ancestor.id} style={{ position: 'relative', marginBottom: '1rem', marginLeft: '40px' }}>
                                 {renderAncestors(ancestor)}
                                 <div style={{
                                     position: 'absolute',
                                     left: '10%',
-                                    bottom: '-2rem',
+                                    bottom: '-3rem',
                                     width: '2px',
-                                    height: '2rem',
-                                    backgroundColor: '#393733', // Change to light gray
-                                    transform: 'translateX(-50%)'
+
+                                    height: '3rem',
+                                    backgroundColor: '#545454', // Change to light gray
+                                    transform: 'translateX(-50%)',
+                                    zIndex: 0
+
                                 }}></div>
                             </div>
                         ))}
@@ -672,15 +728,30 @@ export default function PostView({params}: { params: { id: string } }) {
                             style={{
                                 position: 'relative',
                                 zIndex: 5,
-                                backgroundColor: showFocusRelatedStacks ? '#FFFAE6' : '#FFFFFF'
+                                backgroundColor: showFocusRelatedStacks ? '#f6f3e1' : '#FFFFFF'
                             }}
                 
                             shadow="lg"
                         >
+
+{
+          <UnstyledButton onClick={handleFocusPostClick}>
+            
+            <StackCount
+                cardHeight={600}
+              count={size}
+              onClick={handleFocusPostClick}
+              onStackClick={handleStackClick}
+              relatedStacks={focus_relatedStacks}
+              expanded={isExpanded} 
+         
+            />
+          </UnstyledButton>
+       }
                   
                   
-<UnstyledButton onClick={handleFocusPostClick}>
-    <Group>
+        <UnstyledButton onClick={handleFocusPostClick}>
+            <Group>
         <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl" />
         <div>
             <Text style={{ color: '#011445' }} fw={700} size="xl">{post?.account.username}</Text>
@@ -728,7 +799,7 @@ export default function PostView({params}: { params: { id: string } }) {
                                 </Button>
                             </Group>
                         </Paper>
-
+ {/* {renderPost(post)} */}
                     </div>
                     <Divider my="md"/>
 
@@ -738,11 +809,9 @@ export default function PostView({params}: { params: { id: string } }) {
                         fetchPostAndReplies={fetchPostAndReplies}
                     />
 
-                    <Divider my="md"/>
-
                     {replies.length > 0 && (
                         <div style={{display: 'flex', marginBottom: '0'}}>
-                            {tabColors.map((color, index) => (
+                            {/* {tabColors.map((color, index) => (
                                 <div
                                     key={index}
                                     onClick={() => handleTabClick(index)}
@@ -750,34 +819,80 @@ export default function PostView({params}: { params: { id: string } }) {
                                         backgroundColor: color,
                                         padding: '10px 20px',
                                         cursor: 'pointer',
-                                        borderRadius: index === 0 ? '8px 0 0 0' : index === tabColors.length - 1 ? '0 8px 0 0' : '0',
+                                        //borderRadius: index === 0 ? '8px 0 0 0' : index === tabColors.length - 1 ? '0 8px 0 0' : '0',
                                         textAlign: 'center',
-                                        color: 'white',
+                                        color: 'black',
                                         fontWeight: 'bold',
                                         flex: 1,
-                                        margin: 0
+                                        margin: 0,
+                                        border:'5px'
                                     }}
                                 >
                                     {tabNames[index]}
                                 </div>
-                            ))}
+                            ))} */}
                         </div>
                     )}
 
                     {replies.length > 0 && (
                         <Paper
                             style={{
-                                padding: '20px',
-                                backgroundColor: tabColors[selectedTab],
                                 borderRadius: '0 0 8px 8px',
                                 fontFamily: 'Roboto, sans-serif',
                                 fontSize: '14px',
-                                marginTop: 0,
+                                marginTop: '3rem',
                                 maxWidth: '100%',
                                 width: '100%'
                             }}
                         >
-                            {selectedTab === 0 && (
+                            <Tabs color = '#002379' defaultValue="gallery" orientation="vertical" inverted>
+                            <Tabs.List>
+                                <Tabs.Tab value="gallery">Time</Tabs.Tab>
+                                <Tabs.Tab value="messages">Recommended</Tabs.Tab>
+                                <Tabs.Tab value="settings">Stacked</Tabs.Tab>
+                                <Tabs.Tab value="summary">Summary</Tabs.Tab>
+                            </Tabs.List>
+
+                            <Tabs.Panel value="gallery">                                <>
+                                    {filteredReplies.slice(0, visibleReplies).map((reply) => renderReplies(reply))}
+                                    {visibleReplies < filteredReplies.length && (
+                                        <Button onClick={handleShowMoreReplies} variant="outline" fullWidth
+                                                style={{marginTop: '10px'}}>
+                                            {loadingMoreReplies ? 'Loading...' : 'More Replies'}
+                                        </Button>
+                                    )}
+                                </></Tabs.Panel>
+                            <Tabs.Panel value="messages">
+                            <div style={{textAlign: 'center'}}>
+                                    {recommendedLoading ? (
+                                        <Loader size="lg"/>
+                                    ) : (
+                                        recommendedPosts.map((post) => renderRecommendedPosts(post))
+                                    )}
+                                </div>
+                            </Tabs.Panel>
+                            <Tabs.Panel value="settings">                               
+                                 <div style={{ textAlign: 'center' }}>
+                                    {loadingRepliesStack ? (
+                                        <Loader size="lg" />
+                                    ) : (
+                                        <RepliesStack
+                                            repliesStacks={repliesStack}
+                                            cardWidth={450}
+                                            onStackClick={() => { }}
+                                            setIsExpandModalOpen={() => { }}
+                                            showupdate={true}
+                                        />
+                                    )}
+                                </div>
+                            </Tabs.Panel>
+                            <Tabs.Panel value="summary">   
+                                <div>
+                                    {summary}
+                                </div>
+                            </Tabs.Panel>
+                            </Tabs>
+                            {/* {selectedTab === 0 && (
                                 <>
                                     {filteredReplies.slice(0, visibleReplies).map((reply) => renderReplies(reply))}
                                     {visibleReplies < filteredReplies.length && (
@@ -798,7 +913,7 @@ export default function PostView({params}: { params: { id: string } }) {
                                     )}
                                 </div>
                             )}
-                            {selectedTab === 2 && ( // 在 Tab 2 下显示 repliesStack
+                            {selectedTab === 2 && ( 
                                 <div style={{ textAlign: 'center' }}>
                                     {loadingRepliesStack ? (
                                         <Loader size="lg" />
@@ -814,11 +929,11 @@ export default function PostView({params}: { params: { id: string } }) {
                                 </div>
                             )}
                             {selectedTab === 3 && (
-                                <div>This is tab for Summary
+                                <div>
                                     {summary}
                                 </div>
 
-                            )}
+                            )} */}
                         </Paper>
                     )}
                     <div style={{height: '100vh'}}></div>
@@ -836,7 +951,7 @@ export default function PostView({params}: { params: { id: string } }) {
                                         <motion.div
                                             style={{
                                                 position: 'absolute',
-                                                top: focuspostPosition.top,
+                                                top:focuspostPosition.top,
                                                 left: 20,
                                                 zIndex: 10
                                             }}
