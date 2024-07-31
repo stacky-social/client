@@ -97,6 +97,8 @@ export default function PostView({params}: { params: { id: string } }) {
 
     const [summary, setSummary] = useState<string | null>(null);
 
+    const[focusPostLoaded, setFocusPostLoaded] = useState(false);
+
 
     useEffect(() => {
         console.log('Recommended Loading changed:', recommendedLoading);
@@ -122,9 +124,17 @@ export default function PostView({params}: { params: { id: string } }) {
 
 
     useEffect(() => {
-        
+        fetchPost(id);
+
+  
+    },[id])
+    
+    useEffect(() => {
+    
+
         fetchPostAndReplies(id);
-    }, [id]);
+    },[focusPostLoaded])
+   
 
 
     useEffect(() => {
@@ -132,17 +142,17 @@ export default function PostView({params}: { params: { id: string } }) {
     }, []);
 
     useEffect(() => {
-        if (currentPostRef.current !== null && !hasScrolled) {
+        if (post!== null &&currentPostRef.current !== null && !hasScrolled) {
             setFocusPostPosition({top: currentPostRef.current.offsetTop, height: currentPostRef.current.offsetHeight});
             setTimeout(() => {
                 window.scrollTo({
                     top: currentPostRef.current!.offsetTop,
-                    behavior: 'smooth'
+                    // behavior: 'smooth'
                 });
-                setHasScrolled(true); // 设置已滑动标志
-            }, 300);
+                setHasScrolled(true);
+            },300);
         }
-    }, [post, postLoaded, hasScrolled]);
+    }, [focusPostLoaded, hasScrolled]);
 
 
     useEffect(() => {
@@ -176,8 +186,10 @@ export default function PostView({params}: { params: { id: string } }) {
         }
     };
 
-    const fetchPostAndReplies = async (postId: string) => {
+
+    const fetchPost= async (postId: string) => {
         const accessToken = localStorage.getItem('accessToken');
+        console.log("fetching post");
         if (!accessToken) {
             console.error('Access token is missing.');
             setLoading(false);
@@ -192,12 +204,44 @@ export default function PostView({params}: { params: { id: string } }) {
             });
             setPost({
                 ...postResponse.data,
-                relatedStacks: [],
+                relatedStacks: focus_relatedStacks,
                 stackCount: null
             });
             setLiked(postResponse.data.favourited);
             setBookmarked(postResponse.data.bookmarked);
             setLikeCount(postResponse.data.favourites_count);
+            setFocusPostLoaded(true);
+        } catch (error) {
+            console.error('Failed to fetch post:', error);
+        } finally {
+            setLoading(false);
+        }
+
+        if (post!== null &&currentPostRef.current !== null) {
+            setFocusPostPosition({top: currentPostRef.current.offsetTop, height: currentPostRef.current.offsetHeight});
+            setTimeout(() => {
+                window.scrollTo({
+                    top: currentPostRef.current!.offsetTop,
+                    // behavior: 'smooth'
+                });
+                setHasScrolled(true);
+            },0);
+        }
+    }
+
+    
+
+    const fetchPostAndReplies = async (postId: string) => {
+    
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) {
+            console.error('Access token is missing.');
+            setLoading(false);
+            return;
+        }
+
+        try {
+            console.log('Fetching ancestor & replies...');
 
             const repliesResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}/context`, {
                 headers: {
@@ -229,7 +273,12 @@ export default function PostView({params}: { params: { id: string } }) {
         } finally {
             setLoading(false);
         }
+    
+
+            
     };
+
+
 
     const fetchRepliesStack = async (postId: string) => { // 添加用于获取 repliesStack 的函数
         const accessToken = localStorage.getItem('accessToken');
@@ -599,6 +648,7 @@ export default function PostView({params}: { params: { id: string } }) {
                         {ancestors.map((ancestor) => (
                             <div key={ancestor.id}
                                  style={{position: 'relative', marginBottom: '1rem', marginLeft: '40px'}}>
+                               
                                 {renderAncestors(ancestor)}
                                 <div style={{
                                     position: 'absolute',
