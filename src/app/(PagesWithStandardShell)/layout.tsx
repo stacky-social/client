@@ -17,24 +17,34 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
 
     return (
         <AppShell
-            header={{ height: 60 }}
-            navbar={{ width: { sm: 200, lg: 300 }, breakpoint: 'sm', collapsed: { mobile: !opened } }}
+            // header={{ height: 50 }}
+            navbar={{ width: { sm: 210, lg: 210 }, breakpoint: 'sm', collapsed: { mobile: !opened }}}
             // aside={{ width: 500, breakpoint: 'md', collapsed: { desktop: false, mobile: true } }}
             padding="md"
         >
-            <AppShell.Header>
+            {/* <AppShell.Header
+                                    style={
+                                        {
+                                            backgroundColor: '#FCFBF5',
+                                        }
+                                    }>
                 <Group h="100%" px="md">
                     <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
                     <StackLogo size={30} />
                 </Group>
-            </AppShell.Header>
-            <AppShell.Navbar p="md">
+            </AppShell.Header> */}
+            <AppShell.Navbar p="md"
+                        style={
+                            {
+                                backgroundColor: '#FCFBF5',
+                            }
+                        }>
                 <Navbar />
             </AppShell.Navbar>
             <AppShell.Main
             style={
                 {
-                    backgroundColor: '#FCFBF5',
+                    backgroundColor: '#FEFEFB',
                 }
             }>
                 {children}
