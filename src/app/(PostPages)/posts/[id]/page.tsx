@@ -31,6 +31,7 @@ import RepliesStack from '../../../../components/RepliesStack';
 import ReplySection from '../../../../components/ReplySection';
 import {AnimatePresence, motion} from 'framer-motion';
 import {Loader} from '@mantine/core';
+import { Tabs } from '@mantine/core';
 
 interface PostType {
     id: string;
@@ -104,8 +105,9 @@ export default function PostView({params}: { params: { id: string } }) {
         console.log('Recommended Loading changed:', recommendedLoading);
     }, [recommendedLoading]);
 
-
-    const tabColors = ["#f8d86a", "#b9dec9", "#b0d5df", "#f1c4cd"];
+    
+    // const tabColors = ["#f8d86a", "#b9dec9", "#b0d5df", "#f1c4cd"];
+    const tabColors = ["#fdf7e0", "#b9dec9", "#b0d5df", "#f1c4cd"];
     const tabNames = ["Time", "Recommended", "Stacked", "Summary"];
 
     useEffect(() => {
@@ -653,11 +655,12 @@ export default function PostView({params}: { params: { id: string } }) {
                                 <div style={{
                                     position: 'absolute',
                                     left: '10%',
-                                    bottom: '-2rem',
+                                    bottom: '-3rem',
                                     width: '2px',
-                                    height: '2rem',
-                                    backgroundColor: '#393733', // Change to light gray
-                                    transform: 'translateX(-50%)'
+                                    height: '3rem',
+                                    backgroundColor: '#545454', // Change to light gray
+                                    transform: 'translateX(-50%)',
+                                    zIndex: 0
                                 }}></div>
                             </div>
                         ))}
@@ -672,7 +675,7 @@ export default function PostView({params}: { params: { id: string } }) {
                             style={{
                                 position: 'relative',
                                 zIndex: 5,
-                                backgroundColor: showFocusRelatedStacks ? '#FFFAE6' : '#FFFFFF'
+                                backgroundColor: showFocusRelatedStacks ? '#f6f3e1' : '#FFFFFF'
                             }}
                 
                             shadow="lg"
@@ -738,11 +741,9 @@ export default function PostView({params}: { params: { id: string } }) {
                         fetchPostAndReplies={fetchPostAndReplies}
                     />
 
-                    <Divider my="md"/>
-
                     {replies.length > 0 && (
                         <div style={{display: 'flex', marginBottom: '0'}}>
-                            {tabColors.map((color, index) => (
+                            {/* {tabColors.map((color, index) => (
                                 <div
                                     key={index}
                                     onClick={() => handleTabClick(index)}
@@ -750,34 +751,80 @@ export default function PostView({params}: { params: { id: string } }) {
                                         backgroundColor: color,
                                         padding: '10px 20px',
                                         cursor: 'pointer',
-                                        borderRadius: index === 0 ? '8px 0 0 0' : index === tabColors.length - 1 ? '0 8px 0 0' : '0',
+                                        //borderRadius: index === 0 ? '8px 0 0 0' : index === tabColors.length - 1 ? '0 8px 0 0' : '0',
                                         textAlign: 'center',
-                                        color: 'white',
+                                        color: 'black',
                                         fontWeight: 'bold',
                                         flex: 1,
-                                        margin: 0
+                                        margin: 0,
+                                        border:'5px'
                                     }}
                                 >
                                     {tabNames[index]}
                                 </div>
-                            ))}
+                            ))} */}
                         </div>
                     )}
 
                     {replies.length > 0 && (
                         <Paper
                             style={{
-                                padding: '20px',
-                                backgroundColor: tabColors[selectedTab],
                                 borderRadius: '0 0 8px 8px',
                                 fontFamily: 'Roboto, sans-serif',
                                 fontSize: '14px',
-                                marginTop: 0,
+                                marginTop: '3rem',
                                 maxWidth: '100%',
                                 width: '100%'
                             }}
                         >
-                            {selectedTab === 0 && (
+                            <Tabs color = '#002379' defaultValue="gallery" orientation="vertical" inverted>
+                            <Tabs.List>
+                                <Tabs.Tab value="gallery">Time</Tabs.Tab>
+                                <Tabs.Tab value="messages">Recommended</Tabs.Tab>
+                                <Tabs.Tab value="settings">Stacked</Tabs.Tab>
+                                <Tabs.Tab value="summary">Summary</Tabs.Tab>
+                            </Tabs.List>
+
+                            <Tabs.Panel value="gallery">                                <>
+                                    {filteredReplies.slice(0, visibleReplies).map((reply) => renderReplies(reply))}
+                                    {visibleReplies < filteredReplies.length && (
+                                        <Button onClick={handleShowMoreReplies} variant="outline" fullWidth
+                                                style={{marginTop: '10px'}}>
+                                            {loadingMoreReplies ? 'Loading...' : 'More Replies'}
+                                        </Button>
+                                    )}
+                                </></Tabs.Panel>
+                            <Tabs.Panel value="messages">
+                            <div style={{textAlign: 'center'}}>
+                                    {recommendedLoading ? (
+                                        <Loader size="lg"/>
+                                    ) : (
+                                        recommendedPosts.map((post) => renderRecommendedPosts(post))
+                                    )}
+                                </div>
+                            </Tabs.Panel>
+                            <Tabs.Panel value="settings">                               
+                                 <div style={{ textAlign: 'center' }}>
+                                    {loadingRepliesStack ? (
+                                        <Loader size="lg" />
+                                    ) : (
+                                        <RepliesStack
+                                            repliesStacks={repliesStack}
+                                            cardWidth={450}
+                                            onStackClick={() => { }}
+                                            setIsExpandModalOpen={() => { }}
+                                            showupdate={true}
+                                        />
+                                    )}
+                                </div>
+                            </Tabs.Panel>
+                            <Tabs.Panel value="summary">   
+                                <div>
+                                    {summary}
+                                </div>
+                            </Tabs.Panel>
+                            </Tabs>
+                            {/* {selectedTab === 0 && (
                                 <>
                                     {filteredReplies.slice(0, visibleReplies).map((reply) => renderReplies(reply))}
                                     {visibleReplies < filteredReplies.length && (
@@ -814,11 +861,11 @@ export default function PostView({params}: { params: { id: string } }) {
                                 </div>
                             )}
                             {selectedTab === 3 && (
-                                <div>This is tab for Summary
+                                <div>
                                     {summary}
                                 </div>
 
-                            )}
+                            )} */}
                         </Paper>
                     )}
                     <div style={{height: '100vh'}}></div>

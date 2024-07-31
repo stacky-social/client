@@ -105,7 +105,7 @@ const PostList: React.FC<PostListProps> = ({
             await Promise.all(batch.map(async (post) => {
                 try {
                     console.log('Fetching stack data for post:', post.postId);
-                    const response = await axios.get(`${MastodonInstanceUrl}/stacks/${post.postId}/related`, {
+                    const response = await axios.get(`${MastodonInstanceUrl}/stacks/${post.postId}/related_fake`, {
                         headers: {
                             Authorization: `Bearer ${accessToken}`,
                         }

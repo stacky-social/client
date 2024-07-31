@@ -365,7 +365,7 @@ export default function Post({
               c="#011445" 
               size="1rem" 
               className="post-content" 
-              style={{marginTop:'0px'}}
+              style={{marginTop:'0px',lineHeight: '1.5'}}
               dangerouslySetInnerHTML={{ __html: text }} 
             />
           </div>
