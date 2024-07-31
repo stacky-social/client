@@ -736,13 +736,15 @@ setIsExpanded(false);
 
 {
           <UnstyledButton onClick={handleFocusPostClick}>
+            
             <StackCount
+                cardHeight={600}
               count={size}
               onClick={handleFocusPostClick}
               onStackClick={handleStackClick}
               relatedStacks={focus_relatedStacks}
-              expanded={isExpanded}
-          
+              expanded={isExpanded} 
+         
             />
           </UnstyledButton>
        }
