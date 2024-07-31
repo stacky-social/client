@@ -184,7 +184,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
               onDoubleClick={() => handleDoubleClick(stack.stackId)}
               style={{ width: '100%' }}
             >
-              <Group style={{ padding: '0 0px' }}>
+              <Group style={{ paddingLeft: '1rem' }}>
                 <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
                 <div>
                   <Text size="md" fw={700} c="#011445" >{stack.topPost.account.display_name}</Text>
@@ -197,7 +197,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
 
             <div
               onMouseUp={() => handleMouseUp(stack.topPost.id, stack.stackId)}
-              style={{ paddingLeft: '54px', paddingTop: '0.5rem', paddingRight: '1rem'
+              style={{ paddingLeft: '54px', paddingRight: '1rem'
                 // , cursor: 'pointer' 
                 }}
             >

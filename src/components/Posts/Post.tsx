@@ -365,6 +365,7 @@ export default function Post({
               c="#011445" 
               size="1rem" 
               className="post-content" 
+              style={{marginTop:'0px'}}
               dangerouslySetInnerHTML={{ __html: text }} 
             />
           </div>
@@ -399,7 +400,7 @@ export default function Post({
           ))}
         </div>
 
-        <Divider style={{ marginTop:'1rem'}}/>
+        <Divider style={{ marginTop:'1.5rem'}}/>
         <Group style={{ display: 'flex', justifyContent: 'space-between', paddingTop:'0.1rem', paddingBottom:'0.1rem', marginBottom: stackCount !== null && stackCount > 1 ? '0px' : '0px' }}>
           <Button variant="subtle" size="sm" radius="lg" onClick={handleReply} style={{ display: 'flex', alignItems: 'center' }}>
             <IconMessageCircle size={20} style={{ color: '#002379' }} /> <Text ml={4} style={{ color: '#002379' }}>{replyCount}</Text>
