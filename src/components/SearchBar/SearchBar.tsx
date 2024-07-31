@@ -88,7 +88,7 @@ export default function SearchBar() {
   const onSearchParamsChange = (searchQuery: string | null) => {
     if (searchQuery) {
       setQuery(searchQuery);
-      fetchSearchResults(searchQuery, accessToken);
+     
     }
   };
 
@@ -122,7 +122,7 @@ export default function SearchBar() {
     setLoadingRelatedStacks(true);
 
     try {
-      const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${post.id}/related_fake`);
+      const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${post.id}/related`);
       console.log('Related stacks:', response.data);
       const stackData = response.data.relatedStacks || [];
       const stackCount = response.data.size;
