@@ -39,18 +39,18 @@ interface RelatedStacksProps {
 }
 
 const iconMapping: { [key: string]: JSX.Element } = {
-  uncategorized: <IconStack size={24} />,
-  predictions: <IconBulb size={24} />,
-  evidence_public: <IconQuote size={24} />,
-  evidence_personal: <IconUser size={24} />,
-  connections: <IconLink size={24} />,
-  pointers: <IconPointer size={24} />,
-  proposals: <IconBook size={24} />,
-  humor: <IconMoodSmile size={24} />,
-  values: <IconHeart size={24} />,
-  framing: <IconFrame size={24} />,
-  questions: <IconQuestionMark size={24} />,
-  default: <IconStack size={24} />,
+  uncategorized: <IconStack size={20} />,
+  predictions: <IconBulb size={20} />,
+  evidence_public: <IconQuote size={20} />,
+  evidence_personal: <IconUser size={20} />,
+  connections: <IconLink size={20} />,
+  pointers: <IconPointer size={20} />,
+  proposals: <IconBook size={20} />,
+  humor: <IconMoodSmile size={20} />,
+  values: <IconHeart size={20} />,
+  framing: <IconFrame size={20} />,
+  questions: <IconQuestionMark size={20} />,
+  default: <IconStack size={20} />,
 };
 
 const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, onStackClick, setIsExpandModalOpen, showupdate }) => {
@@ -132,7 +132,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
       variants={containerVariants}
       initial="hidden"
       animate="show"
-      style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center', width: '100%' }}
+      style={{ display: 'flex', flexDirection: 'column', gap: '0rem', alignItems: 'center', width: '100%'}}
     >
       {relatedStacks.slice(0, maxStacksToShow).map((stack, index) => (
         <motion.div
@@ -141,8 +141,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
           style={{
             position: 'relative',
             margin: '20px 20px',
-            marginTop: '30px',
+            marginTop: '1rem',
             width: cardWidth,
+            boxShadow: '0 10px 10px rgba(0,0,0,0.1)'
           }}
         >
           <Paper
@@ -152,7 +153,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
             style={{
               position: 'relative',
               width: cardWidth,
-              backgroundColor: '#FFFAE6',
+              backgroundColor: '#f6f3e1',
               zIndex: 5,
               // boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
               borderRadius: '0px',
@@ -167,11 +168,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
                   position: 'absolute',
                   top: '10px',
                   left: '10px',
-                  background: '#FF5F00',
+                  background: '#A6290D',
                   color: 'white',
                   padding: '2px 6px',
                   fontWeight: 'bold',
                   zIndex: 10,
+                  fontSize: '10px'
                 }}
               >
                 Rewritten by AI
@@ -182,7 +184,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
               onDoubleClick={() => handleDoubleClick(stack.stackId)}
               style={{ width: '100%' }}
             >
-              <Group style={{ padding: '0 20px' }}>
+              <Group style={{ padding: '0 0px' }}>
                 <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
                 <div>
                   <Text size="md" fw={700} c="#011445" >{stack.topPost.account.display_name}</Text>
@@ -195,7 +197,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
 
             <div
               onMouseUp={() => handleMouseUp(stack.topPost.id, stack.stackId)}
-              style={{ paddingLeft: '54px', paddingTop: '1rem', paddingRight: '1rem'
+              style={{ paddingLeft: '54px', paddingTop: '0.5rem', paddingRight: '1rem'
                 // , cursor: 'pointer' 
                 }}
             >
@@ -218,7 +220,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
             <div className="rel-display">
               {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
             </div>
-            <Divider my="md" />
+            <Divider style={{marginTop:"0.5rem"}} />
             <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 10px' }}>
               <Button variant="subtle" size="sm" radius="lg">
                 <IconMessageCircle size={20} style={{ color: '#002379' }} /> <Text style={{ color: '#002379' }} ml={4}>{stack.topPost.replies_count}</Text>
@@ -249,7 +251,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
                   left: `${15 - 5 * idx}px`,
                   width: cardWidth,
                   height: `${cardHeights[index] || 0}px`,
-                  backgroundColor: '#002379',
+                  backgroundColor: '#5a71a8',
                   zIndex: idx + 1,
                   // boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
                   borderRadius: '0px',

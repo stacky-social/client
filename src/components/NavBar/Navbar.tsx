@@ -16,6 +16,7 @@ import classes from './NavbarSimple.module.css';
 import { useRouter, usePathname } from 'next/navigation';
 import axios from 'axios';
 import {BASE_URL} from "../../utils/DevMode";
+import StackLogo from '../../utils/StackLogo';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 const redirectUri = `${BASE_URL}/`;
@@ -60,7 +61,7 @@ export function Navbar() {
                 router.push(item.link);
             }}
         >
-            <item.icon className={classes.linkIcon} stroke={1.5} />
+            <item.icon className={classes.linkIcon} stroke={2} />
             <span>{item.label}</span>
         </a>
     ));
@@ -96,13 +97,16 @@ export function Navbar() {
 
     return (
         <nav className={classes.navbar}>
+            <div style={{ margin: '1rem'}}>
+            <StackLogo size={30}/>
+            </div>
             <div className={classes.navbarMain}>
                 {links}
             </div>
 
             <div className={classes.footer}>
                 <a href="#" className={classes.link} onClick={handleLogOut}>
-                    <IconLogout className={classes.linkIcon} stroke={1.5} />
+                    <IconLogout className={classes.linkIcon} stroke={2} />
                     <span>Logout</span>
                 </a>
             </div>
