@@ -26,12 +26,17 @@ import {
 } from "@tabler/icons-react";
 import axios from 'axios';
 
+import StackCount from '../../../../components/StackCount';
+
 import RelatedStacks from '../../../../components/RelatedStacks';
 import RepliesStack from '../../../../components/RepliesStack';
 import ReplySection from '../../../../components/ReplySection';
 import {AnimatePresence, motion} from 'framer-motion';
 import {Loader} from '@mantine/core';
+
 import { Tabs } from '@mantine/core';
+
+import { set } from 'date-fns';
 
 interface PostType {
     id: string;
@@ -76,6 +81,7 @@ export default function PostView({params}: { params: { id: string } }) {
 
     const [visibleReplies, setVisibleReplies] = useState(15);
 
+    const [size, setSize] = useState(0);
 
     const [postLoaded, setPostLoaded] = useState(false);
     const [showAllReplies, setShowAllReplies] = useState(false);
@@ -99,7 +105,23 @@ export default function PostView({params}: { params: { id: string } }) {
     const [summary, setSummary] = useState<string | null>(null);
 
     const[focusPostLoaded, setFocusPostLoaded] = useState(false);
+    const [postRendered, setPostRendered] = useState(false); // 新增状态变量
 
+    const [isExpanded, setIsExpanded] = useState(true);
+
+    const handleStackClick = (index: number) => {
+        const newRelatedStacks = [...focus_relatedStacks];
+        const [clickedStack] = newRelatedStacks.splice(index, 1);
+        newRelatedStacks.unshift(clickedStack);
+        setFocus_relatedStacks(newRelatedStacks);
+    
+        const position = currentPostRef.current ? currentPostRef.current.getBoundingClientRect() : { top: 0, height: 0 };
+        const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+
+        setFocusPostPosition(adjustedPosition);
+
+      };
+    
 
     useEffect(() => {
         console.log('Recommended Loading changed:', recommendedLoading);
@@ -112,9 +134,12 @@ export default function PostView({params}: { params: { id: string } }) {
 
     useEffect(() => {
         const storedRelatedStacks = localStorage.getItem('relatedStacks');
-        if (storedRelatedStacks) {
+        const storedsize=localStorage.getItem('relatedStacksSize');
+        if (storedRelatedStacks&&storedsize) {
             const parsedStacks = JSON.parse(storedRelatedStacks);
             setFocus_relatedStacks(parsedStacks);
+            setSize(parseInt(storedsize));
+
             console.log('Parsed Stacks:', parsedStacks);
 
         }
@@ -126,16 +151,20 @@ export default function PostView({params}: { params: { id: string } }) {
 
 
     useEffect(() => {
+     
+        fetchPostAndReplies(id);
         fetchPost(id);
-
+        const position = currentPostRef.current ? currentPostRef.current.getBoundingClientRect() : { top: 0, height: 0 };
+        const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+        setFocusPostPosition(adjustedPosition);
   
     },[id])
     
-    useEffect(() => {
+    // useEffect(() => {
     
 
-        fetchPostAndReplies(id);
-    },[focusPostLoaded])
+    //     fetchPostAndReplies(id);
+    // },[focusPostLoaded])
    
 
 
@@ -144,18 +173,36 @@ export default function PostView({params}: { params: { id: string } }) {
     }, []);
 
     useEffect(() => {
-        if (post!== null &&currentPostRef.current !== null && !hasScrolled) {
-            setFocusPostPosition({top: currentPostRef.current.offsetTop, height: currentPostRef.current.offsetHeight});
+        if (post !== null && currentPostRef.current !== null && !hasScrolled) {
+            const position = currentPostRef.current.getBoundingClientRect();
+            const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+            setFocusPostPosition(adjustedPosition);
             setTimeout(() => {
                 window.scrollTo({
                     top: currentPostRef.current!.offsetTop,
                     // behavior: 'smooth'
                 });
                 setHasScrolled(true);
-            },300);
+            }, 300);
         }
+        const position = currentPostRef.current ? currentPostRef.current.getBoundingClientRect() : { top: 0, height: 0 };
+        const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+        setFocusPostPosition(adjustedPosition);
     }, [focusPostLoaded, hasScrolled]);
+    
 
+    useEffect(() => {
+        const position = currentPostRef.current ? currentPostRef.current.getBoundingClientRect() : { top: 0, height: 0 };
+    const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+    setFocusPostPosition(adjustedPosition);
+},[currentPostRef.current])
+    
+
+    
+    useEffect(()=>{
+
+        console.log("Focus Post Position:", focuspostPosition);
+    },[focuspostPosition])
 
     useEffect(() => {
         if (postLoaded) {
@@ -219,16 +266,16 @@ export default function PostView({params}: { params: { id: string } }) {
             setLoading(false);
         }
 
-        if (post!== null &&currentPostRef.current !== null) {
-            setFocusPostPosition({top: currentPostRef.current.offsetTop, height: currentPostRef.current.offsetHeight});
-            setTimeout(() => {
-                window.scrollTo({
-                    top: currentPostRef.current!.offsetTop,
-                    // behavior: 'smooth'
-                });
-                setHasScrolled(true);
-            },0);
-        }
+        // if (post!== null &&currentPostRef.current !== null) {
+        //     setFocusPostPosition({top: currentPostRef.current.offsetTop, height: currentPostRef.current.offsetHeight});
+        //     setTimeout(() => {
+        //         window.scrollTo({
+        //             top: currentPostRef.current!.offsetTop,
+        //             // behavior: 'smooth'
+        //         });
+        //         setHasScrolled(true);
+        //     },0);
+        // }
     }
 
     
@@ -430,7 +477,7 @@ export default function PostView({params}: { params: { id: string } }) {
         postId: string,
         position: { top: number, height: number }
     ) => {
-
+setIsExpanded(false);
         setShowFocusRelatedStacks(false);
         setRelatedStacks(relatedStacks);
         setActivePostId(postId);
@@ -439,7 +486,11 @@ export default function PostView({params}: { params: { id: string } }) {
 
 
     const handleFocusPostClick = () => {
+        setIsExpanded(true);
         setShowFocusRelatedStacks(true);
+        const position = currentPostRef.current ? currentPostRef.current.getBoundingClientRect() : { top: 0, height: 0 };
+        const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+        setFocusPostPosition(adjustedPosition);
         setActivePostId(null);
 
     }
@@ -452,6 +503,7 @@ export default function PostView({params}: { params: { id: string } }) {
     };
 
     const renderAncestors = (post: any) => {
+        console.log('Rendering ancestor:', post);
         return (
             <Post
                 key={post.id}
@@ -540,7 +592,7 @@ export default function PostView({params}: { params: { id: string } }) {
             
         }
         else if (index === 2) { // 2 corresponds to the "Stacked" tab
-            await fetchRepliesStack(id); // 调用获取 replies stack 的函数
+            await fetchRepliesStack(id); 
         }
         else if(index==3){
 
@@ -647,20 +699,21 @@ export default function PostView({params}: { params: { id: string } }) {
             <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%'}}>
                 <div style={{gridColumn: '1 / 2', position: 'relative'}}>
                     <div style={{position: 'relative', marginBottom: '2rem'}}>
-                        {ancestors.map((ancestor) => (
-                            <div key={ancestor.id}
-                                 style={{position: 'relative', marginBottom: '1rem', marginLeft: '40px'}}>
-                               
+           
+                    {ancestors.map((ancestor) => (
+                            <div key={ancestor.id} style={{ position: 'relative', marginBottom: '1rem', marginLeft: '40px' }}>
                                 {renderAncestors(ancestor)}
                                 <div style={{
                                     position: 'absolute',
                                     left: '10%',
                                     bottom: '-3rem',
                                     width: '2px',
+
                                     height: '3rem',
                                     backgroundColor: '#545454', // Change to light gray
                                     transform: 'translateX(-50%)',
                                     zIndex: 0
+
                                 }}></div>
                             </div>
                         ))}
@@ -680,10 +733,23 @@ export default function PostView({params}: { params: { id: string } }) {
                 
                             shadow="lg"
                         >
+
+{
+          <UnstyledButton onClick={handleFocusPostClick}>
+            <StackCount
+              count={size}
+              onClick={handleFocusPostClick}
+              onStackClick={handleStackClick}
+              relatedStacks={focus_relatedStacks}
+              expanded={isExpanded}
+          
+            />
+          </UnstyledButton>
+       }
                   
                   
-<UnstyledButton onClick={handleFocusPostClick}>
-    <Group>
+        <UnstyledButton onClick={handleFocusPostClick}>
+            <Group>
         <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl" />
         <div>
             <Text style={{ color: '#011445' }} fw={700} size="xl">{post?.account.username}</Text>
@@ -731,7 +797,7 @@ export default function PostView({params}: { params: { id: string } }) {
                                 </Button>
                             </Group>
                         </Paper>
-
+ {/* {renderPost(post)} */}
                     </div>
                     <Divider my="md"/>
 
@@ -845,7 +911,7 @@ export default function PostView({params}: { params: { id: string } }) {
                                     )}
                                 </div>
                             )}
-                            {selectedTab === 2 && ( // 在 Tab 2 下显示 repliesStack
+                            {selectedTab === 2 && ( 
                                 <div style={{ textAlign: 'center' }}>
                                     {loadingRepliesStack ? (
                                         <Loader size="lg" />
@@ -883,7 +949,7 @@ export default function PostView({params}: { params: { id: string } }) {
                                         <motion.div
                                             style={{
                                                 position: 'absolute',
-                                                top: focuspostPosition.top,
+                                                top:focuspostPosition.top,
                                                 left: 20,
                                                 zIndex: 10
                                             }}

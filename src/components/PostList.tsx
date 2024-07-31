@@ -31,6 +31,7 @@ const PostList: React.FC<PostListProps> = ({
     const [loading, setLoading] = useState(true);
     const postRefs = useRef<Array<HTMLDivElement | null>>([]);
 
+
     useEffect(() => {
         const fetchPosts = async () => {
             try {
