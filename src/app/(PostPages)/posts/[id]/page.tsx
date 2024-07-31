@@ -98,6 +98,7 @@ export default function PostView({params}: { params: { id: string } }) {
     const [summary, setSummary] = useState<string | null>(null);
 
     const[focusPostLoaded, setFocusPostLoaded] = useState(false);
+    const [postRendered, setPostRendered] = useState(false); // 新增状态变量
 
 
     useEffect(() => {
@@ -217,16 +218,16 @@ export default function PostView({params}: { params: { id: string } }) {
             setLoading(false);
         }
 
-        if (post!== null &&currentPostRef.current !== null) {
-            setFocusPostPosition({top: currentPostRef.current.offsetTop, height: currentPostRef.current.offsetHeight});
-            setTimeout(() => {
-                window.scrollTo({
-                    top: currentPostRef.current!.offsetTop,
-                    // behavior: 'smooth'
-                });
-                setHasScrolled(true);
-            },0);
-        }
+        // if (post!== null &&currentPostRef.current !== null) {
+        //     setFocusPostPosition({top: currentPostRef.current.offsetTop, height: currentPostRef.current.offsetHeight});
+        //     setTimeout(() => {
+        //         window.scrollTo({
+        //             top: currentPostRef.current!.offsetTop,
+        //             // behavior: 'smooth'
+        //         });
+        //         setHasScrolled(true);
+        //     },0);
+        // }
     }
 
     
@@ -450,6 +451,7 @@ export default function PostView({params}: { params: { id: string } }) {
     };
 
     const renderAncestors = (post: any) => {
+        console.log('Rendering ancestor:', post);
         return (
             <Post
                 key={post.id}
@@ -631,6 +633,67 @@ export default function PostView({params}: { params: { id: string } }) {
         );
     }
 
+    const renderPost = (post: any) => (
+        console.log("post",post),
+        <Paper
+            ref={currentPostRef}
+            radius={0}
+            mt={20}
+            p="lg"
+            style={{
+                position: 'relative',
+                zIndex: 5,
+                backgroundColor: showFocusRelatedStacks ? '#FFFAE6' : '#FFFFFF'
+            }}
+            shadow="lg"
+            onLoad={() => setPostRendered(true)}
+        >
+            <UnstyledButton onClick={handleFocusPostClick}>
+                <Group>
+                    <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl" />
+                    <div>
+                        <Text style={{ color: '#011445' }} fw={700} size="xl">{post?.account.username}</Text>
+                        <Text c='dimmed' size="md">{new Date(post?.created_at).toLocaleString()}</Text>
+                    </div>
+                </Group>
+            </UnstyledButton>
+            <div onMouseUp={handleMouseUp}>
+                <div>
+                    <Text
+                        pl={54}
+                        pt="sm"
+                        size="lg"
+                        fw="500"
+                        style={{ color: '#011445' }}
+                        dangerouslySetInnerHTML={{ __html: post?.content }}
+                    />
+                </div>
+            </div>
+            {post?.media_attachments && post.media_attachments.map((attachment: any) => (
+                <div key={attachment.id}>
+                    {attachment.type === 'image' && (
+                        <img src={attachment.url} alt={attachment.description} style={{ maxWidth: '100%', marginTop: '10px' }} />
+                    )}
+                </div>
+            ))}
+            <Divider my="md" />
+            <Group justify="space-between" mx="20">
+                <Button variant="subtle" size="sm" radius="lg" onClick={() => handleNavigate(id)}>
+                    <IconMessageCircle size={30} style={{ color: '#002379' }} /> <Text style={{ color: '#002379' }} ml={4}>{post?.replies_count}</Text>
+                </Button>
+                <Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
+                    {liked ? <IconHeartFilled size={30} style={{ color: '#002379' }} /> : <IconHeart size={30} style={{ color: '#002379' }} />} <Text style={{ color: '#002379' }} ml={4}>{likeCount}</Text>
+                </Button>
+                <Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
+                    {bookmarked ? <IconBookmarkFilled size={30} style={{ color: '#002379' }} /> : <IconBookmark size={30} style={{ color: '#002379' }} />}
+                </Button>
+                <Button variant="subtle" size="sm" radius="lg" onClick={handleCopyLink}>
+                    <IconLink size={30} style={{ color: '#002379' }} />
+                </Button>
+            </Group>
+        </Paper>
+    );
+
     return (
         <Container fluid>
             <Modal
@@ -645,10 +708,9 @@ export default function PostView({params}: { params: { id: string } }) {
             <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%'}}>
                 <div style={{gridColumn: '1 / 2', position: 'relative'}}>
                     <div style={{position: 'relative', marginBottom: '2rem'}}>
-                        {ancestors.map((ancestor) => (
-                            <div key={ancestor.id}
-                                 style={{position: 'relative', marginBottom: '1rem', marginLeft: '40px'}}>
-                               
+           
+                    {postRendered && ancestors.map((ancestor) => (
+                            <div key={ancestor.id} style={{ position: 'relative', marginBottom: '1rem', marginLeft: '40px' }}>
                                 {renderAncestors(ancestor)}
                                 <div style={{
                                     position: 'absolute',
@@ -656,13 +718,13 @@ export default function PostView({params}: { params: { id: string } }) {
                                     bottom: '-2rem',
                                     width: '2px',
                                     height: '2rem',
-                                    backgroundColor: '#393733', // Change to light gray
+                                    backgroundColor: '#393733',
                                     transform: 'translateX(-50%)'
                                 }}></div>
                             </div>
                         ))}
 
-                        <Paper
+                        {/* <Paper
                             ref={currentPostRef}
                             // withBorder
                             // radius="md"
@@ -679,8 +741,8 @@ export default function PostView({params}: { params: { id: string } }) {
                         >
                   
                   
-<UnstyledButton onClick={handleFocusPostClick}>
-    <Group>
+        <UnstyledButton onClick={handleFocusPostClick}>
+            <Group>
         <Avatar src={post?.account.avatar} alt={post?.account.username} radius="xl" />
         <div>
             <Text style={{ color: '#011445' }} fw={700} size="xl">{post?.account.username}</Text>
@@ -727,8 +789,8 @@ export default function PostView({params}: { params: { id: string } }) {
                                     <IconLink size={30}  style={{ color: '#002379' }} />
                                 </Button>
                             </Group>
-                        </Paper>
-
+                        </Paper> */}
+ {renderPost(post)}
                     </div>
                     <Divider my="md"/>
 
