@@ -184,7 +184,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
             bottom: `${-15 + 5 * index}px`,
             left: `${10 - 5 * index}px`,
             width: '95%',
-            height: '220px',
+            height: '90%',
             backgroundColor: '#5a71a8',
             border: '0.5px solid #FCFBF5', 
           }}
@@ -203,9 +203,9 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
       overlayProps={{
         backgroundOpacity: 0.55,
         color:'#fefefb',
-        blur: 3
+        blur: 3,
       }}
-      style={{backgroundColor:'#fefefb'}}
+      styles={{body: { backgroundColor: '#fefefb' }}}
       withCloseButton={false}
     >
     <div
