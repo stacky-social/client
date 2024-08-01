@@ -125,6 +125,8 @@ export default function Post({
   const handleNavigate = () => {
     const url = `/posts/${id}`;
     localStorage.setItem('relatedStacks', JSON.stringify(tempRelatedStacks));
+ 
+    localStorage.setItem('relatedStacksSize', JSON.stringify(stackCount));
     router.push(url);
   };
 
@@ -328,6 +330,7 @@ export default function Post({
           }
         }}
       >
+
         {
           <UnstyledButton onClick={handleStackCountClick}>
             <StackCount
@@ -337,6 +340,7 @@ export default function Post({
               relatedStacks={tempRelatedStacks}
               expanded={isExpanded}
               cardHeight = {cardHeight}
+          
             />
           </UnstyledButton>
        }
