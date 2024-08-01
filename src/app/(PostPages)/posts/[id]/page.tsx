@@ -751,7 +751,7 @@ export default function PostView({params}: { params: { id: string } }) {
                                         backgroundColor: color,
                                         padding: '10px 20px',
                                         cursor: 'pointer',
-                                        //borderRadius: index === 0 ? '8px 0 0 0' : index === tabColors.length - 1 ? '0 8px 0 0' : '0',
+                                        borderRadius: index === 0 ? '8px 0 0 0' : index === tabColors.length - 1 ? '0 8px 0 0' : '0',
                                         textAlign: 'center',
                                         color: 'black',
                                         fontWeight: 'bold',
@@ -777,15 +777,15 @@ export default function PostView({params}: { params: { id: string } }) {
                                 width: '100%'
                             }}
                         >
-                            <Tabs color = '#002379' defaultValue="gallery" orientation="vertical" inverted>
+                            <Tabs color = '#002379' defaultValue="time" orientation="vertical" style={{backgroundColor:"#FEFEFF"}}>
                             <Tabs.List>
-                                <Tabs.Tab value="gallery">Time</Tabs.Tab>
-                                <Tabs.Tab value="messages">Recommended</Tabs.Tab>
-                                <Tabs.Tab value="settings">Stacked</Tabs.Tab>
-                                <Tabs.Tab value="summary">Summary</Tabs.Tab>
+                                <Tabs.Tab value="time" style={{fontWeight:"bold"}}>Time</Tabs.Tab>
+                                <Tabs.Tab value="recommended" style={{fontWeight:"bold"}}>Recommended</Tabs.Tab>
+                                <Tabs.Tab value="stacked" style={{fontWeight:"bold"}}>Stacked</Tabs.Tab>
+                                <Tabs.Tab value="summary" style={{fontWeight:"bold"}}>Summary</Tabs.Tab>
                             </Tabs.List>
 
-                            <Tabs.Panel value="gallery">                                <>
+                            <Tabs.Panel value="time">                                <>
                                     {filteredReplies.slice(0, visibleReplies).map((reply) => renderReplies(reply))}
                                     {visibleReplies < filteredReplies.length && (
                                         <Button onClick={handleShowMoreReplies} variant="outline" fullWidth
@@ -794,7 +794,7 @@ export default function PostView({params}: { params: { id: string } }) {
                                         </Button>
                                     )}
                                 </></Tabs.Panel>
-                            <Tabs.Panel value="messages">
+                            <Tabs.Panel value="recommended">
                             <div style={{textAlign: 'center'}}>
                                     {recommendedLoading ? (
                                         <Loader size="lg"/>
@@ -803,7 +803,7 @@ export default function PostView({params}: { params: { id: string } }) {
                                     )}
                                 </div>
                             </Tabs.Panel>
-                            <Tabs.Panel value="settings">                               
+                            <Tabs.Panel value="stacked">                               
                                  <div style={{ textAlign: 'center' }}>
                                     {loadingRepliesStack ? (
                                         <Loader size="lg" />
