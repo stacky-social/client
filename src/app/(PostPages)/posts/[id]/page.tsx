@@ -89,6 +89,9 @@ export default function PostView({params}: { params: { id: string } }) {
     const [activePostId, setActivePostId] = useState<string | null>(null);
     const [postPosition, setPostPosition] = useState<{ top: number, height: number } | null>(null);
 
+    const [activeTab, setActiveTab] = useState('gallery');
+  const iconStyle = { width: '12px', height: '12px' };
+
     const [focuspostPosition, setFocusPostPosition] = useState<{ top: number, height: number } | null>(null);
 
     const [showFocusRelatedStacks, setShowFocusRelatedStacks] = useState(true);
@@ -107,7 +110,14 @@ export default function PostView({params}: { params: { id: string } }) {
     const[focusPostLoaded, setFocusPostLoaded] = useState(false);
     const [postRendered, setPostRendered] = useState(false); // 新增状态变量
 
+
     const [isExpanded, setIsExpanded] = useState(true);
+
+    const handleTabChange = (value: string | null) => {
+        if (value !== null) {
+          setActiveTab(value);
+        }
+      };
 
     const handleStackClick = (index: number) => {
         const newRelatedStacks = [...focus_relatedStacks];
@@ -851,13 +861,44 @@ setIsExpanded(false);
                                 width: '100%'
                             }}
                         >
-                            <Tabs color = '#002379' defaultValue="gallery" orientation="vertical" inverted>
-                            <Tabs.List>
-                                <Tabs.Tab value="gallery">Time</Tabs.Tab>
-                                <Tabs.Tab value="messages">Recommended</Tabs.Tab>
-                                <Tabs.Tab value="settings">Stacked</Tabs.Tab>
-                                <Tabs.Tab value="summary">Summary</Tabs.Tab>
-                            </Tabs.List>
+                            <Tabs color = '#002379' defaultValue="gallery" orientation="vertical" inverted
+                           value={activeTab}
+                           onChange={handleTabChange}
+                            >
+                           <Tabs.List>
+          <Tabs.Tab
+            value="gallery"
+            style={{
+              fontWeight: activeTab === 'gallery' ? 'bold' : 'normal',
+            }}
+          >
+            Time
+          </Tabs.Tab>
+          <Tabs.Tab
+            value="messages"
+            style={{
+              fontWeight: activeTab === 'messages' ? 'bold' : 'normal',
+            }}
+          >
+            Recommended
+          </Tabs.Tab>
+          <Tabs.Tab
+            value="settings"
+            style={{
+              fontWeight: activeTab === 'settings' ? 'bold' : 'normal',
+            }}
+          >
+            Stacked
+          </Tabs.Tab>
+          <Tabs.Tab
+            value="summary"
+            style={{
+              fontWeight: activeTab === 'summary' ? 'bold' : 'normal',
+            }}
+          >
+            Summary
+          </Tabs.Tab>
+        </Tabs.List>
 
                             <Tabs.Panel value="gallery">                                <>
                                     {filteredReplies.slice(0, visibleReplies).map((reply) => renderReplies(reply))}
