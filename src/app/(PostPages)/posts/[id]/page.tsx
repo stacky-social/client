@@ -89,7 +89,7 @@ export default function PostView({params}: { params: { id: string } }) {
     const [activePostId, setActivePostId] = useState<string | null>(null);
     const [postPosition, setPostPosition] = useState<{ top: number, height: number } | null>(null);
 
-    const [activeTab, setActiveTab] = useState('gallery');
+    const [activeTab, setActiveTab] = useState('time');
   const iconStyle = { width: '12px', height: '12px' };
 
     const [focuspostPosition, setFocusPostPosition] = useState<{ top: number, height: number } | null>(null);
@@ -223,6 +223,9 @@ export default function PostView({params}: { params: { id: string } }) {
     }, [postLoaded]);
 
     const filteredReplies = replies.filter(reply => reply.in_reply_to_id === id);
+    useEffect(() => {
+        console.log('Filtered Replies:', filteredReplies);
+    }, [filteredReplies]);
     const replyIDs = filteredReplies.map(reply => reply.id); 
 
 
@@ -379,6 +382,7 @@ export default function PostView({params}: { params: { id: string } }) {
         }
 
         try {
+            console.log('Fetching related stacks for post:', post);
             const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${post.id}/related`, {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
@@ -546,6 +550,7 @@ setIsExpanded(false);
         setLoadingMoreReplies(true);
         setTimeout(() => {
             setVisibleReplies((prevVisibleReplies) => {
+                console.log('Prev visible replies:', prevVisibleReplies);
                 const newVisibleReplies = prevVisibleReplies + 15;
                 return newVisibleReplies >= filteredReplies.length ? filteredReplies.length : newVisibleReplies;
             });
@@ -659,6 +664,7 @@ setIsExpanded(false);
 
 
     const renderReplies = (post: any) => {
+        console.log('Rendering reply:', post);
 
         return (
             <Post
@@ -861,31 +867,31 @@ setIsExpanded(false);
                                 width: '100%'
                             }}
                         >
-                            <Tabs color = '#002379' defaultValue="gallery" orientation="vertical" inverted
+                            <Tabs color = '#002379' defaultValue="time" orientation="vertical" inverted
                            value={activeTab}
                            onChange={handleTabChange}
                             >
                            <Tabs.List>
           <Tabs.Tab
-            value="gallery"
+            value="time"
             style={{
-              fontWeight: activeTab === 'gallery' ? 'bold' : 'normal',
+              fontWeight: activeTab === 'time' ? 'bold' : 'normal',
             }}
           >
             Time
           </Tabs.Tab>
           <Tabs.Tab
-            value="messages"
+            value="recommended"
             style={{
-              fontWeight: activeTab === 'messages' ? 'bold' : 'normal',
+              fontWeight: activeTab === 'recommended' ? 'bold' : 'normal',
             }}
           >
             Recommended
           </Tabs.Tab>
           <Tabs.Tab
-            value="settings"
+            value="stacked"
             style={{
-              fontWeight: activeTab === 'settings' ? 'bold' : 'normal',
+              fontWeight: activeTab === 'stacked' ? 'bold' : 'normal',
             }}
           >
             Stacked
@@ -900,7 +906,8 @@ setIsExpanded(false);
           </Tabs.Tab>
         </Tabs.List>
 
-                            <Tabs.Panel value="time">                                <>
+                            <Tabs.Panel value="time">                                
+                                <>
                                     {filteredReplies.slice(0, visibleReplies).map((reply) => renderReplies(reply))}
                                     {visibleReplies < filteredReplies.length && (
                                         <Button onClick={handleShowMoreReplies} variant="outline" fullWidth
@@ -908,7 +915,8 @@ setIsExpanded(false);
                                             {loadingMoreReplies ? 'Loading...' : 'More Replies'}
                                         </Button>
                                     )}
-                                </></Tabs.Panel>
+                                </>
+                                </Tabs.Panel>
                             <Tabs.Panel value="recommended">
                             <div style={{textAlign: 'center'}}>
                                     {recommendedLoading ? (
