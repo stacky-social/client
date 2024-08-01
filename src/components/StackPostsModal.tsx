@@ -161,7 +161,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
             />
           </div>
         </UnstyledButton>
-        <Divider my="md" />
+        <Divider style={{marginTop:'1rem'}} />
         <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
           <Button variant="subtle" size="sm" radius="lg">
             <IconMessageCircle size={20} style={{ color: '#002379' }} /> <Text style={{ color: '#002379' }} ml={4}>{stack.topPost.replies_count}</Text>
