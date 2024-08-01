@@ -39,6 +39,9 @@ const PostList: React.FC<PostListProps> = ({
                 const response = await axios.get(apiUrl, {
                     headers: {
                         Authorization: `Bearer ${accessToken}`,
+                    },
+                    params: {
+                        limit: 40 // 添加 max_id 作为查询参数
                     }
                 });
                 let data: PostType[] = response.data.map((post: any) => ({

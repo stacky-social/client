@@ -23,7 +23,7 @@ interface PostType {
   content_rewritten: string;
   rewrite: 
     {content: string; 
-    significant:boolean;
+      significant:boolean;
    } 
 
 }
