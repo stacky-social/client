@@ -6,8 +6,8 @@ import '../styles/globals.css';
 import {Notifications} from "@mantine/notifications";
 
 export const metadata = {
-  title: "Stacks",
-  description: "Stacks Project!",
+  title: "Stacky",
+  description: "Stacky!",
 };
 
 export default function RootLayout({ children }: { children: any }) {
@@ -15,7 +15,7 @@ export default function RootLayout({ children }: { children: any }) {
     <html lang="en">
       <head>
         <ColorSchemeScript />
-        <link rel="shortcut icon" href="/favicon.svg" />
+        <link rel="shortcut icon" href="/stacksLOGO.jpg" />
         <meta
           name="viewport"
           content="minimum-scale=1, initial-scale=1, width=device-width, user-scalable=no"
