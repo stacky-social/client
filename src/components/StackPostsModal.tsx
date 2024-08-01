@@ -198,14 +198,14 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     <Modal
       opened={isOpen}
       onClose={onClose}
-      size="auto"
+      size="80%"
       centered
       overlayProps={{
         backgroundOpacity: 0.55,
         color:'#fefefb',
         blur: 3
       }}
-      style={{padding:'0px'}}
+      style={{backgroundColor:'#fefefb'}}
       withCloseButton={false}
     >
     <div

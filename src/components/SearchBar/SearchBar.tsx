@@ -230,16 +230,16 @@ export default function SearchBar() {
           </Paper>
 
           <Box mt="md">
-            <Tabs defaultValue="accounts">
+            <Tabs defaultValue="posts">
               <Tabs.List>
+              <Tabs.Tab value="posts" leftSection={<IconMessageCircle size={18} />}>
+                  Posts
+                </Tabs.Tab>
                 <Tabs.Tab value="accounts" leftSection={<IconUser size={18} />}>
                   Users
                 </Tabs.Tab>
                 <Tabs.Tab value="hashtags" leftSection={<IconTag size={18} />}>
                   Hashtags
-                </Tabs.Tab>
-                <Tabs.Tab value="statuses" leftSection={<IconMessageCircle size={18} />}>
-                  Statuses
                 </Tabs.Tab>
               </Tabs.List>
 
@@ -280,7 +280,7 @@ export default function SearchBar() {
                 )}
               </Tabs.Panel>
 
-              <Tabs.Panel value="statuses">
+              <Tabs.Panel value="posts">
                 {ResultPosts.length > 0 && (
                   <List>
                     {ResultPosts.map((status) => (
