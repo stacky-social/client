@@ -45,7 +45,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
   const [searchTerm, setSearchTerm] = useState('');
   const router = useRouter();
   const [activePostId, setActivePostId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string | null>('list');
+  const [activeTab, setActiveTab] = useState<string | null>('stacked');
   const [currentUrl, setCurrentUrl] = useState<string | null>(apiUrl);
 
   useEffect(() => {
