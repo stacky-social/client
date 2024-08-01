@@ -105,7 +105,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
 
   const handleStackClick = (topPostId: string) => {
     console.log(`Navigating to /posts/${topPostId}`);
-    // router.push(`/posts/${topPostId}`);
+    router.push(`/posts/${topPostId}`);
   };
 
   const handleStackIconClick = (relatedStacks: any[]) => {
@@ -126,14 +126,15 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
 
 
   const cards = substacks.map((stack) => (
-    <div key={stack.substackId} style={{ margin: '2rem', width: '100%', position: 'relative' }}>
+    <div key={stack.substackId} style={{ margin: '2rem', width: '100%', position: 'relative'}}>
       <Paper
         style={{
           backgroundColor: '#f6f3e1',
-          boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
           position: 'relative',
           marginRight: '2rem',
+          borderRadius:'0px',
           zIndex:5,
+          boxShadow: '0 3px 10px rgba(0,0,0,0.1)'
         }}
       >
         {stack.size !== null && stack.size > 1 && (
@@ -161,7 +162,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
             />
           </div>
         </UnstyledButton>
-        <Divider my="md" />
+        <Divider style={{marginTop:'1rem'}} />
         <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
           <Button variant="subtle" size="sm" radius="lg">
             <IconMessageCircle size={20} style={{ color: '#002379' }} /> <Text style={{ color: '#002379' }} ml={4}>{stack.topPost.replies_count}</Text>
@@ -175,7 +176,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
         </Group>
       </Paper>
 
-      {[...Array(3)].map((_, index) => (
+      {stack.size != null && stack.size > 1&&[...Array(3)].map((_, index) => (
         <div
           key={index}
           style={{
@@ -183,10 +184,9 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
             bottom: `${-15 + 5 * index}px`,
             left: `${10 - 5 * index}px`,
             width: '95%',
-            height: '220px',
+            height: '90%',
             backgroundColor: '#5a71a8',
-            border: '0.5px solid #FCFBF5',
-       
+            border: '0.5px solid #FCFBF5', 
           }}
         />
       ))}
@@ -198,13 +198,18 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     <Modal
       opened={isOpen}
       onClose={onClose}
-      size="70%"
+      size="80%"
       centered
-     
-
+      overlayProps={{
+        backgroundOpacity: 0.55,
+        color:'#fefefb',
+        blur: 3,
+      }}
+      styles={{body: { backgroundColor: '#fefefb' }}}
+      withCloseButton={false}
     >
     <div
-    style={{backgroundColor: '#fefefb'}}
+    style={{backgroundColor: '#fefefb',padding:'2rem'}}
     >
     <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List>

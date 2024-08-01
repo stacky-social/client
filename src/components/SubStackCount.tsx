@@ -17,7 +17,7 @@ const SubStackCount: React.FC<SubStackCountProps> = ({ count, onClick }) => {
       style={{
         position: 'absolute',
         top: '-10px',
-        right: '-10px',
+        right: '-30px',
         width: '50px',
         display: 'flex',
         backgroundColor: '#f6f3e1',

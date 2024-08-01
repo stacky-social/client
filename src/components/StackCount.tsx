@@ -13,6 +13,8 @@ import {
   IconFrame,
   IconUser,
   IconCards,
+  IconThumbUp,
+  IconThumbDown,
 } from '@tabler/icons-react';
 
 interface StackCountProps {
@@ -37,6 +39,8 @@ const iconMapping: { [key: string]: JSX.Element } = {
   framing: <IconFrame  style={{ color: '#011445' }} size={20} />,
   questions: <IconQuestionMark  style={{ color: '#011445' }} size={20} />,
   default: <IconStack  style={{ color: '#011445' }} size={20} />,
+  agree: <IconThumbUp size={20} />,
+  disagree: <IconThumbDown size={20} />,
 };
 
 const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, relatedStacks, expanded, cardHeight}) => {

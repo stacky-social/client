@@ -54,7 +54,8 @@ const PostList: React.FC<PostListProps> = ({
                     favourited: post.favourited,
                     bookmarked: post.bookmarked,
                     mediaAttachments: post.media_attachments,
-                    relatedStacks: [] 
+                    relatedStacks: []
+                    
                 }));
 
                 setPosts(data);
