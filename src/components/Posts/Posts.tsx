@@ -79,7 +79,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
                             <motion.div
                                 id="related-stacks"
                                 style={{ position: 'absolute', 
-                                    top:  showSubmitAndSearch ? postPosition.top - 200: postPosition.top - 300, 
+                                    top:   postPosition.top - 60, 
                                     left: 0 }}
                                 initial={{ opacity: 0, x: -200 }}
                                 animate={{ opacity: 1, x: 0 }}
