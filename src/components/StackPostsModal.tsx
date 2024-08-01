@@ -123,58 +123,76 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     console.log("Substacks:", substacks);
   }, [substacks]);
 
-  const title = "";
+
 
   const cards = substacks.map((stack) => (
-    <div key={stack.substackId} style={{ margin: '20px', width: '100%', position: 'relative' }}>
-      {
-        stack.size !== null && stack.size > 1 && (
-          <SubStackCount count={stack.size} onClick={() => handleStackCountClick(stack.topPost.id, stack.substackId)} />
-        )
-      }
+    <div key={stack.substackId} style={{ margin: '2rem', width: '100%', position: 'relative' }}>
       <Paper
         style={{
-          backgroundColor: '#fff',
+          backgroundColor: '#f6f3e1',
           boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-          borderRadius: '8px',
           position: 'relative',
+          marginRight: '2rem',
+          zIndex:5,
         }}
-        withBorder
       >
+        {stack.size !== null && stack.size > 1 && (
+          <SubStackCount count={stack.size} onClick={() => handleStackCountClick(stack.topPost.id, stack.substackId)} />
+        )}
         <UnstyledButton onClick={() => handleStackClick(stack.topPost.id)} style={{ width: '100%' }}>
-          <Group>
+          <Group style={{ marginTop: '1rem', marginLeft: '1rem' }}>
             <Avatar
               src={stack.topPost.account.avatar}
               alt={stack.topPost.account.display_name}
               radius="xl"
             />
             <div>
-              <Text size="sm">{stack.topPost.account.display_name}</Text>
-              <Text size="xs" color="dimmed">{formatDistanceToNow(new Date(stack.topPost.created_at))} ago</Text>
+              <Text size="sm" style={{ color: '#011445' }}>{stack.topPost.account.display_name}</Text>
+              <Text size="xs" c="dimmed">{formatDistanceToNow(new Date(stack.topPost.created_at))} ago</Text>
             </div>
           </Group>
           <div style={{ paddingLeft: '54px', paddingTop: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: '3', WebkitBoxOrient: 'vertical' }}>
-            <div dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
+            <Text
+              c="#011445"
+              size="1rem"
+              className="post-content"
+              style={{ marginTop: '0px', lineHeight: '1.5', marginRight: '1rem' }}
+              dangerouslySetInnerHTML={{ __html: stack.topPost.content }}
+            />
           </div>
-          <Text pl={54} pt="sm" size="sm">Post Id: {stack.topPost.id}</Text>
-          <Text pl={54} pt="sm" size="sm">Stack Id: {stack.substackId}</Text>
-          <Text pl={54} pt="sm" size="sm">Stack size: {stack.size}</Text>
         </UnstyledButton>
         <Divider my="md" />
         <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
           <Button variant="subtle" size="sm" radius="lg">
-            <IconMessageCircle size={20} /> <Text ml={4}>{stack.topPost.replies_count}</Text>
+            <IconMessageCircle size={20} style={{ color: '#002379' }} /> <Text style={{ color: '#002379' }} ml={4}>{stack.topPost.replies_count}</Text>
           </Button>
           <Button variant="subtle" size="sm" radius="lg">
-            {stack.topPost.favourited ? <IconHeartFilled size={20} /> : <IconHeart size={20} />} <Text ml={4}>{stack.topPost.favourites_count}</Text>
+            {stack.topPost.favourited ? <IconHeartFilled size={20} style={{ color: '#002379' }} /> : <IconHeart size={20} style={{ color: '#002379' }} />} <Text style={{ color: '#002379' }} ml={4}>{stack.topPost.favourites_count}</Text>
           </Button>
           <Button variant="subtle" size="sm" radius="lg">
-            {stack.topPost.bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
+            {stack.topPost.bookmarked ? <IconBookmarkFilled size={20} style={{ color: '#002379' }} /> : <IconBookmark size={20} style={{ color: '#002379' }} />}
           </Button>
         </Group>
       </Paper>
+
+      {[...Array(3)].map((_, index) => (
+        <div
+          key={index}
+          style={{
+            position: 'absolute',
+            bottom: `${-15 + 5 * index}px`,
+            left: `${10 - 5 * index}px`,
+            width: '95%',
+            height: '220px',
+            backgroundColor: '#5a71a8',
+            border: '0.5px solid #FCFBF5',
+       
+          }}
+        />
+      ))}
     </div>
   ));
+
 
   return (
     <Modal
@@ -182,8 +200,13 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
       onClose={onClose}
       size="70%"
       centered
+     
+
     >
-      <Tabs value={activeTab} onChange={setActiveTab}>
+    <div
+    style={{backgroundColor: '#fefefb'}}
+    >
+    <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List>
           <Tabs.Tab value="list">List</Tabs.Tab>
           <Tabs.Tab value="stacked">Stacked</Tabs.Tab>
@@ -207,7 +230,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
           </ScrollArea>
         </Tabs.Panel>
         <Tabs.Panel value="stacked">
-          <Container py="xl" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <Container py="xl" style={{ maxWidth: '1000px'}}>
             <SimpleGrid cols={2} spacing="lg">{cards}</SimpleGrid>
           </Container>
         </Tabs.Panel>
@@ -218,6 +241,8 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
           </ScrollArea>
         </Tabs.Panel>
       </Tabs>
+    </div>
+      
     </Modal>
   );
 }

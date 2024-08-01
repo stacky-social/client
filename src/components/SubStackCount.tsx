@@ -20,6 +20,7 @@ const SubStackCount: React.FC<SubStackCountProps> = ({ count, onClick }) => {
         right: '-10px',
         width: '50px',
         display: 'flex',
+        backgroundColor: '#f6f3e1',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
@@ -28,7 +29,7 @@ const SubStackCount: React.FC<SubStackCountProps> = ({ count, onClick }) => {
         transition: 'transform 0.3s ease',
         zIndex: 10, // Ensure it appears above the card
       }}
-      withBorder
+
     >
       <div style={{
         display: 'flex',
