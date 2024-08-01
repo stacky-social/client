@@ -60,6 +60,7 @@ interface PostProps {
   relatedStacks: any[];
   activePostId: string | null;
   setActivePostId: (id: string | null) => void;
+  
 }
 
 export default function Post({
@@ -96,6 +97,15 @@ export default function Post({
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>([]);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
 
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const textRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const element = textRef.current;
+    if (element) {
+      setIsOverflowing(element.scrollHeight > element.clientHeight);
+    }
+  }, [text]);
   useEffect(() => {
     setTempRelatedStacks(relatedStacks);
   }, [relatedStacks]);
@@ -365,15 +375,27 @@ export default function Post({
           onMouseUp={handleMouseUp}
         >
           <div>
-            <Text
-              c="#011445" 
-              size="1rem" 
-              className="post-content" 
-              style={{marginTop:'0px',lineHeight: '1.5'}}
-              dangerouslySetInnerHTML={{ __html: text }} 
-            />
-          </div>
-
+      <div
+        ref={textRef}
+        style={{
+          display: '-webkit-box',
+          WebkitBoxOrient: 'vertical',
+          WebkitLineClamp: 5,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          marginTop: '0px',
+          lineHeight: '1.5',
+          color: '#011445'
+        }}
+        dangerouslySetInnerHTML={{ __html: text }}
+      />
+      {isOverflowing && (
+        <div style={{ color: '#5a71a8' }}>
+          [read more]
+        </div>
+      )}
+    </div>
+  
           {mediaAttachments.length > 0 && (
             <div style={{ paddingLeft: '3rem', paddingRight: '4rem', paddingTop: '1rem' }}>
               {mediaAttachments.map((url, index) => (

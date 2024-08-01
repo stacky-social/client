@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button } from '@mantine/core';
-import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconStack } from '@tabler/icons-react';
+import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconStack, IconThumbUp,IconThumbDown } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import RelatedStackCount from './RelatedStackCount';
 import StackPostsModal from './StackPostsModal';
@@ -21,6 +21,11 @@ interface PostType {
     display_name: string;
   };
   content_rewritten: string;
+  rewrite: 
+    {content: string; 
+    significant:boolean;
+   } 
+
 }
 
 interface RelatedStackType {
@@ -51,6 +56,8 @@ const iconMapping: { [key: string]: JSX.Element } = {
   framing: <IconFrame size={20} />,
   questions: <IconQuestionMark size={20} />,
   default: <IconStack size={20} />,
+  agree: <IconThumbUp size={20} />,
+  disagree: <IconThumbDown size={20} />,
 };
 
 const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, onStackClick, setIsExpandModalOpen, showupdate }) => {
@@ -74,6 +81,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
     setCurrentStackId(stackId);
     setStackPostsModalOpen(true);
     setIsExpandModalOpen(true);
+  };
+
+  const formatContent = (content:string) => {
+    // 使用正则表达式匹配并替换⌊⌋和⌈⌉标记，同时保留内部字符
+    let formattedContent = content
+      .replace(/⌊(.*?)⌋/g, '<span style="color: red;">$1</span>')
+      .replace(/⌈(.*?)⌉/g, '<span style="color: blue;">$1</span>');
+  
+    return { __html: formattedContent };
   };
 
   const handleNavigate = (postId: string, newStackId: string) => {
@@ -162,7 +178,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
               // border: '1.5px solid  white',
             }}
           >
-            {stack.topPost && stack.topPost.content_rewritten && (
+            {stack.topPost.rewrite.significant&& (
               <div
                 style={{
                   position: 'absolute',
@@ -176,7 +192,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
                   fontSize: '10px'
                 }}
               >
-                Rewritten by AI
+                Modified by AI
               </div>
             )}
             <UnstyledButton
@@ -202,11 +218,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
                 }}
             >
               <div>
-                {stack.topPost.content_rewritten ? (
-                  <Text c="#011445" size="sm" dangerouslySetInnerHTML={{ __html: stack.topPost.content_rewritten }} />
-                ) : (
-                  <Text c="#011445" size="sm" dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
-                )}
+              {stack.topPost.rewrite.significant ? (
+          <Text c="#011445" size="sm" dangerouslySetInnerHTML={formatContent(stack.topPost.rewrite.content)} />
+        ) : (
+          <Text c="#011445" size="sm" dangerouslySetInnerHTML={formatContent(stack.topPost.content)} />
+        )}
               </div>
             </div>
 {/* 

@@ -77,9 +77,11 @@ export default function SearchBar() {
   const [loadingRelatedStacks, setLoadingRelatedStacks] = useState(false);
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [postPosition, setPostPosition] = useState<{ top: number, height: number } | null>(null);
-  const relatedStacksRef = useRef<HTMLDivElement>(null);
-  const [postLoaded, setPostLoaded] = useState(false);
 
+
+
+
+  
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     setAccessToken(token);
@@ -117,6 +119,8 @@ export default function SearchBar() {
       console.error('Error searching Mastodon:', error);
     }
   };
+
+
 
   const fetchRelatedStacks = async (post: any) => {
     setLoadingRelatedStacks(true);
