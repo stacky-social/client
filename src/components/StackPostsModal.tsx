@@ -126,14 +126,15 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
 
 
   const cards = substacks.map((stack) => (
-    <div key={stack.substackId} style={{ margin: '2rem', width: '100%', position: 'relative' }}>
+    <div key={stack.substackId} style={{ margin: '2rem', width: '100%', position: 'relative'}}>
       <Paper
         style={{
           backgroundColor: '#f6f3e1',
-          boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
           position: 'relative',
           marginRight: '2rem',
+          borderRadius:'0px',
           zIndex:5,
+          boxShadow: '0 3px 10px rgba(0,0,0,0.1)'
         }}
       >
         {stack.size !== null && stack.size > 1 && (
@@ -175,7 +176,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
         </Group>
       </Paper>
 
-      {[...Array(3)].map((_, index) => (
+      {stack.size != null && stack.size > 1&&[...Array(3)].map((_, index) => (
         <div
           key={index}
           style={{
@@ -185,8 +186,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
             width: '95%',
             height: '220px',
             backgroundColor: '#5a71a8',
-            border: '0.5px solid #FCFBF5',
-       
+            border: '0.5px solid #FCFBF5', 
           }}
         />
       ))}
