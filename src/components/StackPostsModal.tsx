@@ -105,7 +105,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
 
   const handleStackClick = (topPostId: string) => {
     console.log(`Navigating to /posts/${topPostId}`);
-    // router.push(`/posts/${topPostId}`);
+    router.push(`/posts/${topPostId}`);
   };
 
   const handleStackIconClick = (relatedStacks: any[]) => {
@@ -198,13 +198,18 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     <Modal
       opened={isOpen}
       onClose={onClose}
-      size="70%"
+      size="auto"
       centered
-     
-
+      overlayProps={{
+        backgroundOpacity: 0.55,
+        color:'#fefefb',
+        blur: 3
+      }}
+      style={{padding:'0px'}}
+      withCloseButton={false}
     >
     <div
-    style={{backgroundColor: '#fefefb'}}
+    style={{backgroundColor: '#fefefb',padding:'2rem'}}
     >
     <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List>
