@@ -29,6 +29,11 @@ interface PostType {
     avatar: string;
     display_name: string;
   };
+  rewrite: 
+    {
+      content: string; 
+      significant:boolean;
+   } 
 }
 
 interface Substack {
@@ -48,7 +53,6 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
   const [activeTab, setActiveTab] = useState<string | null>('stacked');
   const [currentUrl, setCurrentUrl] = useState<string | null>(apiUrl);
   const [summary, setSummary] = useState<string | null>(null);
-  const [isOverflowing, setIsOverflowing] = useState(false);
   const textRef = useRef<HTMLDivElement>(null);
 
   const fetchSummary = async (id: string) => {
@@ -59,6 +63,22 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
       console.error("fetching error:", error);
     }
   };
+
+  const formatContent = (content: string) => {
+    let formattedContent = content
+      .replace(/⌊(.*?)⌋/g, '<span style="color: #5502b5;">$1</span>')
+      .replace(/⌈(.*?)⌉/g, '<span style="color: #0235b5;">$1</span>')
+      .replace(/…/g, '<span style="color:#b50202;">…</span>');
+
+   
+    const maxLength = 150; 
+    if (formattedContent.length > maxLength) {
+      formattedContent = formattedContent.substring(0, maxLength) + '... <span style="color: #5a71a8;">[Read More]</span>';
+    }
+
+    return { __html: formattedContent };
+  };
+
 
   useEffect(() => {
     if (activeTab === 'summary' && stackId) {
@@ -90,6 +110,8 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
       console.log("Fetching substacks for stack:", id);
 
       const response = await axios.get(`https://beta.stacky.social:3002/stacks/${id}/substacks`);
+
+      console.log("Substacks response:", response.data);
       const substacksData = response.data.map((item: any) => ({
         substackId: item.substackId,
         size: item.size,
@@ -105,6 +127,10 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
             avatar: item.topPost.account.avatar,
             display_name: item.topPost.account.display_name,
           },
+          rewrite:{
+            content: item.topPost.rewrite.content,
+            significant: item.topPost.rewrite.significant
+          }
         },
       }));
       setSubstacks(substacksData);
@@ -133,7 +159,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
 
   const handleStackCountClick = (topPostId: string, substackID: string) => {
     console.log(topPostId);
-    const newUrl = `https://beta.stacky.social:3002/stacks/${substackID}/posts`;
+    const newUrl = `https://beta.stacky.social:3002/stacks/${substackID}/substacks`;
     setCurrentUrl(newUrl);
     fetchSubstacks(substackID);
   };
@@ -142,12 +168,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     console.log("Substacks:", substacks);
   }, [substacks]);
 
-  useEffect(() => {
-    const element = textRef.current;
-    if (element) {
-      setIsOverflowing(element.scrollHeight > element.clientHeight);
-    }
-  }, [substacks]);
+  
 
   const cards = substacks.map((stack) => (
     <div key={stack.substackId} style={{ margin: '2rem', width: '100%', position: 'relative'}}>
@@ -161,11 +182,32 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
           boxShadow: '0 3px 10px rgba(0,0,0,0.1)'
         }}
       >
+
+{
+            stack.topPost.rewrite.significant&&  (
+              <div
+              style={{
+                position: 'absolute',
+                top: '10px',
+                left: '10px',
+                background: '#A6290D',
+                color: 'white',
+                padding: '2px 6px',
+                fontWeight: 'bold',
+                zIndex: 10,
+                fontSize: '10px'
+              }}
+            >
+              Modified by AI
+            </div>
+            )
+}
+
         {stack.size !== null && stack.size > 1 && (
           <SubStackCount count={stack.size} onClick={() => handleStackCountClick(stack.topPost.id, stack.substackId)} />
         )}
         <UnstyledButton onClick={() => handleStackClick(stack.topPost.id)} style={{ width: '100%' }}>
-          <Group style={{ marginTop: '1rem', marginLeft: '1rem' }}>
+          <Group style={{ marginTop: '2rem', marginLeft: '1rem' }}>
             <Avatar
               src={stack.topPost.account.avatar}
               alt={stack.topPost.account.display_name}
@@ -176,27 +218,23 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
               <Text size="xs" c="dimmed">{formatDistanceToNow(new Date(stack.topPost.created_at))} ago</Text>
             </div>
           </Group>
+
           <div ref={textRef} 
           style={{ 
             paddingLeft: '54px', 
             paddingTop: '1rem', 
-            overflow: 'hidden', 
-            textOverflow: "ellipsis", 
-            display: '-webkit-box', 
-            WebkitLineClamp: '3', 
+           
             WebkitBoxOrient: 'vertical' }}>
             <Text
               c="#011445"
               size="1rem"
               className="post-content"
               style={{ marginTop: '0px', lineHeight: '1.5', marginRight: '1rem' }}
-              dangerouslySetInnerHTML={{ __html: stack.topPost.content }}
+              dangerouslySetInnerHTML={formatContent(stack.topPost.content)}
             />
-            {isOverflowing && (
-              <div style={{ color: '#5a71a8' }}>
-              [read more]
-              </div>
-            )}
+
+          
+        
           </div>
         </UnstyledButton>
         <Divider style={{marginTop:'1rem'}} />
