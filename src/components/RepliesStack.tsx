@@ -200,7 +200,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
                 
               >
                 {stack.topPost.content_rewritten ? (
-                  <Text c="#011445" dangerouslySetInnerHTML={{ __html: stack.topPost.content_rewritten }} />
+                  <Text c="#011445" dangerouslySetInnerHTML={{ __html: stack.topPost.rewrite.content }} />
                 ) : (
                   <Text c="#011445" dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
                 )}

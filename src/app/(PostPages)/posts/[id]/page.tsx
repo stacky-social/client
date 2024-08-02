@@ -412,7 +412,7 @@ export default function PostView({params}: { params: { id: string } }) {
           
 
             const accessToken = localStorage.getItem('accessToken');
-                const response = await axios.post(`https://beta.stacky.social:3002/replies/${id}/stacks`, {
+                const response = await axios.post(`https://beta.stacky.social:3002/replies/${id}/stacks?no_cache=true`, {
                     immediateReplyIDs: replyIDs
                 }, {
                     headers: {
