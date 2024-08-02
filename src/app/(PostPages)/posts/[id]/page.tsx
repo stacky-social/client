@@ -1038,7 +1038,7 @@ setIsExpanded(false);
                                 </div>
                             </Tabs.Panel>
                             <Tabs.Panel value="summary">   
-                                <div>
+                                <div style={{padding:'1rem',fontSize:'1.1rem'}}>
                                     {summary}
                                 </div>
                             </Tabs.Panel>

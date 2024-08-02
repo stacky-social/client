@@ -172,7 +172,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
               radius="xl"
             />
             <div>
-              <Text size="sm" style={{ color: '#011445' }}>{stack.topPost.account.display_name}</Text>
+              <Text size="sm" style={{ color: '#011445', fontWeight:"bold" }}>{stack.topPost.account.display_name}</Text>
               <Text size="xs" c="dimmed">{formatDistanceToNow(new Date(stack.topPost.created_at))} ago</Text>
             </div>
           </Group>
