@@ -84,13 +84,18 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
     setIsExpandModalOpen(true);
   };
 
-  const formatContent = (content:string) => {
-  
+  const formatContent = (content: string) => {
     let formattedContent = content
       .replace(/⌊(.*?)⌋/g, '<span style="color: #5502b5;">$1</span>')
       .replace(/⌈(.*?)⌉/g, '<span style="color: #0235b5;">$1</span>')
-      .replace(/…/g, '<span style="color:#b50202;">…</span>')
-  
+      .replace(/…/g, '<span style="color:#b50202;">…</span>');
+
+   
+    const maxLength = 300; 
+    if (formattedContent.length > maxLength) {
+      formattedContent = formattedContent.substring(0, maxLength) + '... <span style="color: #5a71a8;">[Read More]</span>';
+    }
+
     return { __html: formattedContent };
   };
 
@@ -129,11 +134,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
         handleNavigate(postId, stackId);
       }
       preventClick = false;
-    }, 300); // 延迟以区分单击和双击
+    }, 300); 
   };
 
   const handleDoubleClick = (stackId: string) => {
-    clearTimeout(clickTimeout); // 清除单击事件的计时器
+    clearTimeout(clickTimeout);
     preventClick = true;
     handleStackCountClick(stackId);
   };
@@ -243,9 +248,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
           style={{
             display: '-webkit-box',
             WebkitBoxOrient: 'vertical',
-            WebkitLineClamp: 5,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
+            // WebkitLineClamp: 5,
+            // overflow: 'hidden',
+            // textOverflow: 'ellipsis',
             marginTop: '0px',
             lineHeight: '1.5',
             color: '#011445'
