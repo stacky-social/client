@@ -31,3 +31,6 @@
     align-items: center;
   }
   
+  .has-overflow:after {
+    content: "..."
+  }
