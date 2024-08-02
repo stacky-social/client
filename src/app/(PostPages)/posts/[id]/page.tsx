@@ -200,17 +200,49 @@ export default function PostView({params}: { params: { id: string } }) {
     const tabNames = ["Time", "Recommended", "Stacked", "Summary"];
 
     useEffect(() => {
+        const fetchRelatedStacksFromAPI = async () => {
+            const accessToken = localStorage.getItem('accessToken');
+            if (!accessToken) {
+                console.error('Access token is missing.');
+                return;
+            }
+    
+            try {
+                const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${id}/related`, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    }
+                });
+                const stackData = response.data.relatedStacks || [];
+                const stackSize = response.data.size;
+    
+                setFocus_relatedStacks(stackData);
+                setSize(stackSize);
+    
+                console.log('Fetched Stacks from API:', stackData);
+            } catch (error) {
+                console.error('Error fetching related stacks from API:', error);
+            }
+        };
+    
         const storedRelatedStacks = localStorage.getItem('relatedStacks');
-        const storedsize=localStorage.getItem('relatedStacksSize');
-        if (storedRelatedStacks&&storedsize) {
+        const storedsize = localStorage.getItem('relatedStacksSize');
+        if (storedRelatedStacks && storedsize) {
             const parsedStacks = JSON.parse(storedRelatedStacks);
             setFocus_relatedStacks(parsedStacks);
             setSize(parseInt(storedsize));
-
+    
             console.log('Parsed Stacks:', parsedStacks);
-
+    
+     
+            localStorage.removeItem('relatedStacks');
+            localStorage.removeItem('relatedStacksSize');
+        } else {
+            fetchRelatedStacksFromAPI();
         }
-    }, []);
+    }, [id]);
+    
+    
 
     useEffect(() => {
         console.log('Related Stacks:', focus_relatedStacks);

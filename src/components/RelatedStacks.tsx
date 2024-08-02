@@ -22,7 +22,8 @@ interface PostType {
   };
   content_rewritten: string;
   rewrite: 
-    {content: string; 
+    {
+      content: string; 
       significant:boolean;
    } 
 
