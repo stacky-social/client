@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect,useRef, useState } from 'react';
 import { Modal, ScrollArea, Switch, SimpleGrid, Text, Container, Group, Avatar, Button, Divider, Paper, UnstyledButton, TextInput, rem } from '@mantine/core';
 import axios from 'axios';
 import { IconBookmark, IconHeart, IconMessageCircle, IconPhoto, IconSettings, IconShare, IconHeartFilled, IconBookmarkFilled, IconSearch } from "@tabler/icons-react";
@@ -48,6 +48,8 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
   const [activeTab, setActiveTab] = useState<string | null>('stacked');
   const [currentUrl, setCurrentUrl] = useState<string | null>(apiUrl);
   const [summary, setSummary] = useState<string | null>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const textRef = useRef<HTMLDivElement>(null);
 
   const fetchSummary = async (id: string) => {
     try {
@@ -140,7 +142,12 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     console.log("Substacks:", substacks);
   }, [substacks]);
 
-
+  useEffect(() => {
+    const element = textRef.current;
+    if (element) {
+      setIsOverflowing(element.scrollHeight > element.clientHeight);
+    }
+  }, [substacks]);
 
   const cards = substacks.map((stack) => (
     <div key={stack.substackId} style={{ margin: '2rem', width: '100%', position: 'relative'}}>
@@ -169,7 +176,15 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
               <Text size="xs" c="dimmed">{formatDistanceToNow(new Date(stack.topPost.created_at))} ago</Text>
             </div>
           </Group>
-          <div style={{ paddingLeft: '54px', paddingTop: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: '3', WebkitBoxOrient: 'vertical' }}>
+          <div ref={textRef} 
+          style={{ 
+            paddingLeft: '54px', 
+            paddingTop: '1rem', 
+            overflow: 'hidden', 
+            textOverflow: "ellipsis", 
+            display: '-webkit-box', 
+            WebkitLineClamp: '3', 
+            WebkitBoxOrient: 'vertical' }}>
             <Text
               c="#011445"
               size="1rem"
@@ -177,6 +192,11 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
               style={{ marginTop: '0px', lineHeight: '1.5', marginRight: '1rem' }}
               dangerouslySetInnerHTML={{ __html: stack.topPost.content }}
             />
+            {isOverflowing && (
+              <div style={{ color: '#5a71a8' }}>
+              [read more]
+              </div>
+            )}
           </div>
         </UnstyledButton>
         <Divider style={{marginTop:'1rem'}} />
@@ -215,14 +235,14 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     <Modal
       opened={isOpen}
       onClose={onClose}
-      size="80%"
+      size="70%"
       centered
       overlayProps={{
         backgroundOpacity: 0.55,
         color:'#fefefb',
         blur: 3,
       }}
-      styles={{body: { backgroundColor: '#fefefb' }}}
+      styles={{body: { backgroundColor: '#fefefb'}, content:{maxWidth:'1200px'}}}
       withCloseButton={false}
     >
     <div
@@ -258,11 +278,11 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
         </Tabs.Panel>
         <Tabs.Panel value="summary">
           <ScrollArea style={{ height: 600 }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', padding:'3rem'}}>
               {summary ? (
-                <Text>{summary}</Text>
+                <Text size='1.1rem'>{summary}</Text>
               ) : (
-                <Text>loading...</Text>
+                <Text size='1.3rem'>Loading....</Text>
               )}
             </div>
           </ScrollArea>

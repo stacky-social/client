@@ -144,6 +144,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
     }
   };
 
+
   return (
     <motion.div
       variants={containerVariants}
@@ -220,9 +221,38 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
             >
               <div>
               {stack.topPost.rewrite.significant ? (
-          <Text c="#011445" size="sm" dangerouslySetInnerHTML={formatContent(stack.topPost.rewrite.content)} />
+                      <div
+                      // ref={textRef}
+                      style={{
+                        display: '-webkit-box',
+                        WebkitBoxOrient: 'vertical',
+                        WebkitLineClamp: 5,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        marginTop: '0px',
+                        lineHeight: '1.5',
+                        color: '#011445'
+                      }}
+                      dangerouslySetInnerHTML={formatContent(stack.topPost.rewrite.content)}
+                    />
+          //<Text c="#011445" size="sm" dangerouslySetInnerHTML={formatContent(stack.topPost.rewrite.content)} />
         ) : (
-          <Text c="#011445" size="sm" dangerouslySetInnerHTML={formatContent(stack.topPost.content)} />
+          <div
+          // ref={textRef}
+          style={{
+            display: '-webkit-box',
+            WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: 5,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            marginTop: '0px',
+            lineHeight: '1.5',
+            color: '#011445'
+          }}
+          dangerouslySetInnerHTML={formatContent(stack.topPost.content)}
+        />
+          
+          // <Text c="#011445" size="sm" dangerouslySetInnerHTML={formatContent(stack.topPost.content)} />
         )}
               </div>
             </div>
