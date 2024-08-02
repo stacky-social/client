@@ -53,7 +53,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     setAccessToken(token);
     console.log("api", apiUrl);
     setCurrentUrl(apiUrl);
-  }, [apiUrl]); // 添加 apiUrl 作为依赖项
+  }, [apiUrl]); 
 
   useEffect(() => {
     if (stackId) {
@@ -213,7 +213,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     >
     <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List>
-          <Tabs.Tab value="list">List</Tabs.Tab>
+          <Tabs.Tab value="list">Recommended</Tabs.Tab>
           <Tabs.Tab value="stacked">Stacked</Tabs.Tab>
           <Tabs.Tab value="summary">Summary</Tabs.Tab>
         </Tabs.List>
