@@ -84,10 +84,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
   };
 
   const formatContent = (content:string) => {
-    // 使用正则表达式匹配并替换⌊⌋和⌈⌉标记，同时保留内部字符
+  
     let formattedContent = content
-      .replace(/⌊(.*?)⌋/g, '<span style="color: red;">$1</span>')
-      .replace(/⌈(.*?)⌉/g, '<span style="color: blue;">$1</span>');
+      .replace(/⌊(.*?)⌋/g, '<span style="color: #5502b5;">$1</span>')
+      .replace(/⌈(.*?)⌉/g, '<span style="color: #0235b5;">$1</span>')
+      .replace(/…/g, '<span style="color:#b50202;">…</span>')
   
     return { __html: formattedContent };
   };

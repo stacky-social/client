@@ -47,13 +47,30 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>('stacked');
   const [currentUrl, setCurrentUrl] = useState<string | null>(apiUrl);
+  const [summary, setSummary] = useState<string | null>(null);
+
+  const fetchSummary = async (id: string) => {
+    try {
+      const response = await axios.get(`https://beta.stacky.social:3002/stacks/${id}/summary`);
+      setSummary(response.data.summary);
+    } catch (error) {
+      console.error("fetching error:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'summary' && stackId) {
+      fetchSummary(stackId);
+    }
+  }, [activeTab, stackId]);
+
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     setAccessToken(token);
     console.log("api", apiUrl);
     setCurrentUrl(apiUrl);
-  }, [apiUrl]); // 添加 apiUrl 作为依赖项
+  }, [apiUrl]); 
 
   useEffect(() => {
     if (stackId) {
@@ -213,7 +230,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     >
     <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List>
-          <Tabs.Tab value="list">List</Tabs.Tab>
+          <Tabs.Tab value="list">Recommended</Tabs.Tab>
           <Tabs.Tab value="stacked">Stacked</Tabs.Tab>
           <Tabs.Tab value="summary">Summary</Tabs.Tab>
         </Tabs.List>
@@ -242,6 +259,11 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
         <Tabs.Panel value="summary">
           <ScrollArea style={{ height: 600 }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+              {summary ? (
+                <Text>{summary}</Text>
+              ) : (
+                <Text>loading...</Text>
+              )}
             </div>
           </ScrollArea>
         </Tabs.Panel>

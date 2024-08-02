@@ -113,12 +113,69 @@ export default function PostView({params}: { params: { id: string } }) {
 
     const [isExpanded, setIsExpanded] = useState(true);
 
-    const handleTabChange = (value: string | null) => {
+    const handleTabChange = async (value: string | null) => {
         if (value !== null) {
           setActiveTab(value);
+    
+          if (value === 'recommended') {
+            console.log('Fetching recommended posts...');
+            setRecommendedLoading(true);
+    
+            try {
+              console.log('Fetching recommended posts...');
+              const accessToken = localStorage.getItem('accessToken');
+              const response = await axios.post(`https://beta.stacky.social:3002/replies/${id}/list`, {
+                immediateReplyIDs: replyIDs,
+              }, {
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                }
+              });
+    
+              console.log('Response data:', response.data);
+              const posts = response.data;
+              const formattedPosts = posts.map((post:any[]) => ({
+                ...post,
+                relatedStacks: [],
+                stackCount: null,
+              }));
+    
+              console.log('Formatted posts:', formattedPosts);
+    
+              setRecommendedPosts(formattedPosts);
+              setRecommendedLoading(false);
+    
+              formattedPosts.forEach((post:any[]) => {
+                console.log('Fetching related stacks for post:', post);
+                fetchRelatedStacks(post);
+              });
+            } catch (error) {
+              console.error('Failed to fetch recommended posts:', error);
+              setRecommendedLoading(false);
+            }
+          } else if (value === 'stacked') {
+            setLoadingRepliesStack(true);
+            await fetchRepliesStack(id);
+            setLoadingRepliesStack(false);
+          } else if (value === 'summary') {
+            try {
+              const accessToken = localStorage.getItem('accessToken');
+              const response = await axios.post(`https://beta.stacky.social:3002/replies/${id}/summary`, {
+                immediateReplyIDs: replyIDs,
+              }, {
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                }
+              });
+    
+              console.log('Summary Response:', response.data);
+              setSummary(response.data.summary);
+            } catch (error) {
+              console.error('Failed to fetch summary:', error);
+            }
+          }
         }
       };
-
     const handleStackClick = (index: number) => {
         const newRelatedStacks = [...focus_relatedStacks];
         const [clickedStack] = newRelatedStacks.splice(index, 1);
@@ -355,13 +412,14 @@ export default function PostView({params}: { params: { id: string } }) {
           
 
             const accessToken = localStorage.getItem('accessToken');
-                const response = await axios.post(`https://beta.stacky.social:3002/replies/${id}/stacks`, {
+                const response = await axios.post(`https://beta.stacky.social:3002/replies/${id}/stacks?no_cache=true`, {
                     immediateReplyIDs: replyIDs
                 }, {
                     headers: {
                         Authorization: `Bearer ${accessToken}`,
                     }
                 });
+                console.log('Replies Stack Response:', response.data);
             setRepliesStack(response.data);
         } catch (error) {
             console.error(`Error fetching replies stack data for post ${postId}:`, error);
@@ -632,6 +690,7 @@ setIsExpanded(false);
 
 
     const renderRecommendedPosts = (post: any) => {
+        console.log('Rendering recommended post:', post);
         return (
             <div style={{position: 'relative'}}>
 
@@ -755,19 +814,23 @@ setIsExpanded(false);
                         >
 
 {
-          <UnstyledButton onClick={handleFocusPostClick}>
-            
-            <StackCount
-            cardHeight={600}
-              count={size}
-              onClick={handleFocusPostClick}
-              onStackClick={handleStackClick}
-              relatedStacks={focus_relatedStacks}
-              expanded={isExpanded} 
+                size > 1 && (
+                    <UnstyledButton onClick={handleFocusPostClick}>
+           
+                    <StackCount
+                    cardHeight={600}
+                      count={size}
+                      onClick={handleFocusPostClick}
+                      onStackClick={handleStackClick}
+                      relatedStacks={focus_relatedStacks}
+                      expanded={isExpanded} 
+                 
+                    />
+                  </UnstyledButton>
+                )
+            }
          
-            />
-          </UnstyledButton>
-       }
+       
                   
                   
         <UnstyledButton onClick={handleFocusPostClick}>
@@ -919,6 +982,7 @@ setIsExpanded(false);
                                 </Tabs.Panel>
                             <Tabs.Panel value="recommended">
                             <div style={{textAlign: 'center'}}>
+                                
                                     {recommendedLoading ? (
                                         <Loader size="lg"/>
                                     ) : (
@@ -1006,7 +1070,7 @@ setIsExpanded(false);
                                         <motion.div
                                             style={{
                                                 position: 'absolute',
-                                                top:focuspostPosition.top,
+                                                top:focuspostPosition.top+90,
                                                 left: 20,
                                                 zIndex: 10
                                             }}

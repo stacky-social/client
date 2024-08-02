@@ -21,6 +21,10 @@ interface PostType {
     display_name: string;
   };
   content_rewritten: string;
+  rewrite: 
+  {content: string; 
+    significant:boolean;
+ } 
 }
 
 interface RepliesStackType {
@@ -71,7 +75,9 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
   }, [repliesStacks]);
 
   const handleStackCountClick = (stackId: string) => {
+   
     setCurrentStackId(stackId);
+    console.log('Stack count clicked:', stackId);
     setStackPostsModalOpen(true);
     setIsExpandModalOpen(true);
   };
@@ -121,16 +127,14 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
   };
 
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
+    <div
+      
       style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center', width: '100%' }}
     >
       {repliesStacks.slice(0, maxStacksToShow).map((stack, index) => (
-        <motion.div
+        <div
           key={stack.stackId}
-          variants={itemVariants(index)}
+     
           style={{
             position: 'relative',
             margin: '20px 20px',
@@ -145,32 +149,31 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
             style={{
               position: 'relative',
               width: cardWidth,
-              backgroundColor: '#FFFAE6',
+              backgroundColor: '#f6f3e1',
               zIndex: 5,
               boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-              borderRadius: '8px',
               margin: '0 auto',
               paddingTop: '40px',
-              border: '1.5px solid  white',
+
             }}
-            withBorder
+     
           >
-            {stack.topPost && stack.topPost.content_rewritten && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '10px',
-                  left: '10px',
-                  background: 'linear-gradient(to right, yellow, lightyellow)',
-                  color: 'black',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  fontWeight: 'bold',
-                  zIndex: 10,
-                }}
-              >
-                Rewritten by AI
-              </div>
+            {stack.topPost.rewrite.significant&&  (
+             <div
+             style={{
+               position: 'absolute',
+               top: '10px',
+               left: '10px',
+               background: '#A6290D',
+               color: 'white',
+               padding: '2px 6px',
+               fontWeight: 'bold',
+               zIndex: 10,
+               fontSize: '10px'
+             }}
+           >
+             Modified by AI
+           </div>
             )}
             <UnstyledButton
               onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
@@ -180,8 +183,8 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
               <Group style={{ padding: '0 20px' }}>
                 <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
                 <div>
-                  <Text size="sm">{stack.topPost.account.display_name}</Text>
-                  <Text size="xs" color="dimmed">
+                <Text size="md" fw={700} c="#011445" >{stack.topPost.account.display_name}</Text>
+                  <Text size="xs" c="dimmed">
                     {formatDistanceToNow(new Date(stack.topPost.created_at))} ago
                   </Text>
                 </div>
@@ -192,40 +195,42 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
                   paddingTop: '1rem',
                   paddingLeft: '1rem',
                   paddingRight: '1rem',
+
                 }}
+                
               >
                 {stack.topPost.content_rewritten ? (
-                  <div dangerouslySetInnerHTML={{ __html: stack.topPost.content_rewritten }} />
+                  <Text c="#011445" dangerouslySetInnerHTML={{ __html: stack.topPost.rewrite.content }} />
                 ) : (
-                  <div dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
+                  <Text c="#011445" dangerouslySetInnerHTML={{ __html: stack.topPost.content }} />
                 )}
               </div>
 
-              <Text pl={54} pt="sm" size="sm">
+              {/* <Text pl={54} pt="sm" size="sm">
                 Post Id: {stack.topPost.id}
               </Text>
               <Text pl={54} pt="sm" size="sm">
                 Stack Id: {stack.stackId}
-              </Text>
+              </Text> */}
             </UnstyledButton>
 
             <div className="rel-display">
               {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
             </div>
-            <Divider my="md" color="#1a94bc" />
+            <Divider my="md" c="#011445" />
             <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
               <Button variant="subtle" size="sm" radius="lg">
-                <IconMessageCircle size={20} /> <Text ml={4}>{stack.topPost.replies_count}</Text>
+                <IconMessageCircle  style={{ color: '#002379' }}  size={20} /> <Text style={{ color: '#002379' }}  ml={4}>{stack.topPost.replies_count}</Text>
               </Button>
               <Button variant="subtle" size="sm" radius="lg">
-                {stack.topPost.favourited ? <IconHeartFilled size={20} /> : <IconHeart size={20} />}{' '}
-                <Text ml={4}>{stack.topPost.favourites_count}</Text>
+                {stack.topPost.favourited ? <IconHeartFilled style={{ color: '#002379' }}  size={20} /> : <IconHeart style={{ color: '#002379' }}  size={20} />}{' '}
+                <Text  style={{ color: '#002379' }}  ml={4}>{stack.topPost.favourites_count}</Text>
               </Button>
               <Button variant="subtle" size="sm" radius="lg">
-                {stack.topPost.bookmarked ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
+                {stack.topPost.bookmarked ? <IconBookmarkFilled style={{ color: '#002379' }} size={20} /> : <IconBookmark style={{ color: '#002379' }}  size={20} />}
               </Button>
               <Button variant="subtle" size="sm" radius="lg">
-                <IconShare size={20} />
+                <IconShare  style={{ color: '#002379' }}  size={20} />
               </Button>
             </Group>
             {stack.size !== null && stack.size > 1 && (
@@ -234,24 +239,23 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
           </Paper>
 
           {stack.size !== null && stack.size > 1 && 
-            [...Array(4)].map((_, idx) => (
+            [...Array(3)].map((_, idx) => (
               <div
                 key={idx}
                 style={{
                   position: 'absolute',
-                  bottom: `${15 - 5 * idx}px`,
+                  bottom: `${-15 + 5 * idx}px`,
                   left: `${15 - 5 * idx}px`,
                   width: cardWidth,
                   height: `${cardHeights[index] || 0}px`,
-                  backgroundColor: '#93d5dc',
+                  backgroundColor: '#5a71a8',
                   zIndex: idx + 1,
                   boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-                  borderRadius: '8px',
                   border: '1.5px solid white',
                 }}
               />
             ))}
-        </motion.div>
+        </div>
       ))}
 
       <StackPostsModal
@@ -263,7 +267,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
         apiUrl={`https://beta.stacky.social:3002/stacks/${currentStackId}/posts`}
         stackId={currentStackId}
       />
-    </motion.div>
+    </div>
   );
 };
 
