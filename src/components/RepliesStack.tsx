@@ -117,11 +117,11 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
         handleNavigate(postId, stackId);
       }
       preventClick = false;
-    }, 300); // 延迟以区分单击和双击
+    }, 300); 
   };
 
   const handleDoubleClick = (stackId: string) => {
-    clearTimeout(clickTimeout); // 清除单击事件的计时器
+    clearTimeout(clickTimeout);
     preventClick = true;
     handleStackCountClick(stackId);
   };
