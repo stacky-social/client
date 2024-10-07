@@ -1,7 +1,7 @@
 
-# Stacks
+# Stacky
 
-Stacks is a web application built with Next.js.
+Stacky is a web application built with Next.js.
 ## Table of Contents
 
 - [Installation](#installation)

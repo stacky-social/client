@@ -1102,7 +1102,7 @@ setIsExpanded(false);
                                         <motion.div
                                             style={{
                                                 position: 'absolute',
-                                                top:focuspostPosition.top+90,
+                                                top:focuspostPosition.top-30,
                                                 left: 20,
                                                 zIndex: 10
                                             }}

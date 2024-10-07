@@ -117,11 +117,11 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
         handleNavigate(postId, stackId);
       }
       preventClick = false;
-    }, 300); // 延迟以区分单击和双击
+    }, 300); 
   };
 
   const handleDoubleClick = (stackId: string) => {
-    clearTimeout(clickTimeout); // 清除单击事件的计时器
+    clearTimeout(clickTimeout);
     preventClick = true;
     handleStackCountClick(stackId);
   };
@@ -158,7 +158,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
             }}
      
           >
-            {stack.topPost.rewrite.significant&&  (
+            {/* {stack.topPost.rewrite.significant&&  (
              <div
              style={{
                position: 'absolute',
@@ -174,7 +174,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
            >
              Modified by AI
            </div>
-            )}
+            )} */}
             <UnstyledButton
               onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
               onDoubleClick={() => handleDoubleClick(stack.stackId)}
@@ -213,10 +213,10 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
                 Stack Id: {stack.stackId}
               </Text> */}
             </UnstyledButton>
-
+{/* 
             <div className="rel-display">
               {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
-            </div>
+            </div> */}
             <Divider my="md" c="#011445" />
             <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
               <Button variant="subtle" size="sm" radius="lg">
