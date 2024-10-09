@@ -63,10 +63,13 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
   const router = useRouter();
   const [maxStacksToShow, setMaxStacksToShow] = useState(4);
   const [cardHeights, setCardHeights] = useState<number[]>([]);
+  const [cardWidths, setCardWidths] = useState<number[]>([]);
   const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
     const heights = paperRefs.current.map(ref => ref?.offsetHeight || 0);
+    const widths = paperRefs.current.map(ref => ref?.offsetWidth || 0);
+    setCardWidths(widths);
     setCardHeights(heights);
     heights.forEach((height, index) => {
       console.log(`Paper ${index} height:`, height);
@@ -139,7 +142,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
             position: 'relative',
             margin: '20px 20px',
             marginTop: '30px',
-            width: cardWidth,
+            width: '80%',
           }}
         >
           <Paper
@@ -148,7 +151,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
             }}
             style={{
               position: 'relative',
-              width: cardWidth,
+              width: '80%',
               backgroundColor: '#f6f3e1',
               zIndex: 5,
               boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
@@ -245,8 +248,8 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
                 style={{
                   position: 'absolute',
                   bottom: `${-15 + 5 * idx}px`,
-                  left: `${15 - 5 * idx}px`,
-                  width: cardWidth,
+                  left: `${80 - 5 * idx}px`,
+                  width: `${cardWidths[index] || 0}px`,
                   height: `${cardHeights[index] || 0}px`,
                   backgroundColor: '#5a71a8',
                   zIndex: idx + 1,

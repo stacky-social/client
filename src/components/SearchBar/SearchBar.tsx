@@ -272,11 +272,12 @@ export default function SearchBar() {
 
         <div style={{ gridColumn: '2 / 3', position: 'relative' }}>
           <AnimatePresence>
+            
             {postPosition && (
               <motion.div
                 style={{
                   position: 'absolute',
-                  top: postPosition.top - 100,
+                  top: postPosition.top ,
                   left: 20,
                   zIndex: 10
                 }}
