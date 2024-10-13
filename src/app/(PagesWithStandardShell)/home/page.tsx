@@ -10,7 +10,11 @@ export default function Home() {
     return (
         <div style={{marginLeft:"10rem", marginTop:"2rem"}}
         >
-                    <Posts apiUrl={MastodonInstanceUrl} loadStackInfo={true} showSubmitAndSearch={true} />
+                    <Posts 
+                    apiUrl={MastodonInstanceUrl} 
+                    loadStackInfo={true} 
+                    showSubmitAndSearch={true}
+                    showLoadMore={true} />
 
         </div>
             
