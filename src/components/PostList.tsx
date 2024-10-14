@@ -15,6 +15,7 @@ interface PostListProps {
     setIsExpandModalOpen: (isOpen: boolean) => void;
     activePostId: string | null;
     setActivePostId: (id: string | null) => void;
+    showLoadMore?: boolean;  // 控制是否显示“加载更多”
 }
 
 const PostList: React.FC<PostListProps> = ({
@@ -26,25 +27,31 @@ const PostList: React.FC<PostListProps> = ({
     setIsExpandModalOpen,
     activePostId,
     setActivePostId,
+    showLoadMore = false  // 默认不显示“加载更多”
 }) => {
     const [posts, setPosts] = useState<PostType[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [maxId, setMaxId] = useState<string | null>(null); // 用于分页
+    const [hasMorePosts, setHasMorePosts] = useState(true);  // 控制是否还有更多帖子
     const postRefs = useRef<Array<HTMLDivElement | null>>([]);
 
+    console.log('show more:', showLoadMore);
 
     useEffect(() => {
         const fetchPosts = async () => {
+            setLoading(true);
             try {
-                console.log('Fetching posts from:', apiUrl);
                 const response = await axios.get(apiUrl, {
                     headers: {
                         Authorization: `Bearer ${accessToken}`,
                     },
                     params: {
-                        limit: 40 // 添加 max_id 作为查询参数
+                        limit: 40,
+                        max_id: maxId || undefined,  // 如果是加载更多，则传入 max_id
                     }
                 });
-                let data: PostType[] = response.data.map((post: any) => ({
+                const data: PostType[] = response.data.map((post: any) => ({
                     postId: post.id,
                     text: post.content,
                     author: post.account.username,
@@ -58,24 +65,26 @@ const PostList: React.FC<PostListProps> = ({
                     bookmarked: post.bookmarked,
                     mediaAttachments: post.media_attachments,
                     relatedStacks: []
-                    
                 }));
 
-                setPosts(data);
-                setLoading(false);
-
-                if (loadStackInfo) {
-                    await loadStackDataInBatches(data, 2); 
+                setPosts(prevPosts => [...prevPosts, ...data]);  // 合并新旧帖子
+                if (data.length > 0) {
+                    setMaxId(data[data.length - 1].postId);  // 更新 max_id
+                } else {
+                    setHasMorePosts(false);  // 如果没有更多帖子，停止加载
                 }
             } catch (error) {
                 console.error('Error fetching Mastodon data:', error);
+            } finally {
                 setLoading(false);
+                setIsLoadingMore(false);
             }
         };
 
         fetchPosts();
     }, [apiUrl, accessToken, loadStackInfo]);
 
+    // 处理滚动条滚动逻辑
     useEffect(() => {
         const handleScroll = () => {
             let found = false;
@@ -104,32 +113,46 @@ const PostList: React.FC<PostListProps> = ({
         };
     }, [posts, activePostId, handleStackIconClick, setActivePostId]);
 
-    const loadStackDataInBatches = async (posts: PostType[], batchSize: number) => {
-        for (let i = 0; i < posts.length; i += batchSize) {
-            const batch = posts.slice(i, i + batchSize);
-            await Promise.all(batch.map(async (post) => {
-                try {
-                    console.log('Fetching stack data for post:', post.postId);
-                    const response = await axios.get(`${MastodonInstanceUrl}/stacks/${post.postId}/related`, {
-                        headers: {
-                            Authorization: `Bearer ${accessToken}`,
-                        }
-                    });
-                    console.log("id:", post.postId);
-                    console.log('Stack data:', response.data);
-                    const stackData = response.data.relatedStacks || [];
-                    const stackCount = response.data.size;
-                    setPosts((prevPosts) =>
-                        prevPosts.map((p) =>
-                            p.postId === post.postId
-                                ? { ...p, stackCount: stackCount, relatedStacks: stackData }
-                                : p
-                        )
-                    );
-                } catch (error) {
-                    console.error(`Error fetching stack data for post ${post.postId}:`, error);
+    // 加载更多帖子
+    const handleLoadMore = async () => {
+        setIsLoadingMore(true);
+        try {
+            const response = await axios.get(apiUrl, {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                },
+                params: {
+                    limit: 40,
+                    max_id: maxId || undefined  // 使用 max_id 分页
                 }
+            });
+
+            const data: PostType[] = response.data.map((post: any) => ({
+                postId: post.id,
+                text: post.content,
+                author: post.account.username,
+                account: post.account.acct,
+                avatar: post.account.avatar,
+                createdAt: post.created_at,
+                replies: post.replies_count,
+                stackCount: loadStackInfo ? null : -1,
+                favouritesCount: post.favourites_count,
+                favourited: post.favourited,
+                bookmarked: post.bookmarked,
+                mediaAttachments: post.media_attachments,
+                relatedStacks: []
             }));
+
+            setPosts((prevPosts) => [...prevPosts, ...data]); // 追加新数据
+            if (data.length > 0) {
+                setMaxId(data[data.length - 1].postId);  // 更新 max_id
+            } else {
+                setHasMorePosts(false);  // 如果没有更多帖子
+            }
+        } catch (error) {
+            console.error('Error loading more posts:', error);
+        } finally {
+            setIsLoadingMore(false);
         }
     };
 
@@ -167,6 +190,19 @@ const PostList: React.FC<PostListProps> = ({
         <div style={{ width: '100%' }}>
             <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
             {!loading && postElements}
+
+            {showLoadMore && hasMorePosts && (
+                <div style={{ textAlign: 'center', marginTop: '20px' }}>
+                    <button onClick={handleLoadMore} disabled={isLoadingMore}>
+                        {isLoadingMore ? 'Loading...' : 'Load More'}
+                    </button>
+                </div>
+            )}
+            {!hasMorePosts && (
+                <div style={{ textAlign: 'center', marginTop: '20px' }}>
+                    <p>No more posts to load.</p>
+                </div>
+            )}
         </div>
     );
 };

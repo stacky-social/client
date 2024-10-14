@@ -2,11 +2,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SubmitPost } from '../SubmitPost/SubmitPost';
-import SearchBar from '../SearchBar/SearchBar';
 import RelatedStacks from '../RelatedStacks';
 import PostList from '../PostList';
 
-export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { apiUrl: string, loadStackInfo: boolean, showSubmitAndSearch: boolean }) {
+export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, showLoadMore }: { apiUrl: string, loadStackInfo: boolean, showSubmitAndSearch: boolean, showLoadMore?: boolean }) {
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
@@ -15,7 +14,6 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
     const [isModalOpen, setIsModalOpen] = useState(false); 
     const [isExpandModalOpen, setIsExpandModalOpen] = useState(false); 
     const [previousPostId, setPreviousPostId] = useState<string | null>(null);
-
 
     const relatedStacksRef = useRef<HTMLDivElement>(null);
 
@@ -42,20 +40,14 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
         }
     };
 
-    
     const shouldUpdate = activePostId !== previousPostId;
+
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem',
-            
-         }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem' }}>
             <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
                 {showSubmitAndSearch && (
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem'
-                        ,marginLeft: '1rem', marginRight: '3rem'
-                     }}>
-                        <div style={{ width: '100%'}
-                    
-                    }>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem', marginLeft: '1rem', marginRight: '3rem' }}>
+                        <div style={{ width: '100%' }}>
                             <SubmitPost />
                         </div>
                     </div>
@@ -65,33 +57,31 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
                     handleStackIconClick={handleStackIconClick}
                     loadStackInfo={loadStackInfo}
                     accessToken={accessToken}
-                    setIsModalOpen={setIsModalOpen} 
+                    setIsModalOpen={setIsModalOpen}
                     setIsExpandModalOpen={setIsExpandModalOpen}
-                    activePostId={activePostId}  
-                    setActivePostId={setActivePostId}  
+                    activePostId={activePostId}
+                    setActivePostId={setActivePostId}
+                    showLoadMore={showLoadMore}  
                 />
             </div>
             <div style={{ gridColumn: '2 / 3', position: 'relative' }}>
-                {/* {showSubmitAndSearch && <SearchBar />} */}
                 <div style={{ marginRight: '10rem', position: 'relative' }} ref={relatedStacksRef}>
                     <AnimatePresence>
                         {relatedStacks.length > 0 && postPosition && (
                             <motion.div
                                 id="related-stacks"
-                                style={{ position: 'absolute', 
-                                    top:   postPosition.top - 60, 
-                                    left: 0 }}
+                                style={{ position: 'absolute', top: postPosition.top - 60, left: 0 }}
                                 initial={{ opacity: 0, x: -200 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -200 }}
                                 transition={{ duration: 0.2 }}
                             >
                                 <RelatedStacks
-                                    key={relatedStacks.map((_, index) => index).join(',')} 
+                                    key={relatedStacks.map((_, index) => index).join(',')}
                                     relatedStacks={relatedStacks}
                                     cardWidth={450}
                                     onStackClick={() => { }}
-                                    setIsExpandModalOpen={setIsExpandModalOpen} 
+                                    setIsExpandModalOpen={setIsExpandModalOpen}
                                     showupdate={shouldUpdate}
                                 />
                             </motion.div>
