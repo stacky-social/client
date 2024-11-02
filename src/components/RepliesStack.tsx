@@ -138,8 +138,8 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
           style={{
             position: 'relative',
             margin: '20px 20px',
-            marginTop: '30px',
-            width: cardWidth,
+            marginTop: '0px',
+            width: '80%',
           }}
         >
           <Paper
@@ -148,12 +148,12 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
             }}
             style={{
               position: 'relative',
-              width: cardWidth,
+              width: '100%',
               backgroundColor: '#f6f3e1',
               zIndex: 5,
               boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
               margin: '0 auto',
-              paddingTop: '40px',
+              paddingTop: '20px',
 
             }}
      
@@ -214,9 +214,9 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
               </Text> */}
             </UnstyledButton>
 
-            <div className="rel-display">
+            {/* <div className="rel-display">
               {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
-            </div>
+            </div> */}
             <Divider my="md" c="#011445" />
             <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
               <Button variant="subtle" size="sm" radius="lg">
