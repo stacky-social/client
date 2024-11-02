@@ -1,9 +1,9 @@
 "use client";
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { TextInput, rem, Box, Paper, ActionIcon, useMantineTheme, List, ThemeIcon, Avatar, UnstyledButton, Group, Tabs } from '@mantine/core';
 import { IconArrowRight, IconSearch, IconUser, IconTag, IconMessageCircle } from '@tabler/icons-react';
 import axios from 'axios';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Post from '../Posts/Post';
 import RelatedStacks from '../RelatedStacks';
 import { Loader } from '@mantine/core';
@@ -52,22 +52,7 @@ type SearchResult = {
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
-type SearchParamsComponentProps = {
-  onSearchParamsChange: (searchQuery: string | null) => void;
-};
-
-function SearchParamsComponent({ onSearchParamsChange }: SearchParamsComponentProps) {
-  const searchParams = useSearchParams();
-  useEffect(() => {
-    const searchQuery = searchParams.get('query');
-    onSearchParamsChange(searchQuery);
-  }, [searchParams, onSearchParamsChange]);
-  return null;
-}
-
-
 export default function SearchBar() {
-  const router = useRouter();
   const theme = useMantineTheme();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult>({ accounts: [], statuses: [], hashtags: [] });
@@ -78,23 +63,10 @@ export default function SearchBar() {
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [postPosition, setPostPosition] = useState<{ top: number, height: number } | null>(null);
 
-
-
-
-  
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     setAccessToken(token);
   }, []);
-
-  const onSearchParamsChange = (searchQuery: string | null) => {
-    if (searchQuery) {
-      setQuery(searchQuery);
-     
-    }
-  };
-
-  const icon = <IconSearch style={{ width: rem(16), height: rem(16) }} />;
 
   const fetchSearchResults = async (searchQuery: string, token: string | null) => {
     if (!token) {
@@ -119,8 +91,6 @@ export default function SearchBar() {
       console.error('Error searching Mastodon:', error);
     }
   };
-
-
 
   const fetchRelatedStacks = async (post: any) => {
     setLoadingRelatedStacks(true);
@@ -155,18 +125,17 @@ export default function SearchBar() {
   }, [ResultPosts]);
 
   const handleSearch = () => {
-    router.push(`/search?query=${query}`);
     fetchSearchResults(query, accessToken);
   };
 
   const handleNavigateToUser = (acct: string) => {
     const url = `/user/${acct}`;
-    router.push(url);
+    useRouter().push(url);
   };
 
   const handleNavigateToTag = (tag: string) => {
     const url = `/tag/${tag}`;
-    router.push(url);
+    useRouter().push(url);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -213,7 +182,6 @@ export default function SearchBar() {
 
   return (
     <Suspense fallback={<Loader />}>
-      <SearchParamsComponent onSearchParamsChange={onSearchParamsChange} />
       <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem' }}>
         <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
           <Paper withBorder p="md" mb="lg">
@@ -224,7 +192,7 @@ export default function SearchBar() {
               value={query}
               onChange={(e) => setQuery(e.currentTarget.value)}
               onKeyDown={handleKeyDown}
-              leftSection={icon}
+              leftSection={<IconSearch style={{ width: rem(16), height: rem(16) }} />}
               rightSection={
                 <ActionIcon size={32} radius="xl" color={theme.primaryColor} variant="filled" onClick={handleSearch}>
                   <IconArrowRight size={18} stroke={1.5} />
@@ -236,7 +204,7 @@ export default function SearchBar() {
           <Box mt="md">
             <Tabs defaultValue="posts">
               <Tabs.List>
-              <Tabs.Tab value="posts" leftSection={<IconMessageCircle size={18} />}>
+                <Tabs.Tab value="posts" leftSection={<IconMessageCircle size={18} />}>
                   Posts
                 </Tabs.Tab>
                 <Tabs.Tab value="accounts" leftSection={<IconUser size={18} />}>
