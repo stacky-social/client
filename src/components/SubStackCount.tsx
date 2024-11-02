@@ -16,15 +16,15 @@ const SubStackCount: React.FC<SubStackCountProps> = ({ count, onClick }) => {
       }}
       style={{
         position: 'absolute',
-        top: '-10px',
-        right: '-30px',
+        top: '0px',
+        right: '-40px',
         width: '50px',
         display: 'flex',
         backgroundColor: '#f6f3e1',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+        // boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
         cursor: 'pointer',
         transition: 'transform 0.3s ease',
         zIndex: 10, // Ensure it appears above the card

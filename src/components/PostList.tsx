@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { LoadingOverlay } from "@mantine/core";
+import { LoadingOverlay, Button } from "@mantine/core";
 import { PostType } from '../types/PostType';
 import Post from './Posts/Post';
 import axios from 'axios';
@@ -15,6 +15,8 @@ interface PostListProps {
     setIsExpandModalOpen: (isOpen: boolean) => void;
     activePostId: string | null;
     setActivePostId: (id: string | null) => void;
+    showLoadMore?: boolean;
+    
 }
 
 const PostList: React.FC<PostListProps> = ({
@@ -26,55 +28,69 @@ const PostList: React.FC<PostListProps> = ({
     setIsExpandModalOpen,
     activePostId,
     setActivePostId,
+    showLoadMore = false,
 }) => {
     const [posts, setPosts] = useState<PostType[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     const postRefs = useRef<Array<HTMLDivElement | null>>([]);
-
+    const [maxId, setMaxId] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchPosts = async () => {
-            try {
-                console.log('Fetching posts from:', apiUrl);
-                const response = await axios.get(apiUrl, {
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`,
-                    },
-                    params: {
-                        limit: 40 // 添加 max_id 作为查询参数
-                    }
-                });
-                let data: PostType[] = response.data.map((post: any) => ({
-                    postId: post.id,
-                    text: post.content,
-                    author: post.account.username,
-                    account: post.account.acct,
-                    avatar: post.account.avatar,
-                    createdAt: post.created_at,
-                    replies: post.replies_count,
-                    stackCount: loadStackInfo ? null : -1,
-                    favouritesCount: post.favourites_count,
-                    favourited: post.favourited,
-                    bookmarked: post.bookmarked,
-                    mediaAttachments: post.media_attachments,
-                    relatedStacks: []
-                    
-                }));
-
-                setPosts(data);
-                setLoading(false);
-
-                if (loadStackInfo) {
-                    await loadStackDataInBatches(data, 2); 
-                }
-            } catch (error) {
-                console.error('Error fetching Mastodon data:', error);
-                setLoading(false);
-            }
-        };
-
         fetchPosts();
     }, [apiUrl, accessToken, loadStackInfo]);
+
+    const fetchPosts = async (isLoadMore = false) => {
+        try {
+            if (isLoadMore) {
+                setLoadingMore(true);
+            } else {
+                setLoading(true);
+            }
+
+            const response = await axios.get(apiUrl, {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                },
+                params: {
+                    limit: 40,
+                    ...(maxId && { max_id: maxId }) // 如果有 maxId 就加上 max_id 参数
+                }
+            });
+
+            const data: PostType[] = response.data.map((post: any) => ({
+                postId: post.id,
+                text: post.content,
+                author: post.account.username,
+                account: post.account.acct,
+                avatar: post.account.avatar,
+                createdAt: post.created_at,
+                replies: post.replies_count,
+                stackCount: loadStackInfo ? null : -1,
+                favouritesCount: post.favourites_count,
+                favourited: post.favourited,
+                bookmarked: post.bookmarked,
+                mediaAttachments: post.media_attachments,
+                relatedStacks: []
+            }));
+
+            setPosts((prevPosts) => isLoadMore ? [...prevPosts, ...data] : data);
+            setMaxId(data[data.length - 1].postId);
+
+            if (loadStackInfo) {
+                await loadStackDataInBatches(data, 2); 
+            }
+        } catch (error) {
+            console.error('Error fetching Mastodon data:', error);
+        } finally {
+            setLoading(false);
+            setLoadingMore(false);
+        }
+    };
+
+    const handleLoadMore = () => {
+        fetchPosts(true);
+    };
 
     useEffect(() => {
         const handleScroll = () => {
@@ -99,6 +115,7 @@ const PostList: React.FC<PostListProps> = ({
         };
 
         window.addEventListener('scroll', handleScroll);
+
         return () => {
             window.removeEventListener('scroll', handleScroll);
         };
@@ -110,13 +127,11 @@ const PostList: React.FC<PostListProps> = ({
             await Promise.all(batch.map(async (post) => {
                 try {
                     console.log('Fetching stack data for post:', post.postId);
-                    const response = await axios.get(`${MastodonInstanceUrl}/stacks/${post.postId}/related`, {
+                    const response = await axios.get(`${MastodonInstanceUrl}/stacks/${post.postId}/related?no_cache=true`, {
                         headers: {
                             Authorization: `Bearer ${accessToken}`,
                         }
                     });
-                    console.log("id:", post.postId);
-                    console.log('Stack data:', response.data);
                     const stackData = response.data.relatedStacks || [];
                     const stackCount = response.data.size;
                     setPosts((prevPosts) =>
@@ -167,6 +182,15 @@ const PostList: React.FC<PostListProps> = ({
         <div style={{ width: '100%' }}>
             <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
             {!loading && postElements}
+            <div style={{ textAlign: 'center', marginTop: '20px' }}>
+
+            {showLoadMore && ( 
+                <Button onClick={handleLoadMore} disabled={loadingMore}
+                style={{ backgroundColor: '#324e93', color: '#fff' }}>
+                    {loadingMore ? 'Loading' : 'Load more'}
+                </Button>
+            )}
+            </div>
         </div>
     );
 };
