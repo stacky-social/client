@@ -6,7 +6,7 @@ import SearchBar from '../SearchBar/SearchBar';
 import RelatedStacks from '../RelatedStacks';
 import PostList from '../PostList';
 
-export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { apiUrl: string, loadStackInfo: boolean, showSubmitAndSearch: boolean }) {
+export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showLoadMore = false,}: { apiUrl: string, loadStackInfo: boolean, showSubmitAndSearch: boolean,showLoadMore?: boolean;}) {
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
@@ -68,11 +68,12 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch }: { 
                     setIsModalOpen={setIsModalOpen} 
                     setIsExpandModalOpen={setIsExpandModalOpen}
                     activePostId={activePostId}  
-                    setActivePostId={setActivePostId}  
+                    setActivePostId={setActivePostId} 
+                    showLoadMore={showLoadMore} 
                 />
             </div>
             <div style={{ gridColumn: '2 / 3', position: 'relative' }}>
-                {/* {showSubmitAndSearch && <SearchBar />} */}
+
                 <div style={{ marginRight: '10rem', position: 'relative' }} ref={relatedStacksRef}>
                     <AnimatePresence>
                         {relatedStacks.length > 0 && postPosition && (
