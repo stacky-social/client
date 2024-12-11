@@ -63,6 +63,8 @@ export default function SearchBar() {
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [postPosition, setPostPosition] = useState<{ top: number, height: number } | null>(null);
 
+  const router = useRouter();
+
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     setAccessToken(token);
@@ -129,14 +131,14 @@ export default function SearchBar() {
   };
 
   const handleNavigateToUser = (acct: string) => {
-    const url = `/user/${acct}`;
-    useRouter().push(url);
-  };
+  const url = `/user/${acct}`;
+  router.push(url); 
+};
 
-  const handleNavigateToTag = (tag: string) => {
-    const url = `/tag/${tag}`;
-    useRouter().push(url);
-  };
+const handleNavigateToTag = (tag: string) => {
+  const url = `/tag/${tag}`;
+  router.push(url); 
+};
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
