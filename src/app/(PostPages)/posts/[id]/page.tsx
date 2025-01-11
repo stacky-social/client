@@ -1089,7 +1089,7 @@ setIsExpanded(false);
                     )}
                     <div style={{height: '100vh'}}></div>
                 </div>
-                <div style={{gridColumn: '2 / 3'}}>
+                <div style={{gridColumn: '2 / 3', marginTop: '-120px' }}>
 
                     <div ref={relatedStacksRef} style={{position: 'relative'}}>
 
