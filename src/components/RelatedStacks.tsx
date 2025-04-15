@@ -162,7 +162,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
             margin: '20px 20px',
             marginTop: '1rem',
             width: cardWidth,
-            boxShadow: '0 10px 10px rgba(0,0,0,0.1)'
+            boxShadow: '0 10px 10px rgba(0,0,0,0.1)',
+            borderRadius: '10px',
           }}
         >
           <Paper
@@ -172,12 +173,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
             style={{
               position: 'relative',
               width: cardWidth,
-              backgroundColor: '#f6f3e1',
+              backgroundColor: '#ffffff',
               zIndex: 5,
               // boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-              borderRadius: '0px',
+              borderRadius: '10px',
               margin: '0 auto',
               paddingTop: '40px',
+              border: '1px solid #e7e7e7',
               // border: '1.5px solid  white',
             }}
           >
@@ -187,8 +189,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
                   position: 'absolute',
                   top: '10px',
                   left: '10px',
-                  background: '#A6290D',
-                  color: 'white',
+                  background: '#E0E6ff',
+                  color: '2435A3',
+                  borderRadius: '5px',
                   padding: '2px 6px',
                   fontWeight: 'bold',
                   zIndex: 10,
@@ -299,11 +302,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
                   left: `${15 - 5 * idx}px`,
                   width: cardWidth,
                   height: `${cardHeights[index] || 0}px`,
-                  backgroundColor: '#5a71a8',
+                  backgroundColor: '#ffffff',
                   zIndex: idx + 1,
                   // boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-                  borderRadius: '0px',
-                  border: '1.5px solid white',
+                  borderRadius: '10px',
+                  border: '1px solid #e7e7e7',
+                  // border: '1.5px solid white',
                 }}
               />
             ))}

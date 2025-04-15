@@ -66,8 +66,8 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
       style={{
         position: 'absolute',
         top: '-0px',
-        right: '-55px',
-        width: '55px',
+        right: '-50px',
+        width: '60px',
         display: 'flex',
         paddingBottom:'10px',
         flexDirection: 'column',
@@ -76,13 +76,15 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
         // boxShadow: '3px 0px 10px rgba(0,0,0,0.1)', // 只显示右边和下边的阴影
         cursor: 'pointer',
         transition: 'height 0.3s ease',
-        backgroundColor:isExpanded ? '#f6f3e1' : '#f6f3e1',
+        backgroundColor:isExpanded ? '#f9f9f9' : '#f9f9f9',
+        border: '1px solid #cbcbcb',
+        borderRadius: '10px',
   
-        borderTopLeftRadius: '0px', // 左上角不圆角
-        borderTopRightRadius: '8px', // 右上角圆角
-        borderBottomRightRadius: '8px', // 右下角圆角
-        borderBottomLeftRadius: '0px', // 左下角圆角
-        borderLeft: '0px solid transparent', // 确保左边没有边框
+        // borderTopLeftRadius: '0px', // 左上角不圆角
+        // borderTopRightRadius: '8px', // 右上角圆角
+        // borderBottomRightRadius: '8px', // 右下角圆角
+        // borderBottomLeftRadius: '0px', // 左下角圆角
+        // borderLeft: '0px solid transparent', // 确保左边没有边框
        
         
       }}
@@ -96,9 +98,9 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
         height: '50px',
       }}>
         <IconStack 
-        style={{ color: '#011445' }}
+        style={{ color: '#555555' }}
         size={24} />
-        <Text style={{ color: '#011445' }} size="sm">
+        <Text style={{ color: '#555555' }} size="sm">
           {count !== null ? count : <Loader size="xs" />}
         </Text>
       </div>
@@ -109,10 +111,13 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
         {(styles) => (
           <div style={{ 
             ...styles, 
-            display: isTwoColumnLayout ? 'grid' : 'flex', 
-            gridTemplateColumns: isTwoColumnLayout ? 'repeat(2, 1fr)' : undefined,
-            gridAutoRows: isTwoColumnLayout ? 'auto' : undefined,
-            flexDirection: isTwoColumnLayout ? undefined : 'column',
+            // display: isTwoColumnLayout ? 'grid' : 'flex', 
+            // gridTemplateColumns: isTwoColumnLayout ? 'repeat(2, 1fr)' : undefined,
+            // gridAutoRows: isTwoColumnLayout ? 'auto' : undefined,
+            // flexDirection: isTwoColumnLayout ? undefined : 'column',
+            display: 'flex',
+flexDirection: 'column',
+
             gap: '5px',
             width: '100%',
             maxHeight: `${cardHeight*0.7}px`,
@@ -124,12 +129,27 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
               <div 
                 key={index} 
                 style={{ 
+                  // display: 'flex', 
+                  // flexDirection: 'column', 
+                  // alignItems: 'center', 
                   display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center', 
+                  flexDirection: 'row', 
+                  alignItems: 'center',
+                  justifyContent: 'flex-start',
+                  gap: '4px',
+                  padding: '2px 6px',
+                  backgroundColor:
+  index === 0
+    ? '#e3ffe0' 
+    : hoveredIndex === index
+    ? '#f0fff0' 
+    : 'transparent',
+                  borderRadius: '5px',
+        
                   // backgroundColor: hoveredIndex === index ? '#FF5F00' : '#FF9F66',
                   transition: 'background-color 0.3s ease',
-                  width: '100%',
+                  width: '90%',
+                  margin: '0 auto',
                   maxHeight: `${cardHeight/5}px`,
                   minHeight: `20px`,
                 }}
@@ -143,7 +163,9 @@ const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, r
               >
                   
                 {iconMapping[stack.rel] || iconMapping["default"]}
-                <Text size="xs" style={{ margin: '0' }}>{stack.size}</Text>
+                {/* <Text size="xs" style={{ margin: '0' }}>{stack.size}</Text> */}
+                <Text size="xs" style={{ margin: '0', color: '#555' }}>{stack.size}</Text>
+
               </div>
             ))}
           </div>
