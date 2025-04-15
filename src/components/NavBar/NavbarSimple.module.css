@@ -4,6 +4,8 @@
 
     display: flex;
     flex-direction: column;
+    background-color: #FDFCF9; /* 背景色 */
+
 
 }
 
@@ -34,7 +36,7 @@
     font-weight: 500;
 
     @mixin hover {
-        background-color: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+        background-color: #E2e2e2;
         color: light-dark(var(--mantine-color-black), var(--mantine-color-white));
 
         .linkIcon {
@@ -45,11 +47,11 @@
     &[data-active] {
         &,
         &:hover {
-            background-color: var(--mantine-color-blue-light);
-            color: var(--mantine-color-blue-light-color);
+            background-color: #Ececeb;
+            color: #4D4C48;
 
             .linkIcon {
-                color: var(--mantine-color-blue-light-color);
+                color: #4D4C48;
             }
         }
     }
