@@ -22,12 +22,14 @@ const RelatedStackCount: React.FC<RelatedStackCountProps> = ({ count, onClick })
         justifyContent: 'center',
         // boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
         cursor: 'pointer',
-        backgroundColor: '#f6f3e1',
+        backgroundColor: '#f9f9f9',
         transition: 'height 0.3s ease',
-        borderTopLeftRadius: '0px', // 左上角不圆角
-        borderTopRightRadius: '8px', // 右上角圆角
-        borderBottomRightRadius: '8px', // 右下角圆角
-        borderBottomLeftRadius: '0px', // 左下角圆角
+        border: '1px solid #cbcbcb',
+        borderRadius: '10px',
+        // borderTopLeftRadius: '0px', // 左上角不圆角
+        // borderTopRightRadius: '8px', // 右上角圆角
+        // borderBottomRightRadius: '8px', // 右下角圆角
+        // borderBottomLeftRadius: '0px', // 左下角圆角
       }}
       // withBorder
     >

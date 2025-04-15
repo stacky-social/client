@@ -311,17 +311,18 @@ export default function Post({
   }, [text]);
 
   return (
-    <div style={{ position: 'relative', marginLeft: '15px', marginBottom: '3rem',marginTop: '3rem', width: "90%",boxShadow: '0 10px 10px rgba(0,0,0,0.1)'}}>
+    <div style={{ position: 'relative', marginLeft: '15px', marginBottom: '3rem',marginTop: '3rem', width: "90%",boxShadow: '0 10px 10px rgba(0,0,0,0.1)', borderRadius: '10px'}}>
       <Paper
         ref={paperRef}
         style={{
           position: 'relative',
           width: "100%",
-          backgroundColor: isExpanded ? '#f6f3e1' : '#fff',
+          backgroundColor: isExpanded ? '#fff' : '#fff',
           zIndex: 5,
           // boxShadow: '0 0px 0px rgba(0,0,0,0.1)', // 调整阴影，只在其他三边显示
           // borderRadius: '8px', // 全局圆角
-          borderRadius: '0px', // 左上角圆角
+          borderRadius: '10px', // 左上角圆角
+          border: '0.5px solid #e7e7e7',
           //borderTopRightRadius: stackCount !== null && stackCount > 1  ?'0px' : '8px', // 右上角不圆角
           paddingLeft: '1rem',
           paddingRight: '1rem',
@@ -454,9 +455,10 @@ export default function Post({
               top: `${16 - 5 * (index)}px`,
               right: `${-16 + 5 * (index)}px`,
               width: "100%",
+              borderRadius: '10px',
               height: `${cardHeight}px`,
-              backgroundColor: '#5a71a8',
-              border: '0.5px solid #FCFBF5',
+              backgroundColor: '#ffffff',
+              border: '0.5px solid #e7e7e7',
             }}
           />
         ))
