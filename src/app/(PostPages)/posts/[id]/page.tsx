@@ -113,6 +113,21 @@ export default function PostView({params}: { params: { id: string } }) {
 
     const [isExpanded, setIsExpanded] = useState(true);
 
+
+    const [isCurrentPostFocused, setIsCurrentPostFocused] = useState(true);
+
+
+// useEffect(() => {
+//     if (currentPostRef.current) {
+//         const postPosition = currentPostRef.current.getBoundingClientRect();
+
+//         const windowHeight = window.innerHeight;
+//         setIsCurrentPostFocused(
+//             postPosition.top > windowHeight / 3 && postPosition.top < (2 * windowHeight) / 3
+//         ); 
+//     }
+// }, [focusPostLoaded, currentPostRef]);
+
     const handleTabChange = async (value: string | null) => {
         if (value !== null) {
           setActiveTab(value);
@@ -444,7 +459,7 @@ export default function PostView({params}: { params: { id: string } }) {
           
 
             const accessToken = localStorage.getItem('accessToken');
-                const response = await axios.post(`https://beta.stacky.social:3002/replies/${id}/stacks?no_cache=true`, {
+                const response = await axios.post(`https://beta.stacky.social:3002/replies/${id}/stacks?no_cache=false`, {
                     immediateReplyIDs: replyIDs
                 }, {
                     headers: {
@@ -1089,7 +1104,12 @@ setIsExpanded(false);
                     )}
                     <div style={{height: '100vh'}}></div>
                 </div>
-                <div style={{gridColumn: '2 / 3', marginTop: '-120px' }}>
+                <div
+    style={{
+        gridColumn: '2 / 3',
+        marginTop: isCurrentPostFocused ? '0px' : '80px', 
+    }}
+>
 
                     <div ref={relatedStacksRef} style={{position: 'relative'}}>
 
@@ -1102,7 +1122,7 @@ setIsExpanded(false);
                                         <motion.div
                                             style={{
                                                 position: 'absolute',
-                                                top:focuspostPosition.top+90,
+                                                top:focuspostPosition.top+100,
                                                 left: 20,
                                                 zIndex: 10
                                             }}

@@ -73,26 +73,27 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showL
                 />
             </div>
             <div style={{ gridColumn: '2 / 3', position: 'relative' }}>
-
                 <div style={{ marginRight: '10rem', position: 'relative' }} ref={relatedStacksRef}>
                     <AnimatePresence>
                         {relatedStacks.length > 0 && postPosition && (
                             <motion.div
                                 id="related-stacks"
-                                style={{ position: 'absolute', 
-                                    top:   postPosition.top - 60, 
-                                    left: 0 }}
+                                style={{
+                                    position: 'absolute',
+                                    top: showSubmitAndSearch ? postPosition.top - 60 : postPosition.top - 300,
+                                    left: 0
+                                }}
                                 initial={{ opacity: 0, x: -200 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -200 }}
                                 transition={{ duration: 0.2 }}
                             >
                                 <RelatedStacks
-                                    key={relatedStacks.map((_, index) => index).join(',')} 
+                                    key={relatedStacks.map((_, index) => index).join(',')}
                                     relatedStacks={relatedStacks}
                                     cardWidth={450}
                                     onStackClick={() => { }}
-                                    setIsExpandModalOpen={setIsExpandModalOpen} 
+                                    setIsExpandModalOpen={setIsExpandModalOpen}
                                     showupdate={shouldUpdate}
                                 />
                             </motion.div>

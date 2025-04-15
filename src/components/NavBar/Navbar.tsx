@@ -25,16 +25,17 @@ const clientSecret = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_SECRET;
 
 const data = [
     { link: '/home', label: 'Home', icon: IconHome },
-    { link: '/notifications', label: 'Notifications', icon: IconBellRinging },
-    { link: '/explore', label: 'Explore', icon: IconCompass },
-    { link: '/livefeeds', label: 'Live feeds', icon: IconGlobe },
-    { link: '/mentions', label: 'Private mentions', icon: IconAt },
-    { link: '/bookmarks', label: 'Bookmarks', icon: IconBookmark },
-    { link: '/favorites', label: 'Favorites', icon: IconStar },
-    { link: '/lists', label: 'Lists', icon: IconList },
+    // { link: '/notifications', label: 'Notifications', icon: IconBellRinging },
+    // { link: '/explore', label: 'Explore', icon: IconCompass },
+    // { link: '/livefeeds', label: 'Live feeds', icon: IconGlobe },
+    // { link: '/mentions', label: 'Private mentions', icon: IconAt },
     {
         link:'/search',label:"Search",icon:IconSearch
-    }
+    },
+    { link: '/bookmarks', label: 'Bookmarks', icon: IconBookmark },
+    { link: '/favorites', label: 'Favorites', icon: IconStar },
+    // { link: '/lists', label: 'Lists', icon: IconList },
+   
 ];
 
 export function Navbar() {
