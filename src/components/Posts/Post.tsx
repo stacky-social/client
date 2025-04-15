@@ -342,19 +342,19 @@ export default function Post({
         }}
       >
 
-        {
-          <UnstyledButton onClick={handleStackCountClick}>
-            <StackCount
-              count={stackCount}
-              onClick={handleStackCountClick}
-              onStackClick={handleStackClick}
-              relatedStacks={tempRelatedStacks}
-              expanded={isExpanded}
-              cardHeight = {cardHeight}
-          
-            />
-          </UnstyledButton>
-       }
+{stackCount !== 0 && (
+  <UnstyledButton onClick={handleStackCountClick}>
+    <StackCount
+      count={stackCount}
+      onClick={handleStackCountClick}
+      onStackClick={handleStackClick}
+      relatedStacks={tempRelatedStacks}
+      expanded={isExpanded}
+      cardHeight={cardHeight}
+    />
+  </UnstyledButton>
+)}
+
         <UnstyledButton
           onClick={handleSingleClick} 
           onDoubleClick={handleDoubleClick} 

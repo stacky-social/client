@@ -6,7 +6,7 @@ export default function Bookmarks() {
 
     return (
 
-            <Posts apiUrl={MastodonInstanceUrl} loadStackInfo={false}  showSubmitAndSearch={true} />
+            <Posts apiUrl={MastodonInstanceUrl} loadStackInfo={false}  showSubmitAndSearch={false} />
 
     );
 }
