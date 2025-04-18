@@ -83,6 +83,11 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showL
                                     top: showSubmitAndSearch ? postPosition.top - 60 : postPosition.top - 300,
                                     left: 0
                                 }}
+                                // style={{
+                                //     position: 'sticky',
+                                //     top: showSubmitAndSearch ? 80 : 20,
+                                //     left: 0
+                                // }}
                                 initial={{ opacity: 0, x: -200 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -200 }}
