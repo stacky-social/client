@@ -10,8 +10,6 @@ import {BASE_URL} from "../../utils/DevMode";
 const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
 const clientSecret = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_SECRET;
 
-// const redirectUri = process.env.NEXT_PUBLIC_MASTODON_OAUTH_REDIRECT_URI;
-
 const redirectUri = `${BASE_URL}/callback`;
 
 function CallbackPage() {
