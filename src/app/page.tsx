@@ -16,7 +16,7 @@ interface FormValues {
   instanceDomain: string;
 }
 
-const redirectUri = `http://localhost:3000/callback`;
+const redirectUri = `${BASE_URL}/callback`;
 const scopes = 'read write follow';
 
 export default function LandingPage() {
@@ -43,9 +43,7 @@ export default function LandingPage() {
     });
     const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
     const instanceUrl = `https://${form.values.instanceDomain}`;
-    const authorizationUrl = `${instanceUrl}/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scopes}&state=${form.values.instanceDomain}`;
-// redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=read%20write%20follow&state=${form.values.instanceDomain}`
-    // const authorizationUrl = `${instanceUrl}/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scopes}&state=${form.values.instanceDomain}`;
+    const authorizationUrl = `${instanceUrl}/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scopes}&state=${form.values.instanceDomain}`;
     console.log("Authorization URL:", authorizationUrl);
     window.location.href = authorizationUrl;
   };
