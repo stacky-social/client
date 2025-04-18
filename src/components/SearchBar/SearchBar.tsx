@@ -275,7 +275,7 @@ const handleNavigateToTag = (tag: string) => {
               <motion.div
                 style={{
                   position: 'absolute',
-                  top: postPosition.top - 100,
+                  top: postPosition.top - 33,//change this to align ne</AnimatePresence>
                   left: 20,
                   zIndex: 10
                 }}

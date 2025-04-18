@@ -1122,7 +1122,7 @@ setIsExpanded(false);
                                         <motion.div
                                             style={{
                                                 position: 'absolute',
-                                                top:focuspostPosition.top+100,
+                                                top:focuspostPosition.top-34, //change this to align reply post
                                                 left: 20,
                                                 zIndex: 10
                                             }}
@@ -1154,7 +1154,7 @@ setIsExpanded(false);
                                     <motion.div
                                         style={{
                                             position: 'absolute',
-                                            top: postPosition.top - 100,
+                                            top: postPosition.top - 32,
                                             left: 20,
                                             zIndex: 10
                                         }}
