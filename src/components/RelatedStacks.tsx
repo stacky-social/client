@@ -25,7 +25,8 @@ interface PostType {
     {
       content: string; 
       significant:boolean;
-   } 
+   } ;
+   content_highlight: string;
 
 }
 
@@ -84,15 +85,26 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
     setIsExpandModalOpen(true);
   };
 
-  const formatContent = (content:string) => {
+  // const formatContent = (content:string) => {
   
+  //   let formattedContent = content
+  //     .replace(/⌊(.*?)⌋/g, '<span style="color: #5502b5;">$1</span>')
+  //     .replace(/⌈(.*?)⌉/g, '<span style="color: #0235b5;">$1</span>')
+  //     .replace(/…/g, '<span style="color:#b50202;">…</span>')
+  
+  //   return { __html: formattedContent };
+  // };
+
+  const formatContent = (content: string) => {
     let formattedContent = content
-      .replace(/⌊(.*?)⌋/g, '<span style="color: #5502b5;">$1</span>')
-      .replace(/⌈(.*?)⌉/g, '<span style="color: #0235b5;">$1</span>')
-      .replace(/…/g, '<span style="color:#b50202;">…</span>')
+      .replace(/⌊(.*?)⌋/g, '<mark style="background-color: #e0f0ff; padding: 0 2px;">$1</mark>')
+      .replace(/⌈(.*?)⌉/g, '<mark style="background-color: #e0f0ff; padding: 0 2px;">$1</mark>')
+      .replace(/⟦(.*?)⟧/g, '<mark style="background-color: #d4f9d3; padding: 0 2px;">$1</mark>')
+      .replace(/…/g, '<mark style="background-color: #e0f0ff; padding: 0 2px;">…</mark>');
   
     return { __html: formattedContent };
   };
+  
 
   const handleNavigate = (postId: string, newStackId: string) => {
     const url = `/posts/${postId}?stackId=${newStackId || ''}`;
@@ -145,175 +157,193 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
     }
   };
 
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  
 
   return (
     <motion.div
       variants={containerVariants}
       initial="hidden"
       animate="show"
-      style={{ display: 'flex', flexDirection: 'column', gap: '0rem', alignItems: 'center', width: '100%'}}
+      style={{ display: 'flex', flexDirection: 'column', gap: '0rem', alignItems: 'center', width: '100%' }}
     >
-      {relatedStacks.slice(0, maxStacksToShow).map((stack, index) => (
-        <motion.div
-          key={stack.stackId}
-          variants={itemVariants(index)}
-          style={{
-            position: 'relative',
-            margin: '20px 20px',
-            marginTop: '1rem',
-            width: cardWidth,
-            boxShadow: '0 10px 10px rgba(0,0,0,0.1)',
-            borderRadius: '10px',
-          }}
-        >
-          <Paper
-            ref={(el) => {
-              paperRefs.current[index] = el;
-            }}
+      {relatedStacks.slice(0, maxStacksToShow).map((stack, index) => {
+        const isHovered = hoveredIndex === index;
+        const contentToDisplay =
+          isHovered && stack.topPost.content_highlight
+            ? stack.topPost.content_highlight
+            : stack.topPost.rewrite.significant
+            ? stack.topPost.rewrite.content
+            : stack.topPost.content;
+  
+        return (
+          <motion.div
+            key={stack.stackId}
+            variants={itemVariants(index)}
             style={{
               position: 'relative',
+              margin: '20px 20px',
+              marginTop: '1rem',
               width: cardWidth,
-              backgroundColor: '#ffffff',
-              zIndex: 5,
-              // boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+              boxShadow: '0 10px 10px rgba(0,0,0,0.1)',
               borderRadius: '10px',
-              margin: '0 auto',
-              paddingTop: '40px',
-              border: '1px solid #e7e7e7',
-              // border: '1.5px solid  white',
             }}
+            onMouseEnter={() => {
+              setHoveredIndex(index);
+              // setTimeout(() => {
+              //   const newHeights = [...cardHeights];
+              //   newHeights[index] = paperRefs.current[index]?.scrollHeight || 0;
+              //   setCardHeights(newHeights);
+              // }, 50); // 延迟 50ms，让 DOM 真正渲染出来
+            }}
+            
+            
+            onMouseLeave={() => {
+              setHoveredIndex(null);
+              // // 恢复成原本 card 的高度（即加载完后默认设置的 cardHeights）
+              // setTimeout(() => {
+              //   const newHeights = [...cardHeights];
+              //   newHeights[index] = cardHeights[index]; // 直接恢复原来的 cardHeight
+              //   setCardHeights(newHeights);
+              // }, 50); // 适当延时让 DOM 收回原始状态
+            }}
+            
           >
-            {stack.topPost.rewrite.significant&& (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '10px',
-                  left: '10px',
-                  background: '#E0E6ff',
-                  color: '2435A3',
-                  borderRadius: '5px',
-                  padding: '2px 6px',
-                  fontWeight: 'bold',
-                  zIndex: 10,
-                  fontSize: '10px'
-                }}
-              >
-                Modified by AI
-              </div>
-            )}
-            <UnstyledButton
-              onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
-              onDoubleClick={() => handleDoubleClick(stack.stackId)}
-              style={{ width: '100%' }}
+            <Paper
+              ref={(el) => {
+                paperRefs.current[index] = el;
+              }}
+              style={{
+                position: 'relative',
+                width: cardWidth,
+                backgroundColor: '#ffffff',
+                zIndex: 5,
+                borderRadius: '10px',
+                margin: '0 auto',
+                paddingTop: '40px',
+                border: '1px solid #e7e7e7',
+              }}
             >
-              <Group style={{ paddingLeft: '1rem' }}>
-                <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
-                <div>
-                  <Text size="md" fw={700} c="#011445" >{stack.topPost.account.display_name}</Text>
-                  <Text size="xs" c="dimmed">
-                    {formatDistanceToNow(new Date(stack.topPost.created_at))} ago
-                  </Text>
+              {stack.topPost.rewrite.significant && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '10px',
+                    left: '10px',
+                    background: '#E0E6ff',
+                    color: '2435A3',
+                    borderRadius: '5px',
+                    padding: '2px 6px',
+                    fontWeight: 'bold',
+                    zIndex: 10,
+                    fontSize: '10px',
+                  }}
+                >
+                  Modified by AI
                 </div>
-              </Group>
-            </UnstyledButton>
-
-            <div
-              onMouseUp={() => handleMouseUp(stack.topPost.id, stack.stackId)}
-              style={{ paddingLeft: '54px', paddingRight: '1rem'
-                // , cursor: 'pointer' 
-                }}
-            >
-              <div>
-              {stack.topPost.rewrite.significant ? (
-                      <div
-                      // ref={textRef}
-                      style={{
-                        display: '-webkit-box',
-                        WebkitBoxOrient: 'vertical',
-                        WebkitLineClamp: 5,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        marginTop: '0px',
-                        lineHeight: '1.5',
-                        color: '#011445'
-                      }}
-                      dangerouslySetInnerHTML={formatContent(stack.topPost.rewrite.content)}
-                    />
-          //<Text c="#011445" size="sm" dangerouslySetInnerHTML={formatContent(stack.topPost.rewrite.content)} />
-        ) : (
-          <div
-          // ref={textRef}
-          style={{
-            display: '-webkit-box',
-            WebkitBoxOrient: 'vertical',
-            WebkitLineClamp: 5,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            marginTop: '0px',
-            lineHeight: '1.5',
-            color: '#011445'
-          }}
-          dangerouslySetInnerHTML={formatContent(stack.topPost.content)}
-        />
-          
-          // <Text c="#011445" size="sm" dangerouslySetInnerHTML={formatContent(stack.topPost.content)} />
-        )}
-              </div>
-            </div>
-{/* 
-            <Text pl={54} pt="sm" size="sm">
-              Post Id: {stack.topPost.id}
-            </Text>
-            <Text pl={54} pt="sm" size="sm">
-              Stack Id: {stack.stackId} 
-            </Text> */}
-
-            <div className="rel-display">
-              {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
-            </div>
-            <Divider style={{marginTop:"0.5rem"}} />
-            <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 10px' }}>
-              <Button variant="subtle" size="sm" radius="lg">
-                <IconMessageCircle size={20} style={{ color: '#002379' }} /> <Text style={{ color: '#002379' }} ml={4}>{stack.topPost.replies_count}</Text>
-              </Button>
-              <Button variant="subtle" size="sm" radius="lg">
-                {stack.topPost.favourited ? <IconHeartFilled size={20} style={{ color: '#002379' }} /> : <IconHeart size={20} style={{ color: '#002379' }}/>}{' '}
-                <Text ml={4} style={{ color: '#002379' }}>{stack.topPost.favourites_count}</Text>
-              </Button>
-              <Button variant="subtle" size="sm" radius="lg">
-                {stack.topPost.bookmarked ? <IconBookmarkFilled size={20} style={{ color: '#002379' }} /> : <IconBookmark size={20} style={{ color: '#002379' }}/>}
-              </Button>
-              <Button variant="subtle" size="sm" radius="lg">
-                <IconShare size={20} style={{ color: '#002379' }} />
-              </Button>
-            </Group>
-            {stack.size !== null && stack.size > 1 && (
-              <RelatedStackCount count={stack.size} onClick={() => handleStackCountClick(stack.stackId)} />
-            )}
-          </Paper>
-
-          {stack.size !== null && stack.size > 1 && 
-            [...Array(3)].map((_, idx) => (
+              )}
+              <UnstyledButton
+                onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
+                onDoubleClick={() => handleDoubleClick(stack.stackId)}
+                style={{ width: '100%' }}
+              >
+                <Group style={{ paddingLeft: '1rem' }}>
+                  <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
+                  <div>
+                    <Text size="md" fw={700} c="#011445">
+                      {stack.topPost.account.display_name}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {formatDistanceToNow(new Date(stack.topPost.created_at))} ago
+                    </Text>
+                  </div>
+                </Group>
+              </UnstyledButton>
+  
               <div
-                key={idx}
-                style={{
-                  position: 'absolute',
-                  bottom: `${-15 + 5 * idx}px`,
-                  left: `${15 - 5 * idx}px`,
-                  width: cardWidth,
-                  height: `${cardHeights[index] || 0}px`,
-                  backgroundColor: '#ffffff',
-                  zIndex: idx + 1,
-                  // boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-                  borderRadius: '10px',
-                  border: '1px solid #e7e7e7',
-                  // border: '1.5px solid white',
-                }}
-              />
-            ))}
-        </motion.div>
-      ))}
+                onMouseUp={() => handleMouseUp(stack.topPost.id, stack.stackId)}
+                style={{ paddingLeft: '54px', paddingRight: '1rem' }}
+              >
+                <div
+                  style={{
+                    display: isHovered ? 'block' : '-webkit-box',
+                    WebkitBoxOrient: 'vertical',
+                    WebkitLineClamp: 5,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    marginTop: '0px',
+                    lineHeight: '1.5',
+                    color: '#011445',
+                  }}
+                  dangerouslySetInnerHTML={formatContent(contentToDisplay)}
+                />
+              </div>
+  
+              <div className="rel-display">
+                {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
+              </div>
+              <Divider style={{ marginTop: '0.5rem' }} />
+              <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 10px' }}>
+                <Button variant="subtle" size="sm" radius="lg">
+                  <IconMessageCircle size={20} style={{ color: '#002379' }} />
+                  <Text style={{ color: '#002379' }} ml={4}>
+                    {stack.topPost.replies_count}
+                  </Text>
+                </Button>
+                <Button variant="subtle" size="sm" radius="lg">
+                  {stack.topPost.favourited ? (
+                    <IconHeartFilled size={20} style={{ color: '#002379' }} />
+                  ) : (
+                    <IconHeart size={20} style={{ color: '#002379' }} />
+                  )}
+                  <Text ml={4} style={{ color: '#002379' }}>
+                    {stack.topPost.favourites_count}
+                  </Text>
+                </Button>
+                <Button variant="subtle" size="sm" radius="lg">
+                  {stack.topPost.bookmarked ? (
+                    <IconBookmarkFilled size={20} style={{ color: '#002379' }} />
+                  ) : (
+                    <IconBookmark size={20} style={{ color: '#002379' }} />
+                  )}
+                </Button>
+                <Button variant="subtle" size="sm" radius="lg">
+                  <IconShare size={20} style={{ color: '#002379' }} />
+                </Button>
+              </Group>
+              {stack.size !== null && stack.size > 1 && (
+                <RelatedStackCount count={stack.size} onClick={() => handleStackCountClick(stack.stackId)} />
+              )}
+            </Paper>
+  
+            {stack.size !== null &&
+  stack.size > 1 &&
+  [...Array(3)].map((_, idx) => (
+    <div
+      key={idx}
+      style={{
+        position: 'absolute',
+        bottom: `${-15 + 5 * idx}px`,
+        left: `${15 - 5 * idx}px`,
+        width: cardWidth,
+        height:
+          hoveredIndex === index
+            ? paperRefs.current[index]?.scrollHeight || cardHeights[index] || 0
+            : cardHeights[index] || 0,
+        backgroundColor: '#ffffff',
+        zIndex: idx + 1,
+        borderRadius: '10px',
+        border: '1px solid #e7e7e7',
+        transition: 'height 0.3s ease',
+      }}
+    />
+  ))}
 
+          </motion.div>
+        );
+      })}
+  
       <StackPostsModal
         isOpen={stackPostsModalOpen}
         onClose={() => {
@@ -325,6 +355,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
       />
     </motion.div>
   );
+  
 };
 
 export default RelatedStacks;
