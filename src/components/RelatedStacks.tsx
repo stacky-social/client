@@ -177,7 +177,7 @@ function buildHighlightHtml(merged: { text: string; color: string }[]) {
   return merged.map(({ text, color }) => {
     if (color === 'green') return `<mark style="background-color: #d4f9d3; padding: 0 2px;">${text}</mark>`;
     if (color === 'blue') return `<mark style="background-color: #e0f0ff; padding: 0 2px;">${text}</mark>`;
-    if (color === 'both') return `<mark style="background-color: #7FFFD4; padding: 0 2px;">${text}</mark>`;
+    if (color === 'both') return `<mark style="background-color: #ddf2f4; padding: 0 2px;">${text}</mark>`;
     return text;
   }).join('');
 }
@@ -272,8 +272,9 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
         const contentToDisplay = isHovered
   ? mergeHighlight(stack.topPost.content_highlight, stack.topPost.rewrite.content)
   : stack.topPost.rewrite.significant
-    ? formatContent(stack.topPost.rewrite.content)
-    : formatContent(stack.topPost.content);
+    ? formatContent(stack.topPost.rewrite.content).__html
+    : formatContent(stack.topPost.content).__html;
+
         return (
           <motion.div
             key={stack.stackId}
