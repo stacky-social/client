@@ -104,6 +104,98 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
   
     return { __html: formattedContent };
   };
+
+  // 解析单个带标记的文本，提取纯文本+高亮区间
+function parseHighlight(text: string, source: 'green' | 'blue') {
+  let plainText = '';
+  const highlights: { start: number; end: number; source: 'green' | 'blue' }[] = [];
+  let i = 0;
+  let highlightStart = -1;
+
+  while (i < text.length) {
+    if (text[i] === '⌊' || text[i] === '⌈' || text[i] === '⟦') {
+      highlightStart = plainText.length;
+      i++;
+    } else if (text[i] === '⌋' || text[i] === '⌉' || text[i] === '⟧') {
+      highlights.push({ start: highlightStart, end: plainText.length, source });
+      highlightStart = -1;
+      i++;
+    } else {
+      plainText += text[i];
+      i++;
+    }
+  }
+
+  return { plainText, highlights };
+}
+
+// 合并两个高亮列表，识别 overlap 区域
+function mergeHighlights(text: string, highlights1: any[], highlights2: any[]) {
+  const points: { pos: number; add: 'green' | 'blue'; remove: 'green' | 'blue' }[] = [];
+
+  highlights1.forEach(({ start, end }) => {
+    points.push({ pos: start, add: 'green', remove: null as any });
+    points.push({ pos: end, add: null as any, remove: 'green' });
+  });
+  highlights2.forEach(({ start, end }) => {
+    points.push({ pos: start, add: 'blue', remove: null as any });
+    points.push({ pos: end, add: null as any, remove: 'blue' });
+  });
+
+  points.sort((a, b) => a.pos - b.pos || (a.add ? -1 : 1)); // 先加后减
+
+  const result: { text: string; color: 'none' | 'green' | 'blue' | 'both' }[] = [];
+  let currentColorSet = new Set<string>();
+  let lastPos = 0;
+
+  for (let p of points) {
+    if (p.pos > lastPos) {
+      let color: 'none' | 'green' | 'blue' | 'both' = 'none';
+      if (currentColorSet.has('green') && currentColorSet.has('blue')) color = 'both';
+      else if (currentColorSet.has('green')) color = 'green';
+      else if (currentColorSet.has('blue')) color = 'blue';
+      result.push({ text: text.slice(lastPos, p.pos), color });
+    }
+    if (p.add) currentColorSet.add(p.add);
+    if (p.remove) currentColorSet.delete(p.remove);
+    lastPos = p.pos;
+  }
+
+  if (lastPos < text.length) {
+    let color: 'none' | 'green' | 'blue' | 'both' = 'none';
+    if (currentColorSet.has('green') && currentColorSet.has('blue')) color = 'both';
+    else if (currentColorSet.has('green')) color = 'green';
+    else if (currentColorSet.has('blue')) color = 'blue';
+    result.push({ text: text.slice(lastPos), color });
+  }
+
+  return result;
+}
+
+// 根据合并后的分段生成 HTML
+function buildHighlightHtml(merged: { text: string; color: string }[]) {
+  return merged.map(({ text, color }) => {
+    if (color === 'green') return `<mark style="background-color: #d4f9d3; padding: 0 2px;">${text}</mark>`;
+    if (color === 'blue') return `<mark style="background-color: #e0f0ff; padding: 0 2px;">${text}</mark>`;
+    if (color === 'both') return `<mark style="background-color: #7FFFD4; padding: 0 2px;">${text}</mark>`;
+    return text;
+  }).join('');
+}
+
+// 总调用函数！传 content_highlight 和 rewrite.content，返回最终 HTML
+function mergeHighlight(contentHighlight: string, rewriteContent: string) {
+  const parsed1 = parseHighlight(contentHighlight, 'green');
+  const parsed2 = parseHighlight(rewriteContent, 'blue');
+
+  if (parsed1.plainText !== parsed2.plainText) {
+    console.warn('Warning: highlight plain texts not matching!');
+  }
+
+  const merged = mergeHighlights(parsed1.plainText, parsed1.highlights, parsed2.highlights);
+  const finalHtml = buildHighlightHtml(merged);
+  return finalHtml;
+}
+
   
 
   const handleNavigate = (postId: string, newStackId: string) => {
@@ -170,13 +262,18 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
     >
       {relatedStacks.slice(0, maxStacksToShow).map((stack, index) => {
         const isHovered = hoveredIndex === index;
-        const contentToDisplay =
-          isHovered && stack.topPost.content_highlight
-            ? stack.topPost.content_highlight
-            : stack.topPost.rewrite.significant
-            ? stack.topPost.rewrite.content
-            : stack.topPost.content;
+        // const contentToDisplay =
+        //   isHovered && stack.topPost.content_highlight
+        //     ? stack.topPost.content_highlight
+        //     : stack.topPost.rewrite.significant
+        //     ? stack.topPost.rewrite.content
+        //     : stack.topPost.content;
   
+        const contentToDisplay = isHovered
+  ? mergeHighlight(stack.topPost.content_highlight, stack.topPost.rewrite.content)
+  : stack.topPost.rewrite.significant
+    ? formatContent(stack.topPost.rewrite.content)
+    : formatContent(stack.topPost.content);
         return (
           <motion.div
             key={stack.stackId}
@@ -276,7 +373,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
                     lineHeight: '1.5',
                     color: '#011445',
                   }}
-                  dangerouslySetInnerHTML={formatContent(contentToDisplay)}
+                  dangerouslySetInnerHTML={{ __html: contentToDisplay }}
                 />
               </div>
   
