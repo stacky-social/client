@@ -852,7 +852,10 @@ setIsExpanded(false);
                             style={{
                                 position: 'relative',
                                 zIndex: 5,
-                                backgroundColor: showFocusRelatedStacks ? '#f6f3e1' : '#FFFFFF',
+                                backgroundColor: showFocusRelatedStacks ? '#f9f9f9' : '#FFFFFF',
+                                 border: '1px solid #e7e7e7',    
+    borderRadius: '10px',          
+    boxShadow: '0 10px 10px rgba(0,0,0,0.1)', 
                                 width: '90%',
                             }}
             

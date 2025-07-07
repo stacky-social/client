@@ -106,7 +106,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
   };
 
   // 解析单个带标记的文本，提取纯文本+高亮区间
-function parseHighlight(text: string, source: 'green' | 'blue') {
+function parseHighlight(text: string | null | undefined, source: 'green' | 'blue') {
+  // 空值保护
+  if (!text) {
+    return { plainText: '', highlights: [] };
+  }
+
   let plainText = '';
   const highlights: { start: number; end: number; source: 'green' | 'blue' }[] = [];
   let i = 0;
