@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Text, Paper, Divider, Group, Button } from '@mantine/core';
 import axios from 'axios';
-import Posts from '../../../components/Posts/Posts';
+import Posts from '../../../../components/Posts/Posts';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
