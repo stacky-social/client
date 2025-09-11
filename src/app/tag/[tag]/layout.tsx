@@ -29,8 +29,15 @@ export default function TagPageLayout({ children }: { children: ReactNode }) {
                 onClose={toggle} 
                 padding="md" 
                 size="xs" 
-                keepMounted 
-                style={{ backgroundColor: '#FCFBF5' }}
+                styles={{
+                    content: {
+                      backgroundColor: '#FCFBF5',
+                    },
+                    header: {
+                      backgroundColor: '#FCFBF5',
+                    },
+                  }}
+                removeScrollProps={{ removeScrollBar: false }}
             >
                 <Navbar />
             </Drawer>
