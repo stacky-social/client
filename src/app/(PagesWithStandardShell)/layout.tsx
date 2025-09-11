@@ -22,7 +22,7 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
             // aside={{ width: 500, breakpoint: 'md', collapsed: { desktop: false, mobile: true } }}
             padding="md"
         >
-            <AppShell.Header hiddenFrom="sm">
+            <AppShell.Header hiddenFrom="sm" bg="#FCFBF5">
                 <Group h="100%" px="md">
                     <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
                     <StackLogo size={30} />
