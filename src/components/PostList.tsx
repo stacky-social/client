@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { LoadingOverlay, Button } from "@mantine/core";
+import { LoadingOverlay, Button, Box } from "@mantine/core";
 import { PostType } from '../types/PostType';
 import Post from './Posts/Post';
 import axios from 'axios';
@@ -179,19 +179,20 @@ const PostList: React.FC<PostListProps> = ({
     ));
 
     return (
-        <div style={{ width: '100%' }}>
-            <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
+        <Box style={{ width: '100%', position: 'relative', minHeight: 80 }}>
+            <LoadingOverlay visible={loading} overlayProps={{ radius: "sm", blur: 2 }} />
             {!loading && postElements}
-            <div style={{ textAlign: 'center', marginTop: '20px' }}>
 
-            {showLoadMore && ( 
-                <Button onClick={handleLoadMore} disabled={loadingMore}
-                style={{ backgroundColor: '#324e93', color: '#fff' }}>
-                    {loadingMore ? 'Loading' : 'Load more'}
-                </Button>
+
+            {showLoadMore && !loading && ( 
+                <div style={{ textAlign: 'center', marginTop: '20px' }}>
+                    <Button onClick={handleLoadMore} disabled={loadingMore}
+                    style={{ backgroundColor: '#324e93', color: '#fff' }}>
+                        {loadingMore ? 'Loading' : 'Load more'}
+                    </Button>
+                </div>
             )}
-            </div>
-        </div>
+        </Box>
     );
 };
 
