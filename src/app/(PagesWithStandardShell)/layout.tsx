@@ -44,7 +44,7 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
                       backgroundColor: '#FCFBF5',
                     },
                   }}
-                removeScrollProps={{ removeScrollBar: false }}
+                  lockScroll={false}
             >
                 <Navbar />
             </Drawer>
