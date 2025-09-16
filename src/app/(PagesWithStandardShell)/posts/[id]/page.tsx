@@ -818,10 +818,9 @@ setIsExpanded(false);
             >
             </Modal>
 
-            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%'}}>
+            <div>
                 <div style={{gridColumn: '1 / 2', position: 'relative'}}>
                     <div style={{position: 'relative', marginBottom: '2rem'}}>
-           
                     {ancestors.map((ancestor) => (
                             <div key={ancestor.id} style={{ position: 'relative', marginBottom: '1rem', marginLeft: '40px' }}>
                                 {renderAncestors(ancestor)}
@@ -839,13 +838,9 @@ setIsExpanded(false);
                                 }}></div>
                             </div>
                         ))}
- <div className=""
- 
- >
+ <div className="">
                         <Paper
                             ref={currentPostRef}
-                            // withBorder
-                            // radius="md"
                             radius={0}
                             mt={20}
                             p="lg"
@@ -853,12 +848,9 @@ setIsExpanded(false);
                                 position: 'relative',
                                 zIndex: 5,
                                 backgroundColor: showFocusRelatedStacks ? '#f6f3e1' : '#FFFFFF',
-                                width: '90%',
                             }}
-            
-                
                             shadow="lg"
-                        >
+                            >
 
 {
                 size > 1 && (

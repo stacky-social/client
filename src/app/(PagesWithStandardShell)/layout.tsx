@@ -55,6 +55,7 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
                     marginLeft: 'auto',
                     marginRight: 'auto',
                     width: '800px',
+                    marginTop: '2rem',
                 }
             }>
                 {children}

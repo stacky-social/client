@@ -8,13 +8,11 @@ export default function Home() {
     const MastodonInstanceUrl = 'https://beta.stacky.social/api/v1/timelines/home';
 
     return (
-        <div style={{marginTop:"2rem"}}>
-            <Posts 
-                apiUrl={MastodonInstanceUrl} 
-                loadStackInfo={true} 
-                showSubmitAndSearch={true} 
-                showLoadMore={true}
-            />
-        </div>
+        <Posts 
+            apiUrl={MastodonInstanceUrl} 
+            loadStackInfo={true} 
+            showSubmitAndSearch={true} 
+            showLoadMore={true}
+        />
         );
 }

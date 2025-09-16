@@ -5,8 +5,6 @@ export default function Bookmarks() {
     const MastodonInstanceUrl = 'https://beta.stacky.social/api/v1/bookmarks';
 
     return (
-
             <Posts apiUrl={MastodonInstanceUrl} loadStackInfo={false}  showSubmitAndSearch={false} />
-
     );
 }

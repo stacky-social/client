@@ -96,7 +96,7 @@ export default function UserPage() {
   }
 
   return (
-    <div style={{ margin: '15px', width: '90%' }}>
+    <div>
       <Paper
         style={{
           backgroundColor: '#fff',
