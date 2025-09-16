@@ -319,17 +319,12 @@ export default function Post({
           width: "100%",
           backgroundColor: isExpanded ? '#fff' : '#fff',
           zIndex: 5,
-          // boxShadow: '0 0px 0px rgba(0,0,0,0.1)', // 调整阴影，只在其他三边显示
-          // borderRadius: '8px', // 全局圆角
           borderRadius: '10px', // 左上角圆角
           border: '0.5px solid #e7e7e7',
-          //borderTopRightRadius: stackCount !== null && stackCount > 1  ?'0px' : '8px', // 右上角不圆角
           paddingLeft: '1rem',
           paddingRight: '1rem',
           paddingTop: '1rem'
         }}
-
-        // withBorder
         onMouseEnter={() => {
           if (!isExpanded && paperRef.current) {
             paperRef.current.style.backgroundColor = 'rgba(245, 245, 245)';
@@ -413,6 +408,7 @@ export default function Post({
               borderRadius: '15px',
               overflow: 'hidden',
               boxShadow: '0 0px 0px rgba(0, 0, 0, 0.1)',
+              padding: '0.5rem',
               marginTop: '0.5rem',
               marginRight: '0.5rem',
             }} onClick={(e) => { e.stopPropagation(); window.open(card.url, '_blank'); }}>
