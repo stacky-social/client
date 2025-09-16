@@ -76,7 +76,7 @@ export default function TagPage() {
   }
 
   return (
-    <div style={{ margin: '15px', width: '90%' }}>
+    <div>
       <Paper
         style={{
           backgroundColor: '#fff',

@@ -5,7 +5,6 @@ import { Text, Avatar, Group, Paper, Divider, Button } from '@mantine/core';
 import axios from 'axios';
 import Posts from '../../../../components/Posts/Posts'; 
 
-
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
 export default function UserPage() {

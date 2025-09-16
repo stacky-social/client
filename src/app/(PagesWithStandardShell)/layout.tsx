@@ -1,12 +1,10 @@
 "use client"
 
-import {AppShell, Burger, Group, Skeleton, Text, MantineProvider, Space, Paper, Drawer} from '@mantine/core';
+import {AppShell, Burger, Group, Drawer} from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { ReactNode } from 'react';
 import {Navbar} from "../../components/NavBar/Navbar";
 import StackLogo from '../../utils/StackLogo';
-import SearchBar from "../../components/SearchBar/SearchBar";
-import { SubmitPost } from "../../components/SubmitPost/SubmitPost";
 
 interface ShellProps {
     children?: ReactNode;
@@ -54,7 +52,7 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
                     backgroundColor: '#FEFEFB',
                     marginLeft: 'auto',
                     marginRight: 'auto',
-                    width: '800px',
+                    maxWidth: '800px',
                     marginTop: '2rem',
                 }
             }>
