@@ -52,15 +52,13 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
             style={
                 {
                     backgroundColor: '#FEFEFB',
+                    marginLeft: 'auto',
+                    marginRight: 'auto',
+                    width: '800px',
                 }
             }>
                 {children}
             </AppShell.Main>
-            {/* <AppShell.Aside p="lg">
-                <SearchBar />
-                <SubmitPost />
-            
-            </AppShell.Aside> */}
         </AppShell>
     );
 }

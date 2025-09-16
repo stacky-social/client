@@ -45,17 +45,11 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showL
     
     const shouldUpdate = activePostId !== previousPostId;
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem',
-            
-         }}>
-            <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
+        <div>
+            <div>
                 {showSubmitAndSearch && (
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem'
-                        ,marginLeft: '1rem', marginRight: '3rem'
-                     }}>
-                        <div style={{ width: '100%'}
-                    
-                    }>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem'}}>
+                        <div style={{ width: '100%'}}>
                             <SubmitPost />
                         </div>
                     </div>
