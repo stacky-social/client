@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
-import { Group, Avatar, Button, ActionIcon } from '@mantine/core';
+import { Group, Avatar, Button, ActionIcon, Textarea, TextInput } from '@mantine/core';
 import { IconPhoto, IconChartBar, IconAlertTriangle, IconMoodSmile,  } from '@tabler/icons-react';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { notifications } from '@mantine/notifications';
@@ -19,7 +19,7 @@ export function SubmitPost() {
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const iconStyle = { width: 20, height: 20, marginLeft: 7, marginRight: 7 };
+  const iconStyle = { width: 20, height: 20};
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -145,22 +145,18 @@ export function SubmitPost() {
         )}
       </div>
 
-      <div className={classes.inputArea}
-      >
-        <div className={classes.textArea}
-        >
-          <textarea
-            ref={textareaRef}
-            placeholder="What's on your mind?"
-            value={postText}
-            onChange={(event) => setPostText(event.currentTarget.value)}
-            className={classes.textarea}
-            
-          />
-        </div>
-        <div className={classes.ButtonArea}>
-          <div className="iconlist">
-            <Group>
+      <div className={classes.inputArea}>
+        <TextInput
+          placeholder="What's on your mind?"
+          variant="unstyled"
+          style={{
+            border: 'none !important',
+          }}
+          value={postText}
+          onChange={(event) => setPostText(event.currentTarget.value)}
+        />
+        <div className={classes.ButtonArea} style={{ marginTop: '20px' }}>
+            <Group className="iconlist">
               <ActionIcon 
               className={classes.actionIcon}
               style={iconStyle} onClick={() => fileInputRef.current?.click()}>
@@ -193,7 +189,6 @@ export function SubmitPost() {
                 </div>
               )}
             </Group>
-          </div>
           <div className="postbutton">
             <Button className={classes.button} onClick={handleSubmit}>
               Post

@@ -43,7 +43,6 @@
 .AvatarArea{
     display: flex;
     align-self: flex-start;
-    padding-top: 12px; 
     margin-right: 10px; 
 }
 
