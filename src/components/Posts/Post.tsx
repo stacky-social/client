@@ -431,24 +431,6 @@ export default function Post({
           </Button>
         </Group>
       </Paper>
-      {stackCount != null && stackCount > 1 && (
-        !isExpanded && [...Array(3)].map((_, index) => (
-          <div
-            key={index}
-            style={{
-              position: 'absolute',
-              top: `${16 - 5 * (index)}px`,
-              right: `${-16 + 5 * (index)}px`,
-              width: "100%",
-              borderRadius: '10px',
-              height: `${cardHeight}px`,
-              backgroundColor: '#ffffff',
-              border: '0.5px solid #e7e7e7',
-            }}
-          />
-        ))
-      )}
-
       <AnnotationModal
         isOpen={annotationModalOpen}
         onClose={() => setAnnotationModalOpen(false)}
