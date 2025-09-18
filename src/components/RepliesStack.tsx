@@ -3,7 +3,6 @@ import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button } from '@ma
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconStack } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import RelatedStackCount from './RelatedStackCount';
-import StackPostsModal from './StackPostsModal';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import './RelatedStacks.css';
@@ -38,7 +37,6 @@ interface RepliesStackProps {
   repliesStacks: RepliesStackType[];
   cardWidth: number;
   onStackClick: (stackId: string) => void;
-  setIsExpandModalOpen: (isOpen: boolean) => void;
   showupdate: boolean;
 }
 
@@ -57,9 +55,7 @@ const iconMapping: { [key: string]: JSX.Element } = {
   default: <IconStack size={24} />,
 };
 
-const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, onStackClick, setIsExpandModalOpen, showupdate }) => {
-  const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
-  const [currentStackId, setCurrentStackId] = useState('');
+const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, onStackClick, showupdate }) => {
   const router = useRouter();
   const [maxStacksToShow, setMaxStacksToShow] = useState(4);
   const [cardHeights, setCardHeights] = useState<number[]>([]);
@@ -74,13 +70,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
     });
   }, [repliesStacks]);
 
-  const handleStackCountClick = (stackId: string) => {
-   
-    setCurrentStackId(stackId);
-    console.log('Stack count clicked:', stackId);
-    setStackPostsModalOpen(true);
-    setIsExpandModalOpen(true);
-  };
+  // No modal: clicking the count will navigate
 
   const handleNavigate = (postId: string, newStackId: string) => {
     const url = `/posts/${postId}?stackId=${newStackId || ''}`;
@@ -120,10 +110,10 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
     }, 300); // 延迟以区分单击和双击
   };
 
-  const handleDoubleClick = (stackId: string) => {
+  const handleDoubleClick = (postId: string, stackId: string) => {
     clearTimeout(clickTimeout); // 清除单击事件的计时器
     preventClick = true;
-    handleStackCountClick(stackId);
+    handleNavigate(postId, stackId);
   };
 
   return (
@@ -177,7 +167,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
             )}
             <UnstyledButton
               onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
-              onDoubleClick={() => handleDoubleClick(stack.stackId)}
+              onDoubleClick={() => handleDoubleClick(stack.topPost.id, stack.stackId)}
               style={{ width: '100%' }}
             >
               <Group style={{ padding: '0 20px' }}>
@@ -234,7 +224,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
               </Button>
             </Group>
             {stack.size !== null && stack.size > 1 && (
-              <RelatedStackCount count={stack.size} onClick={() => handleStackCountClick(stack.stackId)} />
+              <RelatedStackCount count={stack.size} onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)} />
             )}
           </Paper>
 
@@ -257,16 +247,6 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
             ))}
         </div>
       ))}
-
-      <StackPostsModal
-        isOpen={stackPostsModalOpen}
-        onClose={() => {
-          setStackPostsModalOpen(false);
-          setIsExpandModalOpen(false);
-        }}
-        apiUrl={`https://beta.stacky.social:3002/stacks/${currentStackId}/posts`}
-        stackId={currentStackId}
-      />
     </div>
   );
 };

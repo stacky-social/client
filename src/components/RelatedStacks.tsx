@@ -3,7 +3,6 @@ import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button } from '@ma
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconStack, IconThumbUp,IconThumbDown } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import RelatedStackCount from './RelatedStackCount';
-import StackPostsModal from './StackPostsModal';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import './RelatedStacks.css';
@@ -41,7 +40,6 @@ interface RelatedStacksProps {
   relatedStacks: RelatedStackType[];
   cardWidth: number;
   onStackClick: (stackId: string) => void;
-  setIsExpandModalOpen: (isOpen: boolean) => void;
   showupdate: boolean;
 }
 
@@ -62,9 +60,7 @@ const iconMapping: { [key: string]: JSX.Element } = {
   disagree: <IconThumbDown size={20} />,
 };
 
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, onStackClick, setIsExpandModalOpen, showupdate }) => {
-  const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
-  const [currentStackId, setCurrentStackId] = useState('');
+const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, onStackClick, showupdate }) => {
   const router = useRouter();
   const [maxStacksToShow, setMaxStacksToShow] = useState(3);
   const [cardHeights, setCardHeights] = useState<number[]>([]);
@@ -79,11 +75,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth,
     });
   }, [relatedStacks]);
 
-  const handleStackCountClick = (stackId: string) => {
-    setCurrentStackId(stackId);
-    setStackPostsModalOpen(true);
-    setIsExpandModalOpen(true);
-  };
+  // No modal: count click or double-click will navigate instead
 
   // const formatContent = (content:string) => {
   
@@ -240,10 +232,10 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
     }, 300); // 延迟以区分单击和双击
   };
 
-  const handleDoubleClick = (stackId: string) => {
+  const handleDoubleClick = (postId: string, stackId: string) => {
     clearTimeout(clickTimeout); // 清除单击事件的计时器
     preventClick = true;
-    handleStackCountClick(stackId);
+    handleNavigate(postId, stackId);
   };
 
   const handleMouseUp = (postId: string, stackId: string) => {
@@ -347,7 +339,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
               )}
               <UnstyledButton
                 onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
-                onDoubleClick={() => handleDoubleClick(stack.stackId)}
+                onDoubleClick={() => handleDoubleClick(stack.topPost.id, stack.stackId)}
                 style={{ width: '100%' }}
               >
                 <Group style={{ paddingLeft: '1rem' }}>
@@ -415,7 +407,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 </Button>
               </Group>
               {stack.size !== null && stack.size > 1 && (
-                <RelatedStackCount count={stack.size} onClick={() => handleStackCountClick(stack.stackId)} />
+                <RelatedStackCount count={stack.size} onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)} />
               )}
             </Paper>
   
@@ -446,15 +438,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
         );
       })}
   
-      <StackPostsModal
-        isOpen={stackPostsModalOpen}
-        onClose={() => {
-          setStackPostsModalOpen(false);
-          setIsExpandModalOpen(false);
-        }}
-        apiUrl={`https://beta.stacky.social:3002/stacks/${currentStackId}/posts`}
-        stackId={currentStackId}
-      />
+      
     </motion.div>
   );
   

@@ -318,7 +318,7 @@ export default function Post({
         style={{
           position: 'relative',
           width: "100%",
-          backgroundColor: isExpanded ? '#fff' : '#fff',
+          backgroundColor: '#fff',
           zIndex: 5,
           borderRadius: '10px', // 左上角圆角
           border: '0.5px solid #e7e7e7',

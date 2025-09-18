@@ -87,7 +87,6 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showL
                                     relatedStacks={relatedStacks}
                                     cardWidth={450}
                                     onStackClick={() => { }}
-                                    setIsExpandModalOpen={setIsExpandModalOpen}
                                     showupdate={shouldUpdate}
                                 />
                             </motion.div>

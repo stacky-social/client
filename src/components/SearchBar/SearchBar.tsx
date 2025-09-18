@@ -288,7 +288,6 @@ const handleNavigateToTag = (tag: string) => {
                   relatedStacks={relatedStacks}
                   cardWidth={450}
                   onStackClick={() => {}}
-                  setIsExpandModalOpen={() => {}}
                   showupdate={true}
                 />
               </motion.div>
