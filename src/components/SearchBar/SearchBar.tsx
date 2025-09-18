@@ -186,7 +186,7 @@ const handleNavigateToTag = (tag: string) => {
     <Suspense fallback={<Loader />}>
       <div>
         <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
-          <Paper withBorder p="md" mb="lg">
+          <Paper withBorder p="md" mb="lg" style={{ borderRadius: '10px' }}>
             <TextInput
               size="lg"
               radius="lg"

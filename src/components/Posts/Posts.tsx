@@ -66,10 +66,10 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showL
                     showLoadMore={showLoadMore} 
                 />
             </div>
-            <div style={{ gridColumn: '2 / 3', position: 'relative', marginLeft: '3rem' }}>
+            {relatedStacks.length > 0 && postPosition && <div style={{ gridColumn: '2 / 3', position: 'relative', marginLeft: '3rem' }}>
                 <div style={{ marginRight: '10rem', position: 'relative' }} ref={relatedStacksRef}>
                     <AnimatePresence>
-                        {relatedStacks.length > 0 && postPosition && (
+                        {(
                             <motion.div
                                 id="related-stacks"
                                 style={{
@@ -94,7 +94,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showL
                         )}
                     </AnimatePresence>
                 </div>
-            </div>
+            </div>}
         </div>
     );
 }

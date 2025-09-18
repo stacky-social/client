@@ -312,7 +312,7 @@ export default function Post({
   }, [text]);
 
   return (
-    <div style={{ position: 'relative', marginBottom: '3rem',boxShadow: '0 10px 10px rgba(0,0,0,0.1)', borderRadius: '10px'}}>
+    <div style={{ position: 'relative', marginBottom: '3rem',boxShadow: '0 1px 1px rgba(0,0,0,0.1)', borderRadius: '10px'}}>
       <Paper
         ref={paperRef}
         style={{
@@ -368,7 +368,7 @@ export default function Post({
         </UnstyledButton>
 
         <div
-          style={{ paddingLeft: '3rem', paddingRight:'1rem'}}
+          style={{ paddingLeft: '3rem', paddingRight:'3rem'}}
           onMouseUp={handleMouseUp}
         >
           <div>
