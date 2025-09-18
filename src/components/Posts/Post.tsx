@@ -7,6 +7,7 @@ import StackCount from '../StackCount';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
 import { motion, AnimatePresence } from 'framer-motion';
+import LinkPreviewCard from '../LinkPreviewCard';
 
 interface PreviewCard {
   title: string;
@@ -400,26 +401,14 @@ export default function Post({
             </div>
           )}
 
-          {previewCards.slice(0,1).map((card, index) => (
-            <div key={index} style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              border: '1px solid rgba(0, 0, 0, 0.1)',
-              borderRadius: '15px',
-              overflow: 'hidden',
-              boxShadow: '0 0px 0px rgba(0, 0, 0, 0.1)',
-              padding: '0.5rem',
-              marginTop: '0.5rem',
-              marginRight: '0.5rem',
-            }} onClick={(e) => { e.stopPropagation(); window.open(card.url, '_blank'); }}>
-              {card.image && (
-                <img src={card.image} alt={card.title} style={{ width: '150px', margin: '10px' }} />
-              )}
-              <div>
-                <Text c="#011445" fw="700" size="sm">{card.title}</Text>
-                <Text size="xs" c="dimmed">{card.description}</Text>
-              </div>
-            </div>
+          {previewCards.slice(0, 1).map((card, index) => (
+            <LinkPreviewCard
+              key={index}
+              url={card.url}
+              title={card.title}
+              description={card.description}
+              imageUrl={card.image}
+            />
           ))}
         </div>
 
