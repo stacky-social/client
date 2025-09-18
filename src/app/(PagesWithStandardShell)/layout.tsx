@@ -49,7 +49,6 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
             <AppShell.Main
             style={
                 {
-                    backgroundColor: '#FEFEFB',
                     marginLeft: 'auto',
                     marginRight: 'auto',
                     maxWidth: '800px',

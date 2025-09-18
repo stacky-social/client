@@ -112,6 +112,10 @@ function parseHighlight(text: string, source: 'green' | 'blue') {
   let i = 0;
   let highlightStart = -1;
 
+  if (text === null || text === undefined || text === '') {
+    return { plainText: '', highlights: [] };
+  }
+
   while (i < text.length) {
     if (text[i] === '⌊' || text[i] === '⌈' || text[i] === '⟦') {
       highlightStart = plainText.length;
