@@ -3,30 +3,10 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import {
-  Avatar,
-  Button,
-  Divider,
-  Group,
-  Loader,
-  Modal,
-  Paper,
-  Tabs,
-  Text,
-  UnstyledButton,
-} from "@mantine/core";
+import { Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  IconBookmark,
-  IconBookmarkFilled,
-  IconHeart,
-  IconHeartFilled,
-  IconLink,
-  IconMessageCircle,
-} from "@tabler/icons-react";
 
 import Post from "../../../../components/Posts/Post";
-import StackCount from "../../../../components/StackCount";
 import RelatedStacks from "../../../../components/RelatedStacks";
 import RepliesStack from "../../../../components/RepliesStack";
 import ReplySection from "../../../../components/ReplySection";
@@ -68,6 +48,19 @@ const mapWithStackFields = <T extends object>(x: T) => ({
   stackCount: null,
 });
 
+// UI constants (avoid magic numbers sprinkled throughout)
+const RAIL_LEFT = 20;
+const CONNECTOR_STYLE = {
+  position: "absolute" as const,
+  left: "10%",
+  bottom: -48,
+  width: 2,
+  height: 48,
+  backgroundColor: "#545454",
+  transform: "translateX(-50%)",
+  zIndex: 0,
+};
+
 // -------------------- Component --------------------
 export default function PostView({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -83,7 +76,6 @@ export default function PostView({ params }: { params: { id: string } }) {
 
   // UI state
   const [loading, setLoading] = useState(true);
-  const [modalOpened, setModalOpened] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("time");
   const [visibleReplies, setVisibleReplies] = useState(15);
   const [recommendedLoading, setRecommendedLoading] = useState(false);
@@ -91,17 +83,17 @@ export default function PostView({ params }: { params: { id: string } }) {
   const [loadingRepliesStack, setLoadingRepliesStack] = useState(false);
   const [repliesStack, setRepliesStack] = useState<any[]>([]);
   const [summary, setSummary] = useState<string | null>(null);
-  const [liked, setLiked] = useState(false);
-  const [bookmarked, setBookmarked] = useState(false);
-  const [likeCount, setLikeCount] = useState(0);
 
   // Layout/positioning
   const currentPostRef = useRef<HTMLDivElement>(null);
-  const [isExpanded, setIsExpanded] = useState(true);
   const [showFocusRelatedStacks, setShowFocusRelatedStacks] = useState(true);
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [postPosition, setPostPosition] = useState<{ top: number; height: number } | null>(null);
   const [focusPostPosition, setFocusPostPosition] = useState<{ top: number; height: number } | null>(null);
+
+  // --- Deduping fetches for related stacks ---
+  const fetchedRelatedIds = useRef<Set<string>>(new Set());
+  const inFlightRelatedIds = useRef<Set<string>>(new Set());
 
   // -------------------- Derived values --------------------
   const filteredReplies = useMemo(() => replies.filter((r) => r.in_reply_to_id === id), [replies, id]);
@@ -118,7 +110,18 @@ export default function PostView({ params }: { params: { id: string } }) {
     setFocusPostPosition(readRectOf(currentPostRef.current));
   }, []);
 
-  // -------------------- Fetchers --------------------
+  // -------------------- Collection updater --------------------
+  const updateCollectionsById = useCallback(
+    (targetId: string, updater: (p: PostType) => PostType) => {
+      setPost((prev) => (prev && prev.id === targetId ? updater(prev) : prev));
+      setReplies((prev) => prev.map((x) => (x.id === targetId ? updater(x) : x)));
+      setAncestors((prev) => prev.map((x) => (x.id === targetId ? updater(x) : x)));
+      setRecommendedPosts((prev) => prev.map((x) => (x.id === targetId ? updater(x) : x)));
+    },
+    []
+  );
+
+  // -------------------- Fetchers (API calls unchanged) --------------------
   const fetchCurrentUser = useCallback(async () => {
     try {
       const res = await axios.get(`${MastodonInstanceUrl}/api/v1/accounts/verify_credentials`, withAuth());
@@ -134,9 +137,6 @@ export default function PostView({ params }: { params: { id: string } }) {
         const { data } = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}`, withAuth());
         const enriched: PostType = { ...data, relatedStacks: focusRelatedStacks, stackCount: null };
         setPost(enriched);
-        setLiked(data.favourited);
-        setBookmarked(data.bookmarked);
-        setLikeCount(data.favourites_count);
       } catch (e) {
         console.error("Failed to fetch post:", e);
       }
@@ -164,20 +164,38 @@ export default function PostView({ params }: { params: { id: string } }) {
     }
   }, [id]);
 
-  const fetchRelatedStacksFor = useCallback(async (p: PostType) => {
-    try {
-      const { data } = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${p.id}/related`, withAuth());
-      const stackData = data.relatedStacks || [];
-      const stackCount = data.size;
+  // ---- Guarded per-post related fetch (prevents storms) ----
+  const fetchRelatedStacksFor = useCallback(
+    async (p: PostType) => {
+      const hasData =
+        p.stackCount !== null || (Array.isArray(p.relatedStacks) && p.relatedStacks.length > 0);
 
-      setPost((prev) => (prev && prev.id === p.id ? { ...prev, relatedStacks: stackData, stackCount } : prev));
-      setReplies((prev) => prev.map((x) => (x.id === p.id ? { ...x, relatedStacks: stackData, stackCount } : x)));
-      setAncestors((prev) => prev.map((x) => (x.id === p.id ? { ...x, relatedStacks: stackData, stackCount } : x)));
-      setRecommendedPosts((prev) => prev.map((x) => (x.id === p.id ? { ...x, relatedStacks: stackData, stackCount } : x)));
-    } catch (e) {
-      console.error(`Error fetching stack data for post ${p.id}:`, e);
-    }
-  }, []);
+      if (hasData || fetchedRelatedIds.current.has(p.id) || inFlightRelatedIds.current.has(p.id)) {
+        return;
+      }
+
+      inFlightRelatedIds.current.add(p.id);
+      try {
+        const { data } = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${p.id}/related`, withAuth());
+        const stackData = data.relatedStacks || [];
+        const stackCount = data.size;
+
+        updateCollectionsById(p.id, (x) => {
+          const sameCount = x.stackCount === stackCount;
+          const sameLen = (x.relatedStacks?.length || 0) === stackData.length;
+          if (sameCount && sameLen) return x; // avoid pointless setState
+          return { ...x, relatedStacks: stackData, stackCount };
+        });
+
+        fetchedRelatedIds.current.add(p.id);
+      } catch (e) {
+        console.error(`Error fetching stack data for post ${p.id}:`, e);
+      } finally {
+        inFlightRelatedIds.current.delete(p.id);
+      }
+    },
+    [updateCollectionsById]
+  );
 
   const fetchRecommended = useCallback(async () => {
     setRecommendedLoading(true);
@@ -189,13 +207,16 @@ export default function PostView({ params }: { params: { id: string } }) {
       );
       const formatted: PostType[] = data.map(mapWithStackFields);
       setRecommendedPosts(formatted);
-      formatted.forEach(fetchRelatedStacksFor);
+      formatted.forEach((p) => {
+        fetchRelatedStacksFor(p);
+      });
+      // No explicit per-item fetch here; the guarded effect below will handle only what's needed.
     } catch (e) {
       console.error("Failed to fetch recommended posts:", e);
     } finally {
       setRecommendedLoading(false);
     }
-  }, [fetchRelatedStacksFor, id, replyIDs]);
+  }, [id, replyIDs]);
 
   const fetchRepliesStack = useCallback(async () => {
     setLoadingRepliesStack(true);
@@ -241,9 +262,18 @@ export default function PostView({ params }: { params: { id: string } }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // ✅ Only fetch related stacks for items that need it, once.
   useEffect(() => {
-    [...replies, ...ancestors].forEach(fetchRelatedStacksFor);
-  }, [replies, ancestors, fetchRelatedStacksFor]);
+    const candidates = [...replies, ...ancestors, ...recommendedPosts];
+    const toFetch = candidates.filter(
+      (p) =>
+        p.stackCount === null &&
+        (!p.relatedStacks || p.relatedStacks.length === 0) &&
+        !fetchedRelatedIds.current.has(p.id) &&
+        !inFlightRelatedIds.current.has(p.id)
+    );
+    toFetch.forEach(fetchRelatedStacksFor);
+  }, [replies, ancestors, recommendedPosts, fetchRelatedStacksFor]);
 
   useEffect(() => {
     updateFocusPostPosition();
@@ -253,69 +283,37 @@ export default function PostView({ params }: { params: { id: string } }) {
   }, [updateFocusPostPosition]);
 
   // -------------------- Handlers --------------------
-  const handleNavigate = (replyId: string) => router.push(`/posts/${replyId}`);
-
-  const handleLike = async () => {
-    try {
-      if (liked) {
-        await axios.post(`${MastodonInstanceUrl}/api/v1/statuses/${id}/unfavourite`, {}, withAuth());
-      } else {
-        await axios.post(`${MastodonInstanceUrl}/api/v1/statuses/${id}/favourite`, {}, withAuth());
-      }
-      await Promise.all([fetchPost(id), fetchContext(id)]);
-    } catch (e) {
-      console.error("Error liking post:", e);
-    }
-  };
-
-  const handleSave = async () => {
-    try {
-      if (bookmarked) {
-        await axios.post(`${MastodonInstanceUrl}/api/v1/statuses/${id}/unbookmark`, {}, withAuth());
-      } else {
-        await axios.post(`${MastodonInstanceUrl}/api/v1/statuses/${id}/bookmark`, {}, withAuth());
-      }
-      await Promise.all([fetchPost(id), fetchContext(id)]);
-    } catch (e) {
-      console.error("Error bookmarking post:", e);
-    }
-  };
-
-  const handleCopyLink = () => {
-    const url = `${window.location.origin}/posts/${id}`;
-    navigator.clipboard.writeText(url).catch((e) => console.error("Copy failed:", e));
-  };
-
   const handleStackIconClick = (
-    relatedStacks: any[],
+    _relatedStacks: any[],
     postId: string,
     position: { top: number; height: number }
   ) => {
-    setIsExpanded(false);
     setShowFocusRelatedStacks(false);
     setActivePostId(postId);
     setPostPosition(position);
   };
 
-  const handleFocusPostClick = () => {
-    setIsExpanded(true);
-    setShowFocusRelatedStacks(true);
-    updateFocusPostPosition();
-    setActivePostId(null);
-  };
-
-  const handleShowMoreReplies = () => setVisibleReplies((v) => Math.min(v + 15, filteredReplies.length));
+  const handleShowMoreReplies = () =>
+    setVisibleReplies((v) => Math.min(v + 15, filteredReplies.length));
 
   const handleTabChange = async (value: string | null) => {
     if (!value) return;
     setActiveTab(value);
-    if (value === "recommended") await fetchRecommended();
-    if (value === "stacked") await fetchRepliesStack();
-    if (value === "summary") await fetchSummary();
+
+    const actions: Record<string, (() => Promise<void>) | undefined> = {
+      recommended: fetchRecommended,
+      stacked: fetchRepliesStack,
+      summary: fetchSummary,
+    };
+    const fn = actions[value];
+    if (fn) await fn();
   };
 
   // -------------------- Render helpers --------------------
-  const renderPost = (p: PostType) => (
+  const renderPost = (
+    p: PostType,
+    overrides?: Partial<Pick<PostType, "stackCount" | "relatedStacks">>
+  ) => (
     <Post
       key={p.id}
       id={p.id}
@@ -325,7 +323,7 @@ export default function PostView({ params }: { params: { id: string } }) {
       avatar={p.account.avatar}
       repliesCount={p.replies_count}
       createdAt={p.created_at}
-      stackCount={p.stackCount}
+      stackCount={overrides?.stackCount ?? p.stackCount}
       favouritesCount={p.favourites_count}
       favourited={p.favourited}
       bookmarked={p.bookmarked}
@@ -333,7 +331,7 @@ export default function PostView({ params }: { params: { id: string } }) {
       onStackIconClick={handleStackIconClick}
       setIsModalOpen={() => {}}
       setIsExpandModalOpen={() => {}}
-      relatedStacks={p.relatedStacks}
+      relatedStacks={overrides?.relatedStacks ?? p.relatedStacks}
       setActivePostId={setActivePostId}
       activePostId={activePostId}
     />
@@ -347,176 +345,106 @@ export default function PostView({ params }: { params: { id: string } }) {
     );
   }
 
+  // Right-rail data selection unified (no duplicate blocks)
+  const railStacks = showFocusRelatedStacks ? focusRelatedStacks : post?.relatedStacks || [];
+  const railTop = showFocusRelatedStacks ? focusPostPosition?.top : postPosition?.top;
+
   return (
     <div>
-      <Modal opened={modalOpened} onClose={() => setModalOpened(false)} title="Expand Content" centered size="auto" />
-
       <div>
         <div style={{ gridColumn: "1 / 2", position: "relative" }}>
           {/* Ancestors */}
           {ancestors.map((a) => (
             <div key={a.id} style={{ position: "relative", marginBottom: "1rem", marginLeft: 40 }}>
               {renderPost(a)}
-              <div
-                style={{
-                  position: "absolute",
-                  left: "10%",
-                  bottom: -48,
-                  width: 2,
-                  height: 48,
-                  backgroundColor: "#545454",
-                  transform: "translateX(-50%)",
-                  zIndex: 0,
-                }}
-              />
+              <div style={CONNECTOR_STYLE} />
             </div>
           ))}
 
           {/* Current Post */}
           <div ref={currentPostRef} style={{ position: "relative" }}>
-            {post && (
-              <Post
-                key={post.id}
-                id={post.id}
-                text={post.content}
-                author={post.account.username}
-                account={post.account.acc}
-                avatar={post.account.avatar}
-                repliesCount={post.replies_count}
-                createdAt={post.created_at}
-                stackCount={size}
-                favouritesCount={post.favourites_count}
-                favourited={post.favourited}
-                bookmarked={post.bookmarked}
-                mediaAttachments={[]}
-                onStackIconClick={handleStackIconClick}
-                setIsModalOpen={() => {}}
-                setIsExpandModalOpen={() => {}}
-                relatedStacks={focusRelatedStacks}
-                setActivePostId={setActivePostId}
-                activePostId={activePostId}
-              />
-            )}
+            {post && renderPost(post, { stackCount: size, relatedStacks: focusRelatedStacks })}
           </div>
-          </div>
-
-          <Divider my="md" />
-
-          <ReplySection postId={id} currentUser={currentUser} fetchPostAndReplies={() => fetchContext(id)} />
-
-          {replies.length > 0 && (
-            <Paper
-              style={{
-                borderRadius: "0 0 8px 8px",
-                fontFamily: "Roboto, sans-serif",
-                fontSize: 14,
-                marginTop: "1rem",
-                width: "100%",
-              }}
-            >
-              {/* Horizontal tabs at the top */}
-              <Tabs color="#002379" defaultValue="time" value={activeTab} onChange={handleTabChange}>
-                <Tabs.List style={{ marginBottom: "1rem" }}>
-                  <Tabs.Tab value="time" style={{ fontWeight: activeTab === "time" ? "bold" : "normal" }}>
-                    Time
-                  </Tabs.Tab>
-                  <Tabs.Tab value="recommended" style={{ fontWeight: activeTab === "recommended" ? "bold" : "normal" }}>
-                    Recommended
-                  </Tabs.Tab>
-                  <Tabs.Tab value="stacked" style={{ fontWeight: activeTab === "stacked" ? "bold" : "normal" }}>
-                    Stacked
-                  </Tabs.Tab>
-                  <Tabs.Tab value="summary" style={{ fontWeight: activeTab === "summary" ? "bold" : "normal" }}>
-                    Summary
-                  </Tabs.Tab>
-                </Tabs.List>
-
-                <Tabs.Panel value="time">
-                  <>
-                    {filteredReplies.slice(0, visibleReplies).map(renderPost)}
-                    {visibleReplies < filteredReplies.length && (
-                      <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: 10 }}>
-                        More Replies
-                      </Button>
-                    )}
-                  </>
-                </Tabs.Panel>
-
-                <Tabs.Panel value="recommended">
-                  <div style={{ textAlign: "center" }}>
-                    {recommendedLoading ? <Loader size="lg" /> : recommendedPosts.map(renderPost)}
-                  </div>
-                </Tabs.Panel>
-
-                <Tabs.Panel value="stacked">
-                  <div style={{ textAlign: "center" }}>
-                    {loadingRepliesStack ? (
-                      <Loader size="lg" />
-                    ) : (
-                      <RepliesStack
-                        repliesStacks={repliesStack}
-                        cardWidth={450}
-                        onStackClick={() => {}}
-                        showupdate={true}
-                      />
-                    )}
-                  </div>
-                </Tabs.Panel>
-
-                <Tabs.Panel value="summary">
-                  <div style={{ padding: "1rem", fontSize: "1.1rem" }}>{summary}</div>
-                </Tabs.Panel>
-              </Tabs>
-            </Paper>
-          )}
-
-          <div style={{ height: "100vh" }} />
         </div>
 
-        {/* Right rail related stacks */}
-        <div style={{ gridColumn: "2 / 3", marginTop: 0 }}>
-          <div style={{ position: "relative" }}>
-            {showFocusRelatedStacks && focusRelatedStacks.length > 0 && (
-              <AnimatePresence>
-                {focusPostPosition && (
-                  <motion.div
-                    style={{ position: "absolute", top: focusPostPosition.top - 34, left: 20, zIndex: 10 }}
-                    initial={{ opacity: 0, x: -200 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -200 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <RelatedStacks
-                      relatedStacks={focusRelatedStacks}
-                      cardWidth={450}
-                      onStackClick={() => {}}
-                      showupdate={true}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            )}
+        <Divider my="md" />
 
-            <AnimatePresence>
-              {!showFocusRelatedStacks && postPosition && (
-                <motion.div
-                  style={{ position: "absolute", top: postPosition.top - 32, left: 20, zIndex: 10 }}
-                  initial={{ opacity: 0, x: -200 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -200 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <RelatedStacks
-                    relatedStacks={post?.relatedStacks || []}
-                    cardWidth={450}
-                    onStackClick={() => {}}
-                    showupdate={true}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+        <ReplySection postId={id} currentUser={currentUser} fetchPostAndReplies={() => fetchContext(id)} />
+
+        {replies.length > 0 && (
+          <Paper
+            style={{
+              borderRadius: "0 0 8px 8px",
+              fontFamily: "Roboto, sans-serif",
+              fontSize: 14,
+              marginTop: "1rem",
+              width: "100%",
+            }}
+          >
+            <Tabs color="#002379" defaultValue="time" value={activeTab} onChange={handleTabChange}>
+              <Tabs.List style={{ marginBottom: "1rem" }}>
+                {(["time", "recommended", "stacked", "summary"] as const).map((tab) => (
+                  <Tabs.Tab
+                    key={tab}
+                    value={tab}
+                    style={{ fontWeight: activeTab === tab ? ("bold" as const) : ("normal" as const) }}
+                  >
+                    {tab[0].toUpperCase() + tab.slice(1)}
+                  </Tabs.Tab>
+                ))}
+              </Tabs.List>
+
+              <Tabs.Panel value="time">
+                <>
+                  {filteredReplies.slice(0, visibleReplies).map((p) => renderPost(p))}
+                  {visibleReplies < filteredReplies.length && (
+                    <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: 10 }}>
+                      More Replies
+                    </Button>
+                  )}
+                </>
+              </Tabs.Panel>
+
+              <Tabs.Panel value="recommended">
+                {recommendedLoading ? <Loader size="lg" /> : recommendedPosts.map((p) => renderPost(p))}
+              </Tabs.Panel>
+
+              <Tabs.Panel value="stacked">
+                {loadingRepliesStack ? (
+                  <Loader size="lg" />
+                ) : (
+                  <RepliesStack repliesStacks={repliesStack} cardWidth={450} onStackClick={() => {}} showupdate={true} />
+                )}
+              </Tabs.Panel>
+
+              <Tabs.Panel value="summary">
+                <div style={{ padding: "1rem", fontSize: "1.1rem" }}>{summary}</div>
+              </Tabs.Panel>
+            </Tabs>
+          </Paper>
+        )}
+
+        <div style={{ height: "100vh" }} />
+      </div>
+
+      {/* Right rail related stacks (single, unified AnimatePresence) */}
+      <div style={{ gridColumn: "2 / 3", marginTop: 0 }}>
+        <div style={{ position: "relative" }}>
+          <AnimatePresence>
+            {!!railStacks.length && railTop != null && (
+              <motion.div
+                style={{ position: "absolute", top: railTop - 34, left: RAIL_LEFT, zIndex: 10 }}
+                initial={{ opacity: 0, x: -200 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -200 }}
+                transition={{ duration: 0.2 }}
+              >
+                <RelatedStacks relatedStacks={railStacks} cardWidth={450} onStackClick={() => {}} showupdate={true} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
+    </div>
   );
 }
