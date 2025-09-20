@@ -49,7 +49,6 @@ const mapWithStackFields = <T extends object>(x: T) => ({
 });
 
 // UI constants (avoid magic numbers sprinkled throughout)
-const RAIL_LEFT = 20;
 const CONNECTOR_STYLE = {
   position: "absolute" as const,
   left: "10%",
@@ -86,10 +85,13 @@ export default function PostView({ params }: { params: { id: string } }) {
 
   // Layout/positioning
   const currentPostRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLDivElement>(null);
   const [showFocusRelatedStacks, setShowFocusRelatedStacks] = useState(true);
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [postPosition, setPostPosition] = useState<{ top: number; height: number } | null>(null);
   const [focusPostPosition, setFocusPostPosition] = useState<{ top: number; height: number } | null>(null);
+  const [railLeft, setRailLeft] = useState<number | null>(null);
+  const [scrollY, setScrollY] = useState(0);
 
   // --- Deduping fetches for related stacks ---
   const fetchedRelatedIds = useRef<Set<string>>(new Set());
@@ -108,6 +110,11 @@ export default function PostView({ params }: { params: { id: string } }) {
 
   const updateFocusPostPosition = useCallback(() => {
     setFocusPostPosition(readRectOf(currentPostRef.current));
+  }, []);
+
+  const updateRailLeft = useCallback(() => {
+    const rect = mainRef.current?.getBoundingClientRect();
+    if (rect) setRailLeft(rect.right + 60 + window.scrollX);
   }, []);
 
   // -------------------- Collection updater --------------------
@@ -282,6 +289,18 @@ export default function PostView({ params }: { params: { id: string } }) {
     return () => window.removeEventListener("resize", onResize);
   }, [updateFocusPostPosition]);
 
+  useEffect(() => {
+    updateRailLeft();
+    const onResize = () => updateRailLeft();
+    const onScroll = () => setScrollY(window.scrollY);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onScroll, { passive: true } as AddEventListenerOptions);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, [updateRailLeft]);
+
   // -------------------- Handlers --------------------
   const handleStackIconClick = (
     _relatedStacks: any[],
@@ -350,9 +369,9 @@ export default function PostView({ params }: { params: { id: string } }) {
   const railTop = showFocusRelatedStacks ? focusPostPosition?.top : postPosition?.top;
 
   return (
-    <div>
+    <div ref={mainRef}>
       <div>
-        <div style={{ gridColumn: "1 / 2", position: "relative" }}>
+        <div style={{ position: "relative" }}>
           {/* Ancestors */}
           {ancestors.map((a) => (
             <div key={a.id} style={{ position: "relative", marginBottom: "1rem", marginLeft: 40 }}>
@@ -427,24 +446,20 @@ export default function PostView({ params }: { params: { id: string } }) {
         <div style={{ height: "100vh" }} />
       </div>
 
-      {/* Right rail related stacks (single, unified AnimatePresence) */}
-      <div style={{ gridColumn: "2 / 3", marginTop: 0 }}>
-        <div style={{ position: "relative" }}>
-          <AnimatePresence>
-            {!!railStacks.length && railTop != null && (
-              <motion.div
-                style={{ position: "absolute", top: railTop - 34, left: RAIL_LEFT, zIndex: 10 }}
-                initial={{ opacity: 0, x: -200 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -200 }}
-                transition={{ duration: 0.2 }}
-              >
-                <RelatedStacks relatedStacks={railStacks} cardWidth={450} onStackClick={() => {}} showupdate={true} />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
+      {/* Right rail related stacks as fixed overlay */}
+      <AnimatePresence>
+        {!!railStacks.length && railTop != null && railLeft != null && (
+          <motion.div
+            style={{ position: "fixed", top: railTop - scrollY - 15, left: railLeft, width: 450, zIndex: 30 }}
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 40 }}
+            transition={{ duration: 0.2 }}
+          >
+            <RelatedStacks relatedStacks={railStacks} cardWidth={450} onStackClick={() => {}} showupdate={true} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
