@@ -46,15 +46,7 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
             >
                 <Navbar />
             </Drawer>
-            <AppShell.Main
-            style={
-                {
-                    marginLeft: 'auto',
-                    marginRight: 'auto',
-                    maxWidth: '800px',
-                    marginTop: '2rem',
-                }
-            }>
+            <AppShell.Main mx="auto" maw={800} mt="lg">
                 {children}
             </AppShell.Main>
         </AppShell>

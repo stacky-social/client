@@ -45,7 +45,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showL
     
     const shouldUpdate = activePostId !== previousPostId;
     return (
-        <div style={{ display: 'grid'}}>
+        <div style={{ position: 'relative' }}>
             <div>
                 {showSubmitAndSearch && (
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem'}}>
@@ -66,34 +66,35 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showL
                     showLoadMore={showLoadMore} 
                 />
             </div>
-            {relatedStacks.length > 0 && postPosition && <div style={{ gridColumn: '2 / 3', position: 'relative', marginLeft: '3rem' }}>
-                <div style={{ marginRight: '10rem', position: 'relative' }} ref={relatedStacksRef}>
+            {relatedStacks.length > 0 && postPosition && (
+                <div
+                    ref={relatedStacksRef}
+                    style={{
+                        position: 'absolute',
+                        right: '-520px',
+                        top: showSubmitAndSearch ? postPosition.top - 60 : postPosition.top - 300,
+                        width: 450
+                    }}
+                >
                     <AnimatePresence>
-                        {(
-                            <motion.div
-                                id="related-stacks"
-                                style={{
-                                    position: 'absolute',
-                                    top: showSubmitAndSearch ? postPosition.top - 60 : postPosition.top - 300,
-                                    left: 0
-                                }}
-                                initial={{ opacity: 0, x: -200 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -200 }}
-                                transition={{ duration: 0.2 }}
-                            >
-                                <RelatedStacks
-                                    key={relatedStacks.map((_, index) => index).join(',')}
-                                    relatedStacks={relatedStacks}
-                                    cardWidth={450}
-                                    onStackClick={() => { }}
-                                    showupdate={shouldUpdate}
-                                />
-                            </motion.div>
-                        )}
+                        <motion.div
+                            id="related-stacks"
+                            initial={{ opacity: 0, x: -200 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -200 }}
+                            transition={{ duration: 0.2 }}
+                        >
+                            <RelatedStacks
+                                key={relatedStacks.map((_, index) => index).join(',')}
+                                relatedStacks={relatedStacks}
+                                cardWidth={450}
+                                onStackClick={() => { }}
+                                showupdate={shouldUpdate}
+                            />
+                        </motion.div>
                     </AnimatePresence>
                 </div>
-            </div>}
+            )}
         </div>
     );
 }
