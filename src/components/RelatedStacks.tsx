@@ -5,6 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import StackPostsModal from './StackPostsModal';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -41,6 +42,7 @@ interface RelatedStacksProps {
   cardWidth: number;
   onStackClick: (stackId: string) => void;
   showupdate: boolean;
+  onOpenModalWithStackId?: (stackId: string) => void;
 }
 
 const iconMapping: { [key: string]: JSX.Element } = {
@@ -60,11 +62,13 @@ const iconMapping: { [key: string]: JSX.Element } = {
   disagree: <IconThumbDown size={20} />,
 };
 
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, onStackClick, showupdate }) => {
+const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, onStackClick, showupdate, onOpenModalWithStackId }) => {
   const router = useRouter();
   const [maxStacksToShow, setMaxStacksToShow] = useState(3);
   const [cardHeights, setCardHeights] = useState<number[]>([]);
   const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
+  const [currentStackId, setCurrentStackId] = useState<string | null>(null);
 
   useEffect(() => {
     const heights = paperRefs.current.map(ref => ref?.offsetHeight || 0);
@@ -407,7 +411,16 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 </Button>
               </Group>
               {stack.size !== null && stack.size > 1 && (
-                <RelatedStackCount count={stack.size} onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)} />
+                <RelatedStackCount
+                  count={stack.size}
+                  onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
+                  onDoubleClick={() => {
+                    clearTimeout(clickTimeout as unknown as number);
+                    preventClick = true;
+                    setCurrentStackId(stack.stackId);
+                    setStackPostsModalOpen(true);
+                  }}
+                />
               )}
             </Paper>
   
@@ -438,7 +451,12 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
         );
       })}
   
-      
+      <StackPostsModal
+        isOpen={stackPostsModalOpen}
+        onClose={() => setStackPostsModalOpen(false)}
+        apiUrl={currentStackId ? `https://beta.stacky.social:3002/stacks/${currentStackId}/posts` : ''}
+        stackId={currentStackId}
+      />
     </motion.div>
   );
   

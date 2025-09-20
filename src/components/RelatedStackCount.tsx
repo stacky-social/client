@@ -5,12 +5,14 @@ import { IconStack } from '@tabler/icons-react';
 interface RelatedStackCountProps {
   count: number;
   onClick: () => void;
+  onDoubleClick?: () => void;
 }
 
-const RelatedStackCount: React.FC<RelatedStackCountProps> = ({ count, onClick }) => {
+const RelatedStackCount: React.FC<RelatedStackCountProps> = ({ count, onClick, onDoubleClick }) => {
   return (
     <Paper
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
       style={{
         position: 'absolute',
         top: '0px',
