@@ -65,31 +65,9 @@ const iconMapping: { [key: string]: JSX.Element } = {
 const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, onStackClick, showupdate, onOpenModalWithStackId }) => {
   const router = useRouter();
   const [maxStacksToShow, setMaxStacksToShow] = useState(3);
-  const [cardHeights, setCardHeights] = useState<number[]>([]);
   const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [currentStackId, setCurrentStackId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const heights = paperRefs.current.map(ref => ref?.offsetHeight || 0);
-    setCardHeights(heights);
-    heights.forEach((height, index) => {
-      console.log(`Paper ${index} height:`, height);
-      console.log(`Stacked div ${index} height:`, height);
-    });
-  }, [relatedStacks]);
-
-  // No modal: count click or double-click will navigate instead
-
-  // const formatContent = (content:string) => {
-  
-  //   let formattedContent = content
-  //     .replace(/⌊(.*?)⌋/g, '<span style="color: #5502b5;">$1</span>')
-  //     .replace(/⌈(.*?)⌉/g, '<span style="color: #0235b5;">$1</span>')
-  //     .replace(/…/g, '<span style="color:#b50202;">…</span>')
-  
-  //   return { __html: formattedContent };
-  // };
 
   const formatContent = (content: string) => {
     let formattedContent = content
@@ -424,28 +402,28 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
               )}
             </Paper>
   
-            {stack.size !== null &&
-  stack.size > 1 &&
-  [...Array(3)].map((_, idx) => (
-    <div
-      key={idx}
-      style={{
-        position: 'absolute',
-        bottom: `${-15 + 5 * idx}px`,
-        left: `${15 - 5 * idx}px`,
-        width: cardWidth,
-        height:
-          hoveredIndex === index
-            ? paperRefs.current[index]?.scrollHeight || cardHeights[index] || 0
-            : cardHeights[index] || 0,
-        backgroundColor: '#ffffff',
-        zIndex: idx + 1,
-        borderRadius: '10px',
-        border: '1px solid #e7e7e7',
-        transition: 'height 0.3s ease',
-      }}
-    />
-  ))}
+            {stack.size !== null && stack.size > 1 && (
+              <>
+                {[...Array(3)].map((_, idx) => (
+                  <div
+                    key={idx}
+                    aria-hidden
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      transform: `translate(${15 - 5 * idx}px, ${15 - 5 * idx}px)`,
+                      width: '100%',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e7e7e7',
+                      borderRadius: '10px',
+                      zIndex: idx + 1,
+                      pointerEvents: 'none',
+                      transition: 'transform 0.2s ease',
+                    }}
+                  />
+                ))}
+              </>
+            )}
 
           </motion.div>
         );
