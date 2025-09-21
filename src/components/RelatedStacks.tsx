@@ -225,7 +225,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
     },
   });
 
-  let clickTimeout: NodeJS.Timeout;
+  let clickTimeout: ReturnType<typeof setTimeout>;
   let preventClick = false;
   const handleSingleClick = (postId: string, stackId: string) => {
     clickTimeout = setTimeout(() => {
@@ -415,7 +415,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                   count={stack.size}
                   onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
                   onDoubleClick={() => {
-                    clearTimeout(clickTimeout as unknown as number);
+                    clearTimeout(clickTimeout);
                     preventClick = true;
                     setCurrentStackId(stack.stackId);
                     setStackPostsModalOpen(true);
