@@ -99,7 +99,7 @@ export default function UserPage() {
       <Paper
         style={{
           backgroundColor: '#fff',
-          boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+          boxShadow: 'rgba(0, 0, 0, 0.1) 0px 1px 1px',
           borderRadius: '8px',
           padding: '20px',
         }}
