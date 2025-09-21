@@ -99,6 +99,10 @@ export default function PostView({ params }: { params: { id: string } }) {
 
   // -------------------- Derived values --------------------
   const filteredReplies = useMemo(() => replies.filter((r) => r.in_reply_to_id === id), [replies, id]);
+  const repliesByTimeDesc = useMemo(
+    () => filteredReplies.slice().sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    [filteredReplies]
+  );
   const replyIDs = useMemo(() => filteredReplies.map((r) => r.id), [filteredReplies]);
 
   // -------------------- Position helpers --------------------
@@ -416,8 +420,8 @@ export default function PostView({ params }: { params: { id: string } }) {
 
               <Tabs.Panel value="time">
                 <>
-                  {filteredReplies.slice(0, visibleReplies).map((p) => renderPost(p))}
-                  {visibleReplies < filteredReplies.length && (
+                  {repliesByTimeDesc.slice(0, visibleReplies).map((p) => renderPost(p))}
+                  {visibleReplies < repliesByTimeDesc.length && (
                     <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: 10 }}>
                       More Replies
                     </Button>
