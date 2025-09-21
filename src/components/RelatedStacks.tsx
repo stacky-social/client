@@ -262,7 +262,6 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
               margin: '20px 20px',
               marginTop: '1rem',
               width: cardWidth,
-              boxShadow: '0 10px 10px rgba(0,0,0,0.1)',
               borderRadius: '10px',
             }}
             onMouseEnter={() => {
@@ -298,7 +297,12 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 borderRadius: '10px',
                 margin: '0 auto',
                 paddingTop: '40px',
-                border: '1px solid #e7e7e7',
+                border: '1px solid rgb(156, 184, 255)',
+                boxShadow:
+                  stack.size !== null && stack.size > 1
+                    ? 'none'
+                    : '0 12px 24px rgba(0,0,0,0.18), 0 6px 12px rgba(0,0,0,0.12)',
+                transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
               }}
             >
               {stack.topPost.rewrite.significant && (
@@ -414,11 +418,14 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                       transform: `translate(${6 - 3 * idx}px, ${8 - 4 * idx}px)`,
                       width: '100%',
                       backgroundColor: '#ffffff',
-                      border: '1px solid #e7e7e7',
                       borderRadius: '10px',
                       zIndex: idx + 1,
                       pointerEvents: 'none',
-                      transition: 'transform 0.2s ease',
+                      border: '1px solid rgb(156, 184, 255)',
+                      boxShadow: idx === 0
+                        ? '0 12px 24px rgba(0,0,0,0.18), 0 6px 12px rgba(0,0,0,0.12)'
+                        : 'none',
+                      transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
                     }}
                   />
                 ))}
