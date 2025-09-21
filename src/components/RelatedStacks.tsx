@@ -404,14 +404,14 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
   
             {stack.size !== null && stack.size > 1 && (
               <>
-                {[...Array(3)].map((_, idx) => (
+                {[...Array(2)].map((_, idx) => (
                   <div
                     key={idx}
                     aria-hidden
                     style={{
                       position: 'absolute',
                       inset: 0,
-                      transform: `translate(${15 - 5 * idx}px, ${15 - 5 * idx}px)`,
+                      transform: `translate(${10 - 5 * idx}px, ${10 - 5 * idx}px)`,
                       width: '100%',
                       backgroundColor: '#ffffff',
                       border: '1px solid #e7e7e7',
