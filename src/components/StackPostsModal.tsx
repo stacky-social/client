@@ -237,6 +237,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
       onClose={onClose}
       size="70%"
       centered
+      removeScrollProps={{ removeScrollBar: false }}
       overlayProps={{
         backgroundOpacity: 0.55,
         color:'#fefefb',

@@ -1,5 +1,8 @@
 /* styles/globals.css */
 html {
-    scrollbar-gutter: stable;        /* modern */
-    overflow-y: scroll; /* Ensures scrollbar is always visible */
+    scrollbar-gutter: stable;          /* modern browsers */
+}
+
+@supports not (scrollbar-gutter: stable) {
+    html { overflow-y: scroll; }
 }
