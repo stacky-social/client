@@ -309,7 +309,7 @@ export default function Post({
   }, [text]);
 
   return (
-    <div style={{ position: 'relative', marginBottom: '3rem',boxShadow: '0 1px 1px rgba(0,0,0,0.1)', borderRadius: '10px'}}>
+    <div style={{ position: 'relative', marginBottom: '3rem'}}>
       <Paper
         ref={paperRef}
         style={{
