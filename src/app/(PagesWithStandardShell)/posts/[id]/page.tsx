@@ -352,7 +352,7 @@ export default function PostView({ params }: { params: { id: string } }) {
       setIsExpandModalOpen={() => {}}
       relatedStacks={overrides?.relatedStacks ?? p.relatedStacks}
       setActivePostId={setActivePostId}
-      activePostId={activePostId}
+      activePostId={highlightId}
     />
   );
 
@@ -367,6 +367,7 @@ export default function PostView({ params }: { params: { id: string } }) {
   // Right-rail data selection unified (no duplicate blocks)
   const railStacks = showFocusRelatedStacks ? focusRelatedStacks : post?.relatedStacks || [];
   const railTop = showFocusRelatedStacks ? focusPostPosition?.top : postPosition?.top;
+  const highlightId = showFocusRelatedStacks ? id : activePostId;
 
   return (
     <div ref={mainRef}>
