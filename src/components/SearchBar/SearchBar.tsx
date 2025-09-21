@@ -188,9 +188,8 @@ const handleNavigateToTag = (tag: string) => {
         <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
           <Paper withBorder p="md" mb="lg" style={{ borderRadius: '10px' }}>
             <TextInput
-              size="lg"
-              radius="lg"
               placeholder="Search or Paste URL"
+              variant="unstyled"
               value={query}
               onChange={(e) => setQuery(e.currentTarget.value)}
               onKeyDown={handleKeyDown}

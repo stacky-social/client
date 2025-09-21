@@ -149,9 +149,6 @@ export function SubmitPost() {
         <TextInput
           placeholder="What's on your mind?"
           variant="unstyled"
-          style={{
-            border: 'none !important',
-          }}
           value={postText}
           onChange={(event) => setPostText(event.currentTarget.value)}
         />
