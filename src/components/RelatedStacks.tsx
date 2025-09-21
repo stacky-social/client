@@ -411,7 +411,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                     style={{
                       position: 'absolute',
                       inset: 0,
-                      transform: `translate(${10 - 5 * idx}px, ${10 - 5 * idx}px)`,
+                      transform: `translate(${6 - 3 * idx}px, ${8 - 4 * idx}px)`,
                       width: '100%',
                       backgroundColor: '#ffffff',
                       border: '1px solid #e7e7e7',
