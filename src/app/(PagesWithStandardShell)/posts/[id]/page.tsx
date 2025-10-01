@@ -90,12 +90,16 @@ export default function PostView({ params }: { params: { id: string } }) {
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [postPosition, setPostPosition] = useState<{ top: number; height: number } | null>(null);
   const [focusPostPosition, setFocusPostPosition] = useState<{ top: number; height: number } | null>(null);
-  const [railLeft, setRailLeft] = useState<number | null>(null);
-  const [scrollY, setScrollY] = useState(0);
+  const [containerOffset, setContainerOffset] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
   // --- Deduping fetches for related stacks ---
   const fetchedRelatedIds = useRef<Set<string>>(new Set());
   const inFlightRelatedIds = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetchedRelatedIds.current.clear();
+    inFlightRelatedIds.current.clear();
+  }, [id]);
 
   // -------------------- Derived values --------------------
   const filteredReplies = useMemo(() => replies.filter((r) => r.in_reply_to_id === id), [replies, id]);
@@ -104,6 +108,14 @@ export default function PostView({ params }: { params: { id: string } }) {
     [filteredReplies]
   );
   const replyIDs = useMemo(() => filteredReplies.map((r) => r.id), [filteredReplies]);
+
+  // Allow quick lookup of any post by id (ancestors, replies, recommended, and the focus post)
+  const allPostsById = useMemo(() => {
+    const map = new Map<string, PostType>();
+    if (post) map.set(post.id, post);
+    [...ancestors, ...replies, ...recommendedPosts].forEach((p) => map.set(p.id, p));
+    return map;
+  }, [post, ancestors, replies, recommendedPosts]);
 
   // -------------------- Position helpers --------------------
   const readRectOf = (el: HTMLElement | null) => {
@@ -115,10 +127,11 @@ export default function PostView({ params }: { params: { id: string } }) {
   const updateFocusPostPosition = useCallback(() => {
     setFocusPostPosition(readRectOf(currentPostRef.current));
   }, []);
-
-  const updateRailLeft = useCallback(() => {
+  const updateContainerOffset = useCallback(() => {
     const rect = mainRef.current?.getBoundingClientRect();
-    if (rect) setRailLeft(rect.right + 60 + window.scrollX);
+    if (rect) {
+      setContainerOffset({ top: rect.top + window.scrollY, left: rect.left + window.scrollX });
+    }
   }, []);
 
   // -------------------- Collection updater --------------------
@@ -132,7 +145,7 @@ export default function PostView({ params }: { params: { id: string } }) {
     []
   );
 
-  // -------------------- Fetchers (API calls unchanged) --------------------
+  // -------------------- Fetchers --------------------
   const fetchCurrentUser = useCallback(async () => {
     try {
       const res = await axios.get(`${MastodonInstanceUrl}/api/v1/accounts/verify_credentials`, withAuth());
@@ -146,8 +159,11 @@ export default function PostView({ params }: { params: { id: string } }) {
     async (postId: string) => {
       try {
         const { data } = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}`, withAuth());
-        const enriched: PostType = { ...data, relatedStacks: focusRelatedStacks, stackCount: null };
-        setPost(enriched);
+        setPost((prev) => ({
+          ...data,
+          relatedStacks: prev?.relatedStacks?.length ? prev.relatedStacks : focusRelatedStacks,
+          stackCount: prev?.stackCount ?? null,
+        }));
       } catch (e) {
         console.error("Failed to fetch post:", e);
       }
@@ -158,8 +174,28 @@ export default function PostView({ params }: { params: { id: string } }) {
   const fetchContext = useCallback(async (postId: string) => {
     try {
       const { data } = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}/context`, withAuth());
-      setReplies(data.descendants.map(mapWithStackFields));
-      setAncestors(data.ancestors.map(mapWithStackFields));
+
+      setReplies((prev) => {
+        const prevMap = new Map(prev.map((p) => [p.id, p]));
+        return data.descendants.map((desc: PostType) => {
+          const existing = prevMap.get(desc.id);
+          const base = mapWithStackFields(desc);
+          return existing
+            ? { ...base, stackCount: existing.stackCount, relatedStacks: existing.relatedStacks }
+            : base;
+        });
+      });
+
+      setAncestors((prev) => {
+        const prevMap = new Map(prev.map((p) => [p.id, p]));
+        return data.ancestors.map((ancestor: PostType) => {
+          const existing = prevMap.get(ancestor.id);
+          const base = mapWithStackFields(ancestor);
+          return existing
+            ? { ...base, stackCount: existing.stackCount, relatedStacks: existing.relatedStacks }
+            : base;
+        });
+      });
     } catch (e) {
       console.error("Failed to fetch context:", e);
     }
@@ -206,6 +242,16 @@ export default function PostView({ params }: { params: { id: string } }) {
       }
     },
     [updateCollectionsById]
+  );
+
+  const prefetchRelatedStacksInBatches = useCallback(
+    async (postsToFetch: PostType[], batchSize = 4) => {
+      for (let i = 0; i < postsToFetch.length; i += batchSize) {
+        const batch = postsToFetch.slice(i, i + batchSize);
+        await Promise.all(batch.map((p) => fetchRelatedStacksFor(p)));
+      }
+    },
+    [fetchRelatedStacksFor]
   );
 
   const fetchRecommended = useCallback(async () => {
@@ -270,10 +316,8 @@ export default function PostView({ params }: { params: { id: string } }) {
       }
     };
     init();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // ✅ Only fetch related stacks for items that need it, once.
   useEffect(() => {
     const candidates = [...replies, ...ancestors, ...recommendedPosts];
     const toFetch = candidates.filter(
@@ -283,37 +327,46 @@ export default function PostView({ params }: { params: { id: string } }) {
         !fetchedRelatedIds.current.has(p.id) &&
         !inFlightRelatedIds.current.has(p.id)
     );
-    toFetch.forEach(fetchRelatedStacksFor);
-  }, [replies, ancestors, recommendedPosts, fetchRelatedStacksFor]);
+
+    if (toFetch.length) {
+      void prefetchRelatedStacksInBatches(toFetch);
+    }
+  }, [replies, ancestors, recommendedPosts, prefetchRelatedStacksInBatches]);
 
   useEffect(() => {
     updateFocusPostPosition();
-    const onResize = () => updateFocusPostPosition();
+    updateContainerOffset();
+    const onResize = () => {
+      updateFocusPostPosition();
+      updateContainerOffset();
+    };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [updateFocusPostPosition]);
-
-  useEffect(() => {
-    updateRailLeft();
-    const onResize = () => updateRailLeft();
-    const onScroll = () => setScrollY(window.scrollY);
-    window.addEventListener("resize", onResize);
-    window.addEventListener("scroll", onScroll, { passive: true } as AddEventListenerOptions);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onScroll);
-    };
-  }, [updateRailLeft]);
+  }, [updateFocusPostPosition, updateContainerOffset]);
 
   // -------------------- Handlers --------------------
   const handleStackIconClick = (
-    _relatedStacks: any[],
+    relatedStacks: any[],
     postId: string,
     position: { top: number; height: number }
   ) => {
+    if (postId === id) {
+      setShowFocusRelatedStacks(true);
+      setActivePostId(null);
+      setPostPosition(null);
+      return;
+    }
+
     setShowFocusRelatedStacks(false);
     setActivePostId(postId);
     setPostPosition(position);
+
+    if (!relatedStacks || relatedStacks.length === 0) {
+      const targetPost = allPostsById.get(postId);
+      if (targetPost) {
+        void fetchRelatedStacksFor(targetPost);
+      }
+    }
   };
 
   const handleShowMoreReplies = () =>
@@ -369,12 +422,15 @@ export default function PostView({ params }: { params: { id: string } }) {
   }
 
   // Right-rail data selection unified (no duplicate blocks)
-  const railStacks = showFocusRelatedStacks ? focusRelatedStacks : post?.relatedStacks || [];
+  const activePost = showFocusRelatedStacks ? post : activePostId ? allPostsById.get(activePostId) ?? null : null;
+  const railStacks = showFocusRelatedStacks ? focusRelatedStacks : activePost?.relatedStacks || [];
   const railTop = showFocusRelatedStacks ? focusPostPosition?.top : postPosition?.top;
   const highlightId = showFocusRelatedStacks ? id : activePostId;
 
+  const railTopOffset = railTop != null ? railTop - containerOffset.top - 15 : null;
+
   return (
-    <div ref={mainRef}>
+    <div ref={mainRef} style={{ position: "relative" }}>
       <div>
         <div style={{ position: "relative" }}>
           {/* Ancestors */}
@@ -453,9 +509,15 @@ export default function PostView({ params }: { params: { id: string } }) {
 
       {/* Right rail related stacks as fixed overlay */}
       <AnimatePresence>
-        {!!railStacks.length && railTop != null && railLeft != null && (
+        {!!railStacks.length && railTopOffset != null && (
           <motion.div
-            style={{ position: "fixed", top: railTop - scrollY - 15, left: railLeft, width: 450, zIndex: 30 }}
+            style={{
+              position: "absolute",
+              top: railTopOffset,
+              left: "calc(100% + 60px)",
+              width: 450,
+              zIndex: 30,
+            }}
             initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 40 }}
