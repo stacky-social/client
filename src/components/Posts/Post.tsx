@@ -311,7 +311,8 @@ export default function Post({
           transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
           paddingLeft: '1rem',
           paddingRight: '1rem',
-          paddingTop: '1rem'
+          paddingTop: '1rem',
+          cursor: 'pointer'
         }}
         onMouseEnter={() => { setHovered(true); }}
         onMouseLeave={() => { setHovered(false); }}
@@ -352,7 +353,7 @@ export default function Post({
         </UnstyledButton>
 
         <div
-          style={{ paddingLeft: '3rem', paddingRight:'3rem'}}
+          style={{ paddingLeft: '3rem', paddingRight:'3rem', cursor: 'pointer'}}
           onMouseUp={handleMouseUp}
         >
           <div>

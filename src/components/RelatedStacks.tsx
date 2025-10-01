@@ -274,6 +274,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                     ? 'none'
                     : '0 12px 24px rgba(0,0,0,0.18), 0 6px 12px rgba(0,0,0,0.12)',
                 transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
+                cursor: 'pointer'
               }}
             >
               {stack.topPost.rewrite.significant && (
@@ -313,7 +314,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
   
               <div
                 onMouseUp={() => handleMouseUp(stack.topPost.id, stack.stackId)}
-                style={{ paddingLeft: '54px', paddingRight: '1rem' }}
+                style={{ paddingLeft: '54px', paddingRight: '1rem', cursor: 'pointer' }}
               >
                 <div
                   style={{

@@ -131,7 +131,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
               boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
               margin: '0 auto',
               paddingTop: '20px',
-
+              cursor: 'pointer'
             }}
      
           >
@@ -166,15 +166,15 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
                 </div>
               </Group>
 
-              <div
-                style={{
-                  paddingTop: '1rem',
-                  paddingLeft: '1rem',
-                  paddingRight: '1rem',
-
-                }}
+            <div
+              style={{
+                paddingTop: '1rem',
+                paddingLeft: '1rem',
+                paddingRight: '1rem',
+                cursor: 'pointer'
+              }}
                 
-              >
+            >
                 {stack.topPost.content_rewritten ? (
                   <Text c="#011445" dangerouslySetInnerHTML={{ __html: stack.topPost.rewrite.content }} />
                 ) : (
