@@ -203,21 +203,9 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
     },
   });
 
-  let clickTimeout: ReturnType<typeof setTimeout>;
-  let preventClick = false;
-  const handleSingleClick = (postId: string, stackId: string) => {
-    clickTimeout = setTimeout(() => {
-      if (!preventClick) {
-        handleNavigate(postId, stackId);
-      }
-      preventClick = false;
-    }, 300); // 延迟以区分单击和双击
-  };
-
-  const handleDoubleClick = (postId: string, stackId: string) => {
-    clearTimeout(clickTimeout); // 清除单击事件的计时器
-    preventClick = true;
-    handleNavigate(postId, stackId);
+  const handleOpenStackModal = (stackId: string) => {
+    setCurrentStackId(stackId);
+    setStackPostsModalOpen(true);
   };
 
   const handleMouseUp = (postId: string, stackId: string) => {
@@ -240,12 +228,6 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
     >
       {relatedStacks.slice(0, maxStacksToShow).map((stack, index) => {
         const isHovered = hoveredIndex === index;
-        // const contentToDisplay =
-        //   isHovered && stack.topPost.content_highlight
-        //     ? stack.topPost.content_highlight
-        //     : stack.topPost.rewrite.significant
-        //     ? stack.topPost.rewrite.content
-        //     : stack.topPost.content;
   
         const contentToDisplay = isHovered
   ? mergeHighlight(stack.topPost.content_highlight, stack.topPost.rewrite.content)
@@ -266,22 +248,11 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
             }}
             onMouseEnter={() => {
               setHoveredIndex(index);
-              // setTimeout(() => {
-              //   const newHeights = [...cardHeights];
-              //   newHeights[index] = paperRefs.current[index]?.scrollHeight || 0;
-              //   setCardHeights(newHeights);
-              // }, 50); // 延迟 50ms，让 DOM 真正渲染出来
             }}
             
             
             onMouseLeave={() => {
               setHoveredIndex(null);
-              // // 恢复成原本 card 的高度（即加载完后默认设置的 cardHeights）
-              // setTimeout(() => {
-              //   const newHeights = [...cardHeights];
-              //   newHeights[index] = cardHeights[index]; // 直接恢复原来的 cardHeight
-              //   setCardHeights(newHeights);
-              // }, 50); // 适当延时让 DOM 收回原始状态
             }}
             
           >
@@ -324,8 +295,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 </div>
               )}
               <UnstyledButton
-                onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
-                onDoubleClick={() => handleDoubleClick(stack.topPost.id, stack.stackId)}
+                onClick={() => handleNavigate(stack.topPost.id, stack.stackId)}
                 style={{ width: '100%' }}
               >
                 <Group style={{ paddingLeft: '1rem' }}>
@@ -395,13 +365,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
               {stack.size !== null && stack.size > 1 && (
                 <RelatedStackCount
                   count={stack.size}
-                  onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
-                  onDoubleClick={() => {
-                    clearTimeout(clickTimeout);
-                    preventClick = true;
-                    setCurrentStackId(stack.stackId);
-                    setStackPostsModalOpen(true);
-                  }}
+                  onClick={() => handleOpenStackModal(stack.stackId)}
                 />
               )}
             </Paper>

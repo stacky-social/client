@@ -118,7 +118,9 @@ const StackCount: React.FC<StackCountProps> = ({
 
   const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
 
-  const handlePaperClick = () => {
+  const handlePaperClick = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
     onClick();
   };
 

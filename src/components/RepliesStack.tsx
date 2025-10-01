@@ -99,20 +99,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
     },
   });
 
-  let clickTimeout: NodeJS.Timeout;
-  let preventClick = false;
-  const handleSingleClick = (postId: string, stackId: string) => {
-    clickTimeout = setTimeout(() => {
-      if (!preventClick) {
-        handleNavigate(postId, stackId);
-      }
-      preventClick = false;
-    }, 300); // 延迟以区分单击和双击
-  };
-
-  const handleDoubleClick = (postId: string, stackId: string) => {
-    clearTimeout(clickTimeout); // 清除单击事件的计时器
-    preventClick = true;
+  const handleClick = (postId: string, stackId: string) => {
     handleNavigate(postId, stackId);
   };
 
@@ -166,8 +153,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
            </div>
             )}
             <UnstyledButton
-              onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
-              onDoubleClick={() => handleDoubleClick(stack.topPost.id, stack.stackId)}
+              onClick={() => handleClick(stack.topPost.id, stack.stackId)}
               style={{ width: '100%' }}
             >
               <Group style={{ padding: '0 20px' }}>
@@ -224,7 +210,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
               </Button>
             </Group>
             {stack.size !== null && stack.size > 1 && (
-              <RelatedStackCount count={stack.size} onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)} />
+              <RelatedStackCount count={stack.size} onClick={() => handleClick(stack.topPost.id, stack.stackId)} />
             )}
           </Paper>
 

@@ -247,7 +247,7 @@ export default function Post({
     const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
 
     onStackIconClick(tempRelatedStacks, id, adjustedPosition);
-    setActivePostId(id); 
+    setActivePostId(id);
   };
 
   const handleStackClick = (index: number) => {
@@ -269,24 +269,9 @@ export default function Post({
     }
   };
 
-  let clickTimeout: NodeJS.Timeout;
-  let preventClick = false;
-
   const handleSingleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();  // 防止事件冒泡
-    clickTimeout = setTimeout(() => {
-      if (!preventClick) {
-        handleNavigate();
-      }
-      preventClick = false;
-    }, 300); // 延迟以区分单击和双击
-  };
-
-  const handleDoubleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();  // 防止事件冒泡
-    clearTimeout(clickTimeout);  // 清除单击事件的计时器
-    preventClick = true;
-    handleStackCountClick();
+    e.stopPropagation();
+    handleNavigate();
   };
 
   const handleMouseUp = () => {
@@ -333,7 +318,13 @@ export default function Post({
       >
 
 {stackCount !== 0 && (
-  <UnstyledButton onClick={handleStackCountClick}>
+  <UnstyledButton
+    onClick={(event) => {
+      event.stopPropagation();
+      handleStackCountClick();
+    }}
+    data-stack-count
+  >
     <StackCount
       count={stackCount}
       onClick={handleStackCountClick}
@@ -346,8 +337,7 @@ export default function Post({
 )}
 
         <UnstyledButton
-          onClick={handleSingleClick} 
-          onDoubleClick={handleDoubleClick} 
+          onClick={handleSingleClick}
           style={{ width: '100%' }}
         >
           <Group>
