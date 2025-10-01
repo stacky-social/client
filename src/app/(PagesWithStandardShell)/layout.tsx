@@ -16,7 +16,7 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
     return (
         <AppShell
             header={{ height: { base: 64, sm: 0 } }}
-            navbar={{ width: 210, breakpoint: 'sm' }}
+            navbar={{ width: { base: 300, sm: 210, md: 350, lg: 450 }, breakpoint: 'sm' }}
             // aside={{ width: 500, breakpoint: 'md', collapsed: { desktop: false, mobile: true } }}
             padding="md"
         >
@@ -46,7 +46,7 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
             >
                 <Navbar />
             </Drawer>
-            <AppShell.Main mx="auto" maw={800} mt="lg">
+            <AppShell.Main maw={1100} mt="lg" ml="lg">
                 {children}
             </AppShell.Main>
         </AppShell>
