@@ -46,7 +46,7 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
             >
                 <Navbar />
             </Drawer>
-            <AppShell.Main maw={1100} mt="lg" ml="lg">
+            <AppShell.Main maw={1100} mt="lg" ml="xl" mr="xl">
                 {children}
             </AppShell.Main>
         </AppShell>
