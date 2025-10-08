@@ -150,62 +150,71 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
   }, [substacks]);
 
   const cards = substacks.map((stack) => (
-    <div key={stack.substackId} style={{ margin: '2rem', width: '100%', position: 'relative'}}>
+    <div
+      key={stack.substackId}
+      style={{ width: '100%', position: 'relative', paddingRight: stack.size !== null && stack.size > 1 ? '60px' : '0' }}
+    >
       <Paper
         style={{
-          backgroundColor: '#f6f3e1',
           position: 'relative',
-          marginRight: '2rem',
-          borderRadius:'0px',
-          zIndex:5,
-          boxShadow: '0 3px 10px rgba(0,0,0,0.1)'
+          backgroundColor: '#ffffff',
+          borderRadius: '10px',
+          zIndex: 5,
+          paddingTop: '40px',
+          border: '1px solid rgb(156, 184, 255)',
+          boxShadow: stack.size !== null && stack.size > 1
+            ? 'none'
+            : '0 12px 24px rgba(0,0,0,0.18), 0 6px 12px rgba(0,0,0,0.12)',
+          transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
         }}
       >
         {stack.size !== null && stack.size > 1 && (
           <SubStackCount count={stack.size} onClick={() => handleStackCountClick(stack.topPost.id, stack.substackId)} />
         )}
         <UnstyledButton onClick={() => handleStackClick(stack.topPost.id)} style={{ width: '100%' }}>
-          <Group style={{ marginTop: '1rem', marginLeft: '1rem' }}>
+          <Group style={{ paddingLeft: '1rem' }}>
             <Avatar
               src={stack.topPost.account.avatar}
               alt={stack.topPost.account.display_name}
               radius="xl"
             />
             <div>
-              <Text size="sm" style={{ color: '#011445', fontWeight:"bold" }}>{stack.topPost.account.display_name}</Text>
+              <Text size="md" fw={700} c="#011445">{stack.topPost.account.display_name}</Text>
               <Text size="xs" c="dimmed">{formatDistanceToNow(new Date(stack.topPost.created_at))} ago</Text>
             </div>
           </Group>
-          <div ref={textRef} 
-          style={{ 
-            paddingLeft: '54px', 
-            paddingTop: '1rem', 
-            overflow: 'hidden', 
-            textOverflow: "ellipsis", 
-            display: '-webkit-box', 
-            WebkitLineClamp: '3', 
-            WebkitBoxOrient: 'vertical' }}>
-            <Text
-              c="#011445"
-              size="1rem"
-              className="post-content"
-              style={{ marginTop: '0px', lineHeight: '1.5', marginRight: '1rem' }}
-              dangerouslySetInnerHTML={{ __html: stack.topPost.content }}
-            />
-            {isOverflowing && (
-              <div style={{ color: '#5a71a8' }}>
-              [read more]
-              </div>
-            )}
-          </div>
         </UnstyledButton>
-        <Divider style={{marginTop:'1rem'}} />
+        <div
+          ref={textRef}
+          style={{
+            paddingLeft: '54px',
+            paddingRight: '1rem',
+            paddingTop: '1rem',
+            display: '-webkit-box',
+            WebkitLineClamp: 5,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            color: '#011445',
+          }}
+        >
+          <Text
+            c="#011445"
+            size="1rem"
+            className="post-content"
+            style={{ marginTop: '0px', lineHeight: '1.5' }}
+            dangerouslySetInnerHTML={{ __html: stack.topPost.content }}
+          />
+        </div>
+        <Divider style={{ marginTop: '1rem' }} />
         <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
           <Button variant="subtle" size="sm" radius="lg">
-            <IconMessageCircle size={20} style={{ color: '#002379' }} /> <Text style={{ color: '#002379' }} ml={4}>{stack.topPost.replies_count}</Text>
+            <IconMessageCircle size={20} style={{ color: '#002379' }} />
+            <Text style={{ color: '#002379' }} ml={4}>{stack.topPost.replies_count}</Text>
           </Button>
           <Button variant="subtle" size="sm" radius="lg">
-            {stack.topPost.favourited ? <IconHeartFilled size={20} style={{ color: '#002379' }} /> : <IconHeart size={20} style={{ color: '#002379' }} />} <Text style={{ color: '#002379' }} ml={4}>{stack.topPost.favourites_count}</Text>
+            {stack.topPost.favourited ? <IconHeartFilled size={20} style={{ color: '#002379' }} /> : <IconHeart size={20} style={{ color: '#002379' }} />}
+            <Text style={{ color: '#002379' }} ml={4}>{stack.topPost.favourites_count}</Text>
           </Button>
           <Button variant="subtle" size="sm" radius="lg">
             {stack.topPost.bookmarked ? <IconBookmarkFilled size={20} style={{ color: '#002379' }} /> : <IconBookmark size={20} style={{ color: '#002379' }} />}
@@ -213,20 +222,33 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
         </Group>
       </Paper>
 
-      {stack.size != null && stack.size > 1&&[...Array(3)].map((_, index) => (
-        <div
-          key={index}
-          style={{
-            position: 'absolute',
-            bottom: `${-15 + 5 * index}px`,
-            left: `${10 - 5 * index}px`,
-            width: '95%',
-            height: '90%',
-            backgroundColor: '#5a71a8',
-            border: '0.5px solid #FCFBF5', 
-          }}
-        />
-      ))}
+      {stack.size !== null && stack.size > 1 && (
+        <>
+          {[...Array(2)].map((_, idx) => (
+            <div
+              key={idx}
+              aria-hidden
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                bottom: 0,
+                right: '60px', // match wrapper paddingRight so layers align with card edge
+                transform: `translate(${6 - 3 * idx}px, ${8 - 4 * idx}px)`,
+                backgroundColor: '#ffffff',
+                borderRadius: '10px',
+                zIndex: idx + 1,
+                pointerEvents: 'none',
+                border: '1px solid rgb(156, 184, 255)',
+                boxShadow: idx === 0
+                  ? '0 12px 24px rgba(0,0,0,0.18), 0 6px 12px rgba(0,0,0,0.12)'
+                  : 'none',
+                transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
+              }}
+            />
+          ))}
+        </>
+      )}
     </div>
   ));
 
@@ -273,8 +295,8 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
           </ScrollArea>
         </Tabs.Panel>
         <Tabs.Panel value="stacked">
-          <Container py="xl" style={{ maxWidth: '1000px'}}>
-            <SimpleGrid cols={2} spacing="lg">{cards}</SimpleGrid>
+          <Container py="xl" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+            <SimpleGrid cols={2} spacing="xl" style={{ justifyItems: 'center' }}>{cards}</SimpleGrid>
           </Container>
         </Tabs.Panel>
         <Tabs.Panel value="summary">
