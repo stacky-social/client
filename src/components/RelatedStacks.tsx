@@ -229,11 +229,20 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
       {relatedStacks.slice(0, maxStacksToShow).map((stack, index) => {
         const isHovered = hoveredIndex === index;
   
+        const baseContentHtml = stack.topPost.rewrite.significant
+          ? formatContent(stack.topPost.rewrite.content ?? '').__html
+          : formatContent(stack.topPost.content ?? '').__html;
+
+        const hoverHighlightHtml =
+          stack.topPost.content_highlight && stack.topPost.rewrite?.content
+            ? mergeHighlight(stack.topPost.content_highlight, stack.topPost.rewrite.content)
+            : '';
+
         const contentToDisplay = isHovered
-  ? mergeHighlight(stack.topPost.content_highlight, stack.topPost.rewrite.content)
-  : stack.topPost.rewrite.significant
-    ? formatContent(stack.topPost.rewrite.content).__html
-    : formatContent(stack.topPost.content).__html;
+          ? hoverHighlightHtml && hoverHighlightHtml.trim().length > 0
+            ? hoverHighlightHtml
+            : baseContentHtml
+          : baseContentHtml;
 
         return (
           <motion.div
