@@ -1,12 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Text, Avatar, Group, Paper, UnstyledButton, Button, Divider } from '@mantine/core';
+import { Text, Avatar, Group, Paper, UnstyledButton, Button, Divider, Anchor } from '@mantine/core';
 import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconLink } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import StackCount from '../StackCount';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
-import { motion, AnimatePresence } from 'framer-motion';
 import LinkPreviewCard from '../LinkPreviewCard';
 
 interface PreviewCard {
@@ -94,6 +93,7 @@ export default function Post({
   const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
   const [mediaAttachments, setMediaAttachments] = useState<string[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isTextExpanded, setIsTextExpanded] = useState(false);
   const [hovered, setHovered] = useState(false);
   const isActive = activePostId === id;
 
@@ -105,10 +105,15 @@ export default function Post({
 
   useEffect(() => {
     const element = textRef.current;
-    if (element) {
-      setIsOverflowing(element.scrollHeight > element.clientHeight);
+    if (!element) return;
+
+    if (isTextExpanded) {
+      setIsOverflowing(false);
+      return;
     }
-  }, [text]);
+
+    setIsOverflowing(element.scrollHeight > element.clientHeight);
+  }, [text, isTextExpanded]);
   useEffect(() => {
     setTempRelatedStacks(relatedStacks);
   }, [relatedStacks]);
@@ -269,6 +274,13 @@ export default function Post({
     }
   };
 
+  const handleExpandText = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    event.preventDefault();
+    setIsTextExpanded(true);
+    setIsOverflowing(false);
+  };
+
   const handleSingleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     handleNavigate();
@@ -360,11 +372,11 @@ export default function Post({
       <div
         ref={textRef}
         style={{
-          display: '-webkit-box',
+          display: isTextExpanded ? 'block' : '-webkit-box',
           WebkitBoxOrient: 'vertical',
-          WebkitLineClamp: 5,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
+          WebkitLineClamp: isTextExpanded ? undefined : 5,
+          overflow: isTextExpanded ? 'visible' : 'hidden',
+          textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
           marginTop: '0px',
           lineHeight: '1.5',
           color: '#011445'
@@ -372,9 +384,29 @@ export default function Post({
         dangerouslySetInnerHTML={{ __html: text }}
       />
       {isOverflowing && (
-        <div style={{ color: '#5a71a8' }}>
-          [read more]
-        </div>
+        <Anchor
+          component="button"
+          type="button"
+          size="sm"
+          underline="hover"
+          styles={(theme) => ({
+            root: {
+              padding: 0,
+              background: 'none',
+              color: '#5a71a8',
+              fontWeight: 600,
+              cursor: 'pointer',
+              '&:hover': {
+                color: theme.colors.blue[7],
+              },
+            },
+          })}
+          onClick={handleExpandText}
+          onMouseDown={(event) => event.stopPropagation()}
+          onMouseUp={(event) => event.stopPropagation()}
+        >
+          Read more
+        </Anchor>
       )}
     </div>
   
