@@ -1,23 +1,27 @@
 "use client"
 
-import {AppShell, Burger, Group, Drawer} from '@mantine/core';
+import {AppShell, Burger, Group, Drawer, Container} from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { ReactNode } from 'react';
 import {Navbar} from "../../components/NavBar/Navbar";
 import StackLogo from '../../utils/StackLogo';
 
-interface ShellProps {
-    children?: ReactNode;
-}
-
-export default function NormalPageLayout({ children }: {  children: React.ReactNode; }) {
+export default function Shell({ children, aside }: {  children: React.ReactNode; aside: React.ReactNode; }) {
     const [opened, { toggle }] = useDisclosure();
 
     return (
         <AppShell
             header={{ height: { base: 64, sm: 0 } }}
-            navbar={{ width: { base: 300, sm: 210, md: 350, lg: 450 }, breakpoint: 'sm' }}
-            // aside={{ width: 500, breakpoint: 'md', collapsed: { desktop: false, mobile: true } }}
+            navbar={{
+                width: "clamp(200px, 22vw, 300px)",
+                breakpoint: "sm",
+                collapsed: { mobile: !opened },
+              }}
+            aside={{
+            width: "clamp(550px, 22vw, 600px)",
+            breakpoint: "lg",
+            collapsed: { mobile: true },
+            }}
             padding="md"
         >
             <AppShell.Header hiddenFrom="sm" bg="#FCFBF5">
@@ -29,6 +33,9 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
             <AppShell.Navbar p="md" visibleFrom="sm" style={{ backgroundColor: '#FCFBF5' }}>
                 <Navbar />
             </AppShell.Navbar>
+            <AppShell.Aside p="md" withBorder style={{ background: "#FCFBF5" }} zIndex={-1}>
+                {aside ?? null}
+            </AppShell.Aside>  
             <Drawer 
                 opened={opened} 
                 onClose={toggle} 
@@ -46,7 +53,7 @@ export default function NormalPageLayout({ children }: {  children: React.ReactN
             >
                 <Navbar />
             </Drawer>
-            <AppShell.Main maw={1100} mt="lg" ml="xl" mr="xl">
+            <AppShell.Main mt="lg" miw={600}>
                 {children}
             </AppShell.Main>
         </AppShell>

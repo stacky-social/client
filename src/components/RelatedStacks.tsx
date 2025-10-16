@@ -224,7 +224,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
       variants={containerVariants}
       initial="hidden"
       animate="show"
-      style={{ display: 'flex', flexDirection: 'column', gap: '0rem', alignItems: 'center', width: '100%' }}
+      style={{ display: 'flex', flexDirection: 'column', gap: '0rem', alignItems: 'center', width: '100%'}}
     >
       {relatedStacks.slice(0, maxStacksToShow).map((stack, index) => {
         const isHovered = hoveredIndex === index;
