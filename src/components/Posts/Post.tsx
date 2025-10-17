@@ -92,10 +92,10 @@ export default function Post({
   const [replyCount, setReplyCount] = useState(repliesCount);
   const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
   const [mediaAttachments, setMediaAttachments] = useState<string[]>([]);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const isActive = activePostId === id;
+  const [isExpanded, setIsExpanded] = useState(isActive);
   const [isTextExpanded, setIsTextExpanded] = useState(false);
   const [hovered, setHovered] = useState(false);
-  const isActive = activePostId === id;
 
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>([]);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
@@ -129,10 +129,9 @@ export default function Post({
   }, []);
 
   useEffect(() => {
-    if (activePostId !== id && isExpanded) {
-      setIsExpanded(false);
-    }
-  }, [activePostId]);
+    // Sync isExpanded with isActive state
+    setIsExpanded(isActive);
+  }, [isActive]);
 
 
   const handleNavigate = () => {
@@ -315,10 +314,7 @@ export default function Post({
           backgroundColor: '#fff',
           zIndex: 5,
           borderRadius: '10px', // 左上角圆角
-          border: isActive ? '1px solid rgb(156, 184, 255)' : '1px solid #e7e7e7',
-          boxShadow: isActive
-            ? '0 12px 24px rgba(0,0,0,0.18), 0 6px 12px rgba(0,0,0,0.12)'
-            : (hovered ? '0 6px 12px rgba(0,0,0,0.12)' : '0 1px 2px rgba(0,0,0,0.06)'),
+          border: isActive ? '2px solid rgb(156, 184, 255)' : '2px solid #e7e7e7',
           transform: isActive ? 'translateY(-2px)' : (hovered ? 'translateY(-1px)' : 'none'),
           transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
           paddingLeft: '1rem',

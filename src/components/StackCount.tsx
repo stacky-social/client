@@ -56,19 +56,16 @@ const getIcon = (rel: string) => iconMapping[rel] ?? <IconStack style={{ color: 
 const styles = {
   paper: {
     position: 'absolute' as const,
-    top: '-0px',
+    top: '0px',
     right: '0px',
     width: 60,
     display: 'flex',
-    paddingBottom: 10,
     flexDirection: 'column' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     cursor: 'pointer',
     transition: 'height 0.3s ease',
-    backgroundColor: '#FCFBF5',
-    border: '1px solid #cbcbcb',
-    borderRadius: 10,
+    backgroundColor: 'transparent',
   },
   header: {
     display: 'flex',
