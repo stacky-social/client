@@ -277,7 +277,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 borderRadius: '10px',
                 margin: '0 auto',
                 paddingTop: '40px',
-                border: '1px solid rgb(156, 184, 255)',
+                border: '2px solid rgb(156, 184, 255)',
                 boxShadow:
                   stack.size !== null && stack.size > 1
                     ? 'none'
@@ -395,7 +395,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                       borderRadius: '10px',
                       zIndex: idx + 1,
                       pointerEvents: 'none',
-                      border: '1px solid rgb(156, 184, 255)',
+                      border: '2px solid rgb(156, 184, 255)',
                       boxShadow: idx === 0
                         ? '0 12px 24px rgba(0,0,0,0.18), 0 6px 12px rgba(0,0,0,0.12)'
                         : 'none',
