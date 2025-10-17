@@ -5,19 +5,17 @@ import { SubmitPost } from '../SubmitPost/SubmitPost';
 import SearchBar from '../SearchBar/SearchBar';
 import RelatedStacks from '../RelatedStacks';
 import PostList from '../PostList';
+import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 
 export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showLoadMore = false,}: { apiUrl: string, loadStackInfo: boolean, showSubmitAndSearch: boolean,showLoadMore?: boolean;}) {
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
-    const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
     const [activePostId, setActivePostId] = useState<string | null>(null);
-    const [postPosition, setPostPosition] = useState<{ top: number, height: number } | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false); 
     const [isExpandModalOpen, setIsExpandModalOpen] = useState(false); 
     const [previousPostId, setPreviousPostId] = useState<string | null>(null);
 
-
-    const relatedStacksRef = useRef<HTMLDivElement>(null);
+    const { setFromPost } = useRelatedStacks();
 
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
@@ -29,17 +27,15 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showL
         }
     }, []);
 
-    const handleStackIconClick = (relatedStacks: any[], postId: string, position: { top: number, height: number }) => {
-        if (Array.isArray(relatedStacks)) {
-            setRelatedStacks([...relatedStacks]);
-            setPreviousPostId(activePostId);
-            setActivePostId(postId);
-            setPostPosition(position);
-            setIsExpandModalOpen(false);
-        } else {
+    const handleStackIconClick = (relatedStacks: any[], postId: string, _position: { top: number, height: number }) => {
+        if (!Array.isArray(relatedStacks)) {
             console.error("relatedStacks is not an array:", relatedStacks);
-            setRelatedStacks([]); 
+            return;
         }
+        setFromPost(relatedStacks, postId);
+        setPreviousPostId(activePostId);
+        setActivePostId(postId);
+        setIsExpandModalOpen(false);
     };
 
     
@@ -66,35 +62,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showL
                     showLoadMore={showLoadMore} 
                 />
             </div>
-            {relatedStacks.length > 0 && postPosition && (
-                <div
-                    ref={relatedStacksRef}
-                    style={{
-                        position: 'absolute',
-                        right: '-520px',
-                        top: showSubmitAndSearch ? postPosition.top - 60 : postPosition.top - 300,
-                        width: 450
-                    }}
-                >
-                    <AnimatePresence>
-                        <motion.div
-                            id="related-stacks"
-                            initial={{ opacity: 0, x: -200 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -200 }}
-                            transition={{ duration: 0.2 }}
-                        >
-                            <RelatedStacks
-                                key={relatedStacks.map((_, index) => index).join(',')}
-                                relatedStacks={relatedStacks}
-                                cardWidth={450}
-                                onStackClick={() => { }}
-                                showupdate={shouldUpdate}
-                            />
-                        </motion.div>
-                    </AnimatePresence>
-                </div>
-            )}
+            {/* Related stacks are now rendered in AppShell.Aside via context */}
         </div>
     );
 }

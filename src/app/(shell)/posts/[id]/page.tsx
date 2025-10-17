@@ -10,6 +10,7 @@ import Post from "../../../../components/Posts/Post";
 import RelatedStacks from "../../../../components/RelatedStacks";
 import RepliesStack from "../../../../components/RepliesStack";
 import ReplySection from "../../../../components/ReplySection";
+import { useRelatedStacks } from "../../related-stacks-context";
 
 // -------------------- Types --------------------
 interface Account {
@@ -64,6 +65,7 @@ const CONNECTOR_STYLE = {
 export default function PostView({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { id } = params;
+  const { setFromPost } = useRelatedStacks();
 
   // Data
   const [post, setPost] = useState<PostType | null>(null);
@@ -206,6 +208,8 @@ export default function PostView({ params }: { params: { id: string } }) {
       const { data } = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${id}/related`, withAuth());
       setFocusRelatedStacks(data.relatedStacks || []);
       setSize(data.size);
+      // publish to aside when focus stacks load
+      setFromPost(data.relatedStacks || [], id);
     } catch (e) {
       console.error("Error fetching related stacks from API:", e);
     }
@@ -367,6 +371,10 @@ export default function PostView({ params }: { params: { id: string } }) {
         void fetchRelatedStacksFor(targetPost);
       }
     }
+
+    if (Array.isArray(relatedStacks)) {
+      setFromPost(relatedStacks, postId);
+    }
   };
 
   const handleShowMoreReplies = () =>
@@ -507,26 +515,7 @@ export default function PostView({ params }: { params: { id: string } }) {
         <div style={{ height: "100vh" }} />
       </div>
 
-      {/* Right rail related stacks as fixed overlay */}
-      <AnimatePresence>
-        {!!railStacks.length && railTopOffset != null && (
-          <motion.div
-            style={{
-              position: "absolute",
-              top: railTopOffset,
-              left: "calc(100% + 60px)",
-              width: 450,
-              zIndex: 30,
-            }}
-            initial={{ opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 40 }}
-            transition={{ duration: 0.2 }}
-          >
-            <RelatedStacks relatedStacks={railStacks} cardWidth={450} onStackClick={() => {}} showupdate={true} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Related stacks are rendered in AppShell.Aside via context */}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import Post from '../Posts/Post';
 import RelatedStacks from '../RelatedStacks';
 import { Loader } from '@mantine/core';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 
 type SearchResult = {
   accounts: Array<{
@@ -64,6 +65,7 @@ export default function SearchBar() {
   const [postPosition, setPostPosition] = useState<{ top: number, height: number } | null>(null);
 
   const router = useRouter();
+  const { setFromPost } = useRelatedStacks();
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -177,9 +179,10 @@ const handleNavigateToTag = (tag: string) => {
     postId: string,
     position: { top: number, height: number }
   ) => {
-    setRelatedStacks(relatedStacks);
-    setActivePostId(postId);
-    setPostPosition(position);
+    if (Array.isArray(relatedStacks)) {
+      setFromPost(relatedStacks, postId);
+      setActivePostId(postId);
+    }
   };
 
   return (
@@ -268,31 +271,7 @@ const handleNavigateToTag = (tag: string) => {
           </Box>
         </div>
 
-        <div style={{ gridColumn: '2 / 3', position: 'relative' }}>
-          <AnimatePresence>
-            {postPosition && (
-              <motion.div
-                style={{
-                  position: 'absolute',
-                  top: postPosition.top - 33,//change this to align ne</AnimatePresence>
-                  left: 20,
-                  zIndex: 10
-                }}
-                initial={{ opacity: 0, x: -200 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -200 }}
-                transition={{ duration: 0.2 }}
-              >
-                <RelatedStacks
-                  relatedStacks={relatedStacks}
-                  cardWidth={450}
-                  onStackClick={() => {}}
-                  showupdate={true}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        {/* Related stacks are now rendered in AppShell.Aside via context */}
       </div>
     </Suspense>
   );

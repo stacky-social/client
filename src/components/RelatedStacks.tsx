@@ -39,7 +39,7 @@ interface RelatedStackType {
 
 interface RelatedStacksProps {
   relatedStacks: RelatedStackType[];
-  cardWidth: number;
+  cardWidth?: number | string;
   onStackClick: (stackId: string) => void;
   showupdate: boolean;
   onOpenModalWithStackId?: (stackId: string) => void;
@@ -62,7 +62,7 @@ const iconMapping: { [key: string]: JSX.Element } = {
   disagree: <IconThumbDown size={20} />,
 };
 
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, onStackClick, showupdate, onOpenModalWithStackId }) => {
+const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth = "100%", onStackClick, showupdate, onOpenModalWithStackId }) => {
   const router = useRouter();
   const [maxStacksToShow, setMaxStacksToShow] = useState(3);
   const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -252,7 +252,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
               position: 'relative',
               margin: '20px 20px',
               marginTop: '1rem',
-              width: cardWidth,
+              width: '100%',
               borderRadius: '10px',
             }}
             onMouseEnter={() => {
@@ -271,7 +271,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
               }}
               style={{
                 position: 'relative',
-                width: cardWidth,
+                width: '100%',
                 backgroundColor: '#ffffff',
                 zIndex: 5,
                 borderRadius: '10px',

@@ -57,7 +57,7 @@ const styles = {
   paper: {
     position: 'absolute' as const,
     top: '-0px',
-    right: '-50px',
+    right: '0px',
     width: 60,
     display: 'flex',
     paddingBottom: 10,
