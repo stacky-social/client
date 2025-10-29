@@ -121,6 +121,18 @@ const PostList: React.FC<PostListProps> = ({
         };
     }, [posts, activePostId, handleStackIconClick, setActivePostId]);
 
+    // Ensure the first post is automatically focused after posts load
+    useEffect(() => {
+        if (posts.length === 0 || activePostId) return;
+
+        const firstRef = postRefs.current[0];
+        const rect = firstRef ? firstRef.getBoundingClientRect() : { top: 0, height: 0 } as { top: number, height: number };
+        const adjustedPosition = { top: rect.top + window.scrollY, height: rect.height };
+
+        setActivePostId(posts[0].postId);
+        handleStackIconClick(posts[0].relatedStacks, posts[0].postId, adjustedPosition);
+    }, [posts, activePostId, handleStackIconClick, setActivePostId]);
+
     const loadStackDataInBatches = async (posts: PostType[], batchSize: number) => {
         for (let i = 0; i < posts.length; i += batchSize) {
             const batch = posts.slice(i, i + batchSize);
