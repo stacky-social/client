@@ -7,39 +7,11 @@ import StackCount from '../StackCount';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
 import LinkPreviewCard from '../LinkPreviewCard';
+import { PreviewCardType } from '../../types/PostType';
 
-interface PreviewCard {
-  title: string;
-  description: string;
-  image?: string;
-  url: string;
-}
+type PreviewCard = PreviewCardType;
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
-
-const extractLinks = (text: string): string[] => {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(text, 'text/html');
-  const anchors = doc.querySelectorAll('a:not(.mention.hashtag)') as NodeListOf<HTMLAnchorElement>;
-  return Array.from(anchors)
-    .map(anchor => anchor.href)
-    .filter(href => href.startsWith('http')); 
-};
-
-const fetchPreviewCard = async (url: string): Promise<PreviewCard | null> => {
-  try {
-    const response = await axios.get(`https://api.microlink.io?url=${encodeURIComponent(url)}`);
-    return {
-      title: response.data.data.title,
-      description: response.data.data.description,
-      image: response.data.data.image?.url,
-      url: url
-    };
-  } catch (error) {
-    console.error('Error fetching preview card:', error);
-    return null;
-  }
-};
 
 interface PostProps {
   id: string;
@@ -60,6 +32,7 @@ interface PostProps {
   relatedStacks: any[];
   activePostId: string | null;
   setActivePostId: (id: string | null) => void;
+  initialCard?: PreviewCard | null;
   
 }
 
@@ -79,6 +52,7 @@ export default function Post({
   relatedStacks,
   activePostId,
   setActivePostId,
+  initialCard,
 }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
@@ -97,7 +71,7 @@ export default function Post({
   const [isTextExpanded, setIsTextExpanded] = useState(false);
   const [hovered, setHovered] = useState(false);
 
-  const [previewCards, setPreviewCards] = useState<PreviewCard[]>([]);
+  const [previewCards, setPreviewCards] = useState<PreviewCard[]>(initialCard ? [initialCard] : []);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
 
   const [isOverflowing, setIsOverflowing] = useState(false);
@@ -117,6 +91,12 @@ export default function Post({
   useEffect(() => {
     setTempRelatedStacks(relatedStacks);
   }, [relatedStacks]);
+
+  useEffect(() => {
+    if (initialCard) {
+      setPreviewCards([initialCard]);
+    }
+  }, [initialCard]);
 
   useEffect(() => {
     if (paperRef.current) {
@@ -168,11 +148,18 @@ export default function Post({
       setBookmarkedState(data.bookmarked);
       setMediaAttachments(mediaAttachments);
 
-      const links = extractLinks(data.content);
-
-      const previewCardsPromises = links.map(link => fetchPreviewCard(link));
-      const previewCards = await Promise.all(previewCardsPromises);
-      setPreviewCards(previewCards.filter(card => card !== null) as PreviewCard[]);
+      const card = data.card;
+      if (card) {
+        const normalized: PreviewCard = {
+          title: card.title || '',
+          description: card.description || '',
+          image: card.image || undefined,
+          url: card.url,
+        };
+        setPreviewCards([normalized]);
+      } else {
+        setPreviewCards([]);
+      }
     } catch (error) {
       console.error('Error fetching post data:', error);
     }

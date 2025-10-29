@@ -71,7 +71,13 @@ const PostList: React.FC<PostListProps> = ({
                 favourited: post.favourited,
                 bookmarked: post.bookmarked,
                 mediaAttachments: post.media_attachments,
-                relatedStacks: []
+                relatedStacks: [],
+                previewCard: post.card ? {
+                    title: post.card.title,
+                    description: post.card.description,
+                    image: post.card.image || undefined,
+                    url: post.card.url,
+                } : null
             }));
 
             setPosts((prevPosts) => isLoadMore ? [...prevPosts, ...data] : data);
@@ -186,6 +192,7 @@ const PostList: React.FC<PostListProps> = ({
                 relatedStacks={post.relatedStacks}
                 activePostId={activePostId}
                 setActivePostId={setActivePostId}
+                initialCard={post.previewCard || null}
             />
         </div>
     ));

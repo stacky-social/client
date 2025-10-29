@@ -8,6 +8,13 @@ export interface ReplyType {
     replies?: ReplyType[];
 }
 
+export interface PreviewCardType {
+    title: string;
+    description: string;
+    image?: string;
+    url: string;
+}
+
 export interface PostType {
     postId: string;
     text: string;
@@ -24,4 +31,5 @@ export interface PostType {
     mediaAttachments: string[];
     replies_count: number;
     relatedStacks: any[];
+    previewCard?: PreviewCardType | null;
 }
