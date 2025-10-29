@@ -55,7 +55,7 @@ export default function Shell({ children, aside }: {  children: React.ReactNode;
             >
                 <Navbar />
             </Drawer>
-            <AppShell.Main mt="lg" miw={500}>
+            <AppShell.Main miw={500}>
                 {children}
             </AppShell.Main>
         </AppShell>
