@@ -35,6 +35,7 @@ const PostList: React.FC<PostListProps> = ({
     const [loadingMore, setLoadingMore] = useState(false);
     const postRefs = useRef<Array<HTMLDivElement | null>>([]);
     const [maxId, setMaxId] = useState<string | null>(null);
+    const hasAutoHighlightedFirstPostRef = useRef(false);
 
     useEffect(() => {
         fetchPosts();
@@ -127,17 +128,27 @@ const PostList: React.FC<PostListProps> = ({
         };
     }, [posts, activePostId, handleStackIconClick, setActivePostId]);
 
-    // Ensure the first post is automatically focused after posts load
+    // Auto-highlight the first post once on initial page load only,
+    // and wait until related stacks info is available when loadStackInfo is true
     useEffect(() => {
-        if (posts.length === 0 || activePostId) return;
+        if (hasAutoHighlightedFirstPostRef.current || posts.length === 0 || activePostId) return;
+
+        const firstPost = posts[0];
+        if (loadStackInfo) {
+            // When loading stack info, wait until the first post's stackCount is resolved (null -> number)
+            if (firstPost.stackCount === null) return;
+        }
 
         const firstRef = postRefs.current[0];
-        const rect = firstRef ? firstRef.getBoundingClientRect() : { top: 0, height: 0 } as { top: number, height: number };
+        const rect = firstRef
+            ? firstRef.getBoundingClientRect()
+            : ({ top: 0, height: 0 } as { top: number; height: number });
         const adjustedPosition = { top: rect.top + window.scrollY, height: rect.height };
 
-        setActivePostId(posts[0].postId);
-        handleStackIconClick(posts[0].relatedStacks, posts[0].postId, adjustedPosition);
-    }, [posts, activePostId, handleStackIconClick, setActivePostId]);
+        setActivePostId(firstPost.postId);
+        handleStackIconClick(firstPost.relatedStacks, firstPost.postId, adjustedPosition);
+        hasAutoHighlightedFirstPostRef.current = true;
+    }, [posts, activePostId, handleStackIconClick, setActivePostId, loadStackInfo]);
 
     const loadStackDataInBatches = async (posts: PostType[], batchSize: number) => {
         for (let i = 0; i < posts.length; i += batchSize) {
