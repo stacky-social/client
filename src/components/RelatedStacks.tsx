@@ -46,20 +46,20 @@ interface RelatedStacksProps {
 }
 
 const iconMapping: { [key: string]: JSX.Element } = {
-  uncategorized: <IconStack size={20} />,
-  predictions: <IconBulb size={20} />,
-  evidence_public: <IconQuote size={20} />,
-  evidence_personal: <IconUser size={20} />,
-  connections: <IconLink size={20} />,
-  pointers: <IconPointer size={20} />,
-  proposals: <IconBook size={20} />,
-  humor: <IconMoodSmile size={20} />,
-  values: <IconHeart size={20} />,
-  framing: <IconFrame size={20} />,
-  questions: <IconQuestionMark size={20} />,
-  default: <IconStack size={20} />,
-  agree: <IconThumbUp size={20} />,
-  disagree: <IconThumbDown size={20} />,
+  uncategorized: <IconStack size={16} />,
+  predictions: <IconBulb size={16} />,
+  evidence_public: <IconQuote size={16} />,
+  evidence_personal: <IconUser size={16} />,
+  connections: <IconLink size={16} />,
+  pointers: <IconPointer size={16} />,
+  proposals: <IconBook size={16} />,
+  humor: <IconMoodSmile size={16} />,
+  values: <IconHeart size={16} />,
+  framing: <IconFrame size={16} />,
+  questions: <IconQuestionMark size={16} />,
+  default: <IconStack size={16} />,
+  agree: <IconThumbUp size={16} />,
+  disagree: <IconThumbDown size={16} />,
 };
 
 const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth = "100%", onStackClick, showupdate, onOpenModalWithStackId }) => {
@@ -286,24 +286,48 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 cursor: 'pointer'
               }}
             >
-              {stack.topPost.rewrite.significant && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '10px',
-                    left: '10px',
-                    background: '#E0E6ff',
-                    color: '2435A3',
-                    borderRadius: '5px',
-                    padding: '2px 6px',
-                    fontWeight: 'bold',
-                    zIndex: 10,
-                    fontSize: '10px',
-                  }}
-                >
-                  Modified by AI
-                </div>
-              )}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '10px',
+                  left: '10px',
+                  display: 'flex',
+                  gap: '8px',
+                  alignItems: 'center',
+                  zIndex: 10,
+                }}
+              >
+              <div
+                style={{
+                  background: '#E3ffe0',
+                  color: '#555555',
+                  borderRadius: '5px',
+                  padding: '2px 6px',
+                  fontWeight: 'bold',
+                  fontSize: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  lineHeight: 1,
+                }}
+              >
+                {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
+              </div>
+                {stack.topPost.rewrite.significant && (
+                  <div
+                    style={{
+                      background: '#E0E6ff',
+                      color: '2435A3',
+                      borderRadius: '5px',
+                      padding: '2px 6px',
+                      fontWeight: 'bold',
+                      fontSize: '10px',
+                    }}
+                  >
+                    Modified by AI
+                  </div>
+                )}
+              </div>
               <UnstyledButton
                 onClick={() => handleNavigate(stack.topPost.id, stack.stackId)}
                 style={{ width: '100%' }}
@@ -340,9 +364,6 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 />
               </div>
   
-              <div className="rel-display">
-                {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
-              </div>
               <Divider style={{ marginTop: '0.5rem' }} />
               <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 10px' }}>
                 <Button variant="subtle" size="sm" radius="lg">
