@@ -182,17 +182,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
                 )}
               </div>
 
-              {/* <Text pl={54} pt="sm" size="sm">
-                Post Id: {stack.topPost.id}
-              </Text>
-              <Text pl={54} pt="sm" size="sm">
-                Stack Id: {stack.stackId}
-              </Text> */}
             </UnstyledButton>
-
-            {/* <div className="rel-display">
-              {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
-            </div> */}
             <Divider my="md" c="#011445" />
             <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
               <Button variant="subtle" size="sm" radius="lg">

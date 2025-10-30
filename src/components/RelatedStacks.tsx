@@ -365,7 +365,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
               </div>
   
               <Divider style={{ marginTop: '0.5rem' }} />
-              <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 10px' }}>
+              <Group style={{ display: 'flex', justifyContent: 'space-between'}}>
                 <Button variant="subtle" size="sm" radius="lg">
                   <IconMessageCircle size={20} style={{ color: '#002379' }} />
                   <Text style={{ color: '#002379' }} ml={4}>
