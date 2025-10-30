@@ -36,6 +36,7 @@ const PostList: React.FC<PostListProps> = ({
     const postRefs = useRef<Array<HTMLDivElement | null>>([]);
     const [maxId, setMaxId] = useState<string | null>(null);
     const hasAutoHighlightedFirstPostRef = useRef(false);
+    const scrollStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         fetchPosts();
@@ -100,31 +101,55 @@ const PostList: React.FC<PostListProps> = ({
     };
 
     useEffect(() => {
-        const handleScroll = () => {
-            let found = false;
+        const evaluateActiveByCenter = () => {
+            const viewportCenter = window.innerHeight / 2;
+
+            let bestIndex: number | null = null;
+            let bestDistance = Number.POSITIVE_INFINITY;
+
             for (let i = 0; i < postRefs.current.length; i++) {
                 const ref = postRefs.current[i];
-                if (ref && ref.getBoundingClientRect().top >= 0 && ref.getBoundingClientRect().bottom <= window.innerHeight) {
-                    const post = posts[i];
-                    if (post && post.postId !== activePostId) {
-                        setActivePostId(post.postId);
-                        const position = ref.getBoundingClientRect();
-                        const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
-                        handleStackIconClick(post.relatedStacks, post.postId, adjustedPosition);
-                    }
-                    found = true;
-                    break;
+                if (!ref) continue;
+                const rect = ref.getBoundingClientRect();
+
+                // Consider any item that intersects viewport
+                const isVisible = rect.bottom > 0 && rect.top < window.innerHeight;
+                if (!isVisible) continue;
+
+                const center = rect.top + rect.height / 2;
+                const distance = Math.abs(center - viewportCenter);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestIndex = i;
                 }
             }
-            if (!found) {
-                setActivePostId(null);
+
+            if (bestIndex !== null) {
+                const post = posts[bestIndex];
+                if (post && post.postId !== activePostId) {
+                    setActivePostId(post.postId);
+                    const ref = postRefs.current[bestIndex]!;
+                    const position = ref.getBoundingClientRect();
+                    const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
+                    handleStackIconClick(post.relatedStacks, post.postId, adjustedPosition);
+                }
             }
         };
 
-        window.addEventListener('scroll', handleScroll);
+        const handleScroll = () => {
+            if (scrollStopTimeoutRef.current) {
+                clearTimeout(scrollStopTimeoutRef.current);
+            }
+            scrollStopTimeoutRef.current = setTimeout(evaluateActiveByCenter, 40);
+        };
 
+        // Initial evaluation in case the page loads with content already in view
+        evaluateActiveByCenter();
+
+        window.addEventListener('scroll', handleScroll, { passive: true } as AddEventListenerOptions);
         return () => {
-            window.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('scroll', handleScroll as EventListener);
+            if (scrollStopTimeoutRef.current) clearTimeout(scrollStopTimeoutRef.current);
         };
     }, [posts, activePostId, handleStackIconClick, setActivePostId]);
 
