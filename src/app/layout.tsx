@@ -8,7 +8,7 @@ export const metadata = { title: "Stacky", description: "Stacky!" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" style={{ overscrollBehaviorY: 'none' }}>
       <head>
         <ColorSchemeScript />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
