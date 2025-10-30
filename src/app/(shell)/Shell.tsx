@@ -37,6 +37,7 @@ export default function Shell({ children, aside }: {  children: React.ReactNode;
             </AppShell.Navbar>
             <AppShell.Aside
                 p="md"
+                pt="0"
                 withBorder
                 style={{ background: "#FCFBF5", 
                     overflowY: 'auto', 
