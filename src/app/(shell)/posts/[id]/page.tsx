@@ -209,7 +209,7 @@ export default function PostView({ params }: { params: { id: string } }) {
       setFocusRelatedStacks(data.relatedStacks || []);
       setSize(data.size);
       // publish to aside when focus stacks load
-      setFromPost(data.relatedStacks || [], id);
+      setFromPost(data.relatedStacks || [], id, { force: true });
     } catch (e) {
       console.error("Error fetching related stacks from API:", e);
     }
@@ -358,6 +358,8 @@ export default function PostView({ params }: { params: { id: string } }) {
       setShowFocusRelatedStacks(true);
       setActivePostId(null);
       setPostPosition(null);
+      const stacksToPublish = Array.isArray(relatedStacks) && relatedStacks.length > 0 ? relatedStacks : focusRelatedStacks;
+      setFromPost(stacksToPublish, id);
       return;
     }
 
@@ -519,3 +521,4 @@ export default function PostView({ params }: { params: { id: string } }) {
     </div>
   );
 }
+

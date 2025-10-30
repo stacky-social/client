@@ -8,7 +8,7 @@ type RelatedStacksContextValue = {
   relatedStacks: RelatedStacksArray;
   activePostId: string | null;
   previousPostId: string | null;
-  setFromPost: (stacks: RelatedStacksArray, postId: string) => void;
+  setFromPost: (stacks: RelatedStacksArray, postId: string, options?: { force?: boolean }) => void;
   showUpdate: boolean;
 };
 
@@ -19,7 +19,21 @@ export function RelatedStacksProvider({ children }: { children: React.ReactNode 
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const previousPostIdRef = useRef<string | null>(null);
 
-  const setFromPost = (stacks: RelatedStacksArray, postId: string) => {
+  const setFromPost = (stacks: RelatedStacksArray, postId: string, options?: { force?: boolean }) => {
+    if (options?.force) {
+      previousPostIdRef.current = activePostId;
+      setRelatedStacks(Array.isArray(stacks) ? [...stacks] : []);
+      setActivePostId(postId);
+      return;
+    }
+    // Toggle behavior: if the same post is already active and showing stacks, hide them
+    if (postId === activePostId && relatedStacks && relatedStacks.length > 0) {
+      previousPostIdRef.current = activePostId;
+      setRelatedStacks([]);
+      setActivePostId(null);
+      return;
+    }
+
     previousPostIdRef.current = activePostId;
     setRelatedStacks(Array.isArray(stacks) ? [...stacks] : []);
     setActivePostId(postId);

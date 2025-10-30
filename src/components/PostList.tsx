@@ -36,7 +36,11 @@ const PostList: React.FC<PostListProps> = ({
     const postRefs = useRef<Array<HTMLDivElement | null>>([]);
     const [maxId, setMaxId] = useState<string | null>(null);
     const hasAutoHighlightedFirstPostRef = useRef(false);
+    const hasPublishedFirstPostStacksRef = useRef(false);
     const scrollStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastUserActivateRef = useRef<number>(0);
+    const manualActiveIdRef = useRef<string | null>(null);
+    const manualLockRef = useRef(false);
 
     useEffect(() => {
         fetchPosts();
@@ -102,6 +106,20 @@ const PostList: React.FC<PostListProps> = ({
 
     useEffect(() => {
         const evaluateActiveByCenter = () => {
+            // Respect manual selection while the selected post is still visible
+            if (manualLockRef.current && manualActiveIdRef.current) {
+                const idxManual = posts.findIndex((p) => p.postId === manualActiveIdRef.current);
+                if (idxManual !== -1) {
+                    const ref = postRefs.current[idxManual];
+                    if (ref) {
+                        const rect = ref.getBoundingClientRect();
+                        const visible = rect.bottom > 0 && rect.top < window.innerHeight;
+                        if (visible) return; // keep the manual selection
+                    }
+                }
+                manualLockRef.current = false; // manual selected post no longer visible; allow auto-selection again
+            }
+
             const viewportCenter = window.innerHeight / 2;
 
             let bestIndex: number | null = null;
@@ -140,7 +158,11 @@ const PostList: React.FC<PostListProps> = ({
             if (scrollStopTimeoutRef.current) {
                 clearTimeout(scrollStopTimeoutRef.current);
             }
-            scrollStopTimeoutRef.current = setTimeout(evaluateActiveByCenter, 40);
+            scrollStopTimeoutRef.current = setTimeout(() => {
+                // If a user has just manually activated a post, skip this auto-evaluation
+                if (Date.now() - lastUserActivateRef.current < 400) return;
+                evaluateActiveByCenter();
+            }, 40);
         };
 
         // Initial evaluation in case the page loads with content already in view
@@ -152,6 +174,25 @@ const PostList: React.FC<PostListProps> = ({
             if (scrollStopTimeoutRef.current) clearTimeout(scrollStopTimeoutRef.current);
         };
     }, [posts, activePostId, handleStackIconClick, setActivePostId]);
+
+  // If the first post is already highlighted before its stacks load,
+  // publish its related stacks to the aside once they arrive
+  useEffect(() => {
+      if (!loadStackInfo || posts.length === 0) return;
+      const first = posts[0];
+      if (
+          activePostId === first.postId &&
+          Array.isArray(first.relatedStacks) &&
+          first.relatedStacks.length > 0 &&
+          !hasPublishedFirstPostStacksRef.current
+      ) {
+          const ref = postRefs.current[0];
+          const rect = ref ? ref.getBoundingClientRect() : ({ top: 0, height: 0 } as { top: number; height: number });
+          const adjustedPosition = { top: rect.top + window.scrollY, height: rect.height };
+          handleStackIconClick(first.relatedStacks, first.postId, adjustedPosition);
+          hasPublishedFirstPostStacksRef.current = true;
+      }
+  }, [posts, activePostId, loadStackInfo, handleStackIconClick]);
 
     // Auto-highlight the first post once on initial page load only,
     // and wait until related stacks info is available when loadStackInfo is true
@@ -227,7 +268,12 @@ const PostList: React.FC<PostListProps> = ({
                 setIsExpandModalOpen={setIsExpandModalOpen}
                 relatedStacks={post.relatedStacks}
                 activePostId={activePostId}
-                setActivePostId={setActivePostId}
+                setActivePostId={(id: string | null) => {
+                    lastUserActivateRef.current = Date.now();
+                    manualActiveIdRef.current = id;
+                    manualLockRef.current = !!id;
+                    setActivePostId(id);
+                }}
                 initialCard={post.previewCard || null}
             />
         </div>

@@ -232,13 +232,31 @@ export default function Post({
     });
   };
 
-  const handleStackCountClick = () => {
+  const handleStackCountClick = async () => {
     setIsExpanded(true);
     const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
     const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
 
-    onStackIconClick(tempRelatedStacks, id, adjustedPosition);
+    // Set active post first to lock the highlight
     setActivePostId(id);
+
+    let stacks = tempRelatedStacks;
+    // If stacks are missing, fetch them
+    if (!Array.isArray(stacks) || stacks.length === 0) {
+      try {
+        const accessToken = getAccessToken();
+        if (accessToken) {
+          const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${id}/related`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          stacks = response.data.relatedStacks || [];
+          setTempRelatedStacks(stacks);
+        }
+      } catch (error) {
+        console.error('Failed to fetch related stacks on click:', error);
+      }
+    }
+    onStackIconClick(Array.isArray(stacks) ? stacks : [], id, adjustedPosition);
   };
 
   const handleStackClick = (index: number) => {
