@@ -65,7 +65,7 @@ const CONNECTOR_STYLE = {
 export default function PostView({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { id } = params;
-  const { setFromPost } = useRelatedStacks();
+  const { setFromPost, activePostId: asideActivePostId, relatedStacks: asideStacks } = useRelatedStacks();
 
   // Data
   const [post, setPost] = useState<PostType | null>(null);
@@ -355,11 +355,27 @@ export default function PostView({ params }: { params: { id: string } }) {
     position: { top: number; height: number }
   ) => {
     if (postId === id) {
+      const togglingOff = asideActivePostId === id && Array.isArray(asideStacks) && asideStacks.length > 0;
+      if (togglingOff) {
+        setShowFocusRelatedStacks(false);
+        setActivePostId(null);
+        setPostPosition(null);
+        setFromPost([], id);
+        return;
+      }
       setShowFocusRelatedStacks(true);
       setActivePostId(null);
       setPostPosition(null);
       const stacksToPublish = Array.isArray(relatedStacks) && relatedStacks.length > 0 ? relatedStacks : focusRelatedStacks;
-      setFromPost(stacksToPublish, id);
+      setFromPost(stacksToPublish, id, { force: true });
+      return;
+    }
+
+    const togglingOff = asideActivePostId === postId && Array.isArray(asideStacks) && asideStacks.length > 0;
+    if (togglingOff) {
+      setActivePostId(null);
+      setPostPosition(null);
+      setFromPost([], postId);
       return;
     }
 

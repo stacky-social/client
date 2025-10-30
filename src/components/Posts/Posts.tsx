@@ -15,7 +15,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showL
     const [isExpandModalOpen, setIsExpandModalOpen] = useState(false); 
     const [previousPostId, setPreviousPostId] = useState<string | null>(null);
 
-    const { setFromPost } = useRelatedStacks();
+    const { setFromPost, activePostId: asideActivePostId, relatedStacks: asideStacks } = useRelatedStacks();
 
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
@@ -27,14 +27,12 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showL
         }
     }, []);
 
-    const handleStackIconClick = (relatedStacks: any[], postId: string, _position: { top: number, height: number }) => {
-        if (!Array.isArray(relatedStacks)) {
-            console.error("relatedStacks is not an array:", relatedStacks);
-            return;
-        }
-        setFromPost(relatedStacks, postId);
+    const handleStackIconClick = (incomingRelatedStacks: any[], postId: string, _position: { top: number, height: number }) => {
+        const togglingOff = postId === asideActivePostId && Array.isArray(asideStacks) && asideStacks.length > 0;
+        const stacksToPublish = Array.isArray(incomingRelatedStacks) ? incomingRelatedStacks : [];
+        setFromPost(stacksToPublish, postId);
         setPreviousPostId(activePostId);
-        setActivePostId(postId);
+        setActivePostId(togglingOff ? null : postId);
         setIsExpandModalOpen(false);
     };
 

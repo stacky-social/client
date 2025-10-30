@@ -175,6 +175,15 @@ const PostList: React.FC<PostListProps> = ({
         };
     }, [posts, activePostId, handleStackIconClick, setActivePostId]);
 
+  // When the parent clears the active post (e.g., toggling a stackcount off),
+  // release the manual lock so scrolling can auto-highlight the next post
+  useEffect(() => {
+      if (activePostId === null) {
+          manualLockRef.current = false;
+          manualActiveIdRef.current = null;
+      }
+  }, [activePostId]);
+
   // If the first post is already highlighted before its stacks load,
   // publish its related stacks to the aside once they arrive
   useEffect(() => {
