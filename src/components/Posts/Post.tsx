@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Button, Divider, Anchor } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconLink } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import StackCount from '../StackCount';
@@ -256,6 +257,11 @@ export default function Post({
         }
       } catch (error) {
         console.error('Failed to fetch related stacks on click:', error);
+        notifications.show({
+          color: 'red',
+          title: 'Failed to load stacks',
+          message: 'Please try again later.',
+        });
       }
     }
     onStackIconClick(Array.isArray(stacks) ? stacks : [], id, adjustedPosition);
