@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { AnimatePresence, motion } from "framer-motion";
 
 import Post from "../../../../components/Posts/Post";
@@ -212,6 +213,11 @@ export default function PostView({ params }: { params: { id: string } }) {
       setFromPost(data.relatedStacks || [], id, { force: true });
     } catch (e) {
       console.error("Error fetching related stacks from API:", e);
+      notifications.show({
+        color: "red",
+        title: "Failed to load related stacks",
+        message: "Please try again later.",
+      });
     }
   }, [id]);
 

@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, Suspense } from 'react';
 import { TextInput, rem, Box, Paper, ActionIcon, useMantineTheme, List, ThemeIcon, Avatar, UnstyledButton, Group, Tabs } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { IconArrowRight, IconSearch, IconUser, IconTag, IconMessageCircle } from '@tabler/icons-react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
@@ -93,6 +94,7 @@ export default function SearchBar() {
       });
     } catch (error) {
       console.error('Error searching Mastodon:', error);
+      notifications.show({ color: 'red', title: 'Search failed', message: 'Please try again later.' });
     }
   };
 
@@ -119,6 +121,7 @@ export default function SearchBar() {
 
     } catch (error) {
       console.error('Error fetching related stacks:', error);
+      notifications.show({ color: 'red', title: 'Failed to load stacks', message: 'Please try again later.' });
     } finally {
       setLoadingRelatedStacks(false);
     }

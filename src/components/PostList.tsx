@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { LoadingOverlay, Button, Box } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { PostType } from '../types/PostType';
 import Post from './Posts/Post';
 import axios from 'axios';
@@ -94,6 +95,11 @@ const PostList: React.FC<PostListProps> = ({
             }
         } catch (error) {
             console.error('Error fetching Mastodon data:', error);
+            notifications.show({
+                color: 'red',
+                title: 'Failed to load posts',
+                message: 'Please try again later.',
+            });
         } finally {
             setLoading(false);
             setLoadingMore(false);
@@ -247,6 +253,11 @@ const PostList: React.FC<PostListProps> = ({
                     );
                 } catch (error) {
                     console.error(`Error fetching stack data for post ${post.postId}:`, error);
+                    notifications.show({
+                        color: 'red',
+                        title: 'Failed to load stacks',
+                        message: `Post ${post.postId}: please try again later.`,
+                    });
                 }
             }));
         }
