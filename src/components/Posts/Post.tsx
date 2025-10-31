@@ -13,6 +13,8 @@ type PreviewCard = PreviewCardType;
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
+
+
 interface PostProps {
   id: string;
   text: string;
