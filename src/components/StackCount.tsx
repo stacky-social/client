@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Paper, Text, Transition, Loader } from '@mantine/core';
 import {
   IconStack,
@@ -85,6 +85,8 @@ const styles = {
     width: '100%',
     maxHeight: `${cardHeight * 0.7}px`,
     overflowY: 'auto' as const,
+    overflowX: 'hidden' as const,
+    paddingTop: 4,
   }),
   item: (cardHeight: number, isFirst: boolean, isHovered: boolean) => ({
     display: 'flex',
@@ -102,6 +104,28 @@ const styles = {
     minHeight: 20,
   }),
   itemText: { margin: 0, color: '#555' },
+};
+
+// Sequential reveal animation for list items (also animate on exit)
+const listVariants = {
+  hidden: {
+    opacity: 1,
+    transition: { staggerChildren: 0.06, staggerDirection: -1 },
+  },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.07, delayChildren: 0.05, staggerDirection: 1 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: -6, scale: 0.96 },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: 'spring', stiffness: 460, damping: 26, mass: 0.3 },
+  },
 };
 
 const StackCount: React.FC<StackCountProps> = ({
@@ -136,16 +160,23 @@ const StackCount: React.FC<StackCountProps> = ({
         </Text>
       </motion.div>
 
-      <Transition mounted={expanded} transition="slide-down" duration={300} timingFunction="ease">
-        {(transitionStyles) => (
-          <div style={{ ...transitionStyles, ...styles.list(cardHeight) }}>
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            style={styles.list(cardHeight)}
+            variants={listVariants}
+            initial="hidden"
+            animate="show"
+            exit="hidden"
+          >
             {relatedStacks.map((stack, index) => {
               const isHovered = hoveredIndex === index;
               const isFirst = index === 0;
 
               return (
-                <div
+                <motion.div
                   key={stack.stackId || index}
+                  variants={itemVariants}
                   style={styles.item(cardHeight, isFirst, isHovered)}
                   onMouseEnter={() => setHoveredIndex(index)}
                   onMouseLeave={() => setHoveredIndex(null)}
@@ -167,12 +198,12 @@ const StackCount: React.FC<StackCountProps> = ({
                   <Text size="xs" style={styles.itemText}>
                     {stack.size}
                   </Text>
-                </div>
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
         )}
-      </Transition>
+      </AnimatePresence>
     </Paper>
   );
 };
