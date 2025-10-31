@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button } from '@mantine/core';
-import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconStack, IconThumbUp,IconThumbDown } from '@tabler/icons-react';
+import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconThumbUp,IconThumbDown } from '@tabler/icons-react';
+import { Layers } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
@@ -46,7 +47,7 @@ interface RelatedStacksProps {
 }
 
 const iconMapping: { [key: string]: JSX.Element } = {
-  uncategorized: <IconStack size={16} />,
+  uncategorized: <Layers size={16} />,
   predictions: <IconBulb size={16} />,
   evidence_public: <IconQuote size={16} />,
   evidence_personal: <IconUser size={16} />,
@@ -57,7 +58,7 @@ const iconMapping: { [key: string]: JSX.Element } = {
   values: <IconHeart size={16} />,
   framing: <IconFrame size={16} />,
   questions: <IconQuestionMark size={16} />,
-  default: <IconStack size={16} />,
+  default: <Layers size={16} />,
   agree: <IconThumbUp size={16} />,
   disagree: <IconThumbDown size={16} />,
 };

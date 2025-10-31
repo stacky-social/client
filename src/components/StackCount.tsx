@@ -2,7 +2,6 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Paper, Text, Transition, Loader } from '@mantine/core';
 import {
-  IconStack,
   IconQuestionMark,
   IconBulb,
   IconQuote,
@@ -17,6 +16,7 @@ import {
   IconThumbUp,
   IconThumbDown,
 } from '@tabler/icons-react';
+import { Layers } from 'lucide-react';
 
 interface RelatedStack {
   rel: string;
@@ -52,7 +52,7 @@ const iconMapping: Record<string, React.ReactNode> = {
   disagree: <IconThumbDown size={ICON_SIZE} />,
 };
 
-const getIcon = (rel: string) => iconMapping[rel] ?? <IconStack style={{ color: ICON_COLOR }} size={ICON_SIZE} />;
+const getIcon = (rel: string) => iconMapping[rel] ?? <Layers style={{ color: ICON_COLOR }} size={ICON_SIZE} />;
 
 const styles = {
   paper: {
@@ -154,7 +154,7 @@ const StackCount: React.FC<StackCountProps> = ({
         whileHover={{ scale: 1.06, y: -2 }}
         transition={{ type: 'spring', stiffness: 450, damping: 22, mass: 0.3 }}
       >
-        <IconStack style={styles.headerIcon} size={24} />
+        <Layers style={styles.headerIcon} size={20} />
         <Text style={styles.headerText} size="sm">
           {count !== null ? count : <Loader size="xs" />}
         </Text>

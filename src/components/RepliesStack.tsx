@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button } from '@mantine/core';
-import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconStack } from '@tabler/icons-react';
+import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser } from '@tabler/icons-react';
+import { Layers } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
@@ -41,7 +42,7 @@ interface RepliesStackProps {
 }
 
 const iconMapping: { [key: string]: JSX.Element } = {
-  uncategorized: <IconStack size={24} />,
+  uncategorized: <Layers size={24} />,
   predictions: <IconBulb size={24} />,
   evidence_public: <IconQuote size={24} />,
   evidence_personal: <IconUser size={24} />,
@@ -52,7 +53,7 @@ const iconMapping: { [key: string]: JSX.Element } = {
   values: <IconHeart size={24} />,
   framing: <IconFrame size={24} />,
   questions: <IconQuestionMark size={24} />,
-  default: <IconStack size={24} />,
+  default: <Layers size={24} />,
 };
 
 const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, onStackClick, showupdate }) => {
