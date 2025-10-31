@@ -320,6 +320,7 @@ export default function Post({
           zIndex: 5,
           borderRadius: '10px', // 左上角圆角
           border: isActive ? '2px solid rgb(156, 184, 255)' : '2px solid #e7e7e7',
+          boxShadow: isActive ? 'rgba(0, 0, 0, 0.18) 0px 12px 24px, rgba(0, 0, 0, 0.12) 0px 6px 12px' : 'none',
           transform: isActive ? 'translateY(-2px)' : 'none',
           transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
           paddingLeft: '1rem',
