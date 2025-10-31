@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button } from '@mantine/core';
-import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconStack, IconThumbUp,IconThumbDown } from '@tabler/icons-react';
+import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button, Switch } from '@mantine/core';
+import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconStack, IconThumbUp, IconThumbDown, IconEye, IconEyeOff } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
@@ -221,6 +221,8 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
   };
 
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [showOriginalContent, setShowOriginalContent] = useState<boolean[]>([]);
+  const [showAIRewrite, setShowAIRewrite] = useState<boolean[]>([]);
 
   
 
@@ -263,7 +265,6 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
             onMouseEnter={() => {
               setHoveredIndex(index);
             }}
-            
             
             onMouseLeave={() => {
               setHoveredIndex(null);
@@ -350,13 +351,14 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 </Group>
               </UnstyledButton>
   
+
               <div
                 onMouseUp={() => handleMouseUp(stack.topPost.id, stack.stackId)}
                 style={{ paddingLeft: '54px', paddingRight: '1rem', cursor: 'pointer' }}
               >
                 <div
                   style={{
-                    display: isHovered ? 'block' : '-webkit-box',
+                    display: showOriginalContent[index] ? 'block' : '-webkit-box',
                     WebkitBoxOrient: 'vertical',
                     WebkitLineClamp: 5,
                     overflow: 'hidden',
