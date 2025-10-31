@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Group, Avatar, Button, ActionIcon, Textarea, TextInput } from '@mantine/core';
 import { IconPhoto, IconChartBar, IconAlertTriangle, IconMoodSmile,  } from '@tabler/icons-react';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
@@ -10,10 +11,12 @@ const MastodonInstanceUrl = 'https://beta.stacky.social';
 // const MastodonInstanceUrl = 'https://mastodon.social';
 
 export function SubmitPost() {
+  const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [postText, setPostText] = useState('');
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -61,6 +64,7 @@ export function SubmitPost() {
 
   const handleSubmit = async () => {
     try {
+      if (submitting) return;
       if (!postText.trim()) {
         notifications.show({
           title: 'Error',
@@ -85,6 +89,7 @@ export function SubmitPost() {
         formData.append('media[]', fileInputRef.current.files[0]);
       }
 
+      setSubmitting(true);
       const response = await fetch(`${MastodonInstanceUrl}/api/v1/statuses`, {
         method: 'POST',
         headers: {
@@ -100,12 +105,25 @@ export function SubmitPost() {
           color: 'green',
         });
         setPostText(''); // Clear the post text after successful post
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        setShowEmojiPicker(false);
+        // Refresh the page to show the new post in feeds
+        try { router.refresh(); } catch {}
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
       } else {
-        const data = await response.json();
-        console.error('Failed to create post:', data);
+        let errorMessage = 'Failed to create post.';
+        try {
+          const data = await response.json();
+          errorMessage = data?.error || data?.message || errorMessage;
+          console.error('Failed to create post:', data);
+        } catch (e) {
+          // ignore JSON parse errors
+        }
         notifications.show({
           title: 'Error',
-          message: 'Failed to create post.',
+          message: errorMessage,
           color: 'red',
         });
       }
@@ -116,6 +134,9 @@ export function SubmitPost() {
         message: 'Failed to create post. Please try again later.',
         color: 'red',
       });
+    }
+    finally {
+      setSubmitting(false);
     }
   };
 
@@ -187,7 +208,7 @@ export function SubmitPost() {
               )}
             </Group>
           <div className="postbutton">
-            <Button className={classes.button} onClick={handleSubmit}>
+            <Button className={classes.button} onClick={handleSubmit} loading={submitting} disabled={submitting}>
               Post
             </Button>
           </div>
