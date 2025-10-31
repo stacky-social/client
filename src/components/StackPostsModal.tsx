@@ -153,12 +153,14 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     <div key={stack.substackId} style={{ margin: '2rem', width: '100%', position: 'relative'}}>
       <Paper
         style={{
-          backgroundColor: '#f6f3e1',
           position: 'relative',
-          marginRight: '2rem',
-          borderRadius:'0px',
-          zIndex:5,
-          boxShadow: '0 3px 10px rgba(0,0,0,0.1)'
+          width: '90%',
+          backgroundColor: '#ffffff',         
+          border: '1px solid #e7e7e7',        
+          borderRadius: '10px',           
+          // boxShadow: '0 10px 10px rgba(0,0,0,0.1)',
+          padding: '1rem',             
+          zIndex: 5,
         }}
       >
         {stack.size !== null && stack.size > 1 && (
@@ -218,12 +220,13 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
           key={index}
           style={{
             position: 'absolute',
-            bottom: `${-15 + 5 * index}px`,
-            left: `${10 - 5 * index}px`,
-            width: '95%',
-            height: '90%',
-            backgroundColor: '#5a71a8',
-            border: '0.5px solid #FCFBF5', 
+            bottom: `${-5 + 5 * index}px`,
+            left: `${15 - 5 * index}px`,
+            width: '90%',
+            height: '85%',
+            backgroundColor: '#ffffff',        // 同卡片白底
+              border: '1px solid #e7e7e7',       // 同卡片边框
+              borderRadius: '10px'
           }}
         />
       ))}

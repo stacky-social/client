@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button } from '@mantine/core';
-import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconStack, IconThumbUp,IconThumbDown } from '@tabler/icons-react';
+import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button, Switch } from '@mantine/core';
+import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconStack, IconThumbUp, IconThumbDown, IconEye, IconEyeOff } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
@@ -80,7 +80,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   };
 
   // 解析单个带标记的文本，提取纯文本+高亮区间
-function parseHighlight(text: string, source: 'green' | 'blue') {
+function parseHighlight(text: string | null | undefined, source: 'green' | 'blue') {
+  // 空值保护
+  if (!text) {
+    return { plainText: '', highlights: [] };
+  }
+
   let plainText = '';
   const highlights: { start: number; end: number; source: 'green' | 'blue' }[] = [];
   let i = 0;
@@ -216,6 +221,14 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
   };
 
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [showOriginalContent, setShowOriginalContent] = useState<boolean[]>([]);
+  const [showAIRewrite, setShowAIRewrite] = useState<boolean[]>([]);
+
+  useEffect(() => {
+    // 初始化或在 relatedStacks 变化时同步开关数组长度
+    setShowOriginalContent(new Array(relatedStacks.length).fill(false));
+    setShowAIRewrite(new Array(relatedStacks.length).fill(true));
+  }, [relatedStacks]);
 
   
 
@@ -228,7 +241,6 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
     >
       {relatedStacks.slice(0, maxStacksToShow).map((stack, index) => {
         const isHovered = hoveredIndex === index;
-  
         const baseContentHtml = stack.topPost.rewrite.significant
           ? formatContent(stack.topPost.rewrite.content ?? '').__html
           : formatContent(stack.topPost.content ?? '').__html;
@@ -238,11 +250,16 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
             ? mergeHighlight(stack.topPost.content_highlight, stack.topPost.rewrite.content)
             : '';
 
-        const contentToDisplay = isHovered
-          ? hoverHighlightHtml && hoverHighlightHtml.trim().length > 0
-            ? hoverHighlightHtml
-            : baseContentHtml
-          : baseContentHtml;
+        // 优先使用开关状态；若未开启开关，维持原有 hover 合并高亮的体验
+        const contentToDisplay = (showOriginalContent[index] === true)
+          ? (stack.topPost.content_highlight && stack.topPost.rewrite?.content
+              ? mergeHighlight(stack.topPost.content_highlight, stack.topPost.rewrite.content)
+              : formatContent(stack.topPost.content ?? '').__html)
+          : (stack.topPost.rewrite.significant && (showAIRewrite[index] !== false)
+              ? formatContent(stack.topPost.rewrite.content ?? '').__html
+              : (isHovered && hoverHighlightHtml && hoverHighlightHtml.trim().length > 0
+                  ? hoverHighlightHtml
+                  : formatContent(stack.topPost.content ?? '').__html));
 
         return (
           <motion.div
@@ -258,7 +275,6 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
             onMouseEnter={() => {
               setHoveredIndex(index);
             }}
-            
             
             onMouseLeave={() => {
               setHoveredIndex(null);
@@ -297,34 +313,46 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                   zIndex: 10,
                 }}
               >
-              <div
-                style={{
-                  background: '#E3ffe0',
-                  color: '#555555',
-                  borderRadius: '5px',
-                  padding: '2px 6px',
-                  fontWeight: 'bold',
-                  fontSize: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  lineHeight: 1,
-                }}
-              >
-                {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
-              </div>
+                <div
+                  style={{
+                    background: '#E3ffe0',
+                    color: '#555555',
+                    borderRadius: '5px',
+                    padding: '2px 6px',
+                    fontWeight: 'bold',
+                    fontSize: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    lineHeight: 1,
+                  }}
+                >
+                  {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
+                </div>
                 {stack.topPost.rewrite.significant && (
                   <div
                     style={{
                       background: '#E0E6ff',
-                      color: '2435A3',
                       borderRadius: '5px',
                       padding: '2px 6px',
-                      fontWeight: 'bold',
-                      fontSize: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
                     }}
                   >
-                    Modified by AI
+                    <Switch
+                      checked={showAIRewrite[index] !== false}
+                      onChange={(event) => {
+                        const next = [...showAIRewrite];
+                        next[index] = event.currentTarget.checked;
+                        setShowAIRewrite(next);
+                      }}
+                      size="xs"
+                      color="blue"
+                    />
+                    <Text size="xs" c="#2435A3" fw={600}>
+                      AI Modified
+                    </Text>
                   </div>
                 )}
               </div>
@@ -345,13 +373,14 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 </Group>
               </UnstyledButton>
   
+
               <div
                 onMouseUp={() => handleMouseUp(stack.topPost.id, stack.stackId)}
                 style={{ paddingLeft: '54px', paddingRight: '1rem', cursor: 'pointer' }}
               >
                 <div
                   style={{
-                    display: isHovered ? 'block' : '-webkit-box',
+                    display: showOriginalContent[index] ? 'block' : '-webkit-box',
                     WebkitBoxOrient: 'vertical',
                     WebkitLineClamp: 5,
                     overflow: 'hidden',
@@ -364,6 +393,29 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 />
               </div>
   
+              <div className="rel-display" style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                paddingLeft: '54px',
+                marginTop: '0.25rem'
+              }}>
+                <Switch
+                  checked={showOriginalContent[index] || false}
+                  onChange={(event) => {
+                    const next = [...showOriginalContent];
+                    next[index] = event.currentTarget.checked;
+                    setShowOriginalContent(next);
+                  }}
+                  size="xs"
+                  color="green"
+                />
+                <Text size="xs" c="#555555" fw={600}>
+                  Topic
+                </Text>
+                {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
+              </div>
+
               <Divider style={{ marginTop: '0.5rem' }} />
               <Group style={{ display: 'flex', justifyContent: 'space-between'}}>
                 <Button variant="subtle" size="sm" radius="lg">

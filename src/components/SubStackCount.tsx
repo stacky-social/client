@@ -10,36 +10,39 @@ interface SubStackCountProps {
 const SubStackCount: React.FC<SubStackCountProps> = ({ count, onClick }) => {
   return (
     <Paper
-      onClick={(event) => {
+      onClick={event => {
         event.stopPropagation();
         onClick(event);
       }}
       style={{
         position: 'absolute',
         top: '0px',
-        right: '-40px',
-        width: '50px',
+        right: '-50px',            // 对齐到 StackCount 的偏移
+        width: '60px',             // 同 StackCount 宽度
         display: 'flex',
-        backgroundColor: '#f6f3e1',
+        paddingBottom: '10px',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        // boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
         cursor: 'pointer',
         transition: 'transform 0.3s ease',
-        zIndex: 10, // Ensure it appears above the card
+        backgroundColor: '#f9f9f9',// 同 StackCount 背景
+        border: '1px solid #cbcbcb', // 同 StackCount 边框
+        borderRadius: '10px',      // 同 StackCount 圆角
+        zIndex: 10,
       }}
-
     >
       <div style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '10px',
+        height: '50px',            // 同 StackCount 图标区高度
       }}>
-        <IconStack size={24} />
-        <Text size="sm">{count}</Text>
+        <IconStack style={{ color: '#555555' }} size={24} />
+        <Text style={{ color: '#555555' }} size="sm">
+          {count}
+        </Text>
       </div>
     </Paper>
   );
