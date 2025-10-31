@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Group, Avatar, Button, ActionIcon, Textarea, TextInput } from '@mantine/core';
 import { IconPhoto, IconChartBar, IconAlertTriangle, IconMoodSmile,  } from '@tabler/icons-react';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
@@ -10,6 +11,7 @@ const MastodonInstanceUrl = 'https://beta.stacky.social';
 // const MastodonInstanceUrl = 'https://mastodon.social';
 
 export function SubmitPost() {
+  const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [postText, setPostText] = useState('');
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -105,6 +107,11 @@ export function SubmitPost() {
         setPostText(''); // Clear the post text after successful post
         if (fileInputRef.current) fileInputRef.current.value = '';
         setShowEmojiPicker(false);
+        // Refresh the page to show the new post in feeds
+        try { router.refresh(); } catch {}
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
       } else {
         let errorMessage = 'Failed to create post.';
         try {
