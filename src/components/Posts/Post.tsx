@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Text, Avatar, Group, Paper, UnstyledButton, Button, Divider, Anchor } from '@mantine/core';
+import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor } from '@mantine/core';
 import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconLink } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import StackCount from '../StackCount';
@@ -8,6 +8,7 @@ import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
 import LinkPreviewCard from '../LinkPreviewCard';
 import { PreviewCardType } from '../../types/PostType';
+import InteractionControl from '../InteractionControl';
 
 type PreviewCard = PreviewCardType;
 
@@ -411,7 +412,6 @@ export default function Post({
         </Anchor>
       )}
     </div>
-  
           {mediaAttachments.length > 0 && (
             <div style={{ paddingLeft: '3rem', paddingRight: '4rem', paddingTop: '1rem' }}>
               {mediaAttachments.map((url, index) => (
@@ -432,23 +432,39 @@ export default function Post({
         </div>
 
         <Divider style={{ marginTop:'1.5rem'}}/>
-        <Group style={{ display: 'flex', justifyContent: 'space-between', paddingTop:'0.1rem', paddingBottom:'0.1rem', marginBottom: stackCount !== null && stackCount > 1 ? '0px' : '0px' }}>
-          <Button variant="subtle" size="sm" radius="lg" onClick={handleReply} style={{ display: 'flex', alignItems: 'center' }}>
-            <IconMessageCircle size={20} style={{ color: '#002379' }} /> <Text ml={4} style={{ color: '#002379' }}>{replyCount}</Text>
-          </Button>
-          <Button variant="subtle" size="sm" radius="lg" onClick={handleLike} style={{ display: 'flex', alignItems: 'center' }}>
-            {liked ? <IconHeartFilled size={20} style={{ color: '#002379' }} /> : <IconHeart size={20} style={{ color: '#002379' }} />} <Text ml={4} style={{ color: '#002379' }}>{likeCount}</Text>
-          </Button>
-          <Button variant="subtle" size="sm" radius="lg" onClick={handleSave} style={{ display: 'flex', alignItems: 'center' }}>
-            {bookmarkedState ? <IconBookmarkFilled size={20} style={{ color: '#002379' }} /> : <IconBookmark size={20} style={{ color: '#002379' }} />}
-          </Button>
-          <Button variant="subtle" size="sm" radius="lg" onClick={handleAnnotation} style={{ display: 'flex', alignItems: 'center' }}>
-            <IconNote size={20} style={{ color: '#002379' }} />
-          </Button>
-          <Button variant="subtle" size="sm" radius="lg" onClick={handleCopyLink} style={{ display: 'flex', alignItems: 'center' }}>
-            <IconLink size={20} style={{ color: '#002379' }} />
-          </Button>
-        </Group>
+        <div style={{ paddingLeft: '3rem', paddingRight: '3rem' }}>
+          <Group style={{ display: 'flex', justifyContent: 'space-between', paddingTop:'0.1rem', paddingBottom:'0.1rem', marginBottom: stackCount !== null && stackCount > 1 ? '0px' : '0px' }}>
+            <InteractionControl
+              icon={<IconMessageCircle size={20} />}
+              label={replyCount}
+              ariaLabel="Reply"
+              onClick={handleReply}
+            />
+            <InteractionControl
+              icon={liked ? <IconHeartFilled size={20} /> : <IconHeart size={20} />}
+              label={likeCount}
+              ariaLabel="Like"
+            onClick={handleLike}
+            active={liked}
+            />
+            <InteractionControl
+              icon={bookmarkedState ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
+              ariaLabel="Bookmark"
+            onClick={handleSave}
+            active={bookmarkedState}
+            />
+            <InteractionControl
+              icon={<IconNote size={20} />}
+              ariaLabel="Annotate"
+              onClick={handleAnnotation}
+            />
+            <InteractionControl
+              icon={<IconLink size={20} />}
+              ariaLabel="Copy link"
+              onClick={handleCopyLink}
+            />
+          </Group>
+        </div>
       </Paper>
       <AnnotationModal
         isOpen={annotationModalOpen}
