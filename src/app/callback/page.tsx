@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { notifications } from '@mantine/notifications';
-import { Center, Container, Loader } from '@mantine/core';
+import { Center, Loader } from '@mantine/core';
 import { Suspense } from 'react';
 import {BASE_URL} from "../../utils/DevMode";
 
@@ -15,9 +15,13 @@ const redirectUri = `${BASE_URL}/callback`;
 function CallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const hasProcessedRef = useRef(false);
 
 
   useEffect(() => {
+    if (hasProcessedRef.current) return;
+    hasProcessedRef.current = true;
+
     const fetchAccessToken = async (code: string, instance: string) => {
       try {
         const response = await fetch(`${instance}/oauth/token`, {
@@ -80,13 +84,13 @@ function CallbackPage() {
     const state = searchParams.get('state');
     const instance = `https://${state}`;
     console.log('Authorization code:', code);
-    if (code) {
-      localStorage.setItem('authCode', code);
+    if (!code || !state) return;
+    if (localStorage.getItem('accessToken')) {
+      router.push('/home');
+      return;
     }
-
-    if (code) {
-      fetchAccessToken(code, instance);
-    }
+    localStorage.setItem('authCode', code);
+    fetchAccessToken(code, instance);
   }, [searchParams, router]);
 
   return (

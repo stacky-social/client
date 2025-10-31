@@ -5,19 +5,17 @@ import { SubmitPost } from '../SubmitPost/SubmitPost';
 import SearchBar from '../SearchBar/SearchBar';
 import RelatedStacks from '../RelatedStacks';
 import PostList from '../PostList';
+import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 
 export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showLoadMore = false,}: { apiUrl: string, loadStackInfo: boolean, showSubmitAndSearch: boolean,showLoadMore?: boolean;}) {
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
-    const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
     const [activePostId, setActivePostId] = useState<string | null>(null);
-    const [postPosition, setPostPosition] = useState<{ top: number, height: number } | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false); 
     const [isExpandModalOpen, setIsExpandModalOpen] = useState(false); 
     const [previousPostId, setPreviousPostId] = useState<string | null>(null);
 
-
-    const relatedStacksRef = useRef<HTMLDivElement>(null);
+    const { setFromPost, activePostId: asideActivePostId, relatedStacks: asideStacks } = useRelatedStacks();
 
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
@@ -29,33 +27,23 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showL
         }
     }, []);
 
-    const handleStackIconClick = (relatedStacks: any[], postId: string, position: { top: number, height: number }) => {
-        if (Array.isArray(relatedStacks)) {
-            setRelatedStacks([...relatedStacks]);
-            setPreviousPostId(activePostId);
-            setActivePostId(postId);
-            setPostPosition(position);
-            setIsExpandModalOpen(false);
-        } else {
-            console.error("relatedStacks is not an array:", relatedStacks);
-            setRelatedStacks([]); 
-        }
+    const handleStackIconClick = (incomingRelatedStacks: any[], postId: string, _position: { top: number, height: number }) => {
+        const togglingOff = postId === asideActivePostId && Array.isArray(asideStacks) && asideStacks.length > 0;
+        const stacksToPublish = Array.isArray(incomingRelatedStacks) ? incomingRelatedStacks : [];
+        setFromPost(stacksToPublish, postId);
+        setPreviousPostId(activePostId);
+        setActivePostId(togglingOff ? null : postId);
+        setIsExpandModalOpen(false);
     };
 
     
     const shouldUpdate = activePostId !== previousPostId;
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', width: 'calc(100% - 2rem)', gap: '1rem', marginRight: '1rem',
-            
-         }}>
-            <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
+        <div style={{ position: 'relative' }}>
+            <div>
                 {showSubmitAndSearch && (
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem'
-                        ,marginLeft: '1rem', marginRight: '3rem'
-                     }}>
-                        <div style={{ width: '100%'}
-                    
-                    }>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem'}}>
+                        <div style={{ width: '100%'}}>
                             <SubmitPost />
                         </div>
                     </div>
@@ -72,35 +60,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showL
                     showLoadMore={showLoadMore} 
                 />
             </div>
-            <div style={{ gridColumn: '2 / 3', position: 'relative' }}>
-                <div style={{ marginRight: '10rem', position: 'relative' }} ref={relatedStacksRef}>
-                    <AnimatePresence>
-                        {relatedStacks.length > 0 && postPosition && (
-                            <motion.div
-                                id="related-stacks"
-                                style={{
-                                    position: 'absolute',
-                                    top: showSubmitAndSearch ? postPosition.top - 60 : postPosition.top - 300,
-                                    left: 0
-                                }}
-                                initial={{ opacity: 0, x: -200 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -200 }}
-                                transition={{ duration: 0.2 }}
-                            >
-                                <RelatedStacks
-                                    key={relatedStacks.map((_, index) => index).join(',')}
-                                    relatedStacks={relatedStacks}
-                                    cardWidth={450}
-                                    onStackClick={() => { }}
-                                    setIsExpandModalOpen={setIsExpandModalOpen}
-                                    showupdate={shouldUpdate}
-                                />
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-            </div>
+            {/* Related stacks are now rendered in AppShell.Aside via context */}
         </div>
     );
 }

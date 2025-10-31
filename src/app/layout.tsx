@@ -1,30 +1,22 @@
+// app/layout.tsx
 import "@mantine/core/styles.css";
-import React from "react";
 import { MantineProvider, ColorSchemeScript } from "@mantine/core";
+import { Notifications } from "@mantine/notifications";
 import { theme } from "../../theme";
-import '../styles/globals.css';
-import {Notifications} from "@mantine/notifications";
 
-export const metadata = {
-  title: "Stacky",
-  description: "Stacky!",
-};
+export const metadata = { title: "Stacky", description: "Stacky!" };
 
-export default function RootLayout({ children }: { children: any }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" style={{ overscrollBehaviorY: 'none' }}>
       <head>
         <ColorSchemeScript />
-        <link rel="shortcut icon" href="/stacksLOGO.jpg" />
-        <meta
-          name="viewport"
-          content="minimum-scale=1, initial-scale=1, width=device-width, user-scalable=no"
-        />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body>
         <MantineProvider theme={theme}>
-            <Notifications />
-            {children}
+          <Notifications />
+          {children}
         </MantineProvider>
       </body>
     </html>

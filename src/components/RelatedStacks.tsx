@@ -3,9 +3,9 @@ import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button } from '@ma
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconStack, IconThumbUp,IconThumbDown } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import RelatedStackCount from './RelatedStackCount';
-import StackPostsModal from './StackPostsModal';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import StackPostsModal from './StackPostsModal';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -39,61 +39,35 @@ interface RelatedStackType {
 
 interface RelatedStacksProps {
   relatedStacks: RelatedStackType[];
-  cardWidth: number;
+  cardWidth?: number | string;
   onStackClick: (stackId: string) => void;
-  setIsExpandModalOpen: (isOpen: boolean) => void;
   showupdate: boolean;
+  onOpenModalWithStackId?: (stackId: string) => void;
 }
 
 const iconMapping: { [key: string]: JSX.Element } = {
-  uncategorized: <IconStack size={20} />,
-  predictions: <IconBulb size={20} />,
-  evidence_public: <IconQuote size={20} />,
-  evidence_personal: <IconUser size={20} />,
-  connections: <IconLink size={20} />,
-  pointers: <IconPointer size={20} />,
-  proposals: <IconBook size={20} />,
-  humor: <IconMoodSmile size={20} />,
-  values: <IconHeart size={20} />,
-  framing: <IconFrame size={20} />,
-  questions: <IconQuestionMark size={20} />,
-  default: <IconStack size={20} />,
-  agree: <IconThumbUp size={20} />,
-  disagree: <IconThumbDown size={20} />,
+  uncategorized: <IconStack size={16} />,
+  predictions: <IconBulb size={16} />,
+  evidence_public: <IconQuote size={16} />,
+  evidence_personal: <IconUser size={16} />,
+  connections: <IconLink size={16} />,
+  pointers: <IconPointer size={16} />,
+  proposals: <IconBook size={16} />,
+  humor: <IconMoodSmile size={16} />,
+  values: <IconHeart size={16} />,
+  framing: <IconFrame size={16} />,
+  questions: <IconQuestionMark size={16} />,
+  default: <IconStack size={16} />,
+  agree: <IconThumbUp size={16} />,
+  disagree: <IconThumbDown size={16} />,
 };
 
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth, onStackClick, setIsExpandModalOpen, showupdate }) => {
-  const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
-  const [currentStackId, setCurrentStackId] = useState('');
+const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth = "100%", onStackClick, showupdate, onOpenModalWithStackId }) => {
   const router = useRouter();
   const [maxStacksToShow, setMaxStacksToShow] = useState(3);
-  const [cardHeights, setCardHeights] = useState<number[]>([]);
   const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-  useEffect(() => {
-    const heights = paperRefs.current.map(ref => ref?.offsetHeight || 0);
-    setCardHeights(heights);
-    heights.forEach((height, index) => {
-      console.log(`Paper ${index} height:`, height);
-      console.log(`Stacked div ${index} height:`, height);
-    });
-  }, [relatedStacks]);
-
-  const handleStackCountClick = (stackId: string) => {
-    setCurrentStackId(stackId);
-    setStackPostsModalOpen(true);
-    setIsExpandModalOpen(true);
-  };
-
-  // const formatContent = (content:string) => {
-  
-  //   let formattedContent = content
-  //     .replace(/⌊(.*?)⌋/g, '<span style="color: #5502b5;">$1</span>')
-  //     .replace(/⌈(.*?)⌉/g, '<span style="color: #0235b5;">$1</span>')
-  //     .replace(/…/g, '<span style="color:#b50202;">…</span>')
-  
-  //   return { __html: formattedContent };
-  // };
+  const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
+  const [currentStackId, setCurrentStackId] = useState<string | null>(null);
 
   const formatContent = (content: string) => {
     let formattedContent = content
@@ -116,6 +90,10 @@ function parseHighlight(text: string | null | undefined, source: 'green' | 'blue
   const highlights: { start: number; end: number; source: 'green' | 'blue' }[] = [];
   let i = 0;
   let highlightStart = -1;
+
+  if (text === null || text === undefined || text === '') {
+    return { plainText: '', highlights: [] };
+  }
 
   while (i < text.length) {
     if (text[i] === '⌊' || text[i] === '⌈' || text[i] === '⟦') {
@@ -230,21 +208,9 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
     },
   });
 
-  let clickTimeout: NodeJS.Timeout;
-  let preventClick = false;
-  const handleSingleClick = (postId: string, stackId: string) => {
-    clickTimeout = setTimeout(() => {
-      if (!preventClick) {
-        handleNavigate(postId, stackId);
-      }
-      preventClick = false;
-    }, 300); // 延迟以区分单击和双击
-  };
-
-  const handleDoubleClick = (stackId: string) => {
-    clearTimeout(clickTimeout); // 清除单击事件的计时器
-    preventClick = true;
-    handleStackCountClick(stackId);
+  const handleOpenStackModal = (stackId: string) => {
+    setCurrentStackId(stackId);
+    setStackPostsModalOpen(true);
   };
 
   const handleMouseUp = (postId: string, stackId: string) => {
@@ -263,22 +229,25 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
       variants={containerVariants}
       initial="hidden"
       animate="show"
-      style={{ display: 'flex', flexDirection: 'column', gap: '0rem', alignItems: 'center', width: '100%' }}
+      style={{ display: 'flex', flexDirection: 'column', gap: '0rem', alignItems: 'center', width: '100%'}}
     >
       {relatedStacks.slice(0, maxStacksToShow).map((stack, index) => {
         const isHovered = hoveredIndex === index;
-        // const contentToDisplay =
-        //   isHovered && stack.topPost.content_highlight
-        //     ? stack.topPost.content_highlight
-        //     : stack.topPost.rewrite.significant
-        //     ? stack.topPost.rewrite.content
-        //     : stack.topPost.content;
   
+        const baseContentHtml = stack.topPost.rewrite.significant
+          ? formatContent(stack.topPost.rewrite.content ?? '').__html
+          : formatContent(stack.topPost.content ?? '').__html;
+
+        const hoverHighlightHtml =
+          stack.topPost.content_highlight && stack.topPost.rewrite?.content
+            ? mergeHighlight(stack.topPost.content_highlight, stack.topPost.rewrite.content)
+            : '';
+
         const contentToDisplay = isHovered
-  ? mergeHighlight(stack.topPost.content_highlight, stack.topPost.rewrite.content)
-  : stack.topPost.rewrite.significant
-    ? formatContent(stack.topPost.rewrite.content).__html
-    : formatContent(stack.topPost.content).__html;
+          ? hoverHighlightHtml && hoverHighlightHtml.trim().length > 0
+            ? hoverHighlightHtml
+            : baseContentHtml
+          : baseContentHtml;
 
         return (
           <motion.div
@@ -288,28 +257,16 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
               position: 'relative',
               margin: '20px 20px',
               marginTop: '1rem',
-              width: cardWidth,
-              boxShadow: '0 10px 10px rgba(0,0,0,0.1)',
+              width: '100%',
               borderRadius: '10px',
             }}
             onMouseEnter={() => {
               setHoveredIndex(index);
-              // setTimeout(() => {
-              //   const newHeights = [...cardHeights];
-              //   newHeights[index] = paperRefs.current[index]?.scrollHeight || 0;
-              //   setCardHeights(newHeights);
-              // }, 50); // 延迟 50ms，让 DOM 真正渲染出来
             }}
             
             
             onMouseLeave={() => {
               setHoveredIndex(null);
-              // // 恢复成原本 card 的高度（即加载完后默认设置的 cardHeights）
-              // setTimeout(() => {
-              //   const newHeights = [...cardHeights];
-              //   newHeights[index] = cardHeights[index]; // 直接恢复原来的 cardHeight
-              //   setCardHeights(newHeights);
-              // }, 50); // 适当延时让 DOM 收回原始状态
             }}
             
           >
@@ -319,36 +276,65 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
               }}
               style={{
                 position: 'relative',
-                width: cardWidth,
+                width: '100%',
                 backgroundColor: '#ffffff',
                 zIndex: 5,
                 borderRadius: '10px',
                 margin: '0 auto',
                 paddingTop: '40px',
-                border: '1px solid #e7e7e7',
+                border: '2px solid rgb(156, 184, 255)',
+                boxShadow:
+                  stack.size !== null && stack.size > 1
+                    ? 'none'
+                    : '0 12px 24px rgba(0,0,0,0.18), 0 6px 12px rgba(0,0,0,0.12)',
+                transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
+                cursor: 'pointer'
               }}
             >
-              {stack.topPost.rewrite.significant && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '10px',
-                    left: '10px',
-                    background: '#E0E6ff',
-                    color: '2435A3',
-                    borderRadius: '5px',
-                    padding: '2px 6px',
-                    fontWeight: 'bold',
-                    zIndex: 10,
-                    fontSize: '10px',
-                  }}
-                >
-                  Modified by AI
-                </div>
-              )}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '10px',
+                  left: '10px',
+                  display: 'flex',
+                  gap: '8px',
+                  alignItems: 'center',
+                  zIndex: 10,
+                }}
+              >
+              <div
+                style={{
+                  background: '#E3ffe0',
+                  color: '#555555',
+                  borderRadius: '5px',
+                  padding: '2px 6px',
+                  fontWeight: 'bold',
+                  fontSize: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  lineHeight: 1,
+                }}
+              >
+                {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
+              </div>
+                {stack.topPost.rewrite.significant && (
+                  <div
+                    style={{
+                      background: '#E0E6ff',
+                      color: '2435A3',
+                      borderRadius: '5px',
+                      padding: '2px 6px',
+                      fontWeight: 'bold',
+                      fontSize: '10px',
+                    }}
+                  >
+                    Modified by AI
+                  </div>
+                )}
+              </div>
               <UnstyledButton
-                onClick={() => handleSingleClick(stack.topPost.id, stack.stackId)}
-                onDoubleClick={() => handleDoubleClick(stack.stackId)}
+                onClick={() => handleNavigate(stack.topPost.id, stack.stackId)}
                 style={{ width: '100%' }}
               >
                 <Group style={{ paddingLeft: '1rem' }}>
@@ -366,7 +352,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
   
               <div
                 onMouseUp={() => handleMouseUp(stack.topPost.id, stack.stackId)}
-                style={{ paddingLeft: '54px', paddingRight: '1rem' }}
+                style={{ paddingLeft: '54px', paddingRight: '1rem', cursor: 'pointer' }}
               >
                 <div
                   style={{
@@ -383,11 +369,8 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 />
               </div>
   
-              <div className="rel-display">
-                {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
-              </div>
               <Divider style={{ marginTop: '0.5rem' }} />
-              <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 10px' }}>
+              <Group style={{ display: 'flex', justifyContent: 'space-between'}}>
                 <Button variant="subtle" size="sm" radius="lg">
                   <IconMessageCircle size={20} style={{ color: '#002379' }} />
                   <Text style={{ color: '#002379' }} ml={4}>
@@ -416,32 +399,38 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 </Button>
               </Group>
               {stack.size !== null && stack.size > 1 && (
-                <RelatedStackCount count={stack.size} onClick={() => handleStackCountClick(stack.stackId)} />
+                <RelatedStackCount
+                  count={stack.size}
+                  onClick={() => handleOpenStackModal(stack.stackId)}
+                />
               )}
             </Paper>
   
-            {stack.size !== null &&
-  stack.size > 1 &&
-  [...Array(3)].map((_, idx) => (
-    <div
-      key={idx}
-      style={{
-        position: 'absolute',
-        bottom: `${-15 + 5 * idx}px`,
-        left: `${15 - 5 * idx}px`,
-        width: cardWidth,
-        height:
-          hoveredIndex === index
-            ? paperRefs.current[index]?.scrollHeight || cardHeights[index] || 0
-            : cardHeights[index] || 0,
-        backgroundColor: '#ffffff',
-        zIndex: idx + 1,
-        borderRadius: '10px',
-        border: '1px solid #e7e7e7',
-        transition: 'height 0.3s ease',
-      }}
-    />
-  ))}
+            {stack.size !== null && stack.size > 1 && (
+              <>
+                {[...Array(2)].map((_, idx) => (
+                  <div
+                    key={idx}
+                    aria-hidden
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      transform: `translate(${6 - 3 * idx}px, ${8 - 4 * idx}px)`,
+                      width: '100%',
+                      backgroundColor: '#ffffff',
+                      borderRadius: '10px',
+                      zIndex: idx + 1,
+                      pointerEvents: 'none',
+                      border: '2px solid rgb(156, 184, 255)',
+                      boxShadow: idx === 0
+                        ? '0 12px 24px rgba(0,0,0,0.18), 0 6px 12px rgba(0,0,0,0.12)'
+                        : 'none',
+                      transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
+                    }}
+                  />
+                ))}
+              </>
+            )}
 
           </motion.div>
         );
@@ -449,11 +438,8 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
   
       <StackPostsModal
         isOpen={stackPostsModalOpen}
-        onClose={() => {
-          setStackPostsModalOpen(false);
-          setIsExpandModalOpen(false);
-        }}
-        apiUrl={`https://beta.stacky.social:3002/stacks/${currentStackId}/posts`}
+        onClose={() => setStackPostsModalOpen(false)}
+        apiUrl={currentStackId ? `https://beta.stacky.social:3002/stacks/${currentStackId}/posts` : ''}
         stackId={currentStackId}
       />
     </motion.div>

@@ -1,45 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Text, Avatar, Group, Paper, UnstyledButton, Button, Divider } from '@mantine/core';
+import { Text, Avatar, Group, Paper, UnstyledButton, Button, Divider, Anchor } from '@mantine/core';
 import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconLink } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import StackCount from '../StackCount';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
-import { motion, AnimatePresence } from 'framer-motion';
+import LinkPreviewCard from '../LinkPreviewCard';
+import { PreviewCardType } from '../../types/PostType';
 
-interface PreviewCard {
-  title: string;
-  description: string;
-  image?: string;
-  url: string;
-}
+type PreviewCard = PreviewCardType;
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
-
-const extractLinks = (text: string): string[] => {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(text, 'text/html');
-  const anchors = doc.querySelectorAll('a:not(.mention.hashtag)') as NodeListOf<HTMLAnchorElement>;
-  return Array.from(anchors)
-    .map(anchor => anchor.href)
-    .filter(href => href.startsWith('http')); 
-};
-
-const fetchPreviewCard = async (url: string): Promise<PreviewCard | null> => {
-  try {
-    const response = await axios.get(`https://api.microlink.io?url=${encodeURIComponent(url)}`);
-    return {
-      title: response.data.data.title,
-      description: response.data.data.description,
-      image: response.data.data.image?.url,
-      url: url
-    };
-  } catch (error) {
-    console.error('Error fetching preview card:', error);
-    return null;
-  }
-};
 
 interface PostProps {
   id: string;
@@ -60,6 +32,7 @@ interface PostProps {
   relatedStacks: any[];
   activePostId: string | null;
   setActivePostId: (id: string | null) => void;
+  initialCard?: PreviewCard | null;
   
 }
 
@@ -79,6 +52,7 @@ export default function Post({
   relatedStacks,
   activePostId,
   setActivePostId,
+  initialCard,
 }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
@@ -92,9 +66,12 @@ export default function Post({
   const [replyCount, setReplyCount] = useState(repliesCount);
   const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
   const [mediaAttachments, setMediaAttachments] = useState<string[]>([]);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const isActive = activePostId === id;
+  const [isExpanded, setIsExpanded] = useState(isActive);
+  const [isTextExpanded, setIsTextExpanded] = useState(false);
+  const [hovered, setHovered] = useState(false);
 
-  const [previewCards, setPreviewCards] = useState<PreviewCard[]>([]);
+  const [previewCards, setPreviewCards] = useState<PreviewCard[]>(initialCard ? [initialCard] : []);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
 
   const [isOverflowing, setIsOverflowing] = useState(false);
@@ -102,13 +79,24 @@ export default function Post({
 
   useEffect(() => {
     const element = textRef.current;
-    if (element) {
-      setIsOverflowing(element.scrollHeight > element.clientHeight);
+    if (!element) return;
+
+    if (isTextExpanded) {
+      setIsOverflowing(false);
+      return;
     }
-  }, [text]);
+
+    setIsOverflowing(element.scrollHeight > element.clientHeight);
+  }, [text, isTextExpanded]);
   useEffect(() => {
     setTempRelatedStacks(relatedStacks);
   }, [relatedStacks]);
+
+  useEffect(() => {
+    if (initialCard) {
+      setPreviewCards([initialCard]);
+    }
+  }, [initialCard]);
 
   useEffect(() => {
     if (paperRef.current) {
@@ -121,16 +109,10 @@ export default function Post({
   }, []);
 
   useEffect(() => {
-    if (activePostId !== id && isExpanded) {
-      setIsExpanded(false);
-    }
-  }, [activePostId]);
+    // Sync isExpanded with isActive state
+    setIsExpanded(isActive);
+  }, [isActive]);
 
-  useEffect(() => {
-    if (activePostId === id) {
-      handleStackCountClick();
-    }
-  }, [activePostId]);
 
   const handleNavigate = () => {
     const url = `/posts/${id}`;
@@ -166,11 +148,18 @@ export default function Post({
       setBookmarkedState(data.bookmarked);
       setMediaAttachments(mediaAttachments);
 
-      const links = extractLinks(data.content);
-
-      const previewCardsPromises = links.map(link => fetchPreviewCard(link));
-      const previewCards = await Promise.all(previewCardsPromises);
-      setPreviewCards(previewCards.filter(card => card !== null) as PreviewCard[]);
+      const card = data.card;
+      if (card) {
+        const normalized: PreviewCard = {
+          title: card.title || '',
+          description: card.description || '',
+          image: card.image || undefined,
+          url: card.url,
+        };
+        setPreviewCards([normalized]);
+      } else {
+        setPreviewCards([]);
+      }
     } catch (error) {
       console.error('Error fetching post data:', error);
     }
@@ -243,13 +232,31 @@ export default function Post({
     });
   };
 
-  const handleStackCountClick = () => {
+  const handleStackCountClick = async () => {
     setIsExpanded(true);
     const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
     const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
 
-    onStackIconClick(tempRelatedStacks, id, adjustedPosition);
-    setActivePostId(id); 
+    // Set active post first to lock the highlight
+    setActivePostId(id);
+
+    let stacks = tempRelatedStacks;
+    // If stacks are missing, fetch them
+    if (!Array.isArray(stacks) || stacks.length === 0) {
+      try {
+        const accessToken = getAccessToken();
+        if (accessToken) {
+          const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${id}/related`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          stacks = response.data.relatedStacks || [];
+          setTempRelatedStacks(stacks);
+        }
+      } catch (error) {
+        console.error('Failed to fetch related stacks on click:', error);
+      }
+    }
+    onStackIconClick(Array.isArray(stacks) ? stacks : [], id, adjustedPosition);
   };
 
   const handleStackClick = (index: number) => {
@@ -271,24 +278,16 @@ export default function Post({
     }
   };
 
-  let clickTimeout: NodeJS.Timeout;
-  let preventClick = false;
-
-  const handleSingleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();  // 防止事件冒泡
-    clickTimeout = setTimeout(() => {
-      if (!preventClick) {
-        handleNavigate();
-      }
-      preventClick = false;
-    }, 300); // 延迟以区分单击和双击
+  const handleExpandText = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    event.preventDefault();
+    setIsTextExpanded(true);
+    setIsOverflowing(false);
   };
 
-  const handleDoubleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();  // 防止事件冒泡
-    clearTimeout(clickTimeout);  // 清除单击事件的计时器
-    preventClick = true;
-    handleStackCountClick();
+  const handleSingleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleNavigate();
   };
 
   const handleMouseUp = () => {
@@ -311,39 +310,35 @@ export default function Post({
   }, [text]);
 
   return (
-    <div style={{ position: 'relative', marginLeft: '15px', marginBottom: '3rem',marginTop: '3rem', width: "90%",boxShadow: '0 10px 10px rgba(0,0,0,0.1)', borderRadius: '10px'}}>
+    <div style={{ position: 'relative', marginBottom: '3rem'}}>
       <Paper
         ref={paperRef}
         style={{
           position: 'relative',
           width: "100%",
-          backgroundColor: isExpanded ? '#fff' : '#fff',
+          backgroundColor: '#fff',
           zIndex: 5,
-          // boxShadow: '0 0px 0px rgba(0,0,0,0.1)', // 调整阴影，只在其他三边显示
-          // borderRadius: '8px', // 全局圆角
           borderRadius: '10px', // 左上角圆角
-          border: '0.5px solid #e7e7e7',
-          //borderTopRightRadius: stackCount !== null && stackCount > 1  ?'0px' : '8px', // 右上角不圆角
+          border: isActive ? '2px solid rgb(156, 184, 255)' : '2px solid #e7e7e7',
+          transform: isActive ? 'translateY(-2px)' : (hovered ? 'translateY(-1px)' : 'none'),
+          transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
           paddingLeft: '1rem',
           paddingRight: '1rem',
-          paddingTop: '1rem'
+          paddingTop: '1rem',
+          cursor: 'pointer'
         }}
-
-        // withBorder
-        onMouseEnter={() => {
-          if (!isExpanded && paperRef.current) {
-            paperRef.current.style.backgroundColor = 'rgba(245, 245, 245)';
-          }
-        }}
-        onMouseLeave={() => {
-          if (!isExpanded && paperRef.current) {
-            paperRef.current.style.backgroundColor = 'rgba(255, 255, 255, 1)';
-          }
-        }}
+        onMouseEnter={() => { setHovered(true); }}
+        onMouseLeave={() => { setHovered(false); }}
       >
 
 {stackCount !== 0 && (
-  <UnstyledButton onClick={handleStackCountClick}>
+  <UnstyledButton
+    onClick={(event) => {
+      event.stopPropagation();
+      handleStackCountClick();
+    }}
+    data-stack-count
+  >
     <StackCount
       count={stackCount}
       onClick={handleStackCountClick}
@@ -356,8 +351,7 @@ export default function Post({
 )}
 
         <UnstyledButton
-          onClick={handleSingleClick} 
-          onDoubleClick={handleDoubleClick} 
+          onClick={handleSingleClick}
           style={{ width: '100%' }}
         >
           <Group>
@@ -372,18 +366,18 @@ export default function Post({
         </UnstyledButton>
 
         <div
-          style={{ paddingLeft: '3rem', paddingRight:'1rem'}}
+          style={{ paddingLeft: '3rem', paddingRight:'3rem', cursor: 'pointer'}}
           onMouseUp={handleMouseUp}
         >
           <div>
       <div
         ref={textRef}
         style={{
-          display: '-webkit-box',
+          display: isTextExpanded ? 'block' : '-webkit-box',
           WebkitBoxOrient: 'vertical',
-          WebkitLineClamp: 5,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
+          WebkitLineClamp: isTextExpanded ? undefined : 5,
+          overflow: isTextExpanded ? 'visible' : 'hidden',
+          textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
           marginTop: '0px',
           lineHeight: '1.5',
           color: '#011445'
@@ -391,9 +385,29 @@ export default function Post({
         dangerouslySetInnerHTML={{ __html: text }}
       />
       {isOverflowing && (
-        <div style={{ color: '#5a71a8' }}>
-          [read more]
-        </div>
+        <Anchor
+          component="button"
+          type="button"
+          size="sm"
+          underline="hover"
+          styles={(theme) => ({
+            root: {
+              padding: 0,
+              background: 'none',
+              color: '#5a71a8',
+              fontWeight: 600,
+              cursor: 'pointer',
+              '&:hover': {
+                color: theme.colors.blue[7],
+              },
+            },
+          })}
+          onClick={handleExpandText}
+          onMouseDown={(event) => event.stopPropagation()}
+          onMouseUp={(event) => event.stopPropagation()}
+        >
+          Read more
+        </Anchor>
       )}
     </div>
   
@@ -405,25 +419,14 @@ export default function Post({
             </div>
           )}
 
-          {previewCards.slice(0,1).map((card, index) => (
-            <div key={index} style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              border: '1px solid rgba(0, 0, 0, 0.1)',
-              borderRadius: '15px',
-              overflow: 'hidden',
-              boxShadow: '0 0px 0px rgba(0, 0, 0, 0.1)',
-              marginTop: '0.5rem',
-              marginRight: '0.5rem',
-            }} onClick={(e) => { e.stopPropagation(); window.open(card.url, '_blank'); }}>
-              {card.image && (
-                <img src={card.image} alt={card.title} style={{ width: '150px', margin: '10px' }} />
-              )}
-              <div>
-                <Text c="#011445" fw="700" size="sm">{card.title}</Text>
-                <Text size="xs" c="dimmed">{card.description}</Text>
-              </div>
-            </div>
+          {previewCards.slice(0, 1).map((card, index) => (
+            <LinkPreviewCard
+              key={index}
+              url={card.url}
+              title={card.title}
+              description={card.description}
+              imageUrl={card.image}
+            />
           ))}
         </div>
 
@@ -446,24 +449,6 @@ export default function Post({
           </Button>
         </Group>
       </Paper>
-      {stackCount != null && stackCount > 1 && (
-        !isExpanded && [...Array(3)].map((_, index) => (
-          <div
-            key={index}
-            style={{
-              position: 'absolute',
-              top: `${16 - 5 * (index)}px`,
-              right: `${-16 + 5 * (index)}px`,
-              width: "100%",
-              borderRadius: '10px',
-              height: `${cardHeight}px`,
-              backgroundColor: '#ffffff',
-              border: '0.5px solid #e7e7e7',
-            }}
-          />
-        ))
-      )}
-
       <AnnotationModal
         isOpen={annotationModalOpen}
         onClose={() => setAnnotationModalOpen(false)}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Paper, Text, Transition, Loader } from '@mantine/core';
 import {
   IconStack,
@@ -17,157 +17,153 @@ import {
   IconThumbDown,
 } from '@tabler/icons-react';
 
+interface RelatedStack {
+  rel: string;
+  stackId: string;
+  size: number;
+}
+
 interface StackCountProps {
   count: number | null;
   onClick: () => void;
   onStackClick: (index: number) => void;
-  relatedStacks: Array<{ rel: string, stackId: string, size: number }>;
+  relatedStacks: RelatedStack[];
   expanded: boolean;
   cardHeight: number;
 }
 
-const iconMapping: { [key: string]: JSX.Element } = {
-  uncategorized: <IconCards  style={{ color: '#011445' }} size={20} />,
-  predictions: <IconBulb  style={{ color: '#011445' }} size={20} />,
-  evidence_public: <IconQuote  style={{ color: '#011445' }} size={20} />,
-  evidence_personal: <IconUser  style={{ color: '#011445' }} size={20} />,
-  connections: <IconLink  style={{ color: '#011445' }} size={20} />,
-  pointers: <IconPointer style={{ color: '#011445' }} size={20} />,
-  proposals: <IconBook  style={{ color: '#011445' }} size={20} />,
-  humor: <IconMoodSmile   style={{ color: '#011445' }} size={20} />,
-  values: <IconHeart  style={{ color: '#011445' }} size={20} />,
-  framing: <IconFrame  style={{ color: '#011445' }} size={20} />,
-  questions: <IconQuestionMark  style={{ color: '#011445' }} size={20} />,
-  default: <IconStack  style={{ color: '#011445' }} size={20} />,
-  agree: <IconThumbUp size={20} />,
-  disagree: <IconThumbDown size={20} />,
+const ICON_COLOR = '#011445';
+const ICON_SIZE = 20;
+
+const iconMapping: Record<string, React.ReactNode> = {
+  uncategorized: <IconCards style={{ color: ICON_COLOR }} size={ICON_SIZE} />,
+  predictions: <IconBulb style={{ color: ICON_COLOR }} size={ICON_SIZE} />,
+  evidence_public: <IconQuote style={{ color: ICON_COLOR }} size={ICON_SIZE} />,
+  evidence_personal: <IconUser style={{ color: ICON_COLOR }} size={ICON_SIZE} />,
+  connections: <IconLink style={{ color: ICON_COLOR }} size={ICON_SIZE} />,
+  pointers: <IconPointer style={{ color: ICON_COLOR }} size={ICON_SIZE} />,
+  proposals: <IconBook style={{ color: ICON_COLOR }} size={ICON_SIZE} />,
+  humor: <IconMoodSmile style={{ color: ICON_COLOR }} size={ICON_SIZE} />,
+  values: <IconHeart style={{ color: ICON_COLOR }} size={ICON_SIZE} />,
+  framing: <IconFrame style={{ color: ICON_COLOR }} size={ICON_SIZE} />,
+  questions: <IconQuestionMark style={{ color: ICON_COLOR }} size={ICON_SIZE} />,
+  agree: <IconThumbUp size={ICON_SIZE} />,
+  disagree: <IconThumbDown size={ICON_SIZE} />,
 };
 
-const StackCount: React.FC<StackCountProps> = ({ count, onClick, onStackClick, relatedStacks, expanded, cardHeight}) => {
-  console.log("StackCount loaded with count:", count); 
+const getIcon = (rel: string) => iconMapping[rel] ?? <IconStack style={{ color: ICON_COLOR }} size={ICON_SIZE} />;
+
+const styles = {
+  paper: {
+    position: 'absolute' as const,
+    top: '10px',
+    right: '0px',
+    width: 60,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    cursor: 'pointer',
+    transition: 'height 0.3s ease',
+    backgroundColor: 'transparent',
+  },
+  header: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    height: 50,
+  },
+  headerIcon: { color: '#555555' },
+  headerText: { color: '#555555' },
+  list: (cardHeight: number) => ({
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 5,
+    width: '100%',
+    maxHeight: `${cardHeight * 0.7}px`,
+    overflowY: 'auto' as const,
+  }),
+  item: (cardHeight: number, isFirst: boolean, isHovered: boolean) => ({
+    display: 'flex',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'flex-start' as const,
+    gap: 4,
+    padding: '2px 6px',
+    backgroundColor: isFirst ? '#e3ffe0' : isHovered ? '#f0fff0' : 'transparent',
+    borderRadius: 5,
+    transition: 'background-color 0.3s ease',
+    width: '90%',
+    margin: '0 auto',
+    maxHeight: `${cardHeight / 5}px`,
+    minHeight: 20,
+  }),
+  itemText: { margin: 0, color: '#555' },
+};
+
+const StackCount: React.FC<StackCountProps> = ({
+  count,
+  onClick,
+  onStackClick,
+  relatedStacks,
+  expanded,
+  cardHeight,
+}) => {
+  // Preserve existing behavior: hide if count is -1
   if (count === -1) return null;
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [isExpanded, setIsExpanded] = useState(expanded);
 
-  useEffect(() => {
-    setIsExpanded(expanded);
-  }, [expanded]);
+  const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
 
-  const handlePaperClick = () => {
+  const handlePaperClick = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
     onClick();
-    setIsExpanded(true);
   };
 
-  const isTwoColumnLayout = relatedStacks.length >= 4;
-
   return (
-    <Paper
-      onClick={handlePaperClick}
-      style={{
-        position: 'absolute',
-        top: '-0px',
-        right: '-50px',
-        width: '60px',
-        display: 'flex',
-        paddingBottom:'10px',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        // boxShadow: '3px 0px 10px rgba(0,0,0,0.1)', // 只显示右边和下边的阴影
-        cursor: 'pointer',
-        transition: 'height 0.3s ease',
-        backgroundColor:isExpanded ? '#f9f9f9' : '#f9f9f9',
-        border: '1px solid #cbcbcb',
-        borderRadius: '10px',
-  
-        // borderTopLeftRadius: '0px', // 左上角不圆角
-        // borderTopRightRadius: '8px', // 右上角圆角
-        // borderBottomRightRadius: '8px', // 右下角圆角
-        // borderBottomLeftRadius: '0px', // 左下角圆角
-        // borderLeft: '0px solid transparent', // 确保左边没有边框
-       
-        
-      }}
-   
-    >
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '50px',
-      }}>
-        <IconStack 
-        style={{ color: '#555555' }}
-        size={24} />
-        <Text style={{ color: '#555555' }} size="sm">
+    <Paper onClick={handlePaperClick} style={styles.paper} aria-label="Open related stacks">
+      <div style={styles.header}>
+        <IconStack style={styles.headerIcon} size={24} />
+        <Text style={styles.headerText} size="sm">
           {count !== null ? count : <Loader size="xs" />}
         </Text>
       </div>
-  
-    
-      <Transition mounted={isExpanded} transition="slide-down" duration={300} timingFunction="ease">
-        
-        {(styles) => (
-          <div style={{ 
-            ...styles, 
-            // display: isTwoColumnLayout ? 'grid' : 'flex', 
-            // gridTemplateColumns: isTwoColumnLayout ? 'repeat(2, 1fr)' : undefined,
-            // gridAutoRows: isTwoColumnLayout ? 'auto' : undefined,
-            // flexDirection: isTwoColumnLayout ? undefined : 'column',
-            display: 'flex',
-flexDirection: 'column',
 
-            gap: '5px',
-            width: '100%',
-            maxHeight: `${cardHeight*0.7}px`,
-            overflowY: 'auto',
-          
-          }}>
-            
-            {relatedStacks.map((stack, index) => (
-              <div 
-                key={index} 
-                style={{ 
-                  // display: 'flex', 
-                  // flexDirection: 'column', 
-                  // alignItems: 'center', 
-                  display: 'flex', 
-                  flexDirection: 'row', 
-                  alignItems: 'center',
-                  justifyContent: 'flex-start',
-                  gap: '4px',
-                  padding: '2px 6px',
-                  backgroundColor:
-  index === 0
-    ? '#e3ffe0' 
-    : hoveredIndex === index
-    ? '#f0fff0' 
-    : 'transparent',
-                  borderRadius: '5px',
-        
-                  // backgroundColor: hoveredIndex === index ? '#FF5F00' : '#FF9F66',
-                  transition: 'background-color 0.3s ease',
-                  width: '90%',
-                  margin: '0 auto',
-                  maxHeight: `${cardHeight/5}px`,
-                  minHeight: `20px`,
-                }}
-                onMouseEnter={() => setHoveredIndex(index)}
-                onMouseLeave={() => setHoveredIndex(null)}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onStackClick(index);
-                  setIsExpanded(true);
-                }}
-              >
-                  
-                {iconMapping[stack.rel] || iconMapping["default"]}
-                {/* <Text size="xs" style={{ margin: '0' }}>{stack.size}</Text> */}
-                <Text size="xs" style={{ margin: '0', color: '#555' }}>{stack.size}</Text>
+      <Transition mounted={expanded} transition="slide-down" duration={300} timingFunction="ease">
+        {(transitionStyles) => (
+          <div style={{ ...transitionStyles, ...styles.list(cardHeight) }}>
+            {relatedStacks.map((stack, index) => {
+              const isHovered = hoveredIndex === index;
+              const isFirst = index === 0;
 
-              </div>
-            ))}
+              return (
+                <div
+                  key={stack.stackId || index}
+                  style={styles.item(cardHeight, isFirst, isHovered)}
+                  onMouseEnter={() => setHoveredIndex(index)}
+                  onMouseLeave={() => setHoveredIndex(null)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStackClick(index);
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onStackClick(index);
+                    }
+                  }}
+                  aria-label={`Open stack ${stack.rel} (${stack.size})`}
+                >
+                  {getIcon(stack.rel)}
+                  <Text size="xs" style={styles.itemText}>
+                    {stack.size}
+                  </Text>
+                </div>
+              );
+            })}
           </div>
         )}
       </Transition>
@@ -175,4 +171,4 @@ flexDirection: 'column',
   );
 };
 
-export default StackCount;
+export default React.memo(StackCount);

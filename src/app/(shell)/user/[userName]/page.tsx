@@ -3,8 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Text, Avatar, Group, Paper, Divider, Button } from '@mantine/core';
 import axios from 'axios';
-import Posts from '../../../components/Posts/Posts'; 
-
+import Posts from '../../../../components/Posts/Posts'; 
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
@@ -96,11 +95,11 @@ export default function UserPage() {
   }
 
   return (
-    <div style={{ margin: '15px', width: '90%' }}>
+    <div>
       <Paper
         style={{
           backgroundColor: '#fff',
-          boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+          boxShadow: 'rgba(0, 0, 0, 0.1) 0px 1px 1px',
           borderRadius: '8px',
           padding: '20px',
         }}

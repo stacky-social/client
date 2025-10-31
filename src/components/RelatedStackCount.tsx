@@ -5,43 +5,45 @@ import { IconStack } from '@tabler/icons-react';
 interface RelatedStackCountProps {
   count: number;
   onClick: () => void;
+  topOffset?: number; // px from top inside the card; helps avoid overlap with badges
 }
 
-const RelatedStackCount: React.FC<RelatedStackCountProps> = ({ count, onClick }) => {
+const RelatedStackCount: React.FC<RelatedStackCountProps> = ({ count, onClick, topOffset = 8 }) => {
+  const handleClick = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClick();
+  };
+
   return (
     <Paper
-      onClick={onClick}
+      onClick={handleClick}
       style={{
         position: 'absolute',
-        top: '0px',
-        right: '-54px',
-        width: '55px',
+        top: `${topOffset}px`,
+        right: '6px',
+        width: '48px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        // boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
         cursor: 'pointer',
-        backgroundColor: '#f9f9f9',
+        backgroundColor: 'transparent',
         transition: 'height 0.3s ease',
-        border: '1px solid #cbcbcb',
-        borderRadius: '10px',
-        // borderTopLeftRadius: '0px', // 左上角不圆角
-        // borderTopRightRadius: '8px', // 右上角圆角
-        // borderBottomRightRadius: '8px', // 右下角圆角
-        // borderBottomLeftRadius: '0px', // 左下角圆角
+        border: 'none',
+        borderRadius: '8px',
+        zIndex: 10,
       }}
-      // withBorder
     >
       <div style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        height: '50px',
+        height: '44px',
       }}>
-        <IconStack size={24} />
-        <Text size="sm">{count}</Text>
+        <IconStack size={20} />
+        <Text size="xs">{count}</Text>
       </div>
     </Paper>
   );
