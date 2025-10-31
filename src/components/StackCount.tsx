@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Paper, Text, Transition, Loader } from '@mantine/core';
 import {
   IconStack,
@@ -57,7 +58,7 @@ const styles = {
   paper: {
     position: 'absolute' as const,
     top: '10px',
-    right: '0px',
+    right: '5px',
     width: 60,
     display: 'flex',
     flexDirection: 'column' as const,
@@ -72,6 +73,7 @@ const styles = {
     flexDirection: 'column' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
+    width: '100%',
     height: 50,
   },
   headerIcon: { color: '#555555' },
@@ -123,12 +125,16 @@ const StackCount: React.FC<StackCountProps> = ({
 
   return (
     <Paper onClick={handlePaperClick} style={styles.paper} aria-label="Open related stacks">
-      <div style={styles.header}>
+      <motion.div
+        style={styles.header}
+        whileHover={{ scale: 1.06, y: -2 }}
+        transition={{ type: 'spring', stiffness: 450, damping: 22, mass: 0.3 }}
+      >
         <IconStack style={styles.headerIcon} size={24} />
         <Text style={styles.headerText} size="sm">
           {count !== null ? count : <Loader size="xs" />}
         </Text>
-      </div>
+      </motion.div>
 
       <Transition mounted={expanded} transition="slide-down" duration={300} timingFunction="ease">
         {(transitionStyles) => (
