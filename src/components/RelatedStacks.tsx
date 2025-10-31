@@ -224,6 +224,12 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
   const [showOriginalContent, setShowOriginalContent] = useState<boolean[]>([]);
   const [showAIRewrite, setShowAIRewrite] = useState<boolean[]>([]);
 
+  useEffect(() => {
+    // 初始化或在 relatedStacks 变化时同步开关数组长度
+    setShowOriginalContent(new Array(relatedStacks.length).fill(false));
+    setShowAIRewrite(new Array(relatedStacks.length).fill(true));
+  }, [relatedStacks]);
+
   
 
   return (
@@ -235,7 +241,6 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
     >
       {relatedStacks.slice(0, maxStacksToShow).map((stack, index) => {
         const isHovered = hoveredIndex === index;
-  
         const baseContentHtml = stack.topPost.rewrite.significant
           ? formatContent(stack.topPost.rewrite.content ?? '').__html
           : formatContent(stack.topPost.content ?? '').__html;
@@ -245,11 +250,16 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
             ? mergeHighlight(stack.topPost.content_highlight, stack.topPost.rewrite.content)
             : '';
 
-        const contentToDisplay = isHovered
-          ? hoverHighlightHtml && hoverHighlightHtml.trim().length > 0
-            ? hoverHighlightHtml
-            : baseContentHtml
-          : baseContentHtml;
+        // 优先使用开关状态；若未开启开关，维持原有 hover 合并高亮的体验
+        const contentToDisplay = (showOriginalContent[index] === true)
+          ? (stack.topPost.content_highlight && stack.topPost.rewrite?.content
+              ? mergeHighlight(stack.topPost.content_highlight, stack.topPost.rewrite.content)
+              : formatContent(stack.topPost.content ?? '').__html)
+          : (stack.topPost.rewrite.significant && (showAIRewrite[index] !== false)
+              ? formatContent(stack.topPost.rewrite.content ?? '').__html
+              : (isHovered && hoverHighlightHtml && hoverHighlightHtml.trim().length > 0
+                  ? hoverHighlightHtml
+                  : formatContent(stack.topPost.content ?? '').__html));
 
         return (
           <motion.div
@@ -303,34 +313,46 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                   zIndex: 10,
                 }}
               >
-              <div
-                style={{
-                  background: '#E3ffe0',
-                  color: '#555555',
-                  borderRadius: '5px',
-                  padding: '2px 6px',
-                  fontWeight: 'bold',
-                  fontSize: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  lineHeight: 1,
-                }}
-              >
-                {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
-              </div>
+                <div
+                  style={{
+                    background: '#E3ffe0',
+                    color: '#555555',
+                    borderRadius: '5px',
+                    padding: '2px 6px',
+                    fontWeight: 'bold',
+                    fontSize: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    lineHeight: 1,
+                  }}
+                >
+                  {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
+                </div>
                 {stack.topPost.rewrite.significant && (
                   <div
                     style={{
                       background: '#E0E6ff',
-                      color: '2435A3',
                       borderRadius: '5px',
                       padding: '2px 6px',
-                      fontWeight: 'bold',
-                      fontSize: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
                     }}
                   >
-                    Modified by AI
+                    <Switch
+                      checked={showAIRewrite[index] !== false}
+                      onChange={(event) => {
+                        const next = [...showAIRewrite];
+                        next[index] = event.currentTarget.checked;
+                        setShowAIRewrite(next);
+                      }}
+                      size="xs"
+                      color="blue"
+                    />
+                    <Text size="xs" c="#2435A3" fw={600}>
+                      AI Modified
+                    </Text>
                   </div>
                 )}
               </div>
@@ -371,6 +393,29 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 />
               </div>
   
+              <div className="rel-display" style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                paddingLeft: '54px',
+                marginTop: '0.25rem'
+              }}>
+                <Switch
+                  checked={showOriginalContent[index] || false}
+                  onChange={(event) => {
+                    const next = [...showOriginalContent];
+                    next[index] = event.currentTarget.checked;
+                    setShowOriginalContent(next);
+                  }}
+                  size="xs"
+                  color="green"
+                />
+                <Text size="xs" c="#555555" fw={600}>
+                  Topic
+                </Text>
+                {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
+              </div>
+
               <Divider style={{ marginTop: '0.5rem' }} />
               <Group style={{ display: 'flex', justifyContent: 'space-between'}}>
                 <Button variant="subtle" size="sm" radius="lg">
