@@ -356,15 +356,26 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                     color: '#555555',
                     borderRadius: '5px',
                     padding: '2px 6px',
-                    fontWeight: 'bold',
-                    fontSize: '10px',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '4px',
-                    lineHeight: 1,
+                    gap: '6px',
                   }}
                 >
-                  {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
+                  <Switch
+                    checked={showOriginalContent[index] || false}
+                    onChange={(event) => {
+                      const next = [...showOriginalContent];
+                      next[index] = event.currentTarget.checked;
+                      setShowOriginalContent(next);
+                    }}
+                    size="xs"
+                    color="green"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  {iconMapping[stack.rel] || iconMapping['default']}
+                  <Text size="xs" c="#555555" fw={600}>
+                    {stack.rel}
+                  </Text>
                 </div>
                 {stack.topPost.rewrite.significant && (
                   <div
@@ -438,29 +449,6 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                   }}
                   dangerouslySetInnerHTML={{ __html: contentToDisplay }}
                 />
-              </div>
-  
-              <div className="rel-display" style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                paddingLeft: '54px',
-                marginTop: '0.25rem'
-              }}>
-                <Switch
-                  checked={showOriginalContent[index] || false}
-                  onChange={(event) => {
-                    const next = [...showOriginalContent];
-                    next[index] = event.currentTarget.checked;
-                    setShowOriginalContent(next);
-                  }}
-                  size="xs"
-                  color="green"
-                />
-                <Text size="xs" c="#555555" fw={600}>
-                  Topic
-                </Text>
-                {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
               </div>
 
               <Divider style={{ marginTop: '0.5rem', marginLeft: '1rem', marginRight: '1rem' }} />
