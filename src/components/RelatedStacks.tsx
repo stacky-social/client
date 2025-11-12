@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Paper, UnstyledButton, Group, Avatar, Text, Divider } from '@mantine/core';
+import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Anchor } from '@mantine/core';
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconThumbUp,IconThumbDown } from '@tabler/icons-react';
 import { Layers } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -22,6 +22,8 @@ interface PostType {
   account: {
     avatar: string;
     display_name: string;
+    acct?: string;
+    username?: string;
   };
   content_rewritten: string;
   rewrite: 
@@ -209,6 +211,13 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
     router.push(url);
   };
 
+  const handleNavigateToUser = (e: React.MouseEvent, account: { acct?: string; username?: string; display_name: string }) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const profileHandle = account.acct || account.username || account.display_name;
+    router.push(`/user/${profileHandle}`);
+  };
+
   const containerVariants = {
     hidden: { opacity: 1 },
     show: {
@@ -361,11 +370,21 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 style={{ width: '100%' }}
               >
                 <Group style={{ paddingLeft: '1rem' }}>
-                  <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
+                  <UnstyledButton
+                    onClick={(e) => handleNavigateToUser(e, stack.topPost.account)}
+                    className="avatarHoverDim"
+                  >
+                    <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
+                  </UnstyledButton>
                   <div>
-                    <Text size="md" fw={700} c="#011445">
+                    <Anchor
+                      component="button"
+                      onClick={(e) => handleNavigateToUser(e, stack.topPost.account)}
+                      underline="hover"
+                      style={{ color: '#011445', fontWeight: 700, fontSize: 'var(--mantine-font-size-md)' }}
+                    >
                       {stack.topPost.account.display_name}
-                    </Text>
+                    </Anchor>
                     <Text size="xs" c="dimmed">
                       {formatDistanceToNow(new Date(stack.topPost.created_at))} ago
                     </Text>

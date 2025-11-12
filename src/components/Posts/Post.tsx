@@ -168,6 +168,7 @@ export default function Post({
 
   const handleNavigateToUser = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!account) return;
     const url = `/user/${account}`;
     router.push(url);
   };
@@ -357,11 +358,21 @@ export default function Post({
           style={{ width: '100%' }}
         >
           <Group>
-            <UnstyledButton onClick={handleNavigateToUser}>
+            <UnstyledButton onClick={handleNavigateToUser} className="avatarHoverDim">
               <Avatar src={avatar} alt={author} radius="xl" />
             </UnstyledButton>
             <div>
-              <Text size="md" fw={700} c="#011445">{author}</Text>
+              <Anchor
+                component="button"
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  handleNavigateToUser(e);
+                }}
+                underline="hover"
+                style={{ color: '#011445', fontWeight: 700, fontSize: 'var(--mantine-font-size-md)' }}
+              >
+                {author}
+              </Anchor>
               <Text size="xs" c="dimmed">{formatDistanceToNow(new Date(createdAt))} ago</Text>
             </div>
           </Group>

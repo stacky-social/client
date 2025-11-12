@@ -6,3 +6,17 @@ html {
 @supports not (scrollbar-gutter: stable) {
     html { overflow-y: scroll; }
 }
+
+.avatarHoverDim {
+    cursor: pointer;
+}
+
+.avatarHoverDim *,
+.avatarHoverDim img {
+    transition: filter 200ms ease-in-out;
+}
+
+.avatarHoverDim:hover *,
+.avatarHoverDim:hover img {
+    filter: brightness(0.95);
+}
