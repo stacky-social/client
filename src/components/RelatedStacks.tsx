@@ -260,6 +260,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [showOriginalContent, setShowOriginalContent] = useState<boolean[]>([]);
   const [showAIRewrite, setShowAIRewrite] = useState<boolean[]>([]);
+  const EDGE_HOVER_HEIGHT = 28;
 
   useEffect(() => {
     // 初始化或在 relatedStacks 变化时同步开关数组长度
@@ -309,10 +310,23 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
               width: '100%',
               borderRadius: '10px',
             }}
-            onMouseEnter={() => {
-              setHoveredIndex(index);
+            onMouseMove={(e) => {
+              const el = paperRefs.current[index];
+              if (!el) return;
+              const rect = el.getBoundingClientRect();
+              const x = e.clientX;
+              const y = e.clientY;
+              const withinX = x >= rect.left && x <= rect.right;
+              const inBottomEdge = y >= rect.bottom && y <= rect.bottom + EDGE_HOVER_HEIGHT;
+              const insideMain = y >= rect.top && y <= rect.bottom;
+              if (withinX && inBottomEdge) {
+                setHoveredIndex(index);
+              } else if (withinX && insideMain) {
+                setHoveredIndex(null);
+              } else {
+                setHoveredIndex(null);
+              }
             }}
-            
             onMouseLeave={() => {
               setHoveredIndex(null);
             }}
@@ -321,6 +335,10 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
             <Paper
               ref={(el) => {
                 paperRefs.current[index] = el;
+              }}
+              onMouseEnter={() => {
+                // Hovering the main card cancels back-layer hover
+                setHoveredIndex(null);
               }}
               style={{
                 position: 'relative',
@@ -494,6 +512,22 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 />
               )}
             </Paper>
+            {/* Invisible bottom-edge interaction zone to ensure reliable hover just below the card */}
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                height: EDGE_HOVER_HEIGHT,
+                bottom: -EDGE_HOVER_HEIGHT,
+                zIndex: 2,
+                pointerEvents: 'auto',
+                background: 'transparent',
+              }}
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex(null)}
+            />
   
             {stack.size !== null && stack.size > 1 && (
               <>
@@ -504,7 +538,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                     style={{
                       position: 'absolute',
                       inset: 0,
-                      transform: `translate(${6 - 3 * idx}px, ${8 - 4 * idx}px)`,
+                      transform: `translate(${6 - 3 * idx}px, ${12 - 6 * idx + (isHovered ? 20 - (idx * 10) : 0)}px)`,
                       width: '100%',
                       backgroundColor: '#ffffff',
                       borderRadius: '10px',
@@ -514,7 +548,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                       boxShadow: idx === 0
                         ? '0 12px 24px rgba(0,0,0,0.18), 0 6px 12px rgba(0,0,0,0.12)'
                         : 'none',
-                      transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
+                      transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 200ms ease',
                     }}
                   />
                 ))}
