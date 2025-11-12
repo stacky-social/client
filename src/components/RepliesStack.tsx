@@ -1,11 +1,14 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button } from '@mantine/core';
-import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconStack } from '@tabler/icons-react';
+import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Anchor } from '@mantine/core';
+import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser } from '@tabler/icons-react';
+import { Layers } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import './RelatedStacks.css';
+import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
+import InteractionControl from './InteractionControl';
 
 interface PostType {
   id: string;
@@ -18,6 +21,8 @@ interface PostType {
   account: {
     avatar: string;
     display_name: string;
+    acct?: string;
+    username?: string;
   };
   content_rewritten: string;
   rewrite: 
@@ -41,7 +46,7 @@ interface RepliesStackProps {
 }
 
 const iconMapping: { [key: string]: JSX.Element } = {
-  uncategorized: <IconStack size={24} />,
+  uncategorized: <Layers size={24} />,
   predictions: <IconBulb size={24} />,
   evidence_public: <IconQuote size={24} />,
   evidence_personal: <IconUser size={24} />,
@@ -52,12 +57,37 @@ const iconMapping: { [key: string]: JSX.Element } = {
   values: <IconHeart size={24} />,
   framing: <IconFrame size={24} />,
   questions: <IconQuestionMark size={24} />,
-  default: <IconStack size={24} />,
+  default: <Layers size={24} />,
 };
 
 const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, onStackClick, showupdate }) => {
   const router = useRouter();
   const [maxStacksToShow, setMaxStacksToShow] = useState(4);
+  const [favouritedOverride, setFavouritedOverride] = useState<Record<string, boolean>>({});
+  const [bookmarkedOverride, setBookmarkedOverride] = useState<Record<string, boolean>>({});
+  const [favouritesCountOverride, setFavouritesCountOverride] = useState<Record<string, number>>({});
+
+  const isFavourited = (postId: string, initial: boolean) =>
+    favouritedOverride[postId] !== undefined ? favouritedOverride[postId] : initial;
+  const isBookmarked = (postId: string, initial: boolean) =>
+    bookmarkedOverride[postId] !== undefined ? bookmarkedOverride[postId] : initial;
+  const getFavouritesCount = (postId: string, initial: number) =>
+    favouritesCountOverride[postId] !== undefined ? favouritesCountOverride[postId] : initial;
+
+  const handleToggleFavourite = async (postId: string, current: boolean, initialCount: number) => {
+    const next = await toggleFavourite(postId, current);
+    setFavouritedOverride(prev => ({ ...prev, [postId]: next }));
+    setFavouritesCountOverride(prev => {
+      const effectivePrev = prev[postId] !== undefined ? prev[postId] : initialCount;
+      const newCount = next ? effectivePrev + (current ? 0 : 1) : effectivePrev - (current ? 1 : 0);
+      return { ...prev, [postId]: Math.max(0, newCount) };
+    });
+  };
+
+  const handleToggleBookmark = async (postId: string, current: boolean) => {
+    const next = await toggleBookmark(postId, current);
+    setBookmarkedOverride(prev => ({ ...prev, [postId]: next }));
+  };
   const [cardHeights, setCardHeights] = useState<number[]>([]);
   const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -75,6 +105,13 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
   const handleNavigate = (postId: string, newStackId: string) => {
     const url = `/posts/${postId}?stackId=${newStackId || ''}`;
     router.push(url);
+  };
+
+  const handleNavigateToUser = (e: React.MouseEvent, account: { acct?: string; username?: string; display_name: string }) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const profileHandle = account.acct || account.username || account.display_name;
+    router.push(`/user/${profileHandle}`);
   };
 
   const containerVariants = {
@@ -157,9 +194,21 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
               style={{ width: '100%' }}
             >
               <Group style={{ padding: '0 20px' }}>
-                <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
+                <UnstyledButton
+                  onClick={(e) => handleNavigateToUser(e, stack.topPost.account)}
+                  className="avatarHoverDim"
+                >
+                  <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
+                </UnstyledButton>
                 <div>
-                <Text size="md" fw={700} c="#011445" >{stack.topPost.account.display_name}</Text>
+                  <Anchor
+                    component="button"
+                    onClick={(e) => handleNavigateToUser(e, stack.topPost.account)}
+                    underline="hover"
+                    style={{ color: '#011445', fontWeight: 700, fontSize: 'var(--mantine-font-size-md)' }}
+                  >
+                    {stack.topPost.account.display_name}
+                  </Anchor>
                   <Text size="xs" c="dimmed">
                     {formatDistanceToNow(new Date(stack.topPost.created_at))} ago
                   </Text>
@@ -185,19 +234,37 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
             </UnstyledButton>
             <Divider my="md" c="#011445" />
             <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
-              <Button variant="subtle" size="sm" radius="lg">
-                <IconMessageCircle  style={{ color: '#002379' }}  size={20} /> <Text style={{ color: '#002379' }}  ml={4}>{stack.topPost.replies_count}</Text>
-              </Button>
-              <Button variant="subtle" size="sm" radius="lg">
-                {stack.topPost.favourited ? <IconHeartFilled style={{ color: '#002379' }}  size={20} /> : <IconHeart style={{ color: '#002379' }}  size={20} />}{' '}
-                <Text  style={{ color: '#002379' }}  ml={4}>{stack.topPost.favourites_count}</Text>
-              </Button>
-              <Button variant="subtle" size="sm" radius="lg">
-                {stack.topPost.bookmarked ? <IconBookmarkFilled style={{ color: '#002379' }} size={20} /> : <IconBookmark style={{ color: '#002379' }}  size={20} />}
-              </Button>
-              <Button variant="subtle" size="sm" radius="lg">
-                <IconShare  style={{ color: '#002379' }}  size={20} />
-              </Button>
+              <InteractionControl
+                icon={<IconMessageCircle size={20} />}
+                label={stack.topPost.replies_count}
+                ariaLabel="Replies"
+                onClick={() => handleClick(stack.topPost.id, stack.stackId)}
+              />
+              <InteractionControl
+                icon={isFavourited(stack.topPost.id, stack.topPost.favourited) ? <IconHeartFilled size={20} /> : <IconHeart size={20} />}
+                label={getFavouritesCount(stack.topPost.id, stack.topPost.favourites_count)}
+                ariaLabel="Favourites"
+                onClick={() => handleToggleFavourite(
+                  stack.topPost.id,
+                  isFavourited(stack.topPost.id, stack.topPost.favourited),
+                  getFavouritesCount(stack.topPost.id, stack.topPost.favourites_count)
+                )}
+                active={isFavourited(stack.topPost.id, stack.topPost.favourited)}
+              />
+              <InteractionControl
+                icon={isBookmarked(stack.topPost.id, stack.topPost.bookmarked) ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
+                ariaLabel="Bookmark"
+                onClick={() => handleToggleBookmark(stack.topPost.id, isBookmarked(stack.topPost.id, stack.topPost.bookmarked))}
+                active={isBookmarked(stack.topPost.id, stack.topPost.bookmarked)}
+              />
+              <InteractionControl
+                icon={<IconShare size={20} />}
+                ariaLabel="Share"
+                onClick={() => {
+                  const url = `${window.location.origin}/posts/${stack.topPost.id}?stackId=${stack.stackId}`;
+                  navigator.clipboard.writeText(url).catch(() => {});
+                }}
+              />
             </Group>
             {stack.size !== null && stack.size > 1 && (
               <RelatedStackCount count={stack.size} onClick={() => handleClick(stack.topPost.id, stack.stackId)} />

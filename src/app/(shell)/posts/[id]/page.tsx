@@ -16,7 +16,8 @@ import { useRelatedStacks } from "../../related-stacks-context";
 // -------------------- Types --------------------
 interface Account {
   username: string;
-  acc: string;
+  acc?: string;
+  acct?: string;
   avatar: string;
 }
 
@@ -427,7 +428,7 @@ export default function PostView({ params }: { params: { id: string } }) {
       id={p.id}
       text={p.content}
       author={p.account.username}
-      account={p.account.acc}
+      account={p.account.acct || p.account.acc || p.account.username}
       avatar={p.account.avatar}
       repliesCount={p.replies_count}
       createdAt={p.created_at}

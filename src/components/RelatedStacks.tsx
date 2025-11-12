@@ -1,11 +1,14 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button, Switch } from '@mantine/core';
+import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Button, Switch, Anchor } from '@mantine/core';
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconStack, IconThumbUp, IconThumbDown, IconEye, IconEyeOff } from '@tabler/icons-react';
+import { Layers } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import StackPostsModal from './StackPostsModal';
+import InteractionControl from './InteractionControl';
+import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -19,6 +22,8 @@ interface PostType {
   account: {
     avatar: string;
     display_name: string;
+    acct?: string;
+    username?: string;
   };
   content_rewritten: string;
   rewrite: 
@@ -46,7 +51,7 @@ interface RelatedStacksProps {
 }
 
 const iconMapping: { [key: string]: JSX.Element } = {
-  uncategorized: <IconStack size={16} />,
+  uncategorized: <Layers size={16} />,
   predictions: <IconBulb size={16} />,
   evidence_public: <IconQuote size={16} />,
   evidence_personal: <IconUser size={16} />,
@@ -57,7 +62,7 @@ const iconMapping: { [key: string]: JSX.Element } = {
   values: <IconHeart size={16} />,
   framing: <IconFrame size={16} />,
   questions: <IconQuestionMark size={16} />,
-  default: <IconStack size={16} />,
+  default: <Layers size={16} />,
   agree: <IconThumbUp size={16} />,
   disagree: <IconThumbDown size={16} />,
 };
@@ -67,6 +72,31 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const [maxStacksToShow, setMaxStacksToShow] = useState(3);
   const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
+  const [favouritedOverride, setFavouritedOverride] = useState<Record<string, boolean>>({});
+  const [bookmarkedOverride, setBookmarkedOverride] = useState<Record<string, boolean>>({});
+  const [favouritesCountOverride, setFavouritesCountOverride] = useState<Record<string, number>>({});
+
+  const isFavourited = (postId: string, initial: boolean) =>
+    favouritedOverride[postId] !== undefined ? favouritedOverride[postId] : initial;
+  const isBookmarked = (postId: string, initial: boolean) =>
+    bookmarkedOverride[postId] !== undefined ? bookmarkedOverride[postId] : initial;
+  const getFavouritesCount = (postId: string, initial: number) =>
+    favouritesCountOverride[postId] !== undefined ? favouritesCountOverride[postId] : initial;
+
+  const handleToggleFavourite = async (postId: string, current: boolean, initialCount: number) => {
+    const next = await toggleFavourite(postId, current);
+    setFavouritedOverride(prev => ({ ...prev, [postId]: next }));
+    setFavouritesCountOverride(prev => {
+      const effectivePrev = prev[postId] !== undefined ? prev[postId] : initialCount;
+      const newCount = next ? effectivePrev + (current ? 0 : 1) : effectivePrev - (current ? 1 : 0);
+      return { ...prev, [postId]: Math.max(0, newCount) };
+    });
+  };
+
+  const handleToggleBookmark = async (postId: string, current: boolean) => {
+    const next = await toggleBookmark(postId, current);
+    setBookmarkedOverride(prev => ({ ...prev, [postId]: next }));
+  };
   const [currentStackId, setCurrentStackId] = useState<string | null>(null);
 
   const formatContent = (content: string) => {
@@ -184,6 +214,13 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
   const handleNavigate = (postId: string, newStackId: string) => {
     const url = `/posts/${postId}?stackId=${newStackId || ''}`;
     router.push(url);
+  };
+
+  const handleNavigateToUser = (e: React.MouseEvent, account: { acct?: string; username?: string; display_name: string }) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const profileHandle = account.acct || account.username || account.display_name;
+    router.push(`/user/${profileHandle}`);
   };
 
   const containerVariants = {
@@ -361,11 +398,21 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 style={{ width: '100%' }}
               >
                 <Group style={{ paddingLeft: '1rem' }}>
-                  <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
+                  <UnstyledButton
+                    onClick={(e) => handleNavigateToUser(e, stack.topPost.account)}
+                    className="avatarHoverDim"
+                  >
+                    <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
+                  </UnstyledButton>
                   <div>
-                    <Text size="md" fw={700} c="#011445">
+                    <Anchor
+                      component="button"
+                      onClick={(e) => handleNavigateToUser(e, stack.topPost.account)}
+                      underline="hover"
+                      style={{ color: '#011445', fontWeight: 700, fontSize: 'var(--mantine-font-size-md)' }}
+                    >
                       {stack.topPost.account.display_name}
-                    </Text>
+                    </Anchor>
                     <Text size="xs" c="dimmed">
                       {formatDistanceToNow(new Date(stack.topPost.created_at))} ago
                     </Text>
@@ -416,35 +463,42 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
                 {iconMapping[stack.rel] || iconMapping['default']} {stack.rel}
               </div>
 
-              <Divider style={{ marginTop: '0.5rem' }} />
-              <Group style={{ display: 'flex', justifyContent: 'space-between'}}>
-                <Button variant="subtle" size="sm" radius="lg">
-                  <IconMessageCircle size={20} style={{ color: '#002379' }} />
-                  <Text style={{ color: '#002379' }} ml={4}>
-                    {stack.topPost.replies_count}
-                  </Text>
-                </Button>
-                <Button variant="subtle" size="sm" radius="lg">
-                  {stack.topPost.favourited ? (
-                    <IconHeartFilled size={20} style={{ color: '#002379' }} />
-                  ) : (
-                    <IconHeart size={20} style={{ color: '#002379' }} />
-                  )}
-                  <Text ml={4} style={{ color: '#002379' }}>
-                    {stack.topPost.favourites_count}
-                  </Text>
-                </Button>
-                <Button variant="subtle" size="sm" radius="lg">
-                  {stack.topPost.bookmarked ? (
-                    <IconBookmarkFilled size={20} style={{ color: '#002379' }} />
-                  ) : (
-                    <IconBookmark size={20} style={{ color: '#002379' }} />
-                  )}
-                </Button>
-                <Button variant="subtle" size="sm" radius="lg">
-                  <IconShare size={20} style={{ color: '#002379' }} />
-                </Button>
-              </Group>
+              <Divider style={{ marginTop: '0.5rem', marginLeft: '1rem', marginRight: '1rem' }} />
+              <div style={{ paddingLeft: '1rem', paddingRight: '1rem' }}>
+                <Group style={{ display: 'flex', justifyContent: 'space-between'}}>
+                  <InteractionControl
+                    icon={<IconMessageCircle size={20} />}
+                    label={stack.topPost.replies_count}
+                    ariaLabel="Replies"
+                    onClick={() => handleNavigate(stack.topPost.id, stack.stackId)}
+                  />
+                  <InteractionControl
+                    icon={isFavourited(stack.topPost.id, stack.topPost.favourited) ? <IconHeartFilled size={20} /> : <IconHeart size={20} />}
+                    label={getFavouritesCount(stack.topPost.id, stack.topPost.favourites_count)}
+                    ariaLabel="Favourites"
+                    onClick={() => handleToggleFavourite(
+                      stack.topPost.id,
+                      isFavourited(stack.topPost.id, stack.topPost.favourited),
+                      getFavouritesCount(stack.topPost.id, stack.topPost.favourites_count)
+                    )}
+                    active={isFavourited(stack.topPost.id, stack.topPost.favourited)}
+                  />
+                  <InteractionControl
+                    icon={isBookmarked(stack.topPost.id, stack.topPost.bookmarked) ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
+                    ariaLabel="Bookmark"
+                    onClick={() => handleToggleBookmark(stack.topPost.id, isBookmarked(stack.topPost.id, stack.topPost.bookmarked))}
+                    active={isBookmarked(stack.topPost.id, stack.topPost.bookmarked)}
+                  />
+                  <InteractionControl
+                    icon={<IconShare size={20} />}
+                    ariaLabel="Share"
+                    onClick={() => {
+                      const url = `${window.location.origin}/posts/${stack.topPost.id}?stackId=${stack.stackId}`;
+                      navigator.clipboard.writeText(url).catch(() => {});
+                    }}
+                  />
+                </Group>
+              </div>
               {stack.size !== null && stack.size > 1 && (
                 <RelatedStackCount
                   count={stack.size}
