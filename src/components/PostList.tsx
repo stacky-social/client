@@ -42,8 +42,13 @@ const PostList: React.FC<PostListProps> = ({
     const lastUserActivateRef = useRef<number>(0);
     const manualActiveIdRef = useRef<string | null>(null);
     const manualLockRef = useRef(false);
+    const fetchKeyRef = useRef<string | null>(null);
 
     useEffect(() => {
+        if (!accessToken) return; // wait for token
+        const key = `${apiUrl}|${loadStackInfo}|${accessToken}`;
+        if (fetchKeyRef.current === key) return; // dedupe in Strict Mode
+        fetchKeyRef.current = key;
         fetchPosts();
     }, [apiUrl, accessToken, loadStackInfo]);
 
@@ -55,10 +60,11 @@ const PostList: React.FC<PostListProps> = ({
                 setLoading(true);
             }
 
+            const headers: Record<string, string> = {};
+            if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
             const response = await axios.get(apiUrl, {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
+                headers,
                 params: {
                     limit: 40,
                     ...(maxId && { max_id: maxId }) // 如果有 maxId 就加上 max_id 参数
@@ -237,11 +243,9 @@ const PostList: React.FC<PostListProps> = ({
             await Promise.all(batch.map(async (post) => {
                 try {
                     console.log('Fetching stack data for post:', post.postId);
-                    const response = await axios.get(`${MastodonInstanceUrl}/stacks/${post.postId}/related`, {
-                        headers: {
-                            Authorization: `Bearer ${accessToken}`,
-                        }
-                    });
+                    const headers: Record<string, string> = {};
+                    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+                    const response = await axios.get(`${MastodonInstanceUrl}/stacks/${post.postId}/related`, { headers });
                     const stackData = response.data.relatedStacks || [];
                     const stackCount = response.data.size;
                     setPosts((prevPosts) =>

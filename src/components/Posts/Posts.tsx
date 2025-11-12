@@ -6,26 +6,16 @@ import SearchBar from '../SearchBar/SearchBar';
 import RelatedStacks from '../RelatedStacks';
 import PostList from '../PostList';
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
+import { useAccessToken } from '../../utils/useAccessToken';
 
 export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showLoadMore = false,}: { apiUrl: string, loadStackInfo: boolean, showSubmitAndSearch: boolean,showLoadMore?: boolean;}) {
-    const [accessToken, setAccessToken] = useState<string | null>(null);
-    const [currentUser, setCurrentUser] = useState<any>(null);
+    const { token: accessToken } = useAccessToken();
     const [activePostId, setActivePostId] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false); 
     const [isExpandModalOpen, setIsExpandModalOpen] = useState(false); 
     const [previousPostId, setPreviousPostId] = useState<string | null>(null);
 
     const { setFromPost, activePostId: asideActivePostId, relatedStacks: asideStacks } = useRelatedStacks();
-
-    useEffect(() => {
-        const token = localStorage.getItem('accessToken');
-        setAccessToken(token);
-
-        const user = localStorage.getItem('currentUser');
-        if (user) {
-            setCurrentUser(JSON.parse(user));
-        }
-    }, []);
 
     const handleStackIconClick = (incomingRelatedStacks: any[], postId: string, _position: { top: number, height: number }) => {
         const togglingOff = postId === asideActivePostId && Array.isArray(asideStacks) && asideStacks.length > 0;
