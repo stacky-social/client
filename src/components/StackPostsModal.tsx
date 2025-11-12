@@ -1,5 +1,5 @@
 import React, { useEffect,useRef, useState } from 'react';
-import { Modal, ScrollArea, Switch, SimpleGrid, Text, Container, Group, Avatar, Button, Divider, Paper, UnstyledButton, TextInput, rem } from '@mantine/core';
+import { Modal, ScrollArea, Switch, SimpleGrid, Text, Container, Group, Avatar, Button, Divider, Paper, UnstyledButton, TextInput, rem, LoadingOverlay, Loader } from '@mantine/core';
 import axios from 'axios';
 import { IconBookmark, IconHeart, IconMessageCircle, IconPhoto, IconSettings, IconShare, IconHeartFilled, IconBookmarkFilled, IconSearch } from "@tabler/icons-react";
 import { formatDistanceToNow } from 'date-fns';
@@ -50,18 +50,24 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
   const [summary, setSummary] = useState<string | null>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
   const textRef = useRef<HTMLDivElement>(null);
+  const [loadingSubstacks, setLoadingSubstacks] = useState(false);
+  const [loadingSummary, setLoadingSummary] = useState(false);
 
   const fetchSummary = async (id: string) => {
+    setLoadingSummary(true);
     try {
       const response = await axios.get(`https://beta.stacky.social:3002/stacks/${id}/summary`);
       setSummary(response.data.summary);
     } catch (error) {
       console.error("fetching error:", error);
+    } finally {
+      setLoadingSummary(false);
     }
   };
 
   useEffect(() => {
     if (activeTab === 'summary' && stackId) {
+      setSummary(null);
       fetchSummary(stackId);
     }
   }, [activeTab, stackId]);
@@ -76,6 +82,8 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
 
   useEffect(() => {
     if (stackId) {
+      setSubstacks([]);
+      setLoadingSubstacks(true);
       fetchSubstacks(stackId);
     }
   }, [stackId]);
@@ -86,6 +94,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
 
   const fetchSubstacks = async (id: string | null) => {
     if (!id) return;
+    setLoadingSubstacks(true);
     try {
       console.log("Fetching substacks for stack:", id);
 
@@ -110,6 +119,8 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
       setSubstacks(substacksData);
     } catch (error) {
       console.error("Failed to fetch substacks:", error);
+    } finally {
+      setLoadingSubstacks(false);
     }
   };
 
@@ -135,6 +146,8 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     console.log(topPostId);
     const newUrl = `https://beta.stacky.social:3002/stacks/${substackID}/posts`;
     setCurrentUrl(newUrl);
+    setSubstacks([]);
+    setLoadingSubstacks(true);
     fetchSubstacks(substackID);
   };
 
@@ -276,7 +289,8 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
           </ScrollArea>
         </Tabs.Panel>
         <Tabs.Panel value="stacked">
-          <Container py="xl" style={{ maxWidth: '1000px'}}>
+          <Container py="xl" style={{ maxWidth: '1000px', position: 'relative' }}>
+            <LoadingOverlay visible={loadingSubstacks} overlayProps={{ radius: 'sm', blur: 2 }} />
             <SimpleGrid cols={2} spacing="lg">{cards}</SimpleGrid>
           </Container>
         </Tabs.Panel>
@@ -286,7 +300,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
               {summary ? (
                 <Text size='1.1rem'>{summary}</Text>
               ) : (
-                <Text size='1.3rem'>Loading....</Text>
+                <Loader size="lg" />
               )}
             </div>
           </ScrollArea>
