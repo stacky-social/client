@@ -8,11 +8,11 @@ import PostList from '../PostList';
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { useAccessToken } from '../../utils/useAccessToken';
 
-export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showLoadMore = false,}: { apiUrl: string, loadStackInfo: boolean, showSubmitAndSearch: boolean,showLoadMore?: boolean;}) {
-    const { token: accessToken } = useAccessToken();
+export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, showLoadMore = false, }: { apiUrl: string, loadStackInfo: boolean, showSubmitAndSearch: boolean, showLoadMore?: boolean; }) {
+    const { token: accessToken, ready } = useAccessToken();
     const [activePostId, setActivePostId] = useState<string | null>(null);
-    const [isModalOpen, setIsModalOpen] = useState(false); 
-    const [isExpandModalOpen, setIsExpandModalOpen] = useState(false); 
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isExpandModalOpen, setIsExpandModalOpen] = useState(false);
     const [previousPostId, setPreviousPostId] = useState<string | null>(null);
 
     const { setFromPost, activePostId: asideActivePostId, relatedStacks: asideStacks } = useRelatedStacks();
@@ -26,14 +26,14 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showL
         setIsExpandModalOpen(false);
     };
 
-    
+
     const shouldUpdate = activePostId !== previousPostId;
     return (
         <div style={{ position: 'relative' }}>
             <div>
                 {showSubmitAndSearch && (
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem'}}>
-                        <div style={{ width: '100%'}}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>
+                        <div style={{ width: '100%' }}>
                             <SubmitPost />
                         </div>
                     </div>
@@ -43,11 +43,12 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch,showL
                     handleStackIconClick={handleStackIconClick}
                     loadStackInfo={loadStackInfo}
                     accessToken={accessToken}
-                    setIsModalOpen={setIsModalOpen} 
+                    ready={ready}
+                    setIsModalOpen={setIsModalOpen}
                     setIsExpandModalOpen={setIsExpandModalOpen}
-                    activePostId={activePostId}  
-                    setActivePostId={setActivePostId} 
-                    showLoadMore={showLoadMore} 
+                    activePostId={activePostId}
+                    setActivePostId={setActivePostId}
+                    showLoadMore={showLoadMore}
                 />
             </div>
             {/* Related stacks are now rendered in AppShell.Aside via context */}

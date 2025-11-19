@@ -17,7 +17,7 @@ interface PostListProps {
     activePostId: string | null;
     setActivePostId: (id: string | null) => void;
     showLoadMore?: boolean;
-    
+    ready: boolean;
 }
 
 const PostList: React.FC<PostListProps> = ({
@@ -30,6 +30,7 @@ const PostList: React.FC<PostListProps> = ({
     activePostId,
     setActivePostId,
     showLoadMore = false,
+    ready,
 }) => {
     const [posts, setPosts] = useState<PostType[]>([]);
     const [loading, setLoading] = useState(true);
@@ -45,12 +46,12 @@ const PostList: React.FC<PostListProps> = ({
     const fetchKeyRef = useRef<string | null>(null);
 
     useEffect(() => {
-        if (!accessToken) return; // wait for token
+        if (!ready) return; // wait for token check
         const key = `${apiUrl}|${loadStackInfo}|${accessToken}`;
         if (fetchKeyRef.current === key) return; // dedupe in Strict Mode
         fetchKeyRef.current = key;
         fetchPosts();
-    }, [apiUrl, accessToken, loadStackInfo]);
+    }, [apiUrl, accessToken, loadStackInfo, ready]);
 
     const fetchPosts = async (isLoadMore = false) => {
         try {
@@ -97,7 +98,7 @@ const PostList: React.FC<PostListProps> = ({
             setMaxId(data[data.length - 1].postId);
 
             if (loadStackInfo) {
-                await loadStackDataInBatches(data, 2); 
+                await loadStackDataInBatches(data, 2);
             }
         } catch (error) {
             console.error('Error fetching Mastodon data:', error);
@@ -187,33 +188,33 @@ const PostList: React.FC<PostListProps> = ({
         };
     }, [posts, activePostId, handleStackIconClick, setActivePostId]);
 
-  // When the parent clears the active post (e.g., toggling a stackcount off),
-  // release the manual lock so scrolling can auto-highlight the next post
-  useEffect(() => {
-      if (activePostId === null) {
-          manualLockRef.current = false;
-          manualActiveIdRef.current = null;
-      }
-  }, [activePostId]);
+    // When the parent clears the active post (e.g., toggling a stackcount off),
+    // release the manual lock so scrolling can auto-highlight the next post
+    useEffect(() => {
+        if (activePostId === null) {
+            manualLockRef.current = false;
+            manualActiveIdRef.current = null;
+        }
+    }, [activePostId]);
 
-  // If the first post is already highlighted before its stacks load,
-  // publish its related stacks to the aside once they arrive
-  useEffect(() => {
-      if (!loadStackInfo || posts.length === 0) return;
-      const first = posts[0];
-      if (
-          activePostId === first.postId &&
-          Array.isArray(first.relatedStacks) &&
-          first.relatedStacks.length > 0 &&
-          !hasPublishedFirstPostStacksRef.current
-      ) {
-          const ref = postRefs.current[0];
-          const rect = ref ? ref.getBoundingClientRect() : ({ top: 0, height: 0 } as { top: number; height: number });
-          const adjustedPosition = { top: rect.top + window.scrollY, height: rect.height };
-          handleStackIconClick(first.relatedStacks, first.postId, adjustedPosition);
-          hasPublishedFirstPostStacksRef.current = true;
-      }
-  }, [posts, activePostId, loadStackInfo, handleStackIconClick]);
+    // If the first post is already highlighted before its stacks load,
+    // publish its related stacks to the aside once they arrive
+    useEffect(() => {
+        if (!loadStackInfo || posts.length === 0) return;
+        const first = posts[0];
+        if (
+            activePostId === first.postId &&
+            Array.isArray(first.relatedStacks) &&
+            first.relatedStacks.length > 0 &&
+            !hasPublishedFirstPostStacksRef.current
+        ) {
+            const ref = postRefs.current[0];
+            const rect = ref ? ref.getBoundingClientRect() : ({ top: 0, height: 0 } as { top: number; height: number });
+            const adjustedPosition = { top: rect.top + window.scrollY, height: rect.height };
+            handleStackIconClick(first.relatedStacks, first.postId, adjustedPosition);
+            hasPublishedFirstPostStacksRef.current = true;
+        }
+    }, [posts, activePostId, loadStackInfo, handleStackIconClick]);
 
     // Auto-highlight the first post once on initial page load only,
     // and wait until related stacks info is available when loadStackInfo is true
@@ -309,10 +310,10 @@ const PostList: React.FC<PostListProps> = ({
             {!loading && postElements}
 
 
-            {showLoadMore && !loading && ( 
+            {showLoadMore && !loading && (
                 <div style={{ textAlign: 'center', marginTop: '20px' }}>
                     <Button onClick={handleLoadMore} disabled={loadingMore}
-                    style={{ backgroundColor: '#324e93', color: '#fff' }}>
+                        style={{ backgroundColor: '#324e93', color: '#fff' }}>
                         {loadingMore ? 'Loading' : 'Load more'}
                     </Button>
                 </div>

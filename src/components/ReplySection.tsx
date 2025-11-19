@@ -39,10 +39,10 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
     const reqIdRef = useRef(0);
 
     const isDisabled =
-    isSubmitting ||
-    loading ||
-    countdown > 0 ||
-    replyContent.trim().length === 0;
+        isSubmitting ||
+        loading ||
+        countdown > 0 ||
+        replyContent.trim().length === 0;
 
     useEffect(() => {
         if (countdown > 0) {
@@ -69,195 +69,195 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
     }, []);
 
     const handleReplyContentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newContent = e.target.value;
-    setReplyContent(newContent);
+        const newContent = e.target.value;
+        setReplyContent(newContent);
 
-    if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-    }
-    debounceTimeoutRef.current = setTimeout(() => {
-        void fetchRealTimeFeedback(newContent);
-    }, 500);
+        if (debounceTimeoutRef.current) {
+            clearTimeout(debounceTimeoutRef.current);
+        }
+        debounceTimeoutRef.current = setTimeout(() => {
+            void fetchRealTimeFeedback(newContent);
+        }, 500);
     };
 
     const fetchRealTimeFeedback = async (inputContent: string) => {
-    if (inputContent.trim().length < 10) {
-        return;
-    }
+        if (inputContent.trim().length < 10) {
+            return;
+        }
 
-    const myReqId = ++reqIdRef.current;
-    setLoading(true);
+        const myReqId = ++reqIdRef.current;
+        setLoading(true);
 
-    try {
-        const response = await axios.post('https://beta.stacky.social:3002/posts/feedback', {
-            draftID: draftIdRef.current,
-            parentPostID: postId,
-            draftText: inputContent
-        });
+        try {
+            const response = await axios.post('https://beta.stacky.social:3002/posts/feedback', {
+                draftID: draftIdRef.current,
+                parentPostID: postId,
+                draftText: inputContent
+            });
 
-        if (myReqId !== reqIdRef.current) return;
+            if (myReqId !== reqIdRef.current) return;
 
-        const { advice, praise, simulatedReplies } = response.data;
+            const { advice, praise, simulatedReplies } = response.data;
 
-        setAdvice(advice);
-        setPraise(praise);
-        setSimulatedReplies(simulatedReplies);
+            setAdvice(advice);
+            setPraise(praise);
+            setSimulatedReplies(simulatedReplies);
 
-        if (advice && advice.length > 0) {
-            setCountdown(5);
-        } else {
+            if (advice && advice.length > 0) {
+                setCountdown(5);
+            } else {
+                setCountdown(0);
+            }
+        }
+        catch (error) {
+            console.error('Failed to fetch real-time feedback:', error);
             setCountdown(0);
         }
-    } 
-    catch (error) {
-        console.error('Failed to fetch real-time feedback:', error);
-        setCountdown(0);
-    } 
-    finally {
-        if (myReqId === reqIdRef.current) {
-            setLoading(false); 
+        finally {
+            if (myReqId === reqIdRef.current) {
+                setLoading(false);
+            }
         }
-    }
     };
 
     const handleReplySubmit = async () => {
-    if (isDisabled) return;
+        if (isDisabled) return;
 
-    const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) {
-        console.error('Access token is missing.');
-        return;
-    }
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken || accessToken === "null" || accessToken === "undefined") {
+            console.error('Access token is missing.');
+            return;
+        }
 
-    setIsSubmitting(true);
-    try {
-        await axios.post(
-            `${MastodonInstanceUrl}/api/v1/statuses`,
-            {
-                status: replyContent,
-                in_reply_to_id: postId
-            },
-            {
-                headers: {
-                Authorization: `Bearer ${accessToken}`
+        setIsSubmitting(true);
+        try {
+            await axios.post(
+                `${MastodonInstanceUrl}/api/v1/statuses`,
+                {
+                    status: replyContent,
+                    in_reply_to_id: postId
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`
+                    }
                 }
-            }
-        );
+            );
 
-        setReplyContent('');
-        setPraise(null);
-        setAdvice(null);
-        setSimulatedReplies([]);
-        setCountdown(0);
-        setButtonLabel('Submit');
+            setReplyContent('');
+            setPraise(null);
+            setAdvice(null);
+            setSimulatedReplies([]);
+            setCountdown(0);
+            setButtonLabel('Submit');
 
-        fetchPostAndReplies(postId);
-    } catch (error) {
-        console.error('Failed to post reply:', error);
-    } finally {
-        setIsSubmitting(false);
-    }
+            fetchPostAndReplies(postId);
+        } catch (error) {
+            console.error('Failed to post reply:', error);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontFamily: 'Roboto, sans-serif' }}>
-        <Group>
-        <Avatar src={currentUser?.avatar || 'defaultAvatarUrl'} alt="Current User" radius="xl" />
-        <TextInput
-            placeholder="Post your reply"
-            variant="unstyled"
-            radius="lg"
-            size="xl"
-            value={replyContent}
-            onChange={handleReplyContentChange}
-            style={{ flex: 1, fontFamily: 'Roboto, sans-serif', fontSize: '16px' }}
-        />
-        <Button
-            onClick={handleReplySubmit}
-            disabled={isDisabled}
-            style={{ backgroundColor: isDisabled ? 'grey' : 'green' }}
-        >
-            {buttonLabel}
-        </Button>
-        </Group>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontFamily: 'Roboto, sans-serif' }}>
+            <Group>
+                <Avatar src={currentUser?.avatar || 'defaultAvatarUrl'} alt="Current User" radius="xl" />
+                <TextInput
+                    placeholder="Post your reply"
+                    variant="unstyled"
+                    radius="lg"
+                    size="xl"
+                    value={replyContent}
+                    onChange={handleReplyContentChange}
+                    style={{ flex: 1, fontFamily: 'Roboto, sans-serif', fontSize: '16px' }}
+                />
+                <Button
+                    onClick={handleReplySubmit}
+                    disabled={isDisabled}
+                    style={{ backgroundColor: isDisabled ? 'grey' : 'green' }}
+                >
+                    {buttonLabel}
+                </Button>
+            </Group>
 
-        {(advice || praise || simulatedReplies.length > 0 || loading) && (
-        <Paper
-            style={{
-            padding: '10px',
-            backgroundColor: '#f9f9f9',
-            borderRadius: '8px',
-            fontFamily: 'Roboto, sans-serif',
-            fontSize: '14px',
-            }}
-        >
-            {loading ? (
-            <Loader size="sm" />
-            ) : (
-            <>
-                {(advice || praise) && (
+            {(advice || praise || simulatedReplies.length > 0 || loading) && (
                 <Paper
                     style={{
-                    padding: '10px',
-                    backgroundColor: '#f9f9f9',
-                    borderRadius: '8px',
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '14px',
-                    marginBottom: '10px'
+                        padding: '10px',
+                        backgroundColor: '#f9f9f9',
+                        borderRadius: '8px',
+                        fontFamily: 'Roboto, sans-serif',
+                        fontSize: '14px',
                     }}
                 >
-                    <Text fw="900" size="xl">Feedback</Text>
-                    {praise && <Text>{praise}</Text>}
-                    {advice && <Text>{advice}</Text>}
-                </Paper>
-                )}
+                    {loading ? (
+                        <Loader size="sm" />
+                    ) : (
+                        <>
+                            {(advice || praise) && (
+                                <Paper
+                                    style={{
+                                        padding: '10px',
+                                        backgroundColor: '#f9f9f9',
+                                        borderRadius: '8px',
+                                        fontFamily: 'Roboto, sans-serif',
+                                        fontSize: '14px',
+                                        marginBottom: '10px'
+                                    }}
+                                >
+                                    <Text fw="900" size="xl">Feedback</Text>
+                                    {praise && <Text>{praise}</Text>}
+                                    {advice && <Text>{advice}</Text>}
+                                </Paper>
+                            )}
 
-                {simulatedReplies.length > 0 && (
-                <Stack>
-                    {simulatedReplies.map((reply, index) => (
-                    <div key={index} style={{ position: 'relative' }}>
-                        <Paper
-                        style={{
-                            position: 'relative',
-                            width: "100%",
-                            backgroundColor: '#fff',
-                            zIndex: 5,
-                            boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-                            borderRadius: '8px',
-                            padding: '10px',
-                            fontFamily: 'Roboto, sans-serif',
-                            fontSize: '14px',
-                        }}
-                        >
-                        <Group>
-                            <Avatar src={avatar} radius="xl" />
-                            <div>
-                            <Text fw="700" size="sm">Robot {index + 1}</Text>
-                            </div>
-                        </Group>
-                        <Text>{reply.content}</Text>
-                        <Badge
-                            color="gray"
-                            variant="outline"
-                            style={{
-                            position: 'absolute',
-                            top: '10px',
-                            right: '10px',
-                            fontSize: '10px',
-                            }}
-                        >
-                            Simulated
-                        </Badge>
-                        </Paper>
-                    </div>
-                    ))}
-                </Stack>
-                )}
-            </>
+                            {simulatedReplies.length > 0 && (
+                                <Stack>
+                                    {simulatedReplies.map((reply, index) => (
+                                        <div key={index} style={{ position: 'relative' }}>
+                                            <Paper
+                                                style={{
+                                                    position: 'relative',
+                                                    width: "100%",
+                                                    backgroundColor: '#fff',
+                                                    zIndex: 5,
+                                                    boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+                                                    borderRadius: '8px',
+                                                    padding: '10px',
+                                                    fontFamily: 'Roboto, sans-serif',
+                                                    fontSize: '14px',
+                                                }}
+                                            >
+                                                <Group>
+                                                    <Avatar src={avatar} radius="xl" />
+                                                    <div>
+                                                        <Text fw="700" size="sm">Robot {index + 1}</Text>
+                                                    </div>
+                                                </Group>
+                                                <Text>{reply.content}</Text>
+                                                <Badge
+                                                    color="gray"
+                                                    variant="outline"
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: '10px',
+                                                        right: '10px',
+                                                        fontSize: '10px',
+                                                    }}
+                                                >
+                                                    Simulated
+                                                </Badge>
+                                            </Paper>
+                                        </div>
+                                    ))}
+                                </Stack>
+                            )}
+                        </>
+                    )}
+                </Paper>
             )}
-        </Paper>
-        )}
-    </div>
+        </div>
     );
 };
 

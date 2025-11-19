@@ -41,7 +41,7 @@ const MastodonInstanceUrl = "https://beta.stacky.social";
 // -------------------- Helpers --------------------
 const withAuth = () => {
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-  if (!token) throw new Error("Access token is missing.");
+  if (!token || token === "null" || token === "undefined") throw new Error("Access token is missing.");
   return { headers: { Authorization: `Bearer ${token}` } } as const;
 };
 
@@ -438,8 +438,8 @@ export default function PostView({ params }: { params: { id: string } }) {
       bookmarked={p.bookmarked}
       mediaAttachments={[]}
       onStackIconClick={handleStackIconClick}
-      setIsModalOpen={() => {}}
-      setIsExpandModalOpen={() => {}}
+      setIsModalOpen={() => { }}
+      setIsExpandModalOpen={() => { }}
       relatedStacks={overrides?.relatedStacks ?? p.relatedStacks}
       setActivePostId={setActivePostId}
       activePostId={highlightId}
@@ -526,7 +526,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                 {loadingRepliesStack ? (
                   <Loader size="lg" />
                 ) : (
-                  <RepliesStack repliesStacks={repliesStack} cardWidth={450} onStackClick={() => {}} showupdate={true} />
+                  <RepliesStack repliesStacks={repliesStack} cardWidth={450} onStackClick={() => { }} showupdate={true} />
                 )}
               </Tabs.Panel>
 

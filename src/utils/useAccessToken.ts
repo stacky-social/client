@@ -6,18 +6,29 @@ export function useAccessToken(): { token: string | null; ready: boolean } {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('accessToken');
-      setToken(stored);
-    } catch {
-      // ignore
-    } finally {
-      setReady(true);
-    }
+    const getToken = () => {
+      try {
+        const stored = localStorage.getItem('accessToken');
+        if (stored && stored !== "null" && stored !== "undefined") {
+          return stored;
+        }
+      } catch {
+        // ignore
+      }
+      return null;
+    };
+
+    setToken(getToken());
+    setReady(true);
 
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'accessToken') {
-        setToken(e.newValue);
+        const newValue = e.newValue;
+        if (newValue && newValue !== "null" && newValue !== "undefined") {
+          setToken(newValue);
+        } else {
+          setToken(null);
+        }
       }
     };
 
