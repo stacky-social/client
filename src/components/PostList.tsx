@@ -7,6 +7,16 @@ import axios from 'axios';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social:3002';
 
+// Module-level cache survives component remounts during SPA navigation
+// without the size limits of sessionStorage
+interface PostListCache {
+    posts: PostType[];
+    maxId: string | null;
+    timestamp: number;
+}
+const postListCacheMap = new Map<string, PostListCache>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 interface PostListProps {
     apiUrl: string;
     handleStackIconClick: (relatedStacks: any[], postId: string, position: { top: number, height: number }) => void;
@@ -50,6 +60,26 @@ const PostList: React.FC<PostListProps> = ({
         const key = `${apiUrl}|${loadStackInfo}|${accessToken}`;
         if (fetchKeyRef.current === key) return; // dedupe in Strict Mode
         fetchKeyRef.current = key;
+
+        // Try to restore from in-memory cache
+        const cached = postListCacheMap.get(apiUrl);
+        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+            setPosts(cached.posts);
+            setMaxId(cached.maxId);
+            setLoading(false);
+
+            // Restore scroll position
+            const savedY = sessionStorage.getItem(`scrollY:${window.location.pathname}`);
+            if (savedY) {
+                requestAnimationFrame(() => {
+                    window.scrollTo(0, parseInt(savedY, 10));
+                });
+                sessionStorage.removeItem(`scrollY:${window.location.pathname}`);
+            }
+            return;
+        }
+
+        postListCacheMap.delete(apiUrl);
         fetchPosts();
     }, [apiUrl, accessToken, loadStackInfo, ready]);
 
@@ -95,7 +125,9 @@ const PostList: React.FC<PostListProps> = ({
             }));
 
             setPosts((prevPosts) => isLoadMore ? [...prevPosts, ...data] : data);
-            setMaxId(data[data.length - 1].postId);
+            if (data.length > 0) {
+                setMaxId(data[data.length - 1].postId);
+            }
 
             if (loadStackInfo) {
                 await loadStackDataInBatches(data, 2);
@@ -267,6 +299,16 @@ const PostList: React.FC<PostListProps> = ({
             }));
         }
     };
+
+    // Save to in-memory cache whenever posts update (even partially loaded stacks)
+    useEffect(() => {
+        if (loading || posts.length === 0) return;
+        postListCacheMap.set(apiUrl, {
+            posts,
+            maxId,
+            timestamp: Date.now(),
+        });
+    }, [posts, loading, apiUrl, maxId]);
 
     const postElements = posts.map((post: PostType, index) => (
         <div

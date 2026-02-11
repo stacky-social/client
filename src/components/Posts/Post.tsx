@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconLink } from '@tabler/icons-react';
-import { formatDistanceToNow } from 'date-fns';
+import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconLink, IconCheck } from '@tabler/icons-react';
+import { format, formatDistanceToNow } from 'date-fns';
 import StackCount from '../StackCount';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
@@ -121,8 +121,10 @@ export default function Post({
   const handleNavigate = () => {
     const url = `/posts/${id}`;
     localStorage.setItem('relatedStacks', JSON.stringify(tempRelatedStacks));
- 
+
     localStorage.setItem('relatedStacksSize', JSON.stringify(stackCount));
+    sessionStorage.setItem('previousPath', window.location.pathname);
+    sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
     router.push(url);
   };
 
@@ -361,9 +363,11 @@ export default function Post({
   </UnstyledButton>
 )}
 
-        <UnstyledButton
+        <div
           onClick={handleSingleClick}
-          style={{ width: '100%' }}
+          role="button"
+          tabIndex={0}
+          style={{ width: '100%', cursor: 'pointer' }}
         >
           <Group>
             <UnstyledButton onClick={handleNavigateToUser} className="avatarHoverDim">
@@ -384,7 +388,7 @@ export default function Post({
               <Text size="xs" c="dimmed">{formatDistanceToNow(new Date(createdAt))} ago</Text>
             </div>
           </Group>
-        </UnstyledButton>
+        </div>
 
         <div
           style={{ paddingLeft: '3rem', paddingRight:'3rem', cursor: 'pointer'}}

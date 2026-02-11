@@ -280,6 +280,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
                 handleStackIconClick={handleStackIconClick}
                 loadStackInfo={false}
                 accessToken={accessToken}
+                ready={true}
                 setIsModalOpen={() => { }}
                 setIsExpandModalOpen={() => { }}
                 activePostId={null}

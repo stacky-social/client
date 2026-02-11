@@ -26,7 +26,6 @@ export default function TagPage() {
   const [tagData, setTagData] = useState<TagData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
-  const accessToken = localStorage.getItem('accessToken');
 
   useEffect(() => {
     if (tagName) {
@@ -36,6 +35,7 @@ export default function TagPage() {
 
   const fetchTagData = async (tag: string) => {
     try {
+      const accessToken = localStorage.getItem('accessToken');
       const response = await axios.get(`${MastodonInstanceUrl}/api/v1/tags/${tag}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -53,6 +53,7 @@ export default function TagPage() {
   const handleFollowToggle = async () => {
     try {
       setLoading(true);
+      const accessToken = localStorage.getItem('accessToken');
       const url = isFollowing
         ? `${MastodonInstanceUrl}/api/v1/tags/${tagName}/unfollow`
         : `${MastodonInstanceUrl}/api/v1/tags/${tagName}/follow`;

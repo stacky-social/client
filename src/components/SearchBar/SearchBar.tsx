@@ -79,9 +79,10 @@ export default function SearchBar() {
       return;
     }
 
+    if (!searchQuery.trim()) return;
     try {
       const response = await axios.get(`${MastodonInstanceUrl}/api/v2/search`, {
-        params: { q: searchQuery, limit: 10 },
+        params: { q: searchQuery, limit: 10, resolve: true },
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -102,7 +103,10 @@ export default function SearchBar() {
     setLoadingRelatedStacks(true);
 
     try {
-      const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${post.id}/related`);
+      const headers: Record<string, string> = {};
+      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+      const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${post.id}/related`, { headers });
       console.log('Related stacks:', response.data);
       const stackData = response.data.relatedStacks || [];
       const stackCount = response.data.size;
@@ -121,14 +125,13 @@ export default function SearchBar() {
 
     } catch (error) {
       console.error('Error fetching related stacks:', error);
-      notifications.show({ color: 'red', title: 'Failed to load stacks', message: 'Please try again later.' });
     } finally {
       setLoadingRelatedStacks(false);
     }
   };
 
   useEffect(() => {
-    console.log('ResultPosts:', ResultPosts);
+    // console.log('ResultPosts:', ResultPosts);
   }, [ResultPosts]);
 
   const handleSearch = () => {
