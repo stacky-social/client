@@ -42,11 +42,15 @@ const PostList: React.FC<PostListProps> = ({
     showLoadMore = false,
     ready,
 }) => {
-    const [posts, setPosts] = useState<PostType[]>([]);
-    const [loading, setLoading] = useState(true);
+    // Check cache synchronously during initialization to avoid a loading flash
+    const initialCache = postListCacheMap.get(apiUrl);
+    const hasCachedData = !!initialCache && Date.now() - initialCache.timestamp < CACHE_TTL;
+
+    const [posts, setPosts] = useState<PostType[]>(() => hasCachedData ? initialCache.posts : []);
+    const [loading, setLoading] = useState(() => !hasCachedData);
     const [loadingMore, setLoadingMore] = useState(false);
     const postRefs = useRef<Array<HTMLDivElement | null>>([]);
-    const [maxId, setMaxId] = useState<string | null>(null);
+    const [maxId, setMaxId] = useState<string | null>(() => hasCachedData ? initialCache.maxId : null);
     const hasAutoHighlightedFirstPostRef = useRef(false);
     const hasPublishedFirstPostStacksRef = useRef(false);
     const scrollStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -54,6 +58,20 @@ const PostList: React.FC<PostListProps> = ({
     const manualActiveIdRef = useRef<string | null>(null);
     const manualLockRef = useRef(false);
     const fetchKeyRef = useRef<string | null>(null);
+    const restoredScrollRef = useRef(false);
+
+    // Restore scroll position after first paint when using cached data
+    useEffect(() => {
+        if (!hasCachedData || restoredScrollRef.current) return;
+        restoredScrollRef.current = true;
+        const savedY = sessionStorage.getItem(`scrollY:${window.location.pathname}`);
+        if (savedY) {
+            requestAnimationFrame(() => {
+                window.scrollTo(0, parseInt(savedY, 10));
+            });
+            sessionStorage.removeItem(`scrollY:${window.location.pathname}`);
+        }
+    }, []);
 
     useEffect(() => {
         if (!ready) return; // wait for token check
@@ -61,23 +79,8 @@ const PostList: React.FC<PostListProps> = ({
         if (fetchKeyRef.current === key) return; // dedupe in Strict Mode
         fetchKeyRef.current = key;
 
-        // Try to restore from in-memory cache
-        const cached = postListCacheMap.get(apiUrl);
-        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-            setPosts(cached.posts);
-            setMaxId(cached.maxId);
-            setLoading(false);
-
-            // Restore scroll position
-            const savedY = sessionStorage.getItem(`scrollY:${window.location.pathname}`);
-            if (savedY) {
-                requestAnimationFrame(() => {
-                    window.scrollTo(0, parseInt(savedY, 10));
-                });
-                sessionStorage.removeItem(`scrollY:${window.location.pathname}`);
-            }
-            return;
-        }
+        // If initialized from cache, skip fetching
+        if (hasCachedData) return;
 
         postListCacheMap.delete(apiUrl);
         fetchPosts();

@@ -20,12 +20,17 @@ interface TagData {
   following: boolean;
 }
 
+// Module-level cache for tag data so back navigation is instant
+const tagDataCache = new Map<string, TagData>();
+
 export default function TagPage() {
   const params = useParams();
   const tagName = Array.isArray(params.tag) ? params.tag[0] : params.tag;
-  const [tagData, setTagData] = useState<TagData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isFollowing, setIsFollowing] = useState(false);
+
+  const cached = tagName ? tagDataCache.get(tagName) : undefined;
+  const [tagData, setTagData] = useState<TagData | null>(cached ?? null);
+  const [loading, setLoading] = useState(!cached);
+  const [isFollowing, setIsFollowing] = useState(cached?.following ?? false);
 
   useEffect(() => {
     if (tagName) {
@@ -34,6 +39,7 @@ export default function TagPage() {
   }, [tagName]);
 
   const fetchTagData = async (tag: string) => {
+    if (!loading) setLoading(false); // don't flash if we have cached data
     try {
       const accessToken = localStorage.getItem('accessToken');
       const response = await axios.get(`${MastodonInstanceUrl}/api/v1/tags/${tag}`, {
@@ -43,6 +49,7 @@ export default function TagPage() {
       });
       setTagData(response.data);
       setIsFollowing(response.data.following);
+      tagDataCache.set(tag, response.data);
     } catch (error) {
       console.error('Error fetching tag data:', error);
     } finally {
@@ -52,7 +59,6 @@ export default function TagPage() {
 
   const handleFollowToggle = async () => {
     try {
-      setLoading(true);
       const accessToken = localStorage.getItem('accessToken');
       const url = isFollowing
         ? `${MastodonInstanceUrl}/api/v1/tags/${tagName}/unfollow`
@@ -65,10 +71,12 @@ export default function TagPage() {
       });
 
       setIsFollowing(!isFollowing);
+      // Update cache with new following state
+      if (tagData && tagName) {
+        tagDataCache.set(tagName, { ...tagData, following: !isFollowing });
+      }
     } catch (error) {
       console.error('Error toggling follow status:', error);
-    } finally {
-      setLoading(false);
     }
   };
 

@@ -213,7 +213,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
 
   const handleNavigate = (postId: string, newStackId: string) => {
     const url = `/posts/${postId}?stackId=${newStackId || ''}`;
-    sessionStorage.setItem('previousPath', window.location.pathname);
+    sessionStorage.setItem(`previousPath:/posts/${postId}`, window.location.pathname);
     sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
     router.push(url);
   };

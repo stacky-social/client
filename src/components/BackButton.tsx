@@ -20,7 +20,7 @@ export default function BackButton() {
   const [label, setLabel] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
-    const prev = sessionStorage.getItem('previousPath');
+    const prev = sessionStorage.getItem(`previousPath:${window.location.pathname}`);
     if (prev) {
       setLabel(labelFromPath(prev));
     } else {

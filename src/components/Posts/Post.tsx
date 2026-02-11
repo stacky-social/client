@@ -2,18 +2,57 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconLink, IconCheck } from '@tabler/icons-react';
+import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconLink } from '@tabler/icons-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import StackCount from '../StackCount';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
-import LinkPreviewCard from '../LinkPreviewCard';
 import { PreviewCardType } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
 
 type PreviewCard = PreviewCardType;
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
+
+interface CleanedPost {
+  html: string;
+  publishedDate: string | null;
+  articleUrl: string | null;
+}
+
+/** Strip external URLs and extract "Published" date from post HTML */
+function cleanPostHtml(html: string, card: PreviewCard | null | undefined): CleanedPost {
+  let cleaned = html;
+
+  // Remove all <a> tags linking to external URLs (entire tag + contents)
+  cleaned = cleaned.replace(/<a[^>]*href=["']https?:\/\/[^"']+["'][^>]*>[\s\S]*?<\/a>/gi, '');
+
+  // Remove bare URLs in text (not inside tags)
+  cleaned = cleaned.replace(/https?:\/\/[^\s<]+/g, '');
+
+  // Extract "Published: DATE" and remove from text
+  let publishedDate: string | null = null;
+  cleaned = cleaned.replace(/Published:\s*(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)/g, (_match, iso) => {
+    try {
+      publishedDate = format(new Date(iso), 'MMM d, yyyy');
+    } catch {
+      publishedDate = iso;
+    }
+    return '';
+  });
+  // Also handle already-formatted "Published: Mon DD, YYYY"
+  if (!publishedDate) {
+    cleaned = cleaned.replace(/Published:\s*([A-Z][a-z]+ \d{1,2}, \d{4})/g, (_match, date) => {
+      publishedDate = date;
+      return '';
+    });
+  }
+
+  // Collapse leftover empty <p></p> tags
+  cleaned = cleaned.replace(/<p>\s*<\/p>/g, '');
+
+  return { html: cleaned, publishedDate, articleUrl: card?.url ?? null };
+}
 
 
 
@@ -77,6 +116,7 @@ export default function Post({
 
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>(initialCard ? [initialCard] : []);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
+  const { html: displayText, publishedDate, articleUrl } = cleanPostHtml(text, previewCards[0]);
 
   const [isOverflowing, setIsOverflowing] = useState(false);
   const textRef = useRef<HTMLDivElement>(null);
@@ -123,7 +163,7 @@ export default function Post({
     localStorage.setItem('relatedStacks', JSON.stringify(tempRelatedStacks));
 
     localStorage.setItem('relatedStacksSize', JSON.stringify(stackCount));
-    sessionStorage.setItem('previousPath', window.location.pathname);
+    sessionStorage.setItem(`previousPath:${url}`, window.location.pathname);
     sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
     router.push(url);
   };
@@ -230,13 +270,9 @@ export default function Post({
     setAnnotationModalOpen(true);
   };
 
-  const handleCopyLink = () => {
-    const url = `${window.location.origin}/posts/${id}`;
-    navigator.clipboard.writeText(url).then(() => {
-
-    }).catch((error) => {
-      console.error('Error copying link:', error);
-    });
+  const handleOpenInNewTab = () => {
+    const url = articleUrl || `${window.location.origin}/posts/${id}`;
+    window.open(url, '_blank');
   };
 
   const handleStackCountClick = async () => {
@@ -407,7 +443,7 @@ export default function Post({
           lineHeight: '1.5',
           color: '#011445'
         }}
-        dangerouslySetInnerHTML={{ __html: text }}
+        dangerouslySetInnerHTML={{ __html: displayText }}
       />
       {isOverflowing && (
         <Anchor
@@ -443,15 +479,30 @@ export default function Post({
             </div>
           )}
 
-          {previewCards.slice(0, 1).map((card, index) => (
-            <LinkPreviewCard
-              key={index}
-              url={card.url}
-              title={card.title}
-              description={card.description}
-              imageUrl={card.image}
-            />
-          ))}
+          {previewCards.slice(0, 1).map((card, index) =>
+            card.image ? (
+              <a
+                key={index}
+                href={card.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                onMouseUp={(e) => e.stopPropagation()}
+                style={{ display: 'block', marginTop: '0.5rem', marginRight: '0.5rem' }}
+              >
+                <img
+                  src={card.image}
+                  alt={card.title}
+                  style={{ width: '100%', borderRadius: '8px', display: 'block' }}
+                />
+              </a>
+            ) : null
+          )}
+          {publishedDate && (
+            <Text size="xs" c="dimmed" style={{ marginTop: '0.5rem' }}>
+              Published: {publishedDate}
+            </Text>
+          )}
         </div>
 
         <Divider style={{ marginTop:'1.5rem'}}/>
@@ -483,8 +534,8 @@ export default function Post({
             />
             <InteractionControl
               icon={<IconLink size={20} />}
-              ariaLabel="Copy link"
-              onClick={handleCopyLink}
+              ariaLabel="Open in new tab"
+              onClick={handleOpenInNewTab}
             />
           </Group>
         </div>
