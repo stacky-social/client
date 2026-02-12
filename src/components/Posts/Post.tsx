@@ -169,7 +169,10 @@ export default function Post({
   };
 
   const handleReply = () => {
-    router.push(`/posts/${id}`);
+    const url = `/posts/${id}`;
+    sessionStorage.setItem(`previousPath:${url}`, window.location.pathname);
+    sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
+    router.push(url);
   };
 
   const getAccessToken = () => {
