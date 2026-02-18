@@ -20,18 +20,21 @@ interface CleanedPost {
   articleUrl: string | null;
 }
 
-/** Strip external URLs and extract "Published" date from post HTML */
+/** Strip external URLs and extract "Published" date from post HTML.
+ *  Only strips URLs when a preview card exists to preserve legitimate links in conversational posts. */
 function cleanPostHtml(html: string, card: PreviewCard | null | undefined): CleanedPost {
   let cleaned = html;
+  let publishedDate: string | null = null;
 
-  // Remove all <a> tags linking to external URLs (entire tag + contents)
-  cleaned = cleaned.replace(/<a[^>]*href=["']https?:\/\/[^"']+["'][^>]*>[\s\S]*?<\/a>/gi, '');
+  if (card) {
+    // Remove all <a> tags linking to external URLs (entire tag + contents)
+    cleaned = cleaned.replace(/<a[^>]*href=["']https?:\/\/[^"']+["'][^>]*>[\s\S]*?<\/a>/gi, '');
 
-  // Remove bare URLs in text (not inside tags)
-  cleaned = cleaned.replace(/https?:\/\/[^\s<]+/g, '');
+    // Remove bare URLs in text (not inside tags)
+    cleaned = cleaned.replace(/https?:\/\/[^\s<]+/g, '');
+  }
 
   // Extract "Published: DATE" and remove from text
-  let publishedDate: string | null = null;
   cleaned = cleaned.replace(/Published:\s*(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)/g, (_match, iso) => {
     try {
       publishedDate = format(new Date(iso), 'MMM d, yyyy');

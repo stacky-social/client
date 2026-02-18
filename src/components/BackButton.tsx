@@ -15,21 +15,26 @@ function labelFromPath(path: string): string | null {
   return null;
 }
 
+// 'unchecked' = haven't read sessionStorage yet, 'none' = checked but no previous path
+type BackButtonState = 'unchecked' | 'none' | { label: string | null };
+
 export default function BackButton() {
   const router = useRouter();
-  const [label, setLabel] = useState<string | null | undefined>(undefined);
+  const [state, setState] = useState<BackButtonState>('unchecked');
 
   useEffect(() => {
     const prev = sessionStorage.getItem(`previousPath:${window.location.pathname}`);
     if (prev) {
-      setLabel(labelFromPath(prev));
+      setState({ label: labelFromPath(prev) });
     } else {
-      setLabel(undefined);
+      setState('none');
     }
   }, []);
 
-  // undefined = still loading, don't render yet
-  if (label === undefined) return null;
+  // Haven't checked yet or no previous path — don't render
+  if (state === 'unchecked' || state === 'none') return null;
+
+  const displayLabel = state.label;
 
   return (
     <UnstyledButton
@@ -39,7 +44,7 @@ export default function BackButton() {
       <Group gap={6}>
         <IconArrowLeft size={18} color="#324e93" />
         <Text size="sm" fw={600} c="#324e93">
-          {label ? `Back to ${label}` : 'Back'}
+          {displayLabel ? `Back to ${displayLabel}` : 'Back'}
         </Text>
       </Group>
     </UnstyledButton>

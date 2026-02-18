@@ -21,16 +21,20 @@ interface TagData {
 }
 
 // Module-level cache for tag data so back navigation is instant
-const tagDataCache = new Map<string, TagData>();
+const tagDataCache = new Map<string, TagData & { _ts: number }>();
+const TAG_CACHE_TTL = 5 * 60 * 1000;
+const MAX_TAG_CACHE = 20;
 
 export default function TagPage() {
   const params = useParams();
   const tagName = Array.isArray(params.tag) ? params.tag[0] : params.tag;
 
-  const cached = tagName ? tagDataCache.get(tagName) : undefined;
+  const rawCached = tagName ? tagDataCache.get(tagName) : undefined;
+  const cached = rawCached && Date.now() - rawCached._ts < TAG_CACHE_TTL ? rawCached : undefined;
   const [tagData, setTagData] = useState<TagData | null>(cached ?? null);
   const [loading, setLoading] = useState(!cached);
   const [isFollowing, setIsFollowing] = useState(cached?.following ?? false);
+  const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
     if (tagName) {
@@ -39,7 +43,6 @@ export default function TagPage() {
   }, [tagName]);
 
   const fetchTagData = async (tag: string) => {
-    if (!loading) setLoading(false); // don't flash if we have cached data
     try {
       const accessToken = localStorage.getItem('accessToken');
       const response = await axios.get(`${MastodonInstanceUrl}/api/v1/tags/${tag}`, {
@@ -49,7 +52,11 @@ export default function TagPage() {
       });
       setTagData(response.data);
       setIsFollowing(response.data.following);
-      tagDataCache.set(tag, response.data);
+      tagDataCache.set(tag, { ...response.data, _ts: Date.now() });
+      if (tagDataCache.size > MAX_TAG_CACHE) {
+        const oldest = tagDataCache.keys().next().value;
+        if (oldest !== undefined) tagDataCache.delete(oldest);
+      }
     } catch (error) {
       console.error('Error fetching tag data:', error);
     } finally {
@@ -58,6 +65,8 @@ export default function TagPage() {
   };
 
   const handleFollowToggle = async () => {
+    if (toggling) return;
+    setToggling(true);
     try {
       const accessToken = localStorage.getItem('accessToken');
       const url = isFollowing
@@ -73,10 +82,12 @@ export default function TagPage() {
       setIsFollowing(!isFollowing);
       // Update cache with new following state
       if (tagData && tagName) {
-        tagDataCache.set(tagName, { ...tagData, following: !isFollowing });
+        tagDataCache.set(tagName, { ...tagData, following: !isFollowing, _ts: Date.now() });
       }
     } catch (error) {
       console.error('Error toggling follow status:', error);
+    } finally {
+      setToggling(false);
     }
   };
 
@@ -100,9 +111,9 @@ export default function TagPage() {
           <Button
             color={isFollowing ? 'red' : 'blue'}
             onClick={handleFollowToggle}
-            disabled={loading}
+            disabled={toggling}
           >
-            {loading ? 'Loading...' : (isFollowing ? 'Unfollow hashtag' : 'Follow hashtag')}
+            {toggling ? 'Loading...' : (isFollowing ? 'Unfollow hashtag' : 'Follow hashtag')}
           </Button>
         </Group>
         <Divider my="md" />

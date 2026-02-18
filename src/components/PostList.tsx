@@ -16,6 +16,19 @@ interface PostListCache {
 }
 const postListCacheMap = new Map<string, PostListCache>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const MAX_CACHE_ENTRIES = 20;
+
+/** Evict expired entries and cap total size */
+function pruneCache<V extends { timestamp: number }>(cache: Map<string, V>, max: number) {
+    const now = Date.now();
+    cache.forEach((value, key) => {
+        if (now - value.timestamp > CACHE_TTL) cache.delete(key);
+    });
+    while (cache.size > max) {
+        const oldest = cache.keys().next().value;
+        if (oldest !== undefined) cache.delete(oldest);
+    }
+}
 
 interface PostListProps {
     apiUrl: string;
@@ -42,15 +55,20 @@ const PostList: React.FC<PostListProps> = ({
     showLoadMore = false,
     ready,
 }) => {
-    // Check cache synchronously during initialization to avoid a loading flash
-    const initialCache = postListCacheMap.get(apiUrl);
-    const hasCachedData = !!initialCache && Date.now() - initialCache.timestamp < CACHE_TTL;
+    // Check cache synchronously during initialization to avoid a loading flash.
+    // Stored in a ref so subsequent renders don't re-evaluate the cache check.
+    const initialCacheRef = useRef(() => {
+        const cached = postListCacheMap.get(apiUrl);
+        return cached && Date.now() - cached.timestamp < CACHE_TTL ? cached : null;
+    });
+    const cachedSnapshot = useRef(initialCacheRef.current());
+    const hasCachedData = !!cachedSnapshot.current;
 
-    const [posts, setPosts] = useState<PostType[]>(() => hasCachedData ? initialCache.posts : []);
+    const [posts, setPosts] = useState<PostType[]>(() => cachedSnapshot.current?.posts ?? []);
     const [loading, setLoading] = useState(() => !hasCachedData);
     const [loadingMore, setLoadingMore] = useState(false);
     const postRefs = useRef<Array<HTMLDivElement | null>>([]);
-    const [maxId, setMaxId] = useState<string | null>(() => hasCachedData ? initialCache.maxId : null);
+    const [maxId, setMaxId] = useState<string | null>(() => cachedSnapshot.current?.maxId ?? null);
     const hasAutoHighlightedFirstPostRef = useRef(false);
     const hasPublishedFirstPostStacksRef = useRef(false);
     const scrollStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -311,6 +329,7 @@ const PostList: React.FC<PostListProps> = ({
             maxId,
             timestamp: Date.now(),
         });
+        pruneCache(postListCacheMap, MAX_CACHE_ENTRIES);
     }, [posts, loading, apiUrl, maxId]);
 
     const postElements = posts.map((post: PostType, index) => (
