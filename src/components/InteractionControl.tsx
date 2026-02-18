@@ -1,5 +1,5 @@
 import React, { useState, ReactElement } from 'react';
-import { ActionIcon, Text, UnstyledButton } from '@mantine/core';
+import { ActionIcon, Text } from '@mantine/core';
 
 interface InteractionControlProps {
   icon: React.ReactNode;
@@ -18,11 +18,20 @@ export default function InteractionControl({ icon, label, ariaLabel, onClick, ac
   const isActive = hovered || active;
 
   return (
-    <UnstyledButton
+    <div
+      role="button"
+      tabIndex={0}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
         onClick();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          onClick();
+        }
       }}
       aria-label={ariaLabel}
       onMouseEnter={() => setHovered(true)}
@@ -35,7 +44,7 @@ export default function InteractionControl({ icon, label, ariaLabel, onClick, ac
         e.preventDefault();
         e.stopPropagation();
       }}
-      style={{ display: 'flex', alignItems: 'center' }}
+      style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', background: 'none', border: 'none' }}
     >
       <ActionIcon
         variant="subtle"
@@ -45,6 +54,7 @@ export default function InteractionControl({ icon, label, ariaLabel, onClick, ac
         style={{
           backgroundColor: hovered ? 'rgba(75, 116, 220, 0.06)' : 'transparent',
           transition: 'background-color 230ms 60ms ease-in-out, color 230ms 60ms ease-in-out, transform 230ms 60ms ease-in-out',
+          pointerEvents: 'none',
         }}
         styles={{
           root: {
@@ -75,7 +85,7 @@ export default function InteractionControl({ icon, label, ariaLabel, onClick, ac
           {label}
         </Text>
       )}
-    </UnstyledButton>
+    </div>
   );
 }
 

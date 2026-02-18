@@ -201,7 +201,9 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
   const parsed2 = parseHighlight(rewriteContent, 'blue');
 
   if (parsed1.plainText !== parsed2.plainText) {
-    console.warn('Warning: highlight plain texts not matching!');
+    // Plain texts diverged — merging highlights would produce garbled output.
+    // Return empty so callers fall back to plain formatted content.
+    return '';
   }
 
   const merged = mergeHighlights(parsed1.plainText, parsed1.highlights, parsed2.highlights);
@@ -213,6 +215,8 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
 
   const handleNavigate = (postId: string, newStackId: string) => {
     const url = `/posts/${postId}?stackId=${newStackId || ''}`;
+    sessionStorage.setItem(`previousPath:/posts/${postId}`, window.location.pathname);
+    sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
     router.push(url);
   };
 
@@ -291,7 +295,7 @@ function mergeHighlight(contentHighlight: string, rewriteContent: string) {
         // 优先使用开关状态；若未开启开关，维持原有 hover 合并高亮的体验
         const contentToDisplay = (showOriginalContent[index] === true)
           ? (stack.topPost.content_highlight && stack.topPost.rewrite?.content
-              ? mergeHighlight(stack.topPost.content_highlight, stack.topPost.rewrite.content)
+              ? (mergeHighlight(stack.topPost.content_highlight, stack.topPost.rewrite.content) || formatContent(stack.topPost.content ?? '').__html)
               : formatContent(stack.topPost.content ?? '').__html)
           : (stack.topPost.rewrite.significant && (showAIRewrite[index] !== false)
               ? formatContent(stack.topPost.rewrite.content ?? '').__html

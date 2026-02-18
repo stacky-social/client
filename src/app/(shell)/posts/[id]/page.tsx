@@ -11,6 +11,7 @@ import Post from "../../../../components/Posts/Post";
 import RelatedStacks from "../../../../components/RelatedStacks";
 import RepliesStack from "../../../../components/RepliesStack";
 import ReplySection from "../../../../components/ReplySection";
+import BackButton from "../../../../components/BackButton";
 import { useRelatedStacks } from "../../related-stacks-context";
 
 // -------------------- Types --------------------
@@ -464,6 +465,7 @@ export default function PostView({ params }: { params: { id: string } }) {
 
   return (
     <div ref={mainRef} style={{ position: "relative" }}>
+      <BackButton />
       <div>
         <div style={{ position: "relative" }}>
           {/* Ancestors */}
