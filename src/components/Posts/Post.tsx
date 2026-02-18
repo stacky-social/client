@@ -407,6 +407,12 @@ export default function Post({
 
         <div
           onClick={handleSingleClick}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleNavigate();
+            }
+          }}
           role="button"
           tabIndex={0}
           style={{ width: '100%', cursor: 'pointer' }}
