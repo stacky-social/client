@@ -13,6 +13,7 @@ interface PostListCache {
     posts: PostType[];
     maxId: string | null;
     timestamp: number;
+    fetchedAt: number;
 }
 const postListCacheMap = new Map<string, PostListCache>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -59,7 +60,7 @@ const PostList: React.FC<PostListProps> = ({
     // Stored in a ref so subsequent renders don't re-evaluate the cache check.
     const initialCacheRef = useRef(() => {
         const cached = postListCacheMap.get(apiUrl);
-        return cached && Date.now() - cached.timestamp < CACHE_TTL ? cached : null;
+        return cached ?? null;
     });
     const cachedSnapshot = useRef(initialCacheRef.current());
     const hasCachedData = !!cachedSnapshot.current;
@@ -97,12 +98,39 @@ const PostList: React.FC<PostListProps> = ({
         if (fetchKeyRef.current === key) return; // dedupe in Strict Mode
         fetchKeyRef.current = key;
 
-        // If initialized from cache, skip fetching
-        if (hasCachedData) return;
+        if (hasCachedData) {
+            // Serve cache instantly, revalidate in background
+            revalidate();
+            return;
+        }
 
         postListCacheMap.delete(apiUrl);
         fetchPosts();
     }, [apiUrl, accessToken, loadStackInfo, ready]);
+
+    const mapResponseToPosts = (data: any[]): PostType[] =>
+        data.map((post: any) => ({
+            postId: post.id,
+            text: post.content,
+            author: post.account.username,
+            account: post.account.acct,
+            avatar: post.account.avatar,
+            createdAt: post.created_at,
+            replies: post.replies_count,
+            replies_count: post.replies_count,
+            stackCount: loadStackInfo ? null : -1,
+            favouritesCount: post.favourites_count,
+            favourited: post.favourited,
+            bookmarked: post.bookmarked,
+            mediaAttachments: post.media_attachments,
+            relatedStacks: [],
+            previewCard: post.card ? {
+                title: post.card.title,
+                description: post.card.description,
+                image: post.card.image || undefined,
+                url: post.card.url,
+            } : null
+        }));
 
     const fetchPosts = async (isLoadMore = false) => {
         try {
@@ -123,27 +151,7 @@ const PostList: React.FC<PostListProps> = ({
                 }
             });
 
-            const data: PostType[] = response.data.map((post: any) => ({
-                postId: post.id,
-                text: post.content,
-                author: post.account.username,
-                account: post.account.acct,
-                avatar: post.account.avatar,
-                createdAt: post.created_at,
-                replies: post.replies_count,
-                stackCount: loadStackInfo ? null : -1,
-                favouritesCount: post.favourites_count,
-                favourited: post.favourited,
-                bookmarked: post.bookmarked,
-                mediaAttachments: post.media_attachments,
-                relatedStacks: [],
-                previewCard: post.card ? {
-                    title: post.card.title,
-                    description: post.card.description,
-                    image: post.card.image || undefined,
-                    url: post.card.url,
-                } : null
-            }));
+            const data: PostType[] = mapResponseToPosts(response.data);
 
             setPosts((prevPosts) => isLoadMore ? [...prevPosts, ...data] : data);
             if (data.length > 0) {
@@ -168,6 +176,98 @@ const PostList: React.FC<PostListProps> = ({
 
     const handleLoadMore = () => {
         fetchPosts(true);
+    };
+
+    const getScrollAnchor = (): { postId: string; offsetFromViewport: number } | null => {
+        const els = Array.from(document.querySelectorAll('[data-post-id]'));
+        for (const el of els) {
+            const rect = el.getBoundingClientRect();
+            if (rect.top >= 0 && rect.top < window.innerHeight) {
+                return {
+                    postId: el.getAttribute('data-post-id')!,
+                    offsetFromViewport: rect.top,
+                };
+            }
+        }
+        return null;
+    };
+
+    const revalidate = async () => {
+        try {
+            const headers: Record<string, string> = {};
+            if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+            const response = await axios.get(apiUrl, {
+                headers,
+                params: { limit: 40 },
+            });
+
+            const freshPosts: PostType[] = mapResponseToPosts(response.data);
+
+            // Capture scroll anchor before updating state
+            const anchor = getScrollAnchor();
+
+            setPosts((prev) => {
+                const prevMap = new Map(prev.map(p => [p.postId, p]));
+                const merged: PostType[] = [];
+
+                for (const fp of freshPosts) {
+                    const existing = prevMap.get(fp.postId);
+                    if (existing) {
+                        // Keep loaded stack data from cache, update everything else
+                        merged.push({
+                            ...fp,
+                            stackCount: existing.stackCount !== null ? existing.stackCount : fp.stackCount,
+                            relatedStacks: existing.relatedStacks.length > 0 ? existing.relatedStacks : fp.relatedStacks,
+                        });
+                        prevMap.delete(fp.postId);
+                    } else {
+                        merged.push(fp);
+                    }
+                }
+
+                // Append any remaining old posts (from Load More) that weren't in the fresh page
+                prevMap.forEach((p) => merged.push(p));
+
+                return merged;
+            });
+
+            // Update maxId for Load More continuity
+            if (freshPosts.length > 0) {
+                setMaxId(freshPosts[freshPosts.length - 1].postId);
+            }
+
+            // Restore scroll position after merge
+            if (anchor) {
+                requestAnimationFrame(() => {
+                    const el = document.querySelector(`[data-post-id="${anchor.postId}"]`);
+                    if (el) {
+                        const newTop = el.getBoundingClientRect().top;
+                        const drift = newTop - anchor.offsetFromViewport;
+                        if (Math.abs(drift) > 1) {
+                            window.scrollBy(0, drift);
+                        }
+                    }
+                });
+            }
+
+            // Update fetchedAt in cache
+            const cached = postListCacheMap.get(apiUrl);
+            if (cached) {
+                cached.fetchedAt = Date.now();
+            }
+
+            // Reload stack data for new posts that don't have it yet
+            if (loadStackInfo) {
+                const postsNeedingStacks = freshPosts.filter(p => p.stackCount === null);
+                if (postsNeedingStacks.length > 0) {
+                    await loadStackDataInBatches(postsNeedingStacks, 2);
+                }
+            }
+        } catch {
+            // Silent failure — user already has cached content
+            console.warn('Background revalidation failed');
+        }
     };
 
     useEffect(() => {
@@ -311,11 +411,11 @@ const PostList: React.FC<PostListProps> = ({
                     );
                 } catch (error) {
                     console.error(`Error fetching stack data for post ${post.postId}:`, error);
-                    notifications.show({
-                        color: 'red',
-                        title: 'Failed to load stacks',
-                        message: `Post ${post.postId}: please try again later.`,
-                    });
+                    // notifications.show({
+                    //     color: 'red',
+                    //     title: 'Failed to load stacks',
+                    //     message: `Post ${post.postId}: please try again later.`,
+                    // });
                 }
             }));
         }
@@ -328,6 +428,7 @@ const PostList: React.FC<PostListProps> = ({
             posts,
             maxId,
             timestamp: Date.now(),
+            fetchedAt: Date.now(),
         });
         pruneCache(postListCacheMap, MAX_CACHE_ENTRIES);
     }, [posts, loading, apiUrl, maxId]);
@@ -335,6 +436,7 @@ const PostList: React.FC<PostListProps> = ({
     const postElements = posts.map((post: PostType, index) => (
         <div
             key={post.postId}
+            data-post-id={post.postId}
             ref={(el) => {
                 postRefs.current[index] = el;
             }}
