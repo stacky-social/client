@@ -45,7 +45,7 @@ allowed-tools:
 - Break requirements into issues that can be completed by 1-2 people
 - Follow issue ownership rules from the `github-issues` skill (not a fixed number of assignees)
 - Only create issues for the current iteration — never for future iterations
-- Apply the correct label to each issue: `feature`, `task`, or `bug`
+- Apply the correct label to each issue: `enhancement`, `task`, or `bug`
 - Set the milestone to the current iteration (e.g., "Iteration 1")
 
 ## After Planning

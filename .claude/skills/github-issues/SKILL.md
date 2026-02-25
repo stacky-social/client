@@ -25,7 +25,7 @@ Every issue must have:
 1. **Descriptive title** — clear and concise
 2. **Description** — what needs to be done and why
 3. **Acceptance criteria** — checklist of testable criteria
-4. **Label** — exactly one of: `feature`, `task`, or `bug`
+4. **Label** — exactly one of: `enhancement`, `task`, or `bug`
 5. **Milestone** — the current iteration (e.g., "Iteration 1")
 6. **Assignees** — see ownership rules below
 
@@ -33,17 +33,18 @@ Every issue must have:
 
 The project uses these labels:
 
-- `feature` — new functionality
+- `enhancement` — new feature or request
 - `task` — development work that isn't a feature or bug
-- `bug` — something that's broken
+- `bug` — something isn't working
+- `documentation` — improvements or additions to documentation
 - `retrospective` — added alongside `task` for retrospective issues
 
 If labels don't exist yet, create them:
 
 ```bash
-gh label create feature --description "New functionality" --color 0E8A16
+gh label create enhancement --description "New feature or request" --color A2EEEF
 gh label create task --description "Development task" --color 1D76DB
-gh label create bug --description "Something is broken" --color D93F0B
+gh label create bug --description "Something isn't working" --color D73A4A
 gh label create retrospective --description "Iteration retrospective" --color FBCA04
 ```
 
@@ -70,7 +71,7 @@ Read the matching template in `.github/ISSUE_TEMPLATE/` (feature.yml, task.yml, 
 ```bash
 gh issue create \
   --title "Add search-by-title to items list endpoint" \
-  --label "feature" \
+  --label "enhancement" \
   --milestone "Iteration 1" \
   --assignee "owner,supporting" \
   --body "## Description

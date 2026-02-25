@@ -84,7 +84,7 @@ NEXT_PUBLIC_MODE=development
 
 ## Git Conventions
 
-- **Branches**: `<author>/<type>/issue-<number>-<short-description>` (e.g., `asmith/feature/issue-5-user-auth`)
+- **Branches**: `<author>/<type>/issue-<number>-<short-description>` (e.g., `asmith/enhancement/issue-5-user-auth`)
 - **Commits**: Imperative mood, reference issue number: `Add login form (#5)`. No co-author signatures.
 - **PRs**: Include `Closes #<number>` in body. Keep under ~400 changed lines. Merge commits only — never squash or rebase.
 - Never push directly to the main branch.
