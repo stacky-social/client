@@ -38,8 +38,7 @@ export default function Shell({ children, aside }: {  children: React.ReactNode;
             <AppShell.Aside
                 p="md"
                 pt="0"
-                withBorder
-                style={{ background: "#FCFBF5", 
+                style={{ background: "#FCFBF5",
                     overflowY: 'auto', 
                     scrollbarWidth: 'none',
                     '-ms-overflow-style': 'none',
