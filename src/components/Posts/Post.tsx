@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconLink } from '@tabler/icons-react';
+import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled } from '@tabler/icons-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import StackCount from '../StackCount';
 import axios from 'axios';
@@ -17,22 +17,12 @@ const MastodonInstanceUrl = 'https://beta.stacky.social';
 interface CleanedPost {
   html: string;
   publishedDate: string | null;
-  articleUrl: string | null;
 }
 
-/** Strip external URLs and extract "Published" date from post HTML.
- *  Only strips URLs when a preview card exists to preserve legitimate links in conversational posts. */
-function cleanPostHtml(html: string, card: PreviewCard | null | undefined): CleanedPost {
+/** Extract "Published" date from post HTML and clean up empty tags. */
+function cleanPostHtml(html: string): CleanedPost {
   let cleaned = html;
   let publishedDate: string | null = null;
-
-  if (card) {
-    // Remove all <a> tags linking to external URLs (entire tag + contents)
-    cleaned = cleaned.replace(/<a[^>]*href=["']https?:\/\/[^"']+["'][^>]*>[\s\S]*?<\/a>/gi, '');
-
-    // Remove bare URLs in text (not inside tags)
-    cleaned = cleaned.replace(/https?:\/\/[^\s<]+/g, '');
-  }
 
   // Extract "Published: DATE" and remove from text
   cleaned = cleaned.replace(/Published:\s*(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)/g, (_match, iso) => {
@@ -54,7 +44,7 @@ function cleanPostHtml(html: string, card: PreviewCard | null | undefined): Clea
   // Collapse leftover empty <p></p> tags
   cleaned = cleaned.replace(/<p>\s*<\/p>/g, '');
 
-  return { html: cleaned, publishedDate, articleUrl: card?.url ?? null };
+  return { html: cleaned, publishedDate };
 }
 
 
@@ -119,7 +109,7 @@ export default function Post({
 
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>(initialCard ? [initialCard] : []);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
-  const { html: displayText, publishedDate, articleUrl } = cleanPostHtml(text, previewCards[0]);
+  const { html: displayText, publishedDate } = cleanPostHtml(text);
 
   const [isOverflowing, setIsOverflowing] = useState(false);
   const textRef = useRef<HTMLDivElement>(null);
@@ -276,11 +266,6 @@ export default function Post({
     setAnnotationModalOpen(true);
   };
 
-  const handleOpenInNewTab = () => {
-    const url = articleUrl || `${window.location.origin}/posts/${id}`;
-    window.open(url, '_blank');
-  };
-
   const handleStackCountClick = async () => {
     setIsExpanded(true);
     const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
@@ -352,8 +337,12 @@ export default function Post({
   };
 
   useEffect(() => {
-    const links = document.querySelectorAll('.post-content a');
+    const container = textRef.current;
+    if (!container) return;
+    const links = container.querySelectorAll('a');
     links.forEach(link => {
+      (link as HTMLElement).style.color = '#5a71a8';
+      (link as HTMLElement).style.textDecoration = 'underline';
       link.addEventListener('click', handleLinkClick as EventListener);
     });
     return () => {
@@ -361,7 +350,7 @@ export default function Post({
         link.removeEventListener('click', handleLinkClick as EventListener);
       });
     };
-  }, [text]);
+  }, [text, displayText]);
 
   return (
     <div style={{ position: 'relative', marginBottom: '3rem'}}>
@@ -543,11 +532,6 @@ export default function Post({
               icon={<IconNote size={20} />}
               ariaLabel="Annotate"
               onClick={handleAnnotation}
-            />
-            <InteractionControl
-              icon={<IconLink size={20} />}
-              ariaLabel="Open in new tab"
-              onClick={handleOpenInNewTab}
             />
           </Group>
         </div>
