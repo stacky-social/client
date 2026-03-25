@@ -1,6 +1,31 @@
 /* styles/globals.css */
+
+/* Auto-hide scrollbar: visible only while scrolling or on hover */
 html {
-    scrollbar-gutter: stable;          /* modern browsers */
+    scrollbar-gutter: stable;
+}
+
+html::-webkit-scrollbar {
+    width: 8px;
+}
+
+html::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 4px;
+    transition: background 0.3s;
+}
+
+html:hover::-webkit-scrollbar-thumb,
+html:active::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+}
+
+html::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
 }
 
 @supports not (scrollbar-gutter: stable) {

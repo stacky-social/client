@@ -39,8 +39,9 @@ export default function Shell({ children, aside }: {  children: React.ReactNode;
                 p="md"
                 pt="0"
                 withBorder
-                style={{ background: "#FCFBF5", 
-                    overflowY: 'auto', 
+                style={{ background: "#FCFBF5",
+                    overflowY: 'auto',
+                    overscrollBehavior: 'contain',
                     scrollbarWidth: 'none',
                     '-ms-overflow-style': 'none',
                     }}

@@ -9,6 +9,45 @@ import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
 import { PreviewCardType } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
+import { useHighlightStore } from '../../utils/highlightStore';
+
+// ─── Focus post cross-highlight helpers ──────────────────────────────────────
+
+interface HighlightRange { start: number; end: number }
+
+/** Strip ⌊bracket⌋ markers from focusHighlight, return plain text + ranges */
+function parseFocusHighlight(text: string): { plain: string; ranges: HighlightRange[] } {
+  let plain = '';
+  const ranges: HighlightRange[] = [];
+  let hlStart = -1;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '⌊' || ch === '⌈' || ch === '⟦') { hlStart = plain.length; }
+    else if (ch === '⌋' || ch === '⌉' || ch === '⟧') { if (hlStart >= 0) ranges.push({ start: hlStart, end: plain.length }); hlStart = -1; }
+    else { plain += ch; }
+  }
+  return { plain, ranges };
+}
+
+/** Strip all HTML tags to get plain text for matching */
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
+}
+
+const CROSS_HIGHLIGHT_CATEGORY_COLORS: Record<string, { bg: string; border: string }> = {
+  agree:              { bg: "#d4f9d3", border: "#4caf50" },
+  disagree:           { bg: "#ffe0e0", border: "#f44336" },
+  predictions:        { bg: "#fff3cd", border: "#ff9800" },
+  evidence_public:    { bg: "#e3f2fd", border: "#2196f3" },
+  evidence_personal:  { bg: "#f3e5f5", border: "#9c27b0" },
+  connections:        { bg: "#e0f2f1", border: "#009688" },
+  questions:          { bg: "#fce4ec", border: "#e91e63" },
+  humor:              { bg: "#fff8e1", border: "#ffc107" },
+  values:             { bg: "#ede7f6", border: "#673ab7" },
+  framing:            { bg: "#e0f7fa", border: "#00bcd4" },
+  proposals:          { bg: "#e8eaf6", border: "#3f51b5" },
+  pointers:           { bg: "#e8eaf6", border: "#3f51b5" },
+};
 
 type PreviewCard = PreviewCardType;
 
@@ -79,7 +118,8 @@ interface PostProps {
   activePostId: string | null;
   setActivePostId: (id: string | null) => void;
   initialCard?: PreviewCard | null;
-  
+  /** When provided, intercepts post navigation instead of routing to /posts/{id} */
+  onNavigate?: (postId: string) => void;
 }
 
 export default function Post({
@@ -99,6 +139,7 @@ export default function Post({
   activePostId,
   setActivePostId,
   initialCard,
+  onNavigate,
 }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
@@ -116,6 +157,8 @@ export default function Post({
   const [isExpanded, setIsExpanded] = useState(isActive);
   const [isTextExpanded, setIsTextExpanded] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const { hoveredPostId, hoveredCategory, hoveredFocusHighlight } = useHighlightStore();
+  const showCrossHighlight = isActive && !!hoveredPostId;
 
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>(initialCard ? [initialCard] : []);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
@@ -162,9 +205,9 @@ export default function Post({
 
 
   const handleNavigate = () => {
+    if (onNavigate) { onNavigate(id); return; }
     const url = `/posts/${id}`;
     localStorage.setItem('relatedStacks', JSON.stringify(tempRelatedStacks));
-
     localStorage.setItem('relatedStacksSize', JSON.stringify(stackCount));
     sessionStorage.setItem(`previousPath:${url}`, window.location.pathname);
     sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
@@ -172,6 +215,7 @@ export default function Post({
   };
 
   const handleReply = () => {
+    if (onNavigate) { onNavigate(id); return; }
     const url = `/posts/${id}`;
     sessionStorage.setItem(`previousPath:${url}`, window.location.pathname);
     sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
@@ -372,7 +416,7 @@ export default function Post({
           width: "100%",
           backgroundColor: '#fff',
           zIndex: 5,
-          borderRadius: '10px', // 左上角圆角
+          borderRadius: '10px',
           border: isActive ? '2px solid rgb(156, 184, 255)' : '2px solid #e7e7e7',
           boxShadow: isActive ? 'rgba(0, 0, 0, 0.18) 0px 12px 24px, rgba(0, 0, 0, 0.12) 0px 6px 12px' : 'none',
           transform: isActive ? 'translateY(-2px)' : 'none',
@@ -380,12 +424,11 @@ export default function Post({
           paddingLeft: '1rem',
           paddingRight: '1rem',
           paddingTop: '1rem',
-          cursor: 'pointer'
+          cursor: 'pointer',
         }}
         onMouseEnter={() => { setHovered(true); }}
         onMouseLeave={() => { setHovered(false); }}
       >
-
 {stackCount !== 0 && (
   <UnstyledButton
     onClick={(event) => {
@@ -455,7 +498,28 @@ export default function Post({
           lineHeight: '1.5',
           color: '#011445'
         }}
-        dangerouslySetInnerHTML={{ __html: displayText }}
+        dangerouslySetInnerHTML={{ __html: (() => {
+          if (!showCrossHighlight || !hoveredFocusHighlight || !hoveredCategory) return displayText;
+          const catColors = CROSS_HIGHLIGHT_CATEGORY_COLORS[hoveredCategory];
+          if (!catColors) return displayText;
+          // Parse the focusHighlight to get plain text + ranges
+          const { plain: focusPlain, ranges } = parseFocusHighlight(hoveredFocusHighlight);
+          if (ranges.length === 0) return displayText;
+          // Inject <mark> tags into the HTML by finding the highlighted substrings
+          // and replacing them in the display HTML
+          let result = displayText;
+          // Work backwards so indices don't shift
+          for (let i = ranges.length - 1; i >= 0; i--) {
+            const snippet = focusPlain.slice(ranges[i].start, ranges[i].end);
+            // Escape regex special chars in the snippet
+            const escaped = snippet.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            result = result.replace(
+              new RegExp(escaped),
+              `<mark style="background:${catColors.bg};padding:0;color:inherit;border-radius:3px">${snippet}</mark>`
+            );
+          }
+          return result;
+        })() }}
       />
       {isOverflowing && (
         <Anchor

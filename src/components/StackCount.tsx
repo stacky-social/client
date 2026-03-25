@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Paper, Text, Transition, Loader } from '@mantine/core';
+import { Paper, Text, Loader } from '@mantine/core';
+import { toggleFilterCategory, useHighlightStore } from '../utils/highlightStore';
 import {
   IconQuestionMark,
   IconBulb,
@@ -83,23 +84,21 @@ const styles = {
     flexDirection: 'column' as const,
     gap: 5,
     width: '100%',
-    maxHeight: `${cardHeight * 0.7}px`,
-    overflowY: 'auto' as const,
-    overflowX: 'hidden' as const,
     paddingTop: 4,
+    maxHeight: `${cardHeight * 0.65}px`,
+    overflow: 'hidden' as const,
   }),
-  item: (cardHeight: number, isFirst: boolean, isHovered: boolean) => ({
+  item: (isHovered: boolean, isFilterActive: boolean) => ({
     display: 'flex',
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     gap: 4,
     padding: '2px 6px',
-    backgroundColor: isFirst ? '#e3ffe0' : isHovered ? '#f0fff0' : 'transparent',
+    backgroundColor: isFilterActive ? '#e3ffe0' : isHovered ? '#f0fff0' : 'transparent',
     borderRadius: 5,
     transition: 'background-color 0.3s ease',
-    width: '90%',
-    maxHeight: `${cardHeight / 5}px`,
+    width: '100%',
     minHeight: 20,
   }),
   itemText: { margin: 0, color: '#555' },
@@ -139,6 +138,7 @@ const StackCount: React.FC<StackCountProps> = ({
   if (count === -1) return null;
 
   const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
+  const { filterCategory } = useHighlightStore();
 
   const handlePaperClick = (event: React.MouseEvent) => {
     event.preventDefault();
@@ -170,28 +170,28 @@ const StackCount: React.FC<StackCountProps> = ({
           >
             {relatedStacks.map((stack, index) => {
               const isHovered = hoveredIndex === index;
-              const isFirst = index === 0;
+              const isFilterActive = filterCategory === stack.rel;
 
               return (
                 <motion.div
                   key={stack.stackId || index}
                   variants={itemVariants}
-                  style={styles.item(cardHeight, isFirst, isHovered)}
+                  style={styles.item(isHovered, isFilterActive)}
                   onMouseEnter={() => setHoveredIndex(index)}
                   onMouseLeave={() => setHoveredIndex(null)}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onStackClick(index);
+                    toggleFilterCategory(stack.rel);
                   }}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      onStackClick(index);
+                      toggleFilterCategory(stack.rel);
                     }
                   }}
-                  aria-label={`Open stack ${stack.rel} (${stack.size})`}
+                  aria-label={`Filter by ${stack.rel} (${stack.size})`}
                 >
                   {getIcon(stack.rel)}
                   <Text size="xs" style={styles.itemText}>
