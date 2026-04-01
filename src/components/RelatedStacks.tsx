@@ -92,6 +92,69 @@ function getCategoryColors(rel: string): CategoryStyle {
   return CATEGORY_COLORS[rel] ?? CATEGORY_COLORS.uncategorized;
 }
 
+// ─── Highlight tooltip (viewport-clamped, glassmorphism) ────────────────────
+
+function HighlightTooltip({ topic, categoryColors, onClickMoreLikeThis }: {
+  topic?: string; categoryColors: CategoryStyle; onClickMoreLikeThis: () => void;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [nudge, setNudge] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const pad = 8;
+    if (rect.left < pad) {
+      setNudge(-rect.left + pad);
+    } else if (rect.right > window.innerWidth - pad) {
+      setNudge(window.innerWidth - pad - rect.right);
+    } else {
+      setNudge(0);
+    }
+  });
+
+  return (
+    <span
+      style={{
+        position: 'absolute', bottom: '100%', left: '50%',
+        transform: `translateX(calc(-50% + ${nudge}px))`,
+        paddingBottom: 8,
+        whiteSpace: 'nowrap', zIndex: 20, pointerEvents: 'auto',
+      }}
+    >
+      <span
+        ref={ref}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: 'rgba(255,255,255,0.72)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          borderRadius: 10, padding: '6px 12px',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.06)',
+          border: '1px solid rgba(255,255,255,0.5)',
+        }}
+      >
+        {topic && <span style={{ fontSize: 11, color: '#475569', fontWeight: 500 }}>{topic}</span>}
+        <button
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onClickMoreLikeThis(); }}
+          onMouseUp={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{
+            background: hexToRgba(categoryColors.bg, 0.85),
+            border: `1px solid ${categoryColors.border}`, borderRadius: 6,
+            padding: '3px 10px', cursor: 'pointer',
+            fontSize: 11, fontWeight: 600, color: categoryColors.text,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          See more like this
+        </button>
+      </span>
+    </span>
+  );
+}
+
 // ─── Filter chip ─────────────────────────────────────────────────────────────
 
 function FilterChip({ category, count, active, onClick }: {
@@ -302,41 +365,11 @@ function buildMultiHighlightNodes(
             {markContent}
           </mark>
           {isThisRangeHovered && (
-            <span
-              style={{
-                position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
-                paddingBottom: 8, /* bridge gap between mark and tooltip */
-                whiteSpace: 'nowrap', zIndex: 20, pointerEvents: 'auto',
-              }}
-            >
-              <span
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  background: 'rgba(255,255,255,0.72)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  borderRadius: 10, padding: '6px 12px',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.06)',
-                  border: '1px solid rgba(255,255,255,0.5)',
-                }}
-              >
-                <span style={{ fontSize: 11, color: '#475569', fontWeight: 500 }}>{c.topic}</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); if (opts.onRangeClick) opts.onRangeClick(c.rangeIndex); }}
-                  onMouseUp={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  style={{
-                    background: hexToRgba(colors.bg, 0.85), border: `1px solid ${colors.border}`, borderRadius: 6,
-                    padding: '3px 10px', cursor: 'pointer',
-                    fontSize: 11, fontWeight: 600, color: colors.text,
-                    whiteSpace: 'nowrap',
-                    backdropFilter: 'blur(4px)',
-                  }}
-                >
-                  See more like this
-                </button>
-              </span>
-            </span>
+            <HighlightTooltip
+              topic={c.topic}
+              categoryColors={colors}
+              onClickMoreLikeThis={() => { if (opts.onRangeClick) opts.onRangeClick(c.rangeIndex); }}
+            />
           )}
         </span>
       );
