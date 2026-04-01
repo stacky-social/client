@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import type { HighlightMeta } from "../types/PostType";
 
 // ─── State ──────────────────────────────────────────────────────────────────
 
@@ -9,12 +10,18 @@ interface HighlightState {
   hoveredPostId: string | null;
   /** The `content_highlight` value of the hovered post (with ⌊bracket⌋ markers) */
   hoveredContentHighlight: string | null;
-  /** Category of the hovered post (e.g. "agree", "disagree") */
+  /** Primary category of the hovered post (e.g. "agree", "disagree") */
   hoveredCategory: string | null;
-  /** The focus post's text with ⌊bracket⌋ markers showing which part this sidebar post responds to */
+  /** The focus post's text with ⌊bracket⌋ markers showing which parts this sidebar post responds to */
   hoveredFocusHighlight: string | null;
+  /** Per-range metadata for the hovered post's highlight substrings */
+  hoveredHighlightsMeta: HighlightMeta[] | null;
   /** Which category to filter the sidebar by (null = show all) */
   filterCategory: string | null;
+  /** Level 2: which specific substring within the hovered card is being hovered (index into bracket pairs) */
+  hoveredHighlightRangeIndex: number | null;
+  /** "More like this" anchor post IDs for nested re-ranking (ordered by when added) */
+  reRankAnchorIds: string[];
 }
 
 const INITIAL: HighlightState = {
@@ -22,7 +29,10 @@ const INITIAL: HighlightState = {
   hoveredContentHighlight: null,
   hoveredCategory: null,
   hoveredFocusHighlight: null,
+  hoveredHighlightsMeta: null,
   filterCategory: null,
+  hoveredHighlightRangeIndex: null,
+  reRankAnchorIds: [],
 };
 
 // ─── Module-level store ─────────────────────────────────────────────────────
@@ -41,6 +51,7 @@ export function setHoveredSidebarPost(
   contentHighlight?: string | null,
   category?: string | null,
   focusHighlight?: string | null,
+  highlightsMeta?: HighlightMeta[] | null,
 ): void {
   if (state.hoveredPostId === postId) return;
   state = {
@@ -49,7 +60,32 @@ export function setHoveredSidebarPost(
     hoveredContentHighlight: postId ? (contentHighlight ?? null) : null,
     hoveredCategory: postId ? (category ?? null) : null,
     hoveredFocusHighlight: postId ? (focusHighlight ?? null) : null,
+    hoveredHighlightsMeta: postId ? (highlightsMeta ?? null) : null,
+    hoveredHighlightRangeIndex: null, // reset substring hover on card change
   };
+  notify();
+}
+
+export function setHoveredHighlightRangeIndex(index: number | null): void {
+  if (state.hoveredHighlightRangeIndex === index) return;
+  state = { ...state, hoveredHighlightRangeIndex: index };
+  notify();
+}
+
+/** Toggle a post as an anchor. Removes only this anchor — remaining anchors recompute naturally. */
+export function toggleReRankAnchor(postId: string): void {
+  const idx = state.reRankAnchorIds.indexOf(postId);
+  if (idx >= 0) {
+    state = { ...state, reRankAnchorIds: state.reRankAnchorIds.filter(id => id !== postId) };
+  } else {
+    state = { ...state, reRankAnchorIds: [...state.reRankAnchorIds, postId] };
+  }
+  notify();
+}
+
+export function clearReRankAnchors(): void {
+  if (state.reRankAnchorIds.length === 0) return;
+  state = { ...state, reRankAnchorIds: [] };
   notify();
 }
 

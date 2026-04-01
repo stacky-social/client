@@ -50,6 +50,20 @@ export type CategoryKey =
   | 'proposals'
   | 'uncategorized';
 
+/** Per-substring metadata for multi-range highlights.
+ *  The i-th entry corresponds to the i-th ⌊...⌋ pair in both
+ *  content_highlight and focusHighlight. */
+export interface HighlightMeta {
+  /** Category/type for THIS specific substring (may differ from post's primary category) */
+  category: CategoryKey;
+  /** Short topic label from NLP, e.g. "Trial results" */
+  topic?: string;
+  /** Key phrase WITHIN the focus post's highlighted range to bold (substring of the focus highlight) */
+  focusComment?: string;
+  /** Key phrase WITHIN the related post's highlighted range to bold (substring of the content highlight) */
+  contentComment?: string;
+}
+
 export interface FocusPostMock {
   id: string;
   /** HTML string (Mastodon-style, e.g. <p>…</p>) used for default rendering */
@@ -77,14 +91,16 @@ export interface RelatedPostMock {
   globalRank: number;
   /** Plain text of the related post */
   content: string;
-  /** content with ⌊bracket⌋ markers indicating the highlighted span */
+  /** content with MULTIPLE ⌊bracket⌋ markers indicating highlighted spans */
   content_highlight: string;
   /**
-   * The focus post's plainText with ⌊bracket⌋ markers indicating which
-   * substring this post is responding to. Parsed by parseHighlight() to
-   * drive cross-post highlighting in FocusPost.
+   * The focus post's plainText with MULTIPLE ⌊bracket⌋ markers indicating which
+   * substrings this post is responding to. The i-th bracket pair here corresponds
+   * to the i-th bracket pair in content_highlight and the i-th highlightsMeta entry.
    */
   focusHighlight: string;
+  /** Per-range metadata: category, topic, comment for each bracket pair */
+  highlightsMeta?: HighlightMeta[];
   account: {
     display_name: string;
     acct: string;

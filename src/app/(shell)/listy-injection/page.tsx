@@ -32,6 +32,7 @@ function toTopPost(rp: RelatedPostMock) {
     rewrite: { content: rp.rewrite?.content ?? rp.content, significant: rp.rewrite?.significant ?? false },
     content_highlight: rp.content_highlight,
     focus_highlight: (rp as any).focusHighlight ?? undefined,
+    highlights_meta: rp.highlightsMeta ?? undefined,
   };
 }
 
@@ -160,6 +161,8 @@ function syntheticEntryFromRelated(rp: RelatedPostMock, parentEntry: ListyInject
       globalRank: idx + 1,
       rank: idx + 1,
       focusHighlight: syntheticFocusHL,
+      // Synthetic entries get a single-range highlightsMeta matching the post's primary category
+      highlightsMeta: [{ category: post.category, topic: undefined, comment: undefined }],
     }));
 
   return {
@@ -369,7 +372,7 @@ export default function ListyInjectionPage() {
         avatar={postData.avatar}
         repliesCount={postData.replies_count}
         createdAt={postData.createdAt}
-        stackCount={opts?.isAncestor ? -1 : postData.stackCount}
+        stackCount={-1}
         favouritesCount={postData.favouritesCount}
         favourited={postData.favourited}
         bookmarked={postData.bookmarked}

@@ -10,21 +10,32 @@ import AnnotationModal from '../AnnotationModal';
 import { PreviewCardType } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
 import { useHighlightStore } from '../../utils/highlightStore';
+import type { HighlightMeta } from '../../types/PostType';
 
 // ─── Focus post cross-highlight helpers ──────────────────────────────────────
 
 interface HighlightRange { start: number; end: number }
 
-/** Strip ⌊bracket⌋ markers from focusHighlight, return plain text + ranges */
+/** Strip bracket markers from focusHighlight, return plain text + ranges.
+ *  Supports overlapping ranges: ⌊...⌋, ⌈...⌉, ⟦...⟧ tracked independently. */
 function parseFocusHighlight(text: string): { plain: string; ranges: HighlightRange[] } {
   let plain = '';
   const ranges: HighlightRange[] = [];
-  let hlStart = -1;
+  const openStarts: Record<string, number> = {};
+  const closerToOpener: Record<string, string> = { '⌋': '⌊', '⌉': '⌈', '⟧': '⟦' };
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
-    if (ch === '⌊' || ch === '⌈' || ch === '⟦') { hlStart = plain.length; }
-    else if (ch === '⌋' || ch === '⌉' || ch === '⟧') { if (hlStart >= 0) ranges.push({ start: hlStart, end: plain.length }); hlStart = -1; }
-    else { plain += ch; }
+    if (ch === '⌊' || ch === '⌈' || ch === '⟦') {
+      openStarts[ch] = plain.length;
+    } else if (ch === '⌋' || ch === '⌉' || ch === '⟧') {
+      const opener = closerToOpener[ch];
+      if (opener in openStarts) {
+        ranges.push({ start: openStarts[opener], end: plain.length });
+        delete openStarts[opener];
+      }
+    } else {
+      plain += ch;
+    }
   }
   return { plain, ranges };
 }
@@ -48,6 +59,74 @@ const CROSS_HIGHLIGHT_CATEGORY_COLORS: Record<string, { bg: string; border: stri
   proposals:          { bg: "#e8eaf6", border: "#3f51b5" },
   pointers:           { bg: "#e8eaf6", border: "#3f51b5" },
 };
+
+/** Convert hex color to rgba string */
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/** Render multi-range focus highlights into HTML.
+ *  Each range gets its own category color from highlightsMeta.
+ *  Level 2: when hoveredRangeIndex is set, non-active highlights dim their BACKGROUND only — text stays fully readable. */
+function renderMultiHighlightHtml(
+  displayHtml: string,
+  focusHighlight: string,
+  highlightsMeta: HighlightMeta[] | null,
+  hoveredCategory: string,
+  hoveredRangeIndex: number | null,
+): string {
+  const { plain: focusPlain, ranges } = parseFocusHighlight(focusHighlight);
+  if (ranges.length === 0) return displayHtml;
+
+  const entries = ranges.map((r, i) => {
+    const meta = highlightsMeta?.[i];
+    const cat = meta?.category ?? hoveredCategory;
+    const catColors = CROSS_HIGHLIGHT_CATEGORY_COLORS[cat];
+    if (!catColors) return null;
+
+    const snippet = focusPlain.slice(r.start, r.end);
+    const bgAlpha = (hoveredRangeIndex === null || hoveredRangeIndex === i) ? 1 : 0.2;
+    const bgColor = bgAlpha < 1 ? hexToRgba(catColors.bg, bgAlpha) : catColors.bg;
+    const focusComment = meta?.focusComment;
+
+    return { snippet, cat, bgColor, focusComment, index: i };
+  }).filter(Boolean) as Array<{ snippet: string; cat: string; bgColor: string; focusComment?: string; index: number }>;
+
+  // Sort by longest snippet first to avoid partial matches
+  entries.sort((a, b) => b.snippet.length - a.snippet.length);
+
+  let result = displayHtml;
+  const usedPositions = new Set<number>();
+
+  for (const entry of entries) {
+    const escaped = entry.snippet.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped, 'g');
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(result)) !== null) {
+      if (!usedPositions.has(match.index)) {
+        usedPositions.add(match.index);
+        // Bold the focusComment phrase — only when this range is bright (not dimmed by Level 2)
+        const isBright = hoveredRangeIndex === null || hoveredRangeIndex === entry.index;
+        let innerHtml = entry.snippet;
+        if (isBright && entry.focusComment && entry.snippet.includes(entry.focusComment)) {
+          const ci = entry.snippet.indexOf(entry.focusComment);
+          const before = entry.snippet.slice(0, ci);
+          const bold = `<span style="text-shadow:0 0 0.7px currentColor,0 0 0.7px currentColor">${entry.focusComment}</span>`;
+          const after = entry.snippet.slice(ci + entry.focusComment.length);
+          innerHtml = before + bold + after;
+        }
+        const markHtml = `<mark style="background:${entry.bgColor};padding:1px 0;color:inherit;border-radius:3px;transition:background 200ms ease">${innerHtml}</mark>`;
+        result = result.slice(0, match.index) + markHtml + result.slice(match.index + entry.snippet.length);
+        break;
+      }
+    }
+  }
+
+  return result;
+}
 
 type PreviewCard = PreviewCardType;
 
@@ -157,7 +236,7 @@ export default function Post({
   const [isExpanded, setIsExpanded] = useState(isActive);
   const [isTextExpanded, setIsTextExpanded] = useState(false);
   const [hovered, setHovered] = useState(false);
-  const { hoveredPostId, hoveredCategory, hoveredFocusHighlight } = useHighlightStore();
+  const { hoveredPostId, hoveredCategory, hoveredFocusHighlight, hoveredHighlightsMeta, hoveredHighlightRangeIndex } = useHighlightStore();
   const showCrossHighlight = isActive && !!hoveredPostId;
 
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>(initialCard ? [initialCard] : []);
@@ -499,26 +578,15 @@ export default function Post({
           color: '#011445'
         }}
         dangerouslySetInnerHTML={{ __html: (() => {
+          // No highlights by default — only show when a sidebar card is hovered
           if (!showCrossHighlight || !hoveredFocusHighlight || !hoveredCategory) return displayText;
-          const catColors = CROSS_HIGHLIGHT_CATEGORY_COLORS[hoveredCategory];
-          if (!catColors) return displayText;
-          // Parse the focusHighlight to get plain text + ranges
-          const { plain: focusPlain, ranges } = parseFocusHighlight(hoveredFocusHighlight);
-          if (ranges.length === 0) return displayText;
-          // Inject <mark> tags into the HTML by finding the highlighted substrings
-          // and replacing them in the display HTML
-          let result = displayText;
-          // Work backwards so indices don't shift
-          for (let i = ranges.length - 1; i >= 0; i--) {
-            const snippet = focusPlain.slice(ranges[i].start, ranges[i].end);
-            // Escape regex special chars in the snippet
-            const escaped = snippet.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            result = result.replace(
-              new RegExp(escaped),
-              `<mark style="background:${catColors.bg};padding:0;color:inherit;border-radius:3px">${snippet}</mark>`
-            );
-          }
-          return result;
+          return renderMultiHighlightHtml(
+            displayText,
+            hoveredFocusHighlight,
+            hoveredHighlightsMeta,
+            hoveredCategory,
+            hoveredHighlightRangeIndex,
+          );
         })() }}
       />
       {isOverflowing && (
