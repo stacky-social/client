@@ -100,19 +100,18 @@ function HighlightTooltip({ topic, categoryColors, onClickMoreLikeThis }: {
   const ref = useRef<HTMLSpanElement>(null);
   const [nudge, setNudge] = useState(0);
 
+  // Measure once on mount — use layoutEffect to avoid flash
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const pad = 8;
-    if (rect.left < pad) {
-      setNudge(-rect.left + pad);
-    } else if (rect.right > window.innerWidth - pad) {
-      setNudge(window.innerWidth - pad - rect.right);
-    } else {
-      setNudge(0);
-    }
-  });
+    let n = 0;
+    if (rect.left < pad) n = -rect.left + pad;
+    else if (rect.right > window.innerWidth - pad) n = window.innerWidth - pad - rect.right;
+    if (n !== nudge) setNudge(n);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <span
