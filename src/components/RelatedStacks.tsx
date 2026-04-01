@@ -121,6 +121,13 @@ function FilterChip({ category, count, active, onClick }: {
 
 // ─── Highlight helpers (offset-based) ────────────────────────────────────────
 
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 interface HighlightRange { start: number; end: number }
 
 // ─── Overlap detection for multi-range highlights ────────────────────────────
@@ -160,7 +167,9 @@ function buildMultiHighlightNodes(
     isCardHovered: boolean;
     anyCardHovered: boolean;
     hoveredRangeIndex: number | null;
+    anchoredRangeIndex: number | null;
     onRangeHover: (index: number | null) => void;
+    onRangeClick?: (index: number) => void;
   },
 ): React.ReactNode[] {
   if (!relations || relations.length === 0) return [plain];
@@ -199,19 +208,25 @@ function buildMultiHighlightNodes(
         const cc = getCategoryColors(c.category);
         return { ...c, colors: cc };
       });
-      const gradientStops = cats.map((c, i) => {
-        const pct1 = (i / cats.length) * 100;
-        const pct2 = ((i + 1) / cats.length) * 100;
-        return `${c.colors.bg} ${pct1}%, ${c.colors.bg} ${pct2}%`;
-      }).join(', ');
       const tooltipLines = cats.map(c =>
         `${CATEGORY_LABELS[c.category] ?? c.category}${c.topic ? `: ${c.topic}` : ''}`
       ).join('\n');
 
       const anyHovered = seg.contributors.some(c => opts.hoveredRangeIndex === c.rangeIndex);
-      const opacity = opts.isCardHovered
-        ? (opts.hoveredRangeIndex !== null ? (anyHovered ? 1 : 0.25) : 1)
-        : opts.anyCardHovered ? 0.3 : 0.75;
+      let overlapAlpha: number;
+      if (opts.isCardHovered) {
+        overlapAlpha = opts.hoveredRangeIndex !== null ? (anyHovered ? 1 : 0.2) : 1;
+      } else if (opts.anyCardHovered) {
+        overlapAlpha = 0.25;
+      } else {
+        overlapAlpha = 0.7;
+      }
+      const gradientStops = cats.map((c, i) => {
+        const pct1 = (i / cats.length) * 100;
+        const pct2 = ((i + 1) / cats.length) * 100;
+        const rgba = hexToRgba(c.colors.bg, overlapAlpha);
+        return `${rgba} ${pct1}%, ${rgba} ${pct2}%`;
+      }).join(', ');
 
       nodes.push(
         <mark
@@ -221,8 +236,7 @@ function buildMultiHighlightNodes(
             background: `linear-gradient(180deg, ${gradientStops})`,
             color: 'inherit', borderRadius: '3px', padding: '1px 0',
             border: '1px dashed rgba(0,0,0,0.2)',
-            opacity,
-            transition: 'opacity 200ms ease',
+            transition: 'background 200ms ease',
             cursor: 'pointer',
           }}
         >
@@ -235,26 +249,30 @@ function buildMultiHighlightNodes(
       const colors = getCategoryColors(c.category);
       const isThisRangeHovered = opts.hoveredRangeIndex === c.rangeIndex;
 
-      // 3-level opacity with cross-card dimming
-      let opacity: number;
-      let pseudoBold: boolean;
-      if (opts.isCardHovered) {
+      // 3-level background alpha — dims highlight background only, text stays readable
+      const isAnchored = opts.anchoredRangeIndex === c.rangeIndex;
+      let bgAlpha: number;
+      if (isAnchored) {
+        bgAlpha = 1; // Anchored range always stays bright
+      } else if (opts.anchoredRangeIndex !== null && !opts.isCardHovered) {
+        bgAlpha = 0.2; // Another range in this card is anchored — dim this one
+      } else if (opts.isCardHovered) {
         if (opts.hoveredRangeIndex === null) {
-          opacity = 1; pseudoBold = true; // Level 1: this card hovered, all its highlights bright
+          bgAlpha = 1; // Level 1: this card hovered, all its highlights bright
         } else {
-          opacity = isThisRangeHovered ? 1 : 0.25; // Level 2: specific range hovered
-          pseudoBold = isThisRangeHovered;
+          bgAlpha = isThisRangeHovered ? 1 : 0.2; // Level 2: specific range hovered
         }
       } else if (opts.anyCardHovered) {
-        opacity = 0.3; pseudoBold = false; // Another card is hovered — dim these highlights
+        bgAlpha = 0.25; // Another card is hovered — dim these highlights
       } else {
-        opacity = 0.75; pseudoBold = false; // Level 0: no hover anywhere — readable default
+        bgAlpha = opts.anchoredRangeIndex !== null ? 0.2 : 0.7; // default
       }
+      const bgColor = bgAlpha < 1 ? hexToRgba(colors.bg, bgAlpha) : colors.bg;
 
       // Bold the contentComment phrase only on card hover (Level 1+)
       const commentPhrase = c.comment;
       let markContent: React.ReactNode;
-      if (opts.isCardHovered && commentPhrase && segText.includes(commentPhrase)) {
+      if (isThisRangeHovered && commentPhrase && segText.includes(commentPhrase)) {
         const ci = segText.indexOf(commentPhrase);
         markContent = (
           <>
@@ -268,20 +286,59 @@ function buildMultiHighlightNodes(
       }
 
       nodes.push(
-        <mark
+        <span
           key={`r${c.rangeIndex}-${seg.start}`}
-          title={c.topic || undefined}
+          style={{ position: 'relative', display: 'inline' }}
           onMouseEnter={() => opts.onRangeHover(c.rangeIndex)}
           onMouseLeave={() => opts.onRangeHover(null)}
-          style={{
-            background: colors.bg, color: 'inherit', borderRadius: '3px', padding: '1px 0',
-            opacity,
-            transition: 'opacity 200ms ease',
-            cursor: 'pointer',
-          }}
         >
-          {markContent}
-        </mark>
+          <mark
+            style={{
+              background: bgColor, color: 'inherit', borderRadius: '3px', padding: '1px 0',
+              transition: 'background 200ms ease',
+              cursor: 'pointer',
+            }}
+          >
+            {markContent}
+          </mark>
+          {isThisRangeHovered && (
+            <span
+              style={{
+                position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+                paddingBottom: 8, /* bridge gap between mark and tooltip */
+                whiteSpace: 'nowrap', zIndex: 20, pointerEvents: 'auto',
+              }}
+            >
+              <span
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  background: 'rgba(255,255,255,0.72)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  borderRadius: 10, padding: '6px 12px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.06)',
+                  border: '1px solid rgba(255,255,255,0.5)',
+                }}
+              >
+                <span style={{ fontSize: 11, color: '#475569', fontWeight: 500 }}>{c.topic}</span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); if (opts.onRangeClick) opts.onRangeClick(c.rangeIndex); }}
+                  onMouseUp={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  style={{
+                    background: hexToRgba(colors.bg, 0.85), border: `1px solid ${colors.border}`, borderRadius: 6,
+                    padding: '3px 10px', cursor: 'pointer',
+                    fontSize: 11, fontWeight: 600, color: colors.text,
+                    whiteSpace: 'nowrap',
+                    backdropFilter: 'blur(4px)',
+                  }}
+                >
+                  See more like this
+                </button>
+              </span>
+            </span>
+          )}
+        </span>
       );
 
     }
@@ -356,7 +413,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const [favouritedOverride, setFavouritedOverride] = useState<Record<string, boolean>>({});
   const [bookmarkedOverride, setBookmarkedOverride] = useState<Record<string, boolean>>({});
   const [favouritesCountOverride, setFavouritesCountOverride] = useState<Record<string, number>>({});
-  const { filterCategory, hoveredHighlightRangeIndex, reRankAnchorIds } = useHighlightStore();
+  const { filterCategory, hoveredHighlightRangeIndex, reRankAnchorIds, anchoredRangeByPost } = useHighlightStore();
   // Per-card expanded state, keyed by stackId
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
@@ -396,59 +453,62 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const SIMILARITY_THRESHOLD = 0.15;
 
   /** Nested re-ranking: process anchors in order, each pulling unclaimed similar posts after itself. */
-  const { displayStacks, claimedBy, anchorSet } = useMemo(() => {
+  const { displayStacks, claimedBy, anchorSet, anchorParent } = useMemo(() => {
     let stacks = relatedStacks;
     if (filterCategory) {
       stacks = stacks.filter((s) => s.rel === filterCategory);
     }
 
     if (reRankAnchorIds.length === 0) {
-      return { displayStacks: stacks, claimedBy: new Map<string, string>(), anchorSet: new Set<string>() };
+      return { displayStacks: stacks, claimedBy: new Map<string, string>(), anchorSet: new Set<string>(), anchorParent: new Map<string, string>() };
     }
 
     const anchorSet = new Set(reRankAnchorIds);
-    const claimedBy = new Map<string, string>(); // postId -> anchorId that claimed it
+    const claimedBy = new Map<string, string>(); // postId -> anchorId
+    const anchorParent = new Map<string, string>(); // anchorId -> parent anchorId
     let result = [...stacks];
 
-    for (const anchorId of reRankAnchorIds) {
+    for (let ai = 0; ai < reRankAnchorIds.length; ai++) {
+      const anchorId = reRankAnchorIds[ai];
       const anchorIdx = result.findIndex(s => s.topPost.id === anchorId);
       if (anchorIdx === -1) continue;
+
+      // Determine if this anchor sits inside another anchor's group
+      for (let k = anchorIdx - 1; k >= 0; k--) {
+        const prevId = result[k].topPost.id;
+        if (anchorSet.has(prevId)) { anchorParent.set(anchorId, prevId); break; }
+        if (!claimedBy.has(prevId)) break;
+      }
 
       const anchor = result[anchorIdx];
       const anchorContent = anchor.topPost.content;
 
-      // Find similar posts: not self, not another anchor (anchors are pinned)
-      // No claimedBy check — later anchors re-claim, last anchor wins
+      // Find similar posts: skip self and senior anchors (added before this one)
       const similar: { stack: RelatedStackType; score: number }[] = [];
       for (const s of result) {
         if (s.topPost.id === anchorId) continue;
-        if (anchorSet.has(s.topPost.id)) continue;
+        // Skip anchors that were added BEFORE this one — they're senior, don't move them
+        const sAnchorOrder = reRankAnchorIds.indexOf(s.topPost.id);
+        if (sAnchorOrder >= 0 && sAnchorOrder < ai) continue;
         const score = similarityScore(s.topPost.content, anchorContent);
         if (score > SIMILARITY_THRESHOLD) {
           similar.push({ stack: s, score });
         }
       }
       similar.sort((a, b) => b.score - a.score);
-
       if (similar.length === 0) continue;
 
-      // Mark as claimed
       for (const { stack } of similar) {
         claimedBy.set(stack.topPost.id, anchorId);
       }
 
-      // Remove similar posts from current positions
       const similarIds = new Set(similar.map(s => s.stack.topPost.id));
       result = result.filter(s => !similarIds.has(s.topPost.id));
-
-      // Re-find anchor position (shifted after removals)
       const newAnchorIdx = result.findIndex(s => s.topPost.id === anchorId);
-
-      // Insert similar right after anchor
       result.splice(newAnchorIdx + 1, 0, ...similar.map(s => s.stack));
     }
 
-    return { displayStacks: result, claimedBy, anchorSet };
+    return { displayStacks: result, claimedBy, anchorSet, anchorParent };
   }, [relatedStacks, filterCategory, reRankAnchorIds]);
 
   const EDGE_HOVER_HEIGHT = 28;
@@ -495,10 +555,23 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   // hoveredCardIndex: tracks which card the mouse is actually over (for highlight marks + cross-highlighting)
   const [hoveredCardIndex, setHoveredCardIndex] = useState<number | null>(null);
 
-  // Reset stale hover state when stacks change (prevents dim→bright blink on focus post switch)
+  // Debounced range hover — prevents Level 2 from firing immediately on card enter
+  const rangeHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedRangeHover = useRef((idx: number | null) => {
+    if (rangeHoverTimer.current) clearTimeout(rangeHoverTimer.current);
+    if (idx === null) {
+      setHoveredHighlightRangeIndex(null);
+    } else {
+      rangeHoverTimer.current = setTimeout(() => setHoveredHighlightRangeIndex(idx), 200);
+    }
+  }).current;
+
+  // Reset stale hover + anchors when stacks change (new focus post)
   useEffect(() => {
     setHoveredCardIndex(null);
     setHoveredIndex(null);
+    if (rangeHoverTimer.current) clearTimeout(rangeHoverTimer.current);
+    clearReRankAnchors();
   }, [relatedStacks]);
 
   return (
@@ -579,9 +652,27 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             windowContent(plainContent, rels, isExpanded);
           const isTruncated = hasPrefix || hasSuffix;
 
-          // "More like this" visual state
+          // "More like this" visual state + nesting depth for indentation
           const isAnchor = anchorSet.has(stack.topPost.id);
           const isReRanked = claimedBy.has(stack.topPost.id);
+          // Calculate indent depth by walking the anchor chain
+          let indentDepth = 0;
+          if (isReRanked) {
+            // Claimed post: depth = 1 (for its claimer) + claimer's own depth
+            let aid = claimedBy.get(stack.topPost.id);
+            while (aid) {
+              indentDepth++;
+              aid = anchorParent.get(aid); // walk anchor's parent chain
+            }
+          } else if (isAnchor) {
+            // Anchor itself: depth from its parent chain
+            let aid = anchorParent.get(stack.topPost.id);
+            while (aid) {
+              indentDepth++;
+              aid = anchorParent.get(aid);
+            }
+          }
+          const indentPx = indentDepth * 16;
 
           // Card-level dim/bright: when any card is hovered, non-hovered cards dim
           const anyCardHovered = hoveredCardIndex !== null;
@@ -596,7 +687,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               isCardHovered,
               anyCardHovered,
               hoveredRangeIndex: isCardHovered ? hoveredHighlightRangeIndex : null,
-              onRangeHover: (idx) => setHoveredHighlightRangeIndex(idx),
+              anchoredRangeIndex: anchoredRangeByPost[stack.topPost.id] ?? null,
+              onRangeHover: debouncedRangeHover,
+              onRangeClick: (ri) => toggleReRankAnchor(stack.topPost.id, ri),
             },
           );
 
@@ -634,42 +727,45 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 style={{
                   position: 'relative', width: '100%', backgroundColor: '#ffffff', zIndex: 5,
                   borderRadius: '10px', margin: '0 auto', paddingTop: '40px',
-                  border: isAnchor ? '2px solid #3b5998' : isReRanked ? '2px solid #b0c4e8' : `2px solid ${colors.border}`,
+                  border: `2px solid ${colors.border}`,
                   boxShadow: stack.size > 1 ? 'none' : '0 2px 12px rgba(0,0,0,0.06)',
                   transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
                   cursor: 'pointer',
-                  ...(isReRanked ? { borderLeft: '4px solid #3b5998' } : {}),
+                  marginLeft: indentPx > 0 ? `${indentPx}px` : undefined,
                 }}
               >
-                {/* Category badge + re-ranked indicator */}
-                <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '6px', alignItems: 'center', zIndex: 10 }}>
-                  <div style={{
-                    background: colors.bg, color: colors.text, borderRadius: '5px',
-                    padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '5px',
-                    border: `1px solid ${colors.border}`,
-                  }}>
-                    {React.cloneElement(iconMapping[stack.rel] || iconMapping['default'], { color: colors.text, size: 14 })}
-                    <Text size="xs" c={colors.text} fw={700} style={{ fontSize: '11px' }}>
-                      {CATEGORY_LABELS[stack.rel] ?? stack.rel}
-                    </Text>
-                  </div>
-                  {isReRanked && (
-                    <div style={{
-                      background: '#eef2fb', borderRadius: '5px', padding: '2px 7px',
-                      border: '1px solid #b0c4e8',
-                      display: 'flex', alignItems: 'center', gap: '3px',
-                    }}>
-                      <Text size="xs" c="#3b5998" fw={600} style={{ fontSize: '10px' }}>Similar</Text>
-                    </div>
-                  )}
-                  {isAnchor && (
-                    <div style={{
-                      background: '#3b5998', borderRadius: '5px', padding: '2px 7px',
-                      display: 'flex', alignItems: 'center', gap: '3px',
-                    }}>
-                      <Text size="xs" c="#fff" fw={600} style={{ fontSize: '10px' }}>Anchor</Text>
-                    </div>
-                  )}
+                {/* Category tags — one per unique relation category, dims/brightens with highlight hover */}
+                <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '4px', alignItems: 'center', zIndex: 10, flexWrap: 'wrap' }}>
+                  {(() => {
+                    // Dedupe categories from relations, preserving order
+                    const rels = stack.topPost.relations ?? [];
+                    const seen = new Set<string>();
+                    const tags: { cat: string; indices: number[] }[] = [];
+                    for (let ri = 0; ri < rels.length; ri++) {
+                      const cat = rels[ri].category;
+                      if (!seen.has(cat)) { seen.add(cat); tags.push({ cat, indices: [ri] }); }
+                      else { tags.find(t => t.cat === cat)?.indices.push(ri); }
+                    }
+                    const hri = isCardHovered ? hoveredHighlightRangeIndex : null;
+                    return tags.map(({ cat, indices }) => {
+                      const tc = getCategoryColors(cat);
+                      const tagBright = hri === null || indices.includes(hri);
+                      return (
+                        <div key={cat} style={{
+                          background: tc.bg, color: tc.text, borderRadius: '5px',
+                          padding: '2px 7px', display: 'flex', alignItems: 'center', gap: '4px',
+                          border: `1px solid ${tc.border}`,
+                          opacity: tagBright ? 1 : 0.3,
+                          transition: 'opacity 200ms ease',
+                        }}>
+                          {React.cloneElement(iconMapping[cat] || iconMapping['default'], { color: tc.text, size: 12 })}
+                          <Text size="xs" c={tc.text} fw={700} style={{ fontSize: '10px' }}>
+                            {CATEGORY_LABELS[cat] ?? cat}
+                          </Text>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
 
                 <div style={{ position: 'absolute', top: '12px', right: '10px', zIndex: 10 }}>
@@ -737,21 +833,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       active={isBookmarked(stack.topPost.id, stack.topPost.bookmarked)} />
                     <InteractionControl icon={<IconShare size={20} />} ariaLabel="Share"
                       onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/posts/${stack.topPost.id}?stackId=${stack.stackId}`).catch(() => {}); }} />
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleReRankAnchor(stack.topPost.id); }}
-                      onMouseUp={(e) => e.stopPropagation()}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      aria-label="More like this"
-                      style={{
-                        background: isAnchor ? '#e8edf5' : 'none',
-                        border: 'none', cursor: 'pointer', borderRadius: '4px',
-                        padding: '4px 8px', fontSize: '11px', fontWeight: 600,
-                        color: isAnchor ? '#3b5998' : '#8899a6',
-                        transition: 'color 150ms ease, background 150ms ease',
-                      }}
-                    >
-                      {isAnchor ? 'Ungroup' : 'More like this'}
-                    </button>
                   </Group>
                 </div>
                 {stack.size !== null && stack.size > 1 && (

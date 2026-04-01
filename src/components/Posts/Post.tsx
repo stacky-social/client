@@ -61,9 +61,9 @@ function renderMultiHighlightHtml(
     const bgAlpha = (hoveredRangeIndex === null || hoveredRangeIndex === i) ? 1 : 0.2;
     const bgColor = bgAlpha < 1 ? hexToRgba(catColors.bg, bgAlpha) : catColors.bg;
 
-    // focusComment substring to bold
-    const isBright = hoveredRangeIndex === null || hoveredRangeIndex === i;
-    const focusComment = (isBright && r.focusCommentStart < r.focusCommentEnd)
+    // focusComment substring to bold — only when this specific highlight is hovered (Level 2)
+    const isThisRangeHovered = hoveredRangeIndex === i;
+    const focusComment = (isThisRangeHovered && r.focusCommentStart < r.focusCommentEnd)
       ? focusPlainText.slice(r.focusCommentStart, r.focusCommentEnd)
       : undefined;
 

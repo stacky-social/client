@@ -9,18 +9,19 @@ import { RelatedStacksProvider } from './related-stacks-context';
 
 export default function Shell({ children, aside }: {  children: React.ReactNode; aside: React.ReactNode; }) {
     const [opened, { toggle }] = useDisclosure();
+    const [navCollapsed, { toggle: toggleNav }] = useDisclosure(false);
 
     return (
         <RelatedStacksProvider>
         <AppShell
             header={{ height: { base: 64, sm: 0 } }}
             navbar={{
-                width: "clamp(200px, 22vw, 300px)",
+                width: navCollapsed ? 0 : "clamp(200px, 22vw, 300px)",
                 breakpoint: "sm",
-                collapsed: { mobile: !opened },
+                collapsed: { mobile: !opened, desktop: navCollapsed },
               }}
             aside={{
-            width: "clamp(360px, 26vw, 520px)",
+            width: navCollapsed ? "clamp(400px, 32vw, 600px)" : "clamp(360px, 26vw, 520px)",
             breakpoint: "lg",
             collapsed: { mobile: true },
             }}
@@ -32,7 +33,12 @@ export default function Shell({ children, aside }: {  children: React.ReactNode;
                     <StackLogo size={30} />
                 </Group>
             </AppShell.Header>
-            <AppShell.Navbar p="md" visibleFrom="sm" style={{ backgroundColor: '#FCFBF5' }}>
+            <AppShell.Navbar p="md" visibleFrom="sm" style={{
+                backgroundColor: '#FCFBF5',
+                overflow: 'hidden',
+                opacity: navCollapsed ? 0 : 1,
+                transition: 'opacity 200ms ease',
+            }}>
                 <Navbar />
             </AppShell.Navbar>
             <AppShell.Aside
@@ -69,6 +75,22 @@ export default function Shell({ children, aside }: {  children: React.ReactNode;
                 {children}
             </AppShell.Main>
         </AppShell>
+        <button
+            onClick={toggleNav}
+            aria-label={navCollapsed ? "Expand navigation" : "Collapse navigation"}
+            style={{
+                position: 'fixed',
+                left: navCollapsed ? 4 : `calc(clamp(200px, 22vw, 300px) - 32px)`,
+                top: 16,
+                zIndex: 300, width: 24, height: 48, borderRadius: '6px',
+                background: '#f1f5f9', border: '1px solid #e2e8f0',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '12px', color: '#64748b',
+                transition: 'left 200ms ease',
+            }}
+        >
+            {navCollapsed ? '›' : '‹'}
+        </button>
         </RelatedStacksProvider>
     );
 }

@@ -16,6 +16,8 @@ interface HighlightState {
   hoveredHighlightRangeIndex: number | null;
   /** "More like this" anchor post IDs for nested re-ranking (ordered by when added) */
   reRankAnchorIds: string[];
+  /** Which highlight range triggered each anchor (postId -> rangeIndex) */
+  anchoredRangeByPost: Record<string, number>;
 }
 
 const INITIAL: HighlightState = {
@@ -24,6 +26,7 @@ const INITIAL: HighlightState = {
   filterCategory: null,
   hoveredHighlightRangeIndex: null,
   reRankAnchorIds: [],
+  anchoredRangeByPost: {},
 };
 
 // ─── Module-level store ─────────────────────────────────────────────────────
@@ -57,20 +60,24 @@ export function setHoveredHighlightRangeIndex(index: number | null): void {
   notify();
 }
 
-/** Toggle a post as an anchor. Removes only this anchor — remaining anchors recompute naturally. */
-export function toggleReRankAnchor(postId: string): void {
+/** Toggle a post as an anchor. Optionally records which highlight range triggered it. */
+export function toggleReRankAnchor(postId: string, rangeIndex?: number): void {
   const idx = state.reRankAnchorIds.indexOf(postId);
   if (idx >= 0) {
-    state = { ...state, reRankAnchorIds: state.reRankAnchorIds.filter(id => id !== postId) };
+    const { [postId]: _, ...rest } = state.anchoredRangeByPost;
+    state = { ...state, reRankAnchorIds: state.reRankAnchorIds.filter(id => id !== postId), anchoredRangeByPost: rest };
   } else {
-    state = { ...state, reRankAnchorIds: [...state.reRankAnchorIds, postId] };
+    const newAnchored = rangeIndex !== undefined
+      ? { ...state.anchoredRangeByPost, [postId]: rangeIndex }
+      : state.anchoredRangeByPost;
+    state = { ...state, reRankAnchorIds: [...state.reRankAnchorIds, postId], anchoredRangeByPost: newAnchored };
   }
   notify();
 }
 
 export function clearReRankAnchors(): void {
   if (state.reRankAnchorIds.length === 0) return;
-  state = { ...state, reRankAnchorIds: [] };
+  state = { ...state, reRankAnchorIds: [], anchoredRangeByPost: {} };
   notify();
 }
 
