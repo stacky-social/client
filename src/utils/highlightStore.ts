@@ -1,21 +1,15 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { HighlightMeta } from "../types/PostType";
+import type { Relation } from "../types/PostType";
 
 // ─── State ──────────────────────────────────────────────────────────────────
 
 interface HighlightState {
   /** ID of the sidebar post currently being hovered (drives focus-post cross-highlighting) */
   hoveredPostId: string | null;
-  /** The `content_highlight` value of the hovered post (with ⌊bracket⌋ markers) */
-  hoveredContentHighlight: string | null;
-  /** Primary category of the hovered post (e.g. "agree", "disagree") */
-  hoveredCategory: string | null;
-  /** The focus post's text with ⌊bracket⌋ markers showing which parts this sidebar post responds to */
-  hoveredFocusHighlight: string | null;
-  /** Per-range metadata for the hovered post's highlight substrings */
-  hoveredHighlightsMeta: HighlightMeta[] | null;
+  /** Relations for the hovered post (offset-based substring pairs) */
+  hoveredRelations: Relation[] | null;
   /** Which category to filter the sidebar by (null = show all) */
   filterCategory: string | null;
   /** Level 2: which specific substring within the hovered card is being hovered (index into bracket pairs) */
@@ -26,10 +20,7 @@ interface HighlightState {
 
 const INITIAL: HighlightState = {
   hoveredPostId: null,
-  hoveredContentHighlight: null,
-  hoveredCategory: null,
-  hoveredFocusHighlight: null,
-  hoveredHighlightsMeta: null,
+  hoveredRelations: null,
   filterCategory: null,
   hoveredHighlightRangeIndex: null,
   reRankAnchorIds: [],
@@ -48,20 +39,14 @@ function notify() {
 
 export function setHoveredSidebarPost(
   postId: string | null,
-  contentHighlight?: string | null,
-  category?: string | null,
-  focusHighlight?: string | null,
-  highlightsMeta?: HighlightMeta[] | null,
+  relations?: Relation[] | null,
 ): void {
   if (state.hoveredPostId === postId) return;
   state = {
     ...state,
     hoveredPostId: postId,
-    hoveredContentHighlight: postId ? (contentHighlight ?? null) : null,
-    hoveredCategory: postId ? (category ?? null) : null,
-    hoveredFocusHighlight: postId ? (focusHighlight ?? null) : null,
-    hoveredHighlightsMeta: postId ? (highlightsMeta ?? null) : null,
-    hoveredHighlightRangeIndex: null, // reset substring hover on card change
+    hoveredRelations: postId ? (relations ?? null) : null,
+    hoveredHighlightRangeIndex: null,
   };
   notify();
 }

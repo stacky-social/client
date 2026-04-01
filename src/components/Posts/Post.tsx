@@ -10,35 +10,9 @@ import AnnotationModal from '../AnnotationModal';
 import { PreviewCardType } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
 import { useHighlightStore } from '../../utils/highlightStore';
-import type { HighlightMeta } from '../../types/PostType';
+import type { Relation } from '../../types/PostType';
 
 // ─── Focus post cross-highlight helpers ──────────────────────────────────────
-
-interface HighlightRange { start: number; end: number }
-
-/** Strip bracket markers from focusHighlight, return plain text + ranges.
- *  Supports overlapping ranges: ⌊...⌋, ⌈...⌉, ⟦...⟧ tracked independently. */
-function parseFocusHighlight(text: string): { plain: string; ranges: HighlightRange[] } {
-  let plain = '';
-  const ranges: HighlightRange[] = [];
-  const openStarts: Record<string, number> = {};
-  const closerToOpener: Record<string, string> = { '⌋': '⌊', '⌉': '⌈', '⟧': '⟦' };
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '⌊' || ch === '⌈' || ch === '⟦') {
-      openStarts[ch] = plain.length;
-    } else if (ch === '⌋' || ch === '⌉' || ch === '⟧') {
-      const opener = closerToOpener[ch];
-      if (opener in openStarts) {
-        ranges.push({ start: openStarts[opener], end: plain.length });
-        delete openStarts[opener];
-      }
-    } else {
-      plain += ch;
-    }
-  }
-  return { plain, ranges };
-}
 
 /** Strip all HTML tags to get plain text for matching */
 function stripHtml(html: string): string {
@@ -68,32 +42,33 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-/** Render multi-range focus highlights into HTML.
- *  Each range gets its own category color from highlightsMeta.
- *  Level 2: when hoveredRangeIndex is set, non-active highlights dim their BACKGROUND only — text stays fully readable. */
+/** Render multi-range focus highlights into HTML using offset-based Relations.
+ *  Each relation's focus range gets its category color.
+ *  Level 2: when hoveredRangeIndex is set, non-active highlights dim their BACKGROUND only. */
 function renderMultiHighlightHtml(
   displayHtml: string,
-  focusHighlight: string,
-  highlightsMeta: HighlightMeta[] | null,
-  hoveredCategory: string,
+  focusPlainText: string,
+  relations: Relation[],
   hoveredRangeIndex: number | null,
 ): string {
-  const { plain: focusPlain, ranges } = parseFocusHighlight(focusHighlight);
-  if (ranges.length === 0) return displayHtml;
+  if (relations.length === 0) return displayHtml;
 
-  const entries = ranges.map((r, i) => {
-    const meta = highlightsMeta?.[i];
-    const cat = meta?.category ?? hoveredCategory;
-    const catColors = CROSS_HIGHLIGHT_CATEGORY_COLORS[cat];
+  const entries = relations.map((r, i) => {
+    const catColors = CROSS_HIGHLIGHT_CATEGORY_COLORS[r.category];
     if (!catColors) return null;
 
-    const snippet = focusPlain.slice(r.start, r.end);
+    const snippet = focusPlainText.slice(r.focusStart, r.focusEnd);
     const bgAlpha = (hoveredRangeIndex === null || hoveredRangeIndex === i) ? 1 : 0.2;
     const bgColor = bgAlpha < 1 ? hexToRgba(catColors.bg, bgAlpha) : catColors.bg;
-    const focusComment = meta?.focusComment;
 
-    return { snippet, cat, bgColor, focusComment, index: i };
-  }).filter(Boolean) as Array<{ snippet: string; cat: string; bgColor: string; focusComment?: string; index: number }>;
+    // focusComment substring to bold
+    const isBright = hoveredRangeIndex === null || hoveredRangeIndex === i;
+    const focusComment = (isBright && r.focusCommentStart < r.focusCommentEnd)
+      ? focusPlainText.slice(r.focusCommentStart, r.focusCommentEnd)
+      : undefined;
+
+    return { snippet, bgColor, focusComment, index: i };
+  }).filter(Boolean) as Array<{ snippet: string; bgColor: string; focusComment?: string; index: number }>;
 
   // Sort by longest snippet first to avoid partial matches
   entries.sort((a, b) => b.snippet.length - a.snippet.length);
@@ -108,10 +83,8 @@ function renderMultiHighlightHtml(
     while ((match = regex.exec(result)) !== null) {
       if (!usedPositions.has(match.index)) {
         usedPositions.add(match.index);
-        // Bold the focusComment phrase — only when this range is bright (not dimmed by Level 2)
-        const isBright = hoveredRangeIndex === null || hoveredRangeIndex === entry.index;
         let innerHtml = entry.snippet;
-        if (isBright && entry.focusComment && entry.snippet.includes(entry.focusComment)) {
+        if (entry.focusComment && entry.snippet.includes(entry.focusComment)) {
           const ci = entry.snippet.indexOf(entry.focusComment);
           const before = entry.snippet.slice(0, ci);
           const bold = `<span style="text-shadow:0 0 0.7px currentColor,0 0 0.7px currentColor">${entry.focusComment}</span>`;
@@ -236,8 +209,8 @@ export default function Post({
   const [isExpanded, setIsExpanded] = useState(isActive);
   const [isTextExpanded, setIsTextExpanded] = useState(false);
   const [hovered, setHovered] = useState(false);
-  const { hoveredPostId, hoveredCategory, hoveredFocusHighlight, hoveredHighlightsMeta, hoveredHighlightRangeIndex } = useHighlightStore();
-  const showCrossHighlight = isActive && !!hoveredPostId;
+  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex } = useHighlightStore();
+  const showCrossHighlight = isActive && !!hoveredPostId && !!hoveredRelations;
 
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>(initialCard ? [initialCard] : []);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
@@ -579,12 +552,11 @@ export default function Post({
         }}
         dangerouslySetInnerHTML={{ __html: (() => {
           // No highlights by default — only show when a sidebar card is hovered
-          if (!showCrossHighlight || !hoveredFocusHighlight || !hoveredCategory) return displayText;
+          if (!showCrossHighlight || !hoveredRelations) return displayText;
           return renderMultiHighlightHtml(
             displayText,
-            hoveredFocusHighlight,
-            hoveredHighlightsMeta,
-            hoveredCategory,
+            stripHtml(text),
+            hoveredRelations,
             hoveredHighlightRangeIndex,
           );
         })() }}

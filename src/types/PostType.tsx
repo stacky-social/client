@@ -50,18 +50,24 @@ export type CategoryKey =
   | 'proposals'
   | 'uncategorized';
 
-/** Per-substring metadata for multi-range highlights.
- *  The i-th entry corresponds to the i-th ⌊...⌋ pair in both
- *  content_highlight and focusHighlight. */
-export interface HighlightMeta {
-  /** Category/type for THIS specific substring (may differ from post's primary category) */
+/** A single relation between a substring in the focus post and a substring in the related post. */
+export interface Relation {
+  /** Highlighted range on the focus post's plainText */
+  focusStart: number;
+  focusEnd: number;
+  /** Highlighted range on the related post's content */
+  contentStart: number;
+  contentEnd: number;
+  /** Comment (key phrase to bold) — offsets within the focus post's plainText */
+  focusCommentStart: number;
+  focusCommentEnd: number;
+  /** Comment (key phrase to bold) — offsets within the related post's content */
+  contentCommentStart: number;
+  contentCommentEnd: number;
+  /** Relation type for this specific substring pair */
   category: CategoryKey;
   /** Short topic label from NLP, e.g. "Trial results" */
-  topic?: string;
-  /** Key phrase WITHIN the focus post's highlighted range to bold (substring of the focus highlight) */
-  focusComment?: string;
-  /** Key phrase WITHIN the related post's highlighted range to bold (substring of the content highlight) */
-  contentComment?: string;
+  topic: string;
 }
 
 export interface FocusPostMock {
@@ -91,16 +97,8 @@ export interface RelatedPostMock {
   globalRank: number;
   /** Plain text of the related post */
   content: string;
-  /** content with MULTIPLE ⌊bracket⌋ markers indicating highlighted spans */
-  content_highlight: string;
-  /**
-   * The focus post's plainText with MULTIPLE ⌊bracket⌋ markers indicating which
-   * substrings this post is responding to. The i-th bracket pair here corresponds
-   * to the i-th bracket pair in content_highlight and the i-th highlightsMeta entry.
-   */
-  focusHighlight: string;
-  /** Per-range metadata: category, topic, comment for each bracket pair */
-  highlightsMeta?: HighlightMeta[];
+  /** Relations: explicit offset-based substring pairs between focus and related post */
+  relations: Relation[];
   account: {
     display_name: string;
     acct: string;

@@ -22,22 +22,6 @@
         "rank": 1,
         "globalRank": 9,
         "content": "The data is in and it's overwhelming. Iceland, Microsoft Japan, Unilever NZ — they all confirm the same thing. Output doesn't suffer; it improves. Time to stop treating these trials as curiosities.",
-        "content_highlight": "The data is in and it's overwhelming. ⌊Iceland, Microsoft Japan, Unilever NZ — they all confirm ⌈the same thing. Output doesn't suffer;⌋ it improves.⌉ Time to stop treating these trials as curiosities.",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. ⌊Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike.⌋ Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report lower burnout, higher retention, and ⌊better output⌋. The question is simply: why are we still defending an industrial-era schedule in a knowledge economy?",
-        "highlightsMeta": [
-          {
-            "category": "agree",
-            "topic": "Trial results",
-            "focusComment": "showed no productivity drop",
-            "contentComment": "they all confirm the same thing."
-          },
-          {
-            "category": "evidence_public",
-            "topic": "Productivity gains",
-            "focusComment": "better output",
-            "contentComment": "Output doesn't suffer; it improves."
-          }
-        ],
         "account": {
           "display_name": "Maya Chen",
           "acct": "maya@tech.social",
@@ -47,7 +31,33 @@
         "favourites_count": 312,
         "replies_count": 28,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 90,
+            "focusEnd": 226,
+            "contentStart": 38,
+            "contentEnd": 133,
+            "focusCommentStart": 152,
+            "focusCommentEnd": 179,
+            "contentCommentStart": 78,
+            "contentCommentEnd": 110,
+            "category": "agree",
+            "topic": "Trial results"
+          },
+          {
+            "focusStart": 531,
+            "focusEnd": 544,
+            "contentStart": 95,
+            "contentEnd": 146,
+            "focusCommentStart": 531,
+            "focusCommentEnd": 544,
+            "contentCommentStart": 111,
+            "contentCommentEnd": 146,
+            "category": "evidence_public",
+            "topic": "Productivity gains"
+          }
+        ]
       },
       {
         "id": "post-agree-2",
@@ -55,22 +65,6 @@
         "rank": 2,
         "globalRank": 16,
         "content": "The butts-in-seats mentality is pure management theater. I've watched teams produce more in 32 hours than they ever did in 40 once the pressure culture was stripped away.",
-        "content_highlight": "The ⌊butts-in-seats mentality is pure management theater.⌋ I've watched teams ⌊produce more in 32 hours than they ever did in 40⌋ once the pressure culture was stripped away.",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's ⌊managerial anxiety about not being able to watch employees for 8 hours⌋. Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: why are we still defending an ⌊industrial-era schedule in a knowledge economy⌋?",
-        "highlightsMeta": [
-          {
-            "category": "agree",
-            "topic": "Management culture",
-            "focusComment": "managerial anxiety about not being able to watch employees",
-            "contentComment": "butts-in-seats mentality is pure management theater."
-          },
-          {
-            "category": "evidence_personal",
-            "topic": "Productivity metrics",
-            "focusComment": "industrial-era schedule in a knowledge economy",
-            "contentComment": "produce more in 32 hours than they ever did in 40"
-          }
-        ],
         "account": {
           "display_name": "Sam Okonkwo",
           "acct": "sam@labor.social",
@@ -80,7 +74,33 @@
         "favourites_count": 189,
         "replies_count": 14,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 384,
+            "focusEnd": 454,
+            "contentStart": 4,
+            "contentEnd": 56,
+            "focusCommentStart": 384,
+            "focusCommentEnd": 442,
+            "contentCommentStart": 4,
+            "contentCommentEnd": 56,
+            "category": "agree",
+            "topic": "Management culture"
+          },
+          {
+            "focusStart": 600,
+            "focusEnd": 646,
+            "contentStart": 76,
+            "contentEnd": 125,
+            "focusCommentStart": 600,
+            "focusCommentEnd": 646,
+            "contentCommentStart": 76,
+            "contentCommentEnd": 125,
+            "category": "evidence_personal",
+            "topic": "Productivity metrics"
+          }
+        ]
       },
       {
         "id": "post-agree-3",
@@ -88,22 +108,6 @@
         "rank": 3,
         "globalRank": 23,
         "content": "Exactly this. The 5-day 40-hour week was designed for factory floors and shift work. Applying it to knowledge work makes zero sense. We should be measuring outcomes, not hours.",
-        "content_highlight": "Exactly this. The ⌊5-day 40-hour week was designed for factory floors and shift work.⌋ Applying it to knowledge work makes zero sense. ⌊We should be measuring outcomes, not hours.⌋",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: ⌊we have always worked five days, which is not a reason, it's a habit.⌋ The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: why are we still defending an ⌊industrial-era schedule in a knowledge economy⌋?",
-        "highlightsMeta": [
-          {
-            "category": "agree",
-            "topic": "Industrial-era origins",
-            "focusComment": "we have always worked five days, which is not a reason",
-            "contentComment": "5-day 40-hour week was designed for factory floors"
-          },
-          {
-            "category": "proposals",
-            "topic": "Outcome measurement",
-            "focusComment": "industrial-era schedule in a knowledge economy",
-            "contentComment": "measuring outcomes, not hours."
-          }
-        ],
         "account": {
           "display_name": "Jordan Kim",
           "acct": "jordan@academic.social",
@@ -113,7 +117,33 @@
         "favourites_count": 97,
         "replies_count": 9,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 273,
+            "focusEnd": 342,
+            "contentStart": 18,
+            "contentEnd": 84,
+            "focusCommentStart": 273,
+            "focusCommentEnd": 327,
+            "contentCommentStart": 18,
+            "contentCommentEnd": 68,
+            "category": "agree",
+            "topic": "Industrial-era origins"
+          },
+          {
+            "focusStart": 600,
+            "focusEnd": 646,
+            "contentStart": 133,
+            "contentEnd": 176,
+            "focusCommentStart": 600,
+            "focusCommentEnd": 646,
+            "contentCommentStart": 146,
+            "contentCommentEnd": 176,
+            "category": "proposals",
+            "topic": "Outcome measurement"
+          }
+        ]
       },
       {
         "id": "focus-002",
@@ -121,22 +151,6 @@
         "rank": 1,
         "globalRank": 14,
         "content": "The Iceland trial was mostly public sector workers in controlled conditions. Microsoft Japan tested it for one month. This isn't generalizable data — it's cherry-picked success stories.",
-        "content_highlight": "The ⌊Iceland trial was mostly public sector workers in controlled conditions. ⌈Microsoft Japan tested it⌋ for one month.⌉ This isn't generalizable data — it's cherry-picked success stories.",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. ⌊Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop.⌋ ⌊Microsoft Japan saw a 40% productivity spike.⌋ Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: why are we still defending an industrial-era schedule in a knowledge economy?",
-        "highlightsMeta": [
-          {
-            "category": "disagree",
-            "topic": "Iceland trial scope",
-            "focusComment": "showed no productivity drop.",
-            "contentComment": "mostly public sector workers in controlled conditions."
-          },
-          {
-            "category": "disagree",
-            "topic": "Japan trial duration",
-            "focusComment": "40% productivity spike.",
-            "contentComment": "tested it for one month."
-          }
-        ],
         "account": {
           "display_name": "Taylor Brooks",
           "acct": "taylor@skeptic.social",
@@ -146,7 +160,33 @@
         "favourites_count": 203,
         "replies_count": 41,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 90,
+            "focusEnd": 180,
+            "contentStart": 4,
+            "contentEnd": 102,
+            "focusCommentStart": 152,
+            "focusCommentEnd": 180,
+            "contentCommentStart": 22,
+            "contentCommentEnd": 76,
+            "category": "disagree",
+            "topic": "Iceland trial scope"
+          },
+          {
+            "focusStart": 181,
+            "focusEnd": 226,
+            "contentStart": 77,
+            "contentEnd": 117,
+            "focusCommentStart": 203,
+            "focusCommentEnd": 226,
+            "contentCommentStart": 93,
+            "contentCommentEnd": 117,
+            "category": "disagree",
+            "topic": "Japan trial duration"
+          }
+        ]
       },
       {
         "id": "post-disagree-2",
@@ -154,22 +194,6 @@
         "rank": 2,
         "globalRank": 20,
         "content": "Works great for software engineers. Doesn't work for restaurants, hospitals, retail, construction — about 60% of the workforce. This is a tech worker fantasy dressed up as universal policy.",
-        "content_highlight": "Works great for software engineers. Doesn't work for ⌊restaurants, hospitals, retail, construction — about 60% of the workforce.⌋ This is a ⌊tech worker fantasy dressed up as universal policy.⌋",
-        "focusHighlight": "The 4-day work week is not a perk — it's a ⌊productivity revolution hiding in plain sight⌋. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: why are we still defending an ⌊industrial-era schedule in a knowledge economy⌋?",
-        "highlightsMeta": [
-          {
-            "category": "disagree",
-            "topic": "Workforce coverage",
-            "focusComment": "productivity revolution hiding in plain sight",
-            "contentComment": "about 60% of the workforce."
-          },
-          {
-            "category": "values",
-            "topic": "Class privilege",
-            "focusComment": "industrial-era schedule in a knowledge economy",
-            "contentComment": "tech worker fantasy dressed up as universal policy."
-          }
-        ],
         "account": {
           "display_name": "Chris Walsh",
           "acct": "chris@startup.social",
@@ -179,7 +203,33 @@
         "favourites_count": 156,
         "replies_count": 33,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 43,
+            "focusEnd": 88,
+            "contentStart": 53,
+            "contentEnd": 127,
+            "focusCommentStart": 43,
+            "focusCommentEnd": 88,
+            "contentCommentStart": 100,
+            "contentCommentEnd": 127,
+            "category": "disagree",
+            "topic": "Workforce coverage"
+          },
+          {
+            "focusStart": 600,
+            "focusEnd": 646,
+            "contentStart": 138,
+            "contentEnd": 189,
+            "focusCommentStart": 600,
+            "focusCommentEnd": 646,
+            "contentCommentStart": 138,
+            "contentCommentEnd": 189,
+            "category": "values",
+            "topic": "Class privilege"
+          }
+        ]
       },
       {
         "id": "post-disagree-3",
@@ -187,22 +237,6 @@
         "rank": 3,
         "globalRank": 25,
         "content": "Reducing legitimate coordination concerns to managerial anxiety is a strawman. Synchronous collaboration, client availability, and team coverage are real operational constraints, not psychological issues.",
-        "content_highlight": "Reducing ⌊legitimate coordination concerns to managerial anxiety⌋ is a strawman. ⌊Synchronous collaboration, client availability, and team coverage are real operational constraints⌋, not psychological issues.",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. ⌊Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit.⌋ The real obstacle isn't economics — it's ⌊managerial anxiety about not being able to watch employees for 8 hours⌋. Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: why are we still defending an industrial-era schedule in a knowledge economy?",
-        "highlightsMeta": [
-          {
-            "category": "disagree",
-            "topic": "Strawman accusation",
-            "focusComment": "which is not a reason, it's a habit.",
-            "contentComment": "legitimate coordination concerns"
-          },
-          {
-            "category": "evidence_public",
-            "topic": "Operational constraints",
-            "focusComment": "managerial anxiety about not being able to watch employees",
-            "contentComment": "are real operational constraints"
-          }
-        ],
         "account": {
           "display_name": "Morgan Davies",
           "acct": "morgan@policy.social",
@@ -212,7 +246,33 @@
         "favourites_count": 88,
         "replies_count": 17,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 227,
+            "focusEnd": 342,
+            "contentStart": 9,
+            "contentEnd": 63,
+            "focusCommentStart": 306,
+            "focusCommentEnd": 342,
+            "contentCommentStart": 9,
+            "contentCommentEnd": 41,
+            "category": "disagree",
+            "topic": "Strawman accusation"
+          },
+          {
+            "focusStart": 384,
+            "focusEnd": 454,
+            "contentStart": 79,
+            "contentEnd": 177,
+            "focusCommentStart": 384,
+            "focusCommentEnd": 442,
+            "contentCommentStart": 145,
+            "contentCommentEnd": 177,
+            "category": "evidence_public",
+            "topic": "Operational constraints"
+          }
+        ]
       },
       {
         "id": "post-disagree-4",
@@ -220,22 +280,6 @@
         "rank": 4,
         "globalRank": 26,
         "content": "Burnout isn't about days worked — it's about autonomy, workload, and psychological safety. Compressing 5 days of work into 4 without reducing workload just creates a different kind of stress.",
-        "content_highlight": "⌊Burnout isn't about days worked⌋ — it's about autonomy, workload, and psychological safety. ⌊Compressing 5 days of work into 4 without reducing workload just creates a different kind of stress.⌋",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report ⌊lower burnout, higher retention, and better output⌋. The question is simply: why are we still defending an ⌊industrial-era schedule in a knowledge economy⌋?",
-        "highlightsMeta": [
-          {
-            "category": "disagree",
-            "topic": "Burnout causes",
-            "focusComment": "lower burnout, higher retention, and better output",
-            "contentComment": "Burnout isn't about days worked"
-          },
-          {
-            "category": "predictions",
-            "topic": "Compression risk",
-            "focusComment": "industrial-era schedule in a knowledge economy",
-            "contentComment": "just creates a different kind of stress."
-          }
-        ],
         "account": {
           "display_name": "Casey Williams",
           "acct": "casey@honest.social",
@@ -245,7 +289,33 @@
         "favourites_count": 74,
         "replies_count": 11,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 494,
+            "focusEnd": 544,
+            "contentStart": 0,
+            "contentEnd": 31,
+            "focusCommentStart": 494,
+            "focusCommentEnd": 544,
+            "contentCommentStart": 0,
+            "contentCommentEnd": 31,
+            "category": "disagree",
+            "topic": "Burnout causes"
+          },
+          {
+            "focusStart": 600,
+            "focusEnd": 646,
+            "contentStart": 91,
+            "contentEnd": 191,
+            "focusCommentStart": 600,
+            "focusCommentEnd": 646,
+            "contentCommentStart": 151,
+            "contentCommentEnd": 191,
+            "category": "predictions",
+            "topic": "Compression risk"
+          }
+        ]
       },
       {
         "id": "post-evpub-1",
@@ -253,22 +323,6 @@
         "rank": 1,
         "globalRank": 4,
         "content": "Worth adding to the data pile: Perpetual Guardian NZ (2018) saw 20% productivity gain and 27% reduction in stress. The 4 Day Week Global trial across 61 companies in 2022 — 92% of firms continued the policy after the trial ended.",
-        "content_highlight": "Worth adding to the data pile: ⌊Perpetual Guardian NZ (2018) saw 20% productivity gain and 27% reduction in stress.⌋ The 4 Day Week Global trial across 61 companies in 2022 — ⌊92% of firms continued the policy after the trial ended.⌋",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. ⌊Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop.⌋ Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. ⌊Companies that make the switch report lower burnout, higher retention, and better output.⌋ The question is simply: why are we still defending an industrial-era schedule in a knowledge economy?",
-        "highlightsMeta": [
-          {
-            "category": "evidence_public",
-            "topic": "NZ trial data",
-            "focusComment": "showed no productivity drop.",
-            "contentComment": "20% productivity gain and 27% reduction in stress."
-          },
-          {
-            "category": "evidence_public",
-            "topic": "Adoption persistence",
-            "focusComment": "Companies that make the switch report lower burnout",
-            "contentComment": "92% of firms continued the policy after the trial ended."
-          }
-        ],
         "account": {
           "display_name": "Jamie Liu",
           "acct": "jamie@data.social",
@@ -278,7 +332,33 @@
         "favourites_count": 445,
         "replies_count": 52,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 90,
+            "focusEnd": 180,
+            "contentStart": 31,
+            "contentEnd": 114,
+            "focusCommentStart": 152,
+            "focusCommentEnd": 180,
+            "contentCommentStart": 64,
+            "contentCommentEnd": 114,
+            "category": "evidence_public",
+            "topic": "NZ trial data"
+          },
+          {
+            "focusStart": 456,
+            "focusEnd": 545,
+            "contentStart": 173,
+            "contentEnd": 229,
+            "focusCommentStart": 456,
+            "focusCommentEnd": 507,
+            "contentCommentStart": 173,
+            "contentCommentEnd": 229,
+            "category": "evidence_public",
+            "topic": "Adoption persistence"
+          }
+        ]
       },
       {
         "id": "post-evpub-2",
@@ -286,22 +366,6 @@
         "rank": 2,
         "globalRank": 11,
         "content": "EU data: French workers produce more per hour than US workers despite working fewer hours annually. The OECD consistently shows that beyond 50 hours per week, output per hour collapses. Hours are not output.",
-        "content_highlight": "EU data: ⌊French workers produce more per hour than US workers despite working fewer hours annually.⌋ The OECD consistently shows that ⌊beyond 50 hours per week, output per hour collapses.⌋ Hours are not output.",
-        "focusHighlight": "The 4-day work week is not a perk — it's a ⌊productivity revolution hiding in plain sight⌋. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. ⌊Microsoft Japan saw a 40% productivity spike.⌋ Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: why are we still defending an industrial-era schedule in a knowledge economy?",
-        "highlightsMeta": [
-          {
-            "category": "evidence_public",
-            "topic": "France productivity",
-            "focusComment": "productivity revolution hiding in plain sight",
-            "contentComment": "French workers produce more per hour than US workers"
-          },
-          {
-            "category": "evidence_public",
-            "topic": "Diminishing returns",
-            "focusComment": "40% productivity spike.",
-            "contentComment": "output per hour collapses."
-          }
-        ],
         "account": {
           "display_name": "Alex Rivera",
           "acct": "alex@research.social",
@@ -311,7 +375,33 @@
         "favourites_count": 281,
         "replies_count": 23,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 43,
+            "focusEnd": 88,
+            "contentStart": 9,
+            "contentEnd": 99,
+            "focusCommentStart": 43,
+            "focusCommentEnd": 88,
+            "contentCommentStart": 9,
+            "contentCommentEnd": 61,
+            "category": "evidence_public",
+            "topic": "France productivity"
+          },
+          {
+            "focusStart": 181,
+            "focusEnd": 226,
+            "contentStart": 133,
+            "contentEnd": 185,
+            "focusCommentStart": 203,
+            "focusCommentEnd": 226,
+            "contentCommentStart": 159,
+            "contentCommentEnd": 185,
+            "category": "evidence_public",
+            "topic": "Diminishing returns"
+          }
+        ]
       },
       {
         "id": "post-evpub-3",
@@ -319,22 +409,6 @@
         "rank": 3,
         "globalRank": 15,
         "content": "Gallup 2023 State of the Global Workplace: 59% of workers are quiet quitting and burnout is at record highs. Companies with 4-day weeks report 57% reduction in absenteeism. This isn't soft data anymore.",
-        "content_highlight": "Gallup 2023: ⌊59% of workers are quiet quitting and burnout is at record highs.⌋ Companies with 4-day weeks report ⌊57% reduction in absenteeism.⌋ This isn't soft data anymore.",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report ⌊lower burnout, higher retention, and better output⌋. The question is simply: ⌊why are we still defending an industrial-era schedule in a knowledge economy?⌋",
-        "highlightsMeta": [
-          {
-            "category": "evidence_public",
-            "topic": "Burnout epidemic",
-            "focusComment": "lower burnout, higher retention, and better output",
-            "contentComment": "59% of workers are quiet quitting and burnout is at record highs."
-          },
-          {
-            "category": "evidence_public",
-            "topic": "Absenteeism reduction",
-            "focusComment": "defending an industrial-era schedule in a knowledge economy?",
-            "contentComment": "57% reduction in absenteeism."
-          }
-        ],
         "account": {
           "display_name": "Lee Park",
           "acct": "lee@anon.social",
@@ -344,7 +418,33 @@
         "favourites_count": 198,
         "replies_count": 19,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 494,
+            "focusEnd": 544,
+            "contentStart": 43,
+            "contentEnd": 108,
+            "focusCommentStart": 494,
+            "focusCommentEnd": 544,
+            "contentCommentStart": 43,
+            "contentCommentEnd": 108,
+            "category": "evidence_public",
+            "topic": "Burnout epidemic"
+          },
+          {
+            "focusStart": 570,
+            "focusEnd": 647,
+            "contentStart": 143,
+            "contentEnd": 172,
+            "focusCommentStart": 587,
+            "focusCommentEnd": 647,
+            "contentCommentStart": 143,
+            "contentCommentEnd": 172,
+            "category": "evidence_public",
+            "topic": "Absenteeism reduction"
+          }
+        ]
       },
       {
         "id": "focus-003",
@@ -352,28 +452,6 @@
         "rank": 1,
         "globalRank": 2,
         "content": "We've been on a 4-day week for 18 months. Annual turnover dropped from 28% to 11%. We shipped more features in Q1 this year than any prior Q1. I was a skeptic — now I'd never go back. Here's what actually changed: we eliminated all recurring meetings under 30 minutes, consolidated standups into async written updates, and gave every team full autonomy over which day they take off. Some chose Monday, some chose Friday, a few chose Wednesday to create a mid-week reset. The key insight was that productivity didn't just stay flat — it actively improved because people stopped filling time with performative work. The 40-hour week creates a culture of looking busy. When you only have 32 hours, there's no room for theater. Every meeting needs a clear agenda and outcome. Every task gets prioritized ruthlessly. The fluff evaporates. Our engineering velocity went up 23% measured by story points delivered, and our customer satisfaction scores hit all-time highs. The most surprising result? Our on-call incidents dropped 40% because people were shipping more carefully, not more recklessly. They had fewer hours so they wrote better code the first time instead of rushing and patching later.",
-        "content_highlight": "We've been on a 4-day week for 18 months. ⌊Annual turnover dropped from 28% to 11%.⌋ We shipped more features in Q1 this year than any prior Q1. I was a skeptic — now I'd never go back. Here's what actually changed: we eliminated all recurring meetings under 30 minutes, consolidated standups into async written updates, and gave every team full autonomy over which day they take off. Some chose Monday, some chose Friday, a few chose Wednesday to create a mid-week reset. The key insight was that productivity didn't just stay flat — it actively improved because ⌊people stopped filling time with performative work.⌋ The 40-hour week creates a culture of looking busy. When you only have 32 hours, there's no room for theater. Every meeting needs a clear agenda and outcome. Every task gets prioritized ruthlessly. The fluff evaporates. Our engineering velocity went up 23% measured by story points delivered, and our customer satisfaction scores hit all-time highs. The most surprising result? ⌊Our on-call incidents dropped 40% because people were shipping more carefully, not more recklessly.⌋",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's ⌊managerial anxiety about not being able to watch employees for 8 hours⌋. Companies that make the switch report ⌊lower burnout, higher retention, and better output⌋. The question is simply: why are we still defending an ⌊industrial-era schedule in a knowledge economy⌋?",
-        "highlightsMeta": [
-          {
-            "category": "evidence_personal",
-            "topic": "Retention improvement",
-            "focusComment": "managerial anxiety about not being able to watch employees",
-            "contentComment": "Annual turnover dropped from 28% to 11%."
-          },
-          {
-            "category": "agree",
-            "topic": "Performative work",
-            "focusComment": "lower burnout, higher retention, and better output",
-            "contentComment": "people stopped filling time with performative work."
-          },
-          {
-            "category": "evidence_personal",
-            "topic": "Code quality gains",
-            "focusComment": "industrial-era schedule in a knowledge economy",
-            "contentComment": "on-call incidents dropped 40% because people were shipping more carefully"
-          }
-        ],
         "account": {
           "display_name": "Blair O'Brien",
           "acct": "blair@startup.io",
@@ -383,7 +461,45 @@
         "favourites_count": 523,
         "replies_count": 67,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 384,
+            "focusEnd": 454,
+            "contentStart": 42,
+            "contentEnd": 82,
+            "focusCommentStart": 384,
+            "focusCommentEnd": 442,
+            "contentCommentStart": 42,
+            "contentCommentEnd": 82,
+            "category": "evidence_personal",
+            "topic": "Retention improvement"
+          },
+          {
+            "focusStart": 494,
+            "focusEnd": 544,
+            "contentStart": 562,
+            "contentEnd": 613,
+            "focusCommentStart": 494,
+            "focusCommentEnd": 544,
+            "contentCommentStart": 562,
+            "contentCommentEnd": 613,
+            "category": "agree",
+            "topic": "Performative work"
+          },
+          {
+            "focusStart": 600,
+            "focusEnd": 646,
+            "contentStart": 992,
+            "contentEnd": 1091,
+            "focusCommentStart": 600,
+            "focusCommentEnd": 646,
+            "contentCommentStart": 996,
+            "contentCommentEnd": 1069,
+            "category": "evidence_personal",
+            "topic": "Code quality gains"
+          }
+        ]
       },
       {
         "id": "post-evpers-2",
@@ -391,22 +507,6 @@
         "rank": 2,
         "globalRank": 19,
         "content": "My team tried it for 6 months. The Monday-Thursday pressure was brutal — everyone rushed, cut corners, meetings got worse because we had fewer of them. We went back to 5 days. Not everyone's context is the same.",
-        "content_highlight": "My team tried it for 6 months. ⌊The Monday-Thursday pressure was brutal — everyone rushed, cut corners, meetings got worse.⌋ We went back to 5 days. ⌊Not everyone's context is the same.⌋",
-        "focusHighlight": "The 4-day work week is not a perk — it's a ⌊productivity revolution hiding in plain sight⌋. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report ⌊lower burnout, higher retention, and better output⌋. The question is simply: why are we still defending an industrial-era schedule in a knowledge economy?",
-        "highlightsMeta": [
-          {
-            "category": "evidence_personal",
-            "topic": "Failed implementation",
-            "focusComment": "productivity revolution hiding in plain sight",
-            "contentComment": "Monday-Thursday pressure was brutal — everyone rushed, cut corners"
-          },
-          {
-            "category": "disagree",
-            "topic": "Context dependency",
-            "focusComment": "lower burnout, higher retention, and better output",
-            "contentComment": "Not everyone's context is the same."
-          }
-        ],
         "account": {
           "display_name": "Drew Santos",
           "acct": "drew@engineering.social",
@@ -416,7 +516,33 @@
         "favourites_count": 167,
         "replies_count": 31,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 43,
+            "focusEnd": 88,
+            "contentStart": 31,
+            "contentEnd": 151,
+            "focusCommentStart": 43,
+            "focusCommentEnd": 88,
+            "contentCommentStart": 35,
+            "contentCommentEnd": 101,
+            "category": "evidence_personal",
+            "topic": "Failed implementation"
+          },
+          {
+            "focusStart": 494,
+            "focusEnd": 544,
+            "contentStart": 176,
+            "contentEnd": 211,
+            "focusCommentStart": 494,
+            "focusCommentEnd": 544,
+            "contentCommentStart": 176,
+            "contentCommentEnd": 211,
+            "category": "disagree",
+            "topic": "Context dependency"
+          }
+        ]
       },
       {
         "id": "post-pred-1",
@@ -424,22 +550,6 @@
         "rank": 1,
         "globalRank": 8,
         "content": "In 10 years this will look like the debate over the 8-hour workday in 1900. Of course it'll win — it just needs enough early adopters to demonstrate the competitive advantage to laggards.",
-        "content_highlight": "In 10 years this will look like ⌊the debate over the 8-hour workday in 1900.⌋ Of course it'll win — it just needs enough ⌊early adopters to demonstrate the competitive advantage⌋ to laggards.",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: ⌊we have always worked five days, which is not a reason, it's a habit.⌋ The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: ⌊why are we still defending an industrial-era schedule in a knowledge economy?⌋",
-        "highlightsMeta": [
-          {
-            "category": "predictions",
-            "topic": "Historical parallel",
-            "focusComment": "we have always worked five days, which is not a reason",
-            "contentComment": "the debate over the 8-hour workday in 1900."
-          },
-          {
-            "category": "evidence_public",
-            "topic": "Competitive advantage",
-            "focusComment": "defending an industrial-era schedule in a knowledge economy?",
-            "contentComment": "early adopters to demonstrate the competitive advantage"
-          }
-        ],
         "account": {
           "display_name": "Jordan Kim",
           "acct": "jordan@academic.social",
@@ -449,7 +559,33 @@
         "favourites_count": 334,
         "replies_count": 38,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 273,
+            "focusEnd": 342,
+            "contentStart": 32,
+            "contentEnd": 75,
+            "focusCommentStart": 273,
+            "focusCommentEnd": 327,
+            "contentCommentStart": 32,
+            "contentCommentEnd": 75,
+            "category": "predictions",
+            "topic": "Historical parallel"
+          },
+          {
+            "focusStart": 570,
+            "focusEnd": 647,
+            "contentStart": 119,
+            "contentEnd": 174,
+            "focusCommentStart": 587,
+            "focusCommentEnd": 647,
+            "contentCommentStart": 119,
+            "contentCommentEnd": 174,
+            "category": "evidence_public",
+            "topic": "Competitive advantage"
+          }
+        ]
       },
       {
         "id": "post-pred-2",
@@ -457,22 +593,6 @@
         "rank": 2,
         "globalRank": 13,
         "content": "The future isn't a 4-day week — it's variable async work where output-based contracts replace time-based ones entirely. The 4-day framing is still too attached to the hours paradigm.",
-        "content_highlight": "The future isn't a 4-day week — it's ⌊variable async work where output-based contracts replace time-based ones entirely.⌋ The ⌊4-day framing is still too attached to the hours paradigm.⌋",
-        "focusHighlight": "⌊The 4-day work week⌋ is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: why are we still defending an ⌊industrial-era schedule in a knowledge economy⌋?",
-        "highlightsMeta": [
-          {
-            "category": "predictions",
-            "topic": "Async work future",
-            "focusComment": "The 4-day work week",
-            "contentComment": "output-based contracts replace time-based ones entirely."
-          },
-          {
-            "category": "framing",
-            "topic": "Hours paradigm trap",
-            "focusComment": "industrial-era schedule in a knowledge economy",
-            "contentComment": "4-day framing is still too attached to the hours paradigm."
-          }
-        ],
         "account": {
           "display_name": "Maya Chen",
           "acct": "maya@tech.social",
@@ -482,7 +602,33 @@
         "favourites_count": 211,
         "replies_count": 29,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 19,
+            "contentStart": 37,
+            "contentEnd": 119,
+            "focusCommentStart": 0,
+            "focusCommentEnd": 19,
+            "contentCommentStart": 63,
+            "contentCommentEnd": 119,
+            "category": "predictions",
+            "topic": "Async work future"
+          },
+          {
+            "focusStart": 600,
+            "focusEnd": 646,
+            "contentStart": 124,
+            "contentEnd": 182,
+            "focusCommentStart": 600,
+            "focusCommentEnd": 646,
+            "contentCommentStart": 124,
+            "contentCommentEnd": 182,
+            "category": "framing",
+            "topic": "Hours paradigm trap"
+          }
+        ]
       },
       {
         "id": "post-pred-3",
@@ -490,22 +636,6 @@
         "rank": 3,
         "globalRank": 18,
         "content": "Watch how this plays out: companies will adopt 4-day weeks and simultaneously cut headcount, expecting the same work from fewer people. The productivity revolution becomes a cost-cutting exercise.",
-        "content_highlight": "Watch how this plays out: companies will adopt 4-day weeks and ⌊simultaneously cut headcount, expecting the same work from fewer people.⌋ The ⌊productivity revolution becomes a cost-cutting exercise.⌋",
-        "focusHighlight": "The 4-day work week is not a perk — it's a ⌊productivity revolution hiding in plain sight⌋. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. ⌊Companies that make the switch report lower burnout, higher retention, and better output.⌋ The question is simply: why are we still defending an industrial-era schedule in a knowledge economy?",
-        "highlightsMeta": [
-          {
-            "category": "predictions",
-            "topic": "Headcount reduction",
-            "focusComment": "productivity revolution hiding in plain sight",
-            "contentComment": "simultaneously cut headcount, expecting the same work from fewer people."
-          },
-          {
-            "category": "values",
-            "topic": "Corporate co-opting",
-            "focusComment": "Companies that make the switch report lower burnout",
-            "contentComment": "productivity revolution becomes a cost-cutting exercise."
-          }
-        ],
         "account": {
           "display_name": "Sam Okonkwo",
           "acct": "sam@labor.social",
@@ -515,7 +645,33 @@
         "favourites_count": 178,
         "replies_count": 22,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 43,
+            "focusEnd": 88,
+            "contentStart": 63,
+            "contentEnd": 135,
+            "focusCommentStart": 43,
+            "focusCommentEnd": 88,
+            "contentCommentStart": 63,
+            "contentCommentEnd": 135,
+            "category": "predictions",
+            "topic": "Headcount reduction"
+          },
+          {
+            "focusStart": 456,
+            "focusEnd": 545,
+            "contentStart": 140,
+            "contentEnd": 196,
+            "focusCommentStart": 456,
+            "focusCommentEnd": 507,
+            "contentCommentStart": 140,
+            "contentCommentEnd": 196,
+            "category": "values",
+            "topic": "Corporate co-opting"
+          }
+        ]
       },
       {
         "id": "post-q-1",
@@ -523,22 +679,6 @@
         "rank": 1,
         "globalRank": 22,
         "content": "Genuine question: how does this work for customer-facing roles where clients expect 5-day availability? Do you hire more people, stagger shifts, or accept reduced service hours? I haven't seen a good answer.",
-        "content_highlight": "Genuine question: how does this work for ⌊customer-facing roles where clients expect 5-day availability?⌋ Do you ⌊hire more people, stagger shifts, or accept reduced service hours?⌋ I haven't seen a good answer.",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. ⌊The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours.⌋ Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: ⌊why are we still defending an industrial-era schedule in a knowledge economy?⌋",
-        "highlightsMeta": [
-          {
-            "category": "questions",
-            "topic": "Client availability gap",
-            "focusComment": "real obstacle isn't economics",
-            "contentComment": "clients expect 5-day availability?"
-          },
-          {
-            "category": "proposals",
-            "topic": "Staffing models",
-            "focusComment": "defending an industrial-era schedule in a knowledge economy?",
-            "contentComment": "hire more people, stagger shifts, or accept reduced service hours?"
-          }
-        ],
         "account": {
           "display_name": "Casey Williams",
           "acct": "casey@honest.social",
@@ -548,7 +688,33 @@
         "favourites_count": 129,
         "replies_count": 44,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 343,
+            "focusEnd": 455,
+            "contentStart": 41,
+            "contentEnd": 103,
+            "focusCommentStart": 347,
+            "focusCommentEnd": 376,
+            "contentCommentStart": 69,
+            "contentCommentEnd": 103,
+            "category": "questions",
+            "topic": "Client availability gap"
+          },
+          {
+            "focusStart": 570,
+            "focusEnd": 647,
+            "contentStart": 111,
+            "contentEnd": 177,
+            "focusCommentStart": 587,
+            "focusCommentEnd": 647,
+            "contentCommentStart": 111,
+            "contentCommentEnd": 177,
+            "category": "proposals",
+            "topic": "Staffing models"
+          }
+        ]
       },
       {
         "id": "post-q-2",
@@ -556,22 +722,6 @@
         "rank": 2,
         "globalRank": 24,
         "content": "How are we measuring productivity here? Revenue per employee? Lines of code? Tasks completed? The metric matters enormously. Output that looks good on a spreadsheet might mask quality degradation.",
-        "content_highlight": "How are we ⌊measuring productivity here?⌋ Revenue per employee? Lines of code? Tasks completed? The metric matters enormously. ⌊Output that looks good on a spreadsheet might mask quality degradation.⌋",
-        "focusHighlight": "The 4-day work week is not a perk — it's a ⌊productivity revolution hiding in plain sight⌋. Iceland's four-year trial covering 1% of its entire workforce showed ⌊no productivity drop⌋. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: why are we still defending an industrial-era schedule in a knowledge economy?",
-        "highlightsMeta": [
-          {
-            "category": "questions",
-            "topic": "Metric definition",
-            "focusComment": "productivity revolution hiding in plain sight",
-            "contentComment": "measuring productivity here?"
-          },
-          {
-            "category": "disagree",
-            "topic": "Quality degradation",
-            "focusComment": "no productivity drop",
-            "contentComment": "Output that looks good on a spreadsheet might mask quality degradation."
-          }
-        ],
         "account": {
           "display_name": "Jamie Liu",
           "acct": "jamie@data.social",
@@ -581,7 +731,33 @@
         "favourites_count": 93,
         "replies_count": 18,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 43,
+            "focusEnd": 88,
+            "contentStart": 11,
+            "contentEnd": 39,
+            "focusCommentStart": 43,
+            "focusCommentEnd": 88,
+            "contentCommentStart": 11,
+            "contentCommentEnd": 39,
+            "category": "questions",
+            "topic": "Metric definition"
+          },
+          {
+            "focusStart": 159,
+            "focusEnd": 179,
+            "contentStart": 125,
+            "contentEnd": 196,
+            "focusCommentStart": 159,
+            "focusCommentEnd": 179,
+            "contentCommentStart": 125,
+            "contentCommentEnd": 196,
+            "category": "disagree",
+            "topic": "Quality degradation"
+          }
+        ]
       },
       {
         "id": "post-conn-1",
@@ -589,22 +765,6 @@
         "rank": 1,
         "globalRank": 12,
         "content": "Connect this to AI labor displacement: if knowledge workers are being automated out anyway, the 4-day week is a stopgap. The real conversation is about decoupling income from hours entirely — UBI, not just shorter weeks.",
-        "content_highlight": "Connect this to AI labor displacement: if knowledge workers are being automated out anyway, ⌊the 4-day week is a stopgap.⌋ The real conversation is about ⌊decoupling income from hours entirely — UBI, not just shorter weeks.⌋",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: ⌊we have always worked five days, which is not a reason, it's a habit⌋. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: why are we still defending an ⌊industrial-era schedule in a knowledge economy⌋?",
-        "highlightsMeta": [
-          {
-            "category": "connections",
-            "topic": "AI displacement link",
-            "focusComment": "we have always worked five days, which is not a reason, it's a habit",
-            "contentComment": "the 4-day week is a stopgap."
-          },
-          {
-            "category": "proposals",
-            "topic": "UBI connection",
-            "focusComment": "industrial-era schedule in a knowledge economy",
-            "contentComment": "decoupling income from hours entirely — UBI"
-          }
-        ],
         "account": {
           "display_name": "Robin Patel",
           "acct": "robin@futureofwork.io",
@@ -614,7 +774,33 @@
         "favourites_count": 267,
         "replies_count": 35,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 273,
+            "focusEnd": 341,
+            "contentStart": 92,
+            "contentEnd": 120,
+            "focusCommentStart": 273,
+            "focusCommentEnd": 341,
+            "contentCommentStart": 92,
+            "contentCommentEnd": 120,
+            "category": "connections",
+            "topic": "AI displacement link"
+          },
+          {
+            "focusStart": 600,
+            "focusEnd": 646,
+            "contentStart": 152,
+            "contentEnd": 220,
+            "focusCommentStart": 600,
+            "focusCommentEnd": 646,
+            "contentCommentStart": 152,
+            "contentCommentEnd": 195,
+            "category": "proposals",
+            "topic": "UBI connection"
+          }
+        ]
       },
       {
         "id": "post-conn-2",
@@ -622,22 +808,6 @@
         "rank": 2,
         "globalRank": 21,
         "content": "Nobody mentions the climate angle: a 20% reduction in commuting days equals significant CO2 savings. The UK's 4-day week campaign calculated 127 million car trips eliminated annually. The policy has environmental co-benefits.",
-        "content_highlight": "Nobody mentions the climate angle: ⌊a 20% reduction in commuting days equals significant CO2 savings.⌋ The UK's 4-day week campaign calculated ⌊127 million car trips eliminated annually.⌋ The policy has environmental co-benefits.",
-        "focusHighlight": "⌊The 4-day work week⌋ is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. ⌊Companies that make the switch report lower burnout, higher retention, and better output.⌋ The question is simply: why are we still defending an industrial-era schedule in a knowledge economy?",
-        "highlightsMeta": [
-          {
-            "category": "connections",
-            "topic": "Climate co-benefits",
-            "focusComment": "The 4-day work week",
-            "contentComment": "20% reduction in commuting days equals significant CO2 savings."
-          },
-          {
-            "category": "evidence_public",
-            "topic": "UK commute data",
-            "focusComment": "Companies that make the switch report lower burnout",
-            "contentComment": "127 million car trips eliminated annually."
-          }
-        ],
         "account": {
           "display_name": "Alex Rivera",
           "acct": "alex@research.social",
@@ -647,7 +817,33 @@
         "favourites_count": 144,
         "replies_count": 16,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 19,
+            "contentStart": 35,
+            "contentEnd": 100,
+            "focusCommentStart": 0,
+            "focusCommentEnd": 19,
+            "contentCommentStart": 37,
+            "contentCommentEnd": 100,
+            "category": "connections",
+            "topic": "Climate co-benefits"
+          },
+          {
+            "focusStart": 456,
+            "focusEnd": 545,
+            "contentStart": 141,
+            "contentEnd": 183,
+            "focusCommentStart": 456,
+            "focusCommentEnd": 507,
+            "contentCommentStart": 141,
+            "contentCommentEnd": 183,
+            "category": "evidence_public",
+            "topic": "UK commute data"
+          }
+        ]
       },
       {
         "id": "post-prop-1",
@@ -655,22 +851,6 @@
         "rank": 1,
         "globalRank": 10,
         "content": "Instead of mandating overnight change, propose a government pilot fund: companies get tax credits for running 12-month trials with third-party productivity audits. Build the evidence base systematically, then legislate from data.",
-        "content_highlight": "Instead of mandating overnight change, propose ⌊a government pilot fund: companies get tax credits for running 12-month trials with third-party productivity audits.⌋ ⌊Build the evidence base systematically, then legislate from data.⌋",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. ⌊Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop.⌋ Microsoft Japan saw a 40% productivity spike. ⌊Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit.⌋ The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: why are we still defending an industrial-era schedule in a knowledge economy?",
-        "highlightsMeta": [
-          {
-            "category": "proposals",
-            "topic": "Tax credit pilot",
-            "focusComment": "showed no productivity drop.",
-            "contentComment": "tax credits for running 12-month trials"
-          },
-          {
-            "category": "evidence_public",
-            "topic": "Data-driven policy",
-            "focusComment": "we have always worked five days, which is not a reason",
-            "contentComment": "Build the evidence base systematically, then legislate from data."
-          }
-        ],
         "account": {
           "display_name": "Morgan Davies",
           "acct": "morgan@policy.social",
@@ -680,7 +860,33 @@
         "favourites_count": 302,
         "replies_count": 47,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 90,
+            "focusEnd": 180,
+            "contentStart": 47,
+            "contentEnd": 163,
+            "focusCommentStart": 152,
+            "focusCommentEnd": 180,
+            "contentCommentStart": 86,
+            "contentCommentEnd": 125,
+            "category": "proposals",
+            "topic": "Tax credit pilot"
+          },
+          {
+            "focusStart": 227,
+            "focusEnd": 342,
+            "contentStart": 164,
+            "contentEnd": 229,
+            "focusCommentStart": 273,
+            "focusCommentEnd": 327,
+            "contentCommentStart": 164,
+            "contentCommentEnd": 229,
+            "category": "evidence_public",
+            "topic": "Data-driven policy"
+          }
+        ]
       },
       {
         "id": "post-prop-2",
@@ -688,22 +894,6 @@
         "rank": 2,
         "globalRank": 17,
         "content": "Better proposal: eliminate time-based employment contracts for knowledge workers entirely. Replace with deliverable-based contracts. Work until the work is done, then stop. Radical but honest.",
-        "content_highlight": "Better proposal: ⌊eliminate time-based employment contracts for knowledge workers entirely.⌋ Replace with ⌊deliverable-based contracts. Work until the work is done, then stop.⌋ Radical but honest.",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's ⌊managerial anxiety about not being able to watch employees for 8 hours⌋. Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: why are we still defending an ⌊industrial-era schedule in a knowledge economy⌋?",
-        "highlightsMeta": [
-          {
-            "category": "proposals",
-            "topic": "Contract reform",
-            "focusComment": "managerial anxiety about not being able to watch employees",
-            "contentComment": "eliminate time-based employment contracts for knowledge workers entirely."
-          },
-          {
-            "category": "framing",
-            "topic": "Output over hours",
-            "focusComment": "industrial-era schedule in a knowledge economy",
-            "contentComment": "deliverable-based contracts. Work until the work is done"
-          }
-        ],
         "account": {
           "display_name": "Blair O'Brien",
           "acct": "blair@startup.io",
@@ -713,7 +903,33 @@
         "favourites_count": 189,
         "replies_count": 26,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 384,
+            "focusEnd": 454,
+            "contentStart": 17,
+            "contentEnd": 90,
+            "focusCommentStart": 384,
+            "focusCommentEnd": 442,
+            "contentCommentStart": 17,
+            "contentCommentEnd": 90,
+            "category": "proposals",
+            "topic": "Contract reform"
+          },
+          {
+            "focusStart": 600,
+            "focusEnd": 646,
+            "contentStart": 104,
+            "contentEnd": 172,
+            "focusCommentStart": 600,
+            "focusCommentEnd": 646,
+            "contentCommentStart": 104,
+            "contentCommentEnd": 160,
+            "category": "framing",
+            "topic": "Output over hours"
+          }
+        ]
       },
       {
         "id": "post-val-1",
@@ -721,22 +937,6 @@
         "rank": 1,
         "globalRank": 5,
         "content": "The 4-day week is fundamentally a class issue. White-collar knowledge workers will benefit; service, care, and gig workers won't. Let's be honest that this debate is mostly about a privileged subset of the workforce.",
-        "content_highlight": "The 4-day week is fundamentally ⌊a class issue.⌋ White-collar knowledge workers will benefit; ⌊service, care, and gig workers won't.⌋ Let's be honest that this debate is mostly about a privileged subset.",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. ⌊Companies that make the switch report lower burnout, higher retention, and better output.⌋ The question is simply: ⌊why are we still defending an industrial-era schedule in a knowledge economy?⌋",
-        "highlightsMeta": [
-          {
-            "category": "values",
-            "topic": "Class divide",
-            "focusComment": "Companies that make the switch report lower burnout",
-            "contentComment": "a class issue."
-          },
-          {
-            "category": "disagree",
-            "topic": "Excluded workers",
-            "focusComment": "defending an industrial-era schedule in a knowledge economy?",
-            "contentComment": "service, care, and gig workers won't."
-          }
-        ],
         "account": {
           "display_name": "Sam Okonkwo",
           "acct": "sam@labor.social",
@@ -746,7 +946,33 @@
         "favourites_count": 412,
         "replies_count": 58,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 456,
+            "focusEnd": 545,
+            "contentStart": 32,
+            "contentEnd": 46,
+            "focusCommentStart": 456,
+            "focusCommentEnd": 507,
+            "contentCommentStart": 32,
+            "contentCommentEnd": 46,
+            "category": "values",
+            "topic": "Class divide"
+          },
+          {
+            "focusStart": 570,
+            "focusEnd": 647,
+            "contentStart": 92,
+            "contentEnd": 129,
+            "focusCommentStart": 587,
+            "focusCommentEnd": 647,
+            "contentCommentStart": 92,
+            "contentCommentEnd": 129,
+            "category": "disagree",
+            "topic": "Excluded workers"
+          }
+        ]
       },
       {
         "id": "post-val-2",
@@ -754,22 +980,6 @@
         "rank": 2,
         "globalRank": 7,
         "content": "The deeper issue is dignity. Surveillance-based management treats workers as children who can't be trusted. Any schedule built on that premise is degrading regardless of how many days it spans.",
-        "content_highlight": "The deeper issue is dignity. ⌊Surveillance-based management treats workers as children who can't be trusted.⌋ Any schedule built on that premise is ⌊degrading regardless of how many days it spans.⌋",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's ⌊managerial anxiety about not being able to watch employees for 8 hours⌋. Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: why are we still defending an ⌊industrial-era schedule in a knowledge economy⌋?",
-        "highlightsMeta": [
-          {
-            "category": "values",
-            "topic": "Worker dignity",
-            "focusComment": "managerial anxiety about not being able to watch employees",
-            "contentComment": "Surveillance-based management treats workers as children"
-          },
-          {
-            "category": "framing",
-            "topic": "Schedule-agnostic harm",
-            "focusComment": "industrial-era schedule in a knowledge economy",
-            "contentComment": "degrading regardless of how many days it spans."
-          }
-        ],
         "account": {
           "display_name": "Blair O'Brien",
           "acct": "blair@philosophy.social",
@@ -779,7 +989,33 @@
         "favourites_count": 356,
         "replies_count": 42,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 384,
+            "focusEnd": 454,
+            "contentStart": 29,
+            "contentEnd": 107,
+            "focusCommentStart": 384,
+            "focusCommentEnd": 442,
+            "contentCommentStart": 29,
+            "contentCommentEnd": 85,
+            "category": "values",
+            "topic": "Worker dignity"
+          },
+          {
+            "focusStart": 600,
+            "focusEnd": 646,
+            "contentStart": 146,
+            "contentEnd": 193,
+            "focusCommentStart": 600,
+            "focusCommentEnd": 646,
+            "contentCommentStart": 146,
+            "contentCommentEnd": 193,
+            "category": "framing",
+            "topic": "Schedule-agnostic harm"
+          }
+        ]
       },
       {
         "id": "post-humor-1",
@@ -787,22 +1023,6 @@
         "rank": 1,
         "globalRank": 1,
         "content": "BREAKING: Local man discovers that making people work less makes them work better. Scientists baffled. Economists furious. HR departments frantically searching for a way to turn this into a performance management metric. Middle managers reportedly seen wandering office hallways muttering about 'culture' and 'synergy' as their calendars clear up. One VP of People Operations was found sobbing into a spreadsheet titled 'Engagement Metrics Q3' after realizing that employees who aren't exhausted actually like their jobs. In related news, a Fortune 500 CEO announced that his company would trial a 4-day week, but only for the C-suite, because 'leadership needs to test it first.' The trial has been running for 6 months. No results have been shared. The CEO was last seen on a golf course on a Thursday afternoon. When reached for comment, a spokesperson said 'we're still gathering data' while booking a Friday flight to Aspen.",
-        "content_highlight": "BREAKING: ⌊Local man discovers that making people work less makes them work better.⌋ Scientists baffled. Economists furious. ⌊HR departments frantically searching for a way to turn this into a performance management metric.⌋ Middle managers reportedly seen wandering office hallways muttering about 'culture' and 'synergy' as their calendars clear up. One VP of People Operations was found sobbing into a spreadsheet titled 'Engagement Metrics Q3' after realizing that employees who aren't exhausted actually like their jobs. In related news, a Fortune 500 CEO announced that his company would trial a 4-day week, but only for the C-suite, because 'leadership needs to test it first.' The trial has been running for 6 months. No results have been shared. The CEO was last seen on a golf course on a Thursday afternoon.",
-        "focusHighlight": "The 4-day work week is not a perk — it's a ⌊productivity revolution hiding in plain sight⌋. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. ⌊The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours.⌋ Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: why are we still defending an industrial-era schedule in a knowledge economy?",
-        "highlightsMeta": [
-          {
-            "category": "humor",
-            "topic": "Productivity paradox",
-            "focusComment": "productivity revolution hiding in plain sight",
-            "contentComment": "making people work less makes them work better."
-          },
-          {
-            "category": "humor",
-            "topic": "Management theater",
-            "focusComment": "real obstacle isn't economics",
-            "contentComment": "turn this into a performance management metric."
-          }
-        ],
         "account": {
           "display_name": "Drew Santos",
           "acct": "drew@funny.social",
@@ -812,7 +1032,33 @@
         "favourites_count": 1203,
         "replies_count": 87,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 43,
+            "focusEnd": 88,
+            "contentStart": 10,
+            "contentEnd": 82,
+            "focusCommentStart": 43,
+            "focusCommentEnd": 88,
+            "contentCommentStart": 35,
+            "contentCommentEnd": 82,
+            "category": "humor",
+            "topic": "Productivity paradox"
+          },
+          {
+            "focusStart": 343,
+            "focusEnd": 455,
+            "contentStart": 123,
+            "contentEnd": 220,
+            "focusCommentStart": 347,
+            "focusCommentEnd": 376,
+            "contentCommentStart": 173,
+            "contentCommentEnd": 220,
+            "category": "humor",
+            "topic": "Management theater"
+          }
+        ]
       },
       {
         "id": "post-framing-1",
@@ -820,22 +1066,6 @@
         "rank": 1,
         "globalRank": 3,
         "content": "The wrong frame: this is a debate about days. The right frame: this is about whether employers own your time or your output. Four days is a symptom. Worker autonomy is the actual issue. When we argue about 4 days vs. 5 days, we're already operating inside a framework that assumes employers have a legitimate claim on a fixed quantity of your waking hours. That's the real question worth interrogating. The entire concept of 'buying time' rather than 'buying results' is a relic of manufacturing — you needed bodies on the line for X hours to produce Y widgets. Knowledge work doesn't operate that way. A developer might solve a critical architecture problem in 20 minutes of deep thought after days of subconscious processing, or spend 8 hours writing boilerplate that an intern could do. Same hours, wildly different value. The 4-day week movement is popular because it's a concrete, tractable demand. But it's a half-measure. The real revolution is outcome-based employment where your time is your own as long as the work gets done. Some weeks that's 20 hours. Some weeks it's 50. The average shakes out, and adults manage their own energy.",
-        "content_highlight": "The wrong frame: this is a debate about ⌊days.⌋ The right frame: this is about whether employers own your time or your output. Four days is a symptom. Worker autonomy is the actual issue. When we argue about 4 days vs. 5 days, we're already operating inside a framework that assumes employers have a legitimate claim on a fixed quantity of your waking hours. That's the real question worth interrogating. The entire concept of ⌊'buying time' rather than 'buying results' is a relic of manufacturing⌋ — you needed bodies on the line for X hours to produce Y widgets. Knowledge work doesn't operate that way. A developer might solve a critical architecture problem in 20 minutes of deep thought after days of subconscious processing, or spend 8 hours writing boilerplate that an intern could do. Same hours, wildly different value. The 4-day week movement is popular because it's a concrete, tractable demand. But it's a half-measure.",
-        "focusHighlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: ⌊why are we still defending an industrial-era schedule in a knowledge economy?⌋ ⌊The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight.⌋",
-        "highlightsMeta": [
-          {
-            "category": "framing",
-            "topic": "Days vs autonomy",
-            "focusComment": "defending an industrial-era schedule in a knowledge economy?",
-            "contentComment": "days."
-          },
-          {
-            "category": "connections",
-            "topic": "Manufacturing relic",
-            "focusComment": "productivity revolution hiding in plain sight.",
-            "contentComment": "'buying time' rather than 'buying results' is a relic of manufacturing"
-          }
-        ],
         "account": {
           "display_name": "Taylor Brooks",
           "acct": "taylor@skeptic.social",
@@ -845,7 +1075,33 @@
         "favourites_count": 478,
         "replies_count": 61,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 570,
+            "focusEnd": 647,
+            "contentStart": 40,
+            "contentEnd": 45,
+            "focusCommentStart": 587,
+            "focusCommentEnd": 647,
+            "contentCommentStart": 40,
+            "contentCommentEnd": 45,
+            "category": "framing",
+            "topic": "Days vs autonomy"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 89,
+            "contentStart": 425,
+            "contentEnd": 495,
+            "focusCommentStart": 43,
+            "focusCommentEnd": 89,
+            "contentCommentStart": 425,
+            "contentCommentEnd": 495,
+            "category": "connections",
+            "topic": "Manufacturing relic"
+          }
+        ]
       },
       {
         "id": "post-framing-2",
@@ -853,22 +1109,6 @@
         "rank": 2,
         "globalRank": 6,
         "content": "We should stop arguing for the 4-day week on productivity grounds — it concedes the premise that worker wellbeing only matters if it produces more output. The better argument: people deserve time. Full stop.",
-        "content_highlight": "We should stop arguing for the 4-day week on ⌊productivity grounds⌋ — it concedes the premise that ⌊worker wellbeing only matters if it produces more output.⌋ The better argument: people deserve time. Full stop.",
-        "focusHighlight": "The 4-day work week is not a perk — it's a ⌊productivity revolution hiding in plain sight⌋. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report ⌊lower burnout, higher retention, and better output⌋. The question is simply: why are we still defending an industrial-era schedule in a knowledge economy?",
-        "highlightsMeta": [
-          {
-            "category": "framing",
-            "topic": "Productivity framing flaw",
-            "focusComment": "productivity revolution hiding in plain sight",
-            "contentComment": "productivity grounds"
-          },
-          {
-            "category": "values",
-            "topic": "Wellbeing vs output",
-            "focusComment": "lower burnout, higher retention, and better output",
-            "contentComment": "worker wellbeing only matters if it produces more output."
-          }
-        ],
         "account": {
           "display_name": "Morgan Davies",
           "acct": "morgan@policy.social",
@@ -878,7 +1118,33 @@
         "favourites_count": 389,
         "replies_count": 49,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 43,
+            "focusEnd": 88,
+            "contentStart": 45,
+            "contentEnd": 65,
+            "focusCommentStart": 43,
+            "focusCommentEnd": 88,
+            "contentCommentStart": 45,
+            "contentCommentEnd": 65,
+            "category": "framing",
+            "topic": "Productivity framing flaw"
+          },
+          {
+            "focusStart": 494,
+            "focusEnd": 544,
+            "contentStart": 97,
+            "contentEnd": 154,
+            "focusCommentStart": 494,
+            "focusCommentEnd": 544,
+            "contentCommentStart": 97,
+            "contentCommentEnd": 154,
+            "category": "values",
+            "topic": "Wellbeing vs output"
+          }
+        ]
       }
     ],
     "replies": [
@@ -937,22 +1203,6 @@
         "rank": 1,
         "globalRank": 27,
         "content": "Calling the Iceland trial 'cherry-picked' ignores its scale. It ran for four years, covered 2,500 workers across dozens of workplaces, and was independently evaluated by Autonomy and ALDA. That's not anecdotal — it's one of the most rigorous labor experiments in modern history.",
-        "content_highlight": "Calling the Iceland trial 'cherry-picked' ignores its scale. ⌊It ran for four years, covered 2,500 workers across dozens of workplaces, and was independently evaluated by Autonomy and ALDA.⌋ That's not anecdotal — it's ⌊one of the most rigorous labor experiments in modern history.⌋",
-        "focusHighlight": "⌊The Iceland trial was mostly public sector workers in controlled conditions.⌋ Microsoft Japan tested it for one month. This isn't generalizable data — ⌊it's cherry-picked success stories.⌋",
-        "highlightsMeta": [
-          {
-            "category": "disagree",
-            "topic": "Trial scale defense",
-            "focusComment": "mostly public sector workers in controlled conditions.",
-            "contentComment": "independently evaluated by Autonomy and ALDA."
-          },
-          {
-            "category": "evidence_public",
-            "topic": "Research rigor",
-            "focusComment": "cherry-picked success stories.",
-            "contentComment": "one of the most rigorous labor experiments in modern history."
-          }
-        ],
         "account": {
           "display_name": "Robin Patel",
           "acct": "robin@futureofwork.io",
@@ -962,7 +1212,33 @@
         "favourites_count": 178,
         "replies_count": 22,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 76,
+            "contentStart": 61,
+            "contentEnd": 188,
+            "focusCommentStart": 22,
+            "focusCommentEnd": 76,
+            "contentCommentStart": 143,
+            "contentCommentEnd": 188,
+            "category": "disagree",
+            "topic": "Trial scale defense"
+          },
+          {
+            "focusStart": 150,
+            "focusEnd": 185,
+            "contentStart": 217,
+            "contentEnd": 278,
+            "focusCommentStart": 155,
+            "focusCommentEnd": 185,
+            "contentCommentStart": 217,
+            "contentCommentEnd": 278,
+            "category": "evidence_public",
+            "topic": "Research rigor"
+          }
+        ]
       },
       {
         "id": "post-e1-agree-1",
@@ -970,22 +1246,6 @@
         "rank": 2,
         "globalRank": 28,
         "content": "Thank you. The 4-day week crowd never mentions that Iceland's trial was overwhelmingly government offices and social services — sectors with very different productivity metrics than private industry. Try running a restaurant four days a week.",
-        "content_highlight": "The 4-day week crowd never mentions that ⌊Iceland's trial was overwhelmingly government offices and social services — sectors with very different productivity metrics than private industry.⌋ Try ⌊running a restaurant four days a week.⌋",
-        "focusHighlight": "⌊The Iceland trial was mostly public sector workers in controlled conditions.⌋ Microsoft Japan tested it for one month. ⌊This isn't generalizable data — it's cherry-picked success stories.⌋",
-        "highlightsMeta": [
-          {
-            "category": "agree",
-            "topic": "Public sector bias",
-            "focusComment": "mostly public sector workers in controlled conditions.",
-            "contentComment": "very different productivity metrics than private industry."
-          },
-          {
-            "category": "disagree",
-            "topic": "Service industry gap",
-            "focusComment": "isn't generalizable data — it's cherry-picked success stories.",
-            "contentComment": "running a restaurant four days a week."
-          }
-        ],
         "account": {
           "display_name": "Chris Walsh",
           "acct": "chris@startup.social",
@@ -995,7 +1255,33 @@
         "favourites_count": 145,
         "replies_count": 19,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 76,
+            "contentStart": 52,
+            "contentEnd": 199,
+            "focusCommentStart": 22,
+            "focusCommentEnd": 76,
+            "contentCommentStart": 141,
+            "contentCommentEnd": 199,
+            "category": "agree",
+            "topic": "Public sector bias"
+          },
+          {
+            "focusStart": 118,
+            "focusEnd": 185,
+            "contentStart": 204,
+            "contentEnd": 242,
+            "focusCommentStart": 123,
+            "focusCommentEnd": 185,
+            "contentCommentStart": 204,
+            "contentCommentEnd": 242,
+            "category": "disagree",
+            "topic": "Service industry gap"
+          }
+        ]
       },
       {
         "id": "post-e1-evpub-1",
@@ -1003,22 +1289,6 @@
         "rank": 3,
         "globalRank": 29,
         "content": "The 4 Day Week Global pilot (2022) included 61 companies across multiple industries and countries. 92% chose to continue after the trial. Revenue rose 35% on average compared to the same period in prior years. This is private-sector data at scale.",
-        "content_highlight": "The 4 Day Week Global pilot (2022) included ⌊61 companies across multiple industries and countries. 92% chose to continue after the trial.⌋ Revenue rose ⌊35% on average compared to the same period in prior years.⌋ This is private-sector data at scale.",
-        "focusHighlight": "The Iceland trial was mostly public sector workers in controlled conditions. ⌊Microsoft Japan tested it for one month.⌋ ⌊This isn't generalizable data — it's cherry-picked success stories.⌋",
-        "highlightsMeta": [
-          {
-            "category": "evidence_public",
-            "topic": "Global pilot scope",
-            "focusComment": "tested it for one month.",
-            "contentComment": "92% chose to continue after the trial."
-          },
-          {
-            "category": "evidence_public",
-            "topic": "Revenue uplift",
-            "focusComment": "isn't generalizable data — it's cherry-picked success stories.",
-            "contentComment": "35% on average compared to the same period in prior years."
-          }
-        ],
         "account": {
           "display_name": "Jamie Liu",
           "acct": "jamie@data.social",
@@ -1028,7 +1298,33 @@
         "favourites_count": 201,
         "replies_count": 27,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 77,
+            "focusEnd": 117,
+            "contentStart": 44,
+            "contentEnd": 137,
+            "focusCommentStart": 93,
+            "focusCommentEnd": 117,
+            "contentCommentStart": 99,
+            "contentCommentEnd": 137,
+            "category": "evidence_public",
+            "topic": "Global pilot scope"
+          },
+          {
+            "focusStart": 118,
+            "focusEnd": 185,
+            "contentStart": 151,
+            "contentEnd": 209,
+            "focusCommentStart": 123,
+            "focusCommentEnd": 185,
+            "contentCommentStart": 151,
+            "contentCommentEnd": 209,
+            "category": "evidence_public",
+            "topic": "Revenue uplift"
+          }
+        ]
       },
       {
         "id": "focus-003",
@@ -1036,22 +1332,6 @@
         "rank": 4,
         "globalRank": 30,
         "content": "Genuine question: if the data is cherry-picked, what would convincing data look like? A nationwide mandate? A Fortune 500 company running it for 5 years? At some point, demanding more evidence becomes a way to avoid acting on existing evidence.",
-        "content_highlight": "Genuine question: ⌊if the data is cherry-picked, what would convincing data look like?⌋ A nationwide mandate? A Fortune 500 company running it for 5 years? ⌊At some point, demanding more evidence becomes a way to avoid acting on existing evidence.⌋",
-        "focusHighlight": "The Iceland trial was mostly public sector workers in controlled conditions. Microsoft Japan tested it for one month. This isn't generalizable data — ⌊it's cherry-picked success stories.⌋ ⌊The Iceland trial was mostly public sector workers in controlled conditions.⌋",
-        "highlightsMeta": [
-          {
-            "category": "questions",
-            "topic": "Evidence threshold",
-            "focusComment": "cherry-picked success stories.",
-            "contentComment": "if the data is cherry-picked, what would convincing data look like?"
-          },
-          {
-            "category": "framing",
-            "topic": "Paralysis by analysis",
-            "focusComment": "mostly public sector workers in controlled conditions.",
-            "contentComment": "demanding more evidence becomes a way to avoid acting on existing evidence."
-          }
-        ],
         "account": {
           "display_name": "Blair O'Brien",
           "acct": "blair@startup.io",
@@ -1061,7 +1341,33 @@
         "favourites_count": 167,
         "replies_count": 33,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 150,
+            "focusEnd": 185,
+            "contentStart": 18,
+            "contentEnd": 85,
+            "focusCommentStart": 155,
+            "focusCommentEnd": 185,
+            "contentCommentStart": 18,
+            "contentCommentEnd": 85,
+            "category": "questions",
+            "topic": "Evidence threshold"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 76,
+            "contentStart": 154,
+            "contentEnd": 244,
+            "focusCommentStart": 22,
+            "focusCommentEnd": 76,
+            "contentCommentStart": 169,
+            "contentCommentEnd": 244,
+            "category": "framing",
+            "topic": "Paralysis by analysis"
+          }
+        ]
       }
     ],
     "replies": [
@@ -1120,22 +1426,6 @@
         "rank": 1,
         "globalRank": 31,
         "content": "This mirrors our experience exactly. Once we cut the performative meetings and trusted teams to self-organize their schedules, velocity went through the roof. The 4-day week forces discipline that 5 days lets you avoid.",
-        "content_highlight": "This mirrors our experience exactly. Once we ⌊cut the performative meetings and trusted teams to self-organize their schedules, velocity went through the roof.⌋ The ⌊4-day week forces discipline that 5 days lets you avoid.⌋",
-        "focusHighlight": "We've been on a 4-day week for 18 months. Annual turnover dropped from 28% to 11%. We shipped more features in Q1 this year than any prior Q1. I was a skeptic — now I'd never go back. Here's what actually changed: ⌊we eliminated all recurring meetings under 30 minutes, consolidated standups into async written updates, and gave every team full autonomy over which day they take off.⌋ Some chose Monday, some chose Friday, a few chose Wednesday to create a mid-week reset. The key insight was that productivity didn't just stay flat — it actively improved because ⌊people stopped filling time with performative work.⌋ The 40-hour week creates a culture of looking busy. When you only have 32 hours, there's no room for theater. Every meeting needs a clear agenda and outcome. Every task gets prioritized ruthlessly. The fluff evaporates. Our engineering velocity went up 23% measured by story points delivered, and our customer satisfaction scores hit all-time highs. The most surprising result? Our on-call incidents dropped 40% because people were shipping more carefully, not more recklessly. They had fewer hours so they wrote better code the first time instead of rushing and patching later.",
-        "highlightsMeta": [
-          {
-            "category": "agree",
-            "topic": "Meeting culture reform",
-            "focusComment": "eliminated all recurring meetings under 30 minutes",
-            "contentComment": "velocity went through the roof."
-          },
-          {
-            "category": "framing",
-            "topic": "Forced discipline",
-            "focusComment": "people stopped filling time with performative work.",
-            "contentComment": "4-day week forces discipline that 5 days lets you avoid."
-          }
-        ],
         "account": {
           "display_name": "Wei Zhang",
           "acct": "wei@async.dev",
@@ -1145,7 +1435,33 @@
         "favourites_count": 198,
         "replies_count": 15,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 214,
+            "focusEnd": 382,
+            "contentStart": 45,
+            "contentEnd": 158,
+            "focusCommentStart": 217,
+            "focusCommentEnd": 267,
+            "contentCommentStart": 127,
+            "contentCommentEnd": 158,
+            "category": "agree",
+            "topic": "Meeting culture reform"
+          },
+          {
+            "focusStart": 562,
+            "focusEnd": 613,
+            "contentStart": 163,
+            "contentEnd": 219,
+            "focusCommentStart": 562,
+            "focusCommentEnd": 613,
+            "contentCommentStart": 163,
+            "contentCommentEnd": 219,
+            "category": "framing",
+            "topic": "Forced discipline"
+          }
+        ]
       },
       {
         "id": "focus-002",
@@ -1153,22 +1469,6 @@
         "rank": 2,
         "globalRank": 32,
         "content": "Story points are a notoriously unreliable productivity metric — teams routinely inflate estimates to hit velocity targets. A 23% increase in story points delivered could mean nothing. What happened to revenue, customer churn, or defect rate?",
-        "content_highlight": "⌊Story points are a notoriously unreliable productivity metric — teams routinely inflate estimates to hit velocity targets.⌋ A 23% increase in story points delivered could mean nothing. ⌊What happened to revenue, customer churn, or defect rate?⌋",
-        "focusHighlight": "We've been on a 4-day week for 18 months. Annual turnover dropped from 28% to 11%. We shipped more features in Q1 this year than any prior Q1. I was a skeptic — now I'd never go back. Here's what actually changed: we eliminated all recurring meetings under 30 minutes, consolidated standups into async written updates, and gave every team full autonomy over which day they take off. Some chose Monday, some chose Friday, a few chose Wednesday to create a mid-week reset. The key insight was that productivity didn't just stay flat — it actively improved because people stopped filling time with performative work. The 40-hour week creates a culture of looking busy. When you only have 32 hours, there's no room for theater. Every meeting needs a clear agenda and outcome. Every task gets prioritized ruthlessly. The fluff evaporates. ⌊Our engineering velocity went up 23% measured by story points delivered⌋, and our customer satisfaction scores hit all-time highs. The most surprising result? ⌊Our on-call incidents dropped 40%⌋ because people were shipping more carefully, not more recklessly. They had fewer hours so they wrote better code the first time instead of rushing and patching later.",
-        "highlightsMeta": [
-          {
-            "category": "disagree",
-            "topic": "Story point inflation",
-            "focusComment": "velocity went up 23%",
-            "contentComment": "notoriously unreliable productivity metric"
-          },
-          {
-            "category": "questions",
-            "topic": "Missing metrics",
-            "focusComment": "on-call incidents dropped 40%",
-            "contentComment": "What happened to revenue, customer churn, or defect rate?"
-          }
-        ],
         "account": {
           "display_name": "Taylor Brooks",
           "acct": "taylor@skeptic.social",
@@ -1178,7 +1478,33 @@
         "favourites_count": 134,
         "replies_count": 26,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 834,
+            "focusEnd": 905,
+            "contentStart": 0,
+            "contentEnd": 122,
+            "focusCommentStart": 850,
+            "focusCommentEnd": 870,
+            "contentCommentStart": 19,
+            "contentCommentEnd": 61,
+            "category": "disagree",
+            "topic": "Story point inflation"
+          },
+          {
+            "focusStart": 992,
+            "focusEnd": 1025,
+            "contentStart": 184,
+            "contentEnd": 241,
+            "focusCommentStart": 996,
+            "focusCommentEnd": 1025,
+            "contentCommentStart": 184,
+            "contentCommentEnd": 241,
+            "category": "questions",
+            "topic": "Missing metrics"
+          }
+        ]
       },
       {
         "id": "post-e2-evpub-1",
@@ -1186,22 +1512,6 @@
         "rank": 3,
         "globalRank": 33,
         "content": "The turnover reduction alone justifies the investment. At average tech hiring costs of $30K-$50K per role, dropping from 28% to 11% turnover on a 100-person team saves roughly $500K-$850K annually. The 4-day week pays for itself in retention.",
-        "content_highlight": "The turnover reduction alone justifies the investment. ⌊At average tech hiring costs of $30K-$50K per role, dropping from 28% to 11% turnover on a 100-person team saves roughly $500K-$850K annually.⌋ The ⌊4-day week pays for itself in retention.⌋",
-        "focusHighlight": "We've been on a 4-day week for 18 months. ⌊Annual turnover dropped from 28% to 11%.⌋ We shipped more features in Q1 this year than any prior Q1. I was a skeptic — now I'd never go back. Here's what actually changed: we eliminated all recurring meetings under 30 minutes, consolidated standups into async written updates, and gave every team full autonomy over which day they take off. Some chose Monday, some chose Friday, a few chose Wednesday to create a mid-week reset. The key insight was that productivity didn't just stay flat — it actively improved because people stopped filling time with performative work. The 40-hour week creates a culture of looking busy. When you only have 32 hours, there's no room for theater. Every meeting needs a clear agenda and outcome. Every task gets prioritized ruthlessly. The fluff evaporates. Our engineering velocity went up 23% measured by story points delivered, and ⌊our customer satisfaction scores hit all-time highs⌋. The most surprising result? Our on-call incidents dropped 40% because people were shipping more carefully, not more recklessly. They had fewer hours so they wrote better code the first time instead of rushing and patching later.",
-        "highlightsMeta": [
-          {
-            "category": "evidence_public",
-            "topic": "Hiring cost savings",
-            "focusComment": "Annual turnover dropped from 28% to 11%.",
-            "contentComment": "saves roughly $500K-$850K annually."
-          },
-          {
-            "category": "agree",
-            "topic": "Retention ROI",
-            "focusComment": "customer satisfaction scores hit all-time highs",
-            "contentComment": "4-day week pays for itself in retention."
-          }
-        ],
         "account": {
           "display_name": "Jamie Liu",
           "acct": "jamie@data.social",
@@ -1211,7 +1521,33 @@
         "favourites_count": 223,
         "replies_count": 18,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 42,
+            "focusEnd": 82,
+            "contentStart": 55,
+            "contentEnd": 197,
+            "focusCommentStart": 42,
+            "focusCommentEnd": 82,
+            "contentCommentStart": 162,
+            "contentCommentEnd": 197,
+            "category": "evidence_public",
+            "topic": "Hiring cost savings"
+          },
+          {
+            "focusStart": 911,
+            "focusEnd": 962,
+            "contentStart": 202,
+            "contentEnd": 242,
+            "focusCommentStart": 915,
+            "focusCommentEnd": 962,
+            "contentCommentStart": 202,
+            "contentCommentEnd": 242,
+            "category": "agree",
+            "topic": "Retention ROI"
+          }
+        ]
       },
       {
         "id": "focus-001",
@@ -1219,22 +1555,6 @@
         "rank": 4,
         "globalRank": 34,
         "content": "How big is your company, and what industry? The 'let teams choose their own day off' approach works when everyone is an engineer. What about cross-functional teams where design, product, and engineering all need to overlap?",
-        "content_highlight": "How big is your company, and what industry? The ⌊'let teams choose their own day off' approach works when everyone is an engineer. What about cross-functional teams⌋ where design, product, and engineering all need to overlap? ⌊How big is your company, and what industry?⌋",
-        "focusHighlight": "We've been on a 4-day week for 18 months. Annual turnover dropped from 28% to 11%. We shipped more features in Q1 this year than any prior Q1. I was a skeptic — now I'd never go back. Here's what actually changed: we eliminated all recurring meetings under 30 minutes, consolidated standups into async written updates, and ⌊gave every team full autonomy over which day they take off⌋. Some chose Monday, some chose Friday, a few chose Wednesday to create a mid-week reset. The key insight was that productivity didn't just stay flat — it actively improved because people stopped filling time with performative work. ⌊The 40-hour week creates a culture of looking busy.⌋ When you only have 32 hours, there's no room for theater. Every meeting needs a clear agenda and outcome. Every task gets prioritized ruthlessly. The fluff evaporates. Our engineering velocity went up 23% measured by story points delivered, and our customer satisfaction scores hit all-time highs. The most surprising result? Our on-call incidents dropped 40% because people were shipping more carefully, not more recklessly. They had fewer hours so they wrote better code the first time instead of rushing and patching later.",
-        "highlightsMeta": [
-          {
-            "category": "questions",
-            "topic": "Cross-team coordination",
-            "focusComment": "full autonomy over which day they take off",
-            "contentComment": "works when everyone is an engineer."
-          },
-          {
-            "category": "questions",
-            "topic": "Company context",
-            "focusComment": "40-hour week creates a culture of looking busy.",
-            "contentComment": "How big is your company, and what industry?"
-          }
-        ],
         "account": {
           "display_name": "Casey Williams",
           "acct": "casey@honest.social",
@@ -1244,7 +1564,33 @@
         "favourites_count": 112,
         "replies_count": 29,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 323,
+            "focusEnd": 381,
+            "contentStart": 48,
+            "contentEnd": 163,
+            "focusCommentStart": 339,
+            "focusCommentEnd": 381,
+            "contentCommentStart": 94,
+            "contentCommentEnd": 129,
+            "category": "questions",
+            "topic": "Cross-team coordination"
+          },
+          {
+            "focusStart": 614,
+            "focusEnd": 665,
+            "contentStart": 0,
+            "contentEnd": 43,
+            "focusCommentStart": 618,
+            "focusCommentEnd": 665,
+            "contentCommentStart": 0,
+            "contentCommentEnd": 43,
+            "category": "questions",
+            "topic": "Company context"
+          }
+        ]
       }
     ],
     "replies": [
@@ -1303,22 +1649,6 @@
         "rank": 1,
         "globalRank": 1,
         "content": "Finally someone says it. I'm a single mom with two kids under 8. Every time someone tweets about the 4-day work week paradise I think: great, so who watches my kids during the extra 2 hours per day? Extended daycare costs more than the salary bump I'd theoretically get from being more productive. The entire framing assumes a support network that most working parents simply do not have. My mother lives three states away. My ex has the kids every other weekend. The 4-day model would literally break my schedule.",
-        "content_highlight": "Finally someone says it. I'm a single mom with two kids under 8. Every time someone tweets about the 4-day work week paradise I think: great, so who watches my kids during the extra 2 hours per day? ⌊Extended daycare costs more than the salary bump I'd theoretically get from being more productive.⌋ The entire framing assumes ⌊a support network that most working parents simply do not have.⌋ My mother lives three states away. My ex has the kids every other weekend. The 4-day model would literally break my schedule.",
-        "focusHighlight": "The 4-day work week conversation ignores the elephant in the room: childcare. Working parents already struggle with 5-day schedules because schools, daycares, and activities are built around a Monday-Friday model. ⌊Compress to 4 days of 10 hours each and you've just made the childcare crisis worse.⌋ ⌊The conversation needs to account for the entire family ecosystem⌋, not just the individual worker's productivity.",
-        "highlightsMeta": [
-          {
-            "category": "agree",
-            "topic": "Daycare cost burden",
-            "focusComment": "Compress to 4 days of 10 hours each and you've just made the childcare crisis worse.",
-            "contentComment": "Extended daycare costs more than the salary bump"
-          },
-          {
-            "category": "evidence_personal",
-            "topic": "Missing support network",
-            "focusComment": "needs to account for the entire family ecosystem",
-            "contentComment": "most working parents simply do not have."
-          }
-        ],
         "account": {
           "display_name": "Lucia Torres",
           "acct": "lucia@family.social",
@@ -1328,7 +1658,33 @@
         "favourites_count": 445,
         "replies_count": 67,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 214,
+            "focusEnd": 298,
+            "contentStart": 199,
+            "contentEnd": 297,
+            "focusCommentStart": 214,
+            "focusCommentEnd": 298,
+            "contentCommentStart": 199,
+            "contentCommentEnd": 247,
+            "category": "agree",
+            "topic": "Daycare cost burden"
+          },
+          {
+            "focusStart": 299,
+            "focusEnd": 364,
+            "contentStart": 325,
+            "contentEnd": 388,
+            "focusCommentStart": 316,
+            "focusCommentEnd": 364,
+            "contentCommentStart": 348,
+            "contentCommentEnd": 388,
+            "category": "evidence_personal",
+            "topic": "Missing support network"
+          }
+        ]
       },
       {
         "id": "post-4-disagree-1",
@@ -1336,22 +1692,6 @@
         "rank": 1,
         "globalRank": 2,
         "content": "This is a false framing. The 4-day work week doesn't have to mean 4x10. Most successful implementations are 4x8 — 32 hours at the same pay. No childcare problem, because you get a whole day back. The assumption that compressed hours is the only model shows you haven't actually looked at what's being proposed.",
-        "content_highlight": "This is a false framing. ⌊The 4-day work week doesn't have to mean 4x10. Most successful implementations are 4x8 — 32 hours at the same pay.⌋ No childcare problem, because ⌊you get a whole day back.⌋ The assumption that compressed hours is the only model shows you haven't actually looked at what's being proposed.",
-        "focusHighlight": "The 4-day work week conversation ignores the elephant in the room: childcare. Working parents already struggle with 5-day schedules because schools, daycares, and activities are built around a Monday-Friday model. ⌊Compress to 4 days of 10 hours each and you've just made the childcare crisis worse.⌋ The conversation needs to account for ⌊the entire family ecosystem, not just the individual worker's productivity.⌋",
-        "highlightsMeta": [
-          {
-            "category": "disagree",
-            "topic": "4x8 vs 4x10 model",
-            "focusComment": "Compress to 4 days of 10 hours each and you've just made the childcare crisis worse.",
-            "contentComment": "doesn't have to mean 4x10. Most successful implementations are 4x8"
-          },
-          {
-            "category": "framing",
-            "topic": "Day reclaimed",
-            "focusComment": "not just the individual worker's productivity.",
-            "contentComment": "you get a whole day back."
-          }
-        ],
         "account": {
           "display_name": "Derek Huang",
           "acct": "derek@work.social",
@@ -1361,7 +1701,33 @@
         "favourites_count": 298,
         "replies_count": 34,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 214,
+            "focusEnd": 298,
+            "contentStart": 25,
+            "contentEnd": 139,
+            "focusCommentStart": 214,
+            "focusCommentEnd": 298,
+            "contentCommentStart": 45,
+            "contentCommentEnd": 111,
+            "category": "disagree",
+            "topic": "4x8 vs 4x10 model"
+          },
+          {
+            "focusStart": 337,
+            "focusEnd": 412,
+            "contentStart": 170,
+            "contentEnd": 195,
+            "focusCommentStart": 366,
+            "focusCommentEnd": 412,
+            "contentCommentStart": 170,
+            "contentCommentEnd": 195,
+            "category": "framing",
+            "topic": "Day reclaimed"
+          }
+        ]
       },
       {
         "id": "focus-001",
@@ -1369,22 +1735,6 @@
         "rank": 1,
         "globalRank": 3,
         "content": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike.",
-        "content_highlight": "⌊The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight.⌋ Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. ⌊Microsoft Japan saw a 40% productivity spike.⌋",
-        "focusHighlight": "⌊The 4-day work week conversation ignores the elephant in the room: childcare.⌋ Working parents already struggle with 5-day schedules because schools, daycares, and activities are built around a Monday-Friday model. Compress to 4 days of 10 hours each and you've just made the childcare crisis worse. The conversation needs to account for the entire family ecosystem, not just ⌊the individual worker's productivity.⌋",
-        "highlightsMeta": [
-          {
-            "category": "connections",
-            "topic": "Productivity framing",
-            "focusComment": "conversation ignores the elephant in the room: childcare.",
-            "contentComment": "productivity revolution hiding in plain sight."
-          },
-          {
-            "category": "evidence_public",
-            "topic": "Japan spike data",
-            "focusComment": "the individual worker's productivity.",
-            "contentComment": "40% productivity spike."
-          }
-        ],
         "account": {
           "display_name": "Robin Patel",
           "acct": "robin@futureofwork.io",
@@ -1394,7 +1744,33 @@
         "favourites_count": 847,
         "replies_count": 234,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 77,
+            "contentStart": 0,
+            "contentEnd": 89,
+            "focusCommentStart": 20,
+            "focusCommentEnd": 77,
+            "contentCommentStart": 43,
+            "contentCommentEnd": 89,
+            "category": "connections",
+            "topic": "Productivity framing"
+          },
+          {
+            "focusStart": 375,
+            "focusEnd": 412,
+            "contentStart": 181,
+            "contentEnd": 226,
+            "focusCommentStart": 375,
+            "focusCommentEnd": 412,
+            "contentCommentStart": 203,
+            "contentCommentEnd": 226,
+            "category": "evidence_public",
+            "topic": "Japan spike data"
+          }
+        ]
       },
       {
         "id": "post-4-evidence-1",
@@ -1402,22 +1778,6 @@
         "rank": 1,
         "globalRank": 4,
         "content": "We tried the 4-day week at our agency and the parents on the team were the most vocal opponents, which surprised everyone. The issue wasn't productivity — it was the school pickup logistics. Our office hours shifted to 7am-5:30pm to fit 10 hours in, and that meant nobody could do the 3pm school run. We ended up creating a two-track system: parents could stay on 5x8, others could do 4x10. It worked, but the resentment was palpable. The parents felt like second-class citizens getting an inferior schedule, and the non-parents felt like they were subsidizing the parents' flexibility. It nearly tore the team apart before we found the right balance.",
-        "content_highlight": "We tried the 4-day week at our agency and the parents on the team were the most vocal opponents, which surprised everyone. The issue wasn't productivity — it was the school pickup logistics. ⌊Our office hours shifted to 7am-5:30pm to fit 10 hours in, and that meant nobody could do the 3pm school run.⌋ We ended up creating a two-track system: parents could stay on 5x8, others could do 4x10. It worked, but ⌊the resentment was palpable. The parents felt like second-class citizens getting an inferior schedule.⌋ It nearly tore the team apart before we found the right balance.",
-        "focusHighlight": "The 4-day work week conversation ignores the elephant in the room: childcare. Working parents already struggle with 5-day schedules because ⌊schools, daycares, and activities are built around a Monday-Friday model.⌋ ⌊Compress to 4 days of 10 hours each and you've just made the childcare crisis worse.⌋ The conversation needs to account for the entire family ecosystem, not just the individual worker's productivity.",
-        "highlightsMeta": [
-          {
-            "category": "evidence_personal",
-            "topic": "School run conflict",
-            "focusComment": "built around a Monday-Friday model.",
-            "contentComment": "nobody could do the 3pm school run."
-          },
-          {
-            "category": "values",
-            "topic": "Two-tier resentment",
-            "focusComment": "Compress to 4 days of 10 hours each and you've just made the childcare crisis worse.",
-            "contentComment": "resentment was palpable. The parents felt like second-class citizens"
-          }
-        ],
         "account": {
           "display_name": "Rachel Nguyen",
           "acct": "rachel@agency.social",
@@ -1427,7 +1787,33 @@
         "favourites_count": 156,
         "replies_count": 23,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 140,
+            "focusEnd": 213,
+            "contentStart": 191,
+            "contentEnd": 300,
+            "focusCommentStart": 178,
+            "focusCommentEnd": 213,
+            "contentCommentStart": 265,
+            "contentCommentEnd": 300,
+            "category": "evidence_personal",
+            "topic": "School run conflict"
+          },
+          {
+            "focusStart": 214,
+            "focusEnd": 298,
+            "contentStart": 406,
+            "contentEnd": 586,
+            "focusCommentStart": 214,
+            "focusCommentEnd": 298,
+            "contentCommentStart": 410,
+            "contentCommentEnd": 478,
+            "category": "values",
+            "topic": "Two-tier resentment"
+          }
+        ]
       },
       {
         "id": "focus-005",
@@ -1435,22 +1821,6 @@
         "rank": 2,
         "globalRank": 5,
         "content": "Every 4-day work week study I've seen focuses on white-collar knowledge workers. What about healthcare? What about logistics? The conversation is fundamentally elitist.",
-        "content_highlight": "⌊Every 4-day work week study I've seen focuses on white-collar knowledge workers.⌋ What about healthcare? What about logistics? ⌊The conversation is fundamentally elitist.⌋",
-        "focusHighlight": "The 4-day work week conversation ignores the elephant in the room: childcare. Working parents already struggle with 5-day schedules because schools, daycares, and activities are built around a Monday-Friday model. Compress to 4 days of 10 hours each and you've just made the childcare crisis worse. ⌊The conversation needs to account for the entire family ecosystem, not just the individual worker's productivity.⌋ ⌊The 4-day work week conversation ignores the elephant in the room: childcare.⌋",
-        "highlightsMeta": [
-          {
-            "category": "connections",
-            "topic": "Knowledge worker bias",
-            "focusComment": "needs to account for the entire family ecosystem",
-            "contentComment": "focuses on white-collar knowledge workers."
-          },
-          {
-            "category": "values",
-            "topic": "Elitism accusation",
-            "focusComment": "conversation ignores the elephant in the room: childcare.",
-            "contentComment": "The conversation is fundamentally elitist."
-          }
-        ],
         "account": {
           "display_name": "Marcus Webb",
           "acct": "marcus@health.social",
@@ -1460,7 +1830,33 @@
         "favourites_count": 334,
         "replies_count": 56,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 299,
+            "focusEnd": 412,
+            "contentStart": 0,
+            "contentEnd": 80,
+            "focusCommentStart": 316,
+            "focusCommentEnd": 364,
+            "contentCommentStart": 38,
+            "contentCommentEnd": 80,
+            "category": "connections",
+            "topic": "Knowledge worker bias"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 77,
+            "contentStart": 126,
+            "contentEnd": 168,
+            "focusCommentStart": 20,
+            "focusCommentEnd": 77,
+            "contentCommentStart": 126,
+            "contentCommentEnd": 168,
+            "category": "values",
+            "topic": "Elitism accusation"
+          }
+        ]
       },
       {
         "id": "post-4-proposals-1",
@@ -1468,22 +1864,6 @@
         "rank": 1,
         "globalRank": 6,
         "content": "What if we flipped the script entirely? Instead of asking employers to adopt a 4-day week, we should be pushing for universal childcare infrastructure that decouples work schedules from school schedules. In Denmark, most daycares operate from 6:30am to 5pm with subsidized rates. The 4-day conversation becomes much simpler once you remove the childcare constraint. The real policy failure isn't the work schedule — it's the care infrastructure around it. Fix the foundation and the scheduling flexibility follows naturally.",
-        "content_highlight": "What if we flipped the script entirely? Instead of asking employers to adopt a 4-day week, we should be pushing for ⌊universal childcare infrastructure that decouples work schedules from school schedules.⌋ ⌊In Denmark, most daycares operate from 6:30am to 5pm with subsidized rates.⌋ The 4-day conversation becomes much simpler once you remove the childcare constraint. The real policy failure isn't the work schedule — it's the care infrastructure around it. Fix the foundation and the scheduling flexibility follows naturally.",
-        "focusHighlight": "The 4-day work week conversation ignores the elephant in the room: childcare. ⌊Working parents already struggle with 5-day schedules because schools, daycares, and activities are built around a Monday-Friday model.⌋ Compress to 4 days of 10 hours each and you've just made the childcare crisis worse. ⌊The conversation needs to account for the entire family ecosystem, not just the individual worker's productivity.⌋",
-        "highlightsMeta": [
-          {
-            "category": "proposals",
-            "topic": "Universal childcare",
-            "focusComment": "already struggle with 5-day schedules",
-            "contentComment": "decouples work schedules from school schedules."
-          },
-          {
-            "category": "evidence_public",
-            "topic": "Denmark daycare model",
-            "focusComment": "needs to account for the entire family ecosystem",
-            "contentComment": "daycares operate from 6:30am to 5pm with subsidized rates."
-          }
-        ],
         "account": {
           "display_name": "Astrid Lindgren",
           "acct": "astrid@nordic.social",
@@ -1493,7 +1873,33 @@
         "favourites_count": 201,
         "replies_count": 18,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 78,
+            "focusEnd": 213,
+            "contentStart": 116,
+            "contentEnd": 203,
+            "focusCommentStart": 94,
+            "focusCommentEnd": 131,
+            "contentCommentStart": 156,
+            "contentCommentEnd": 203,
+            "category": "proposals",
+            "topic": "Universal childcare"
+          },
+          {
+            "focusStart": 299,
+            "focusEnd": 412,
+            "contentStart": 204,
+            "contentEnd": 279,
+            "focusCommentStart": 316,
+            "focusCommentEnd": 364,
+            "contentCommentStart": 221,
+            "contentCommentEnd": 279,
+            "category": "evidence_public",
+            "topic": "Denmark daycare model"
+          }
+        ]
       },
       {
         "id": "post-4-questions-1",
@@ -1501,22 +1907,6 @@
         "rank": 1,
         "globalRank": 7,
         "content": "Has anyone actually studied what happens to children's schedules when their parents switch to a 4-day week? I'd love to see data on whether kids benefit from having a parent home on Fridays vs the stress of longer days Monday-Thursday.",
-        "content_highlight": "⌊Has anyone actually studied what happens to children's schedules when their parents switch to a 4-day week?⌋ I'd love to see data on whether ⌊kids benefit from having a parent home on Fridays vs the stress of longer days Monday-Thursday.⌋",
-        "focusHighlight": "The 4-day work week conversation ignores the elephant in the room: childcare. Working parents already struggle with 5-day schedules because schools, daycares, and activities are built around a Monday-Friday model. ⌊Compress to 4 days of 10 hours each and you've just made the childcare crisis worse.⌋ ⌊The conversation needs to account for the entire family ecosystem⌋, not just the individual worker's productivity.",
-        "highlightsMeta": [
-          {
-            "category": "questions",
-            "topic": "Child impact research",
-            "focusComment": "you've just made the childcare crisis worse.",
-            "contentComment": "Has anyone actually studied what happens to children's schedules"
-          },
-          {
-            "category": "questions",
-            "topic": "Tradeoff analysis",
-            "focusComment": "needs to account for the entire family ecosystem",
-            "contentComment": "kids benefit from having a parent home on Fridays"
-          }
-        ],
         "account": {
           "display_name": "James Park",
           "acct": "james@research.social",
@@ -1526,7 +1916,33 @@
         "favourites_count": 89,
         "replies_count": 12,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 214,
+            "focusEnd": 298,
+            "contentStart": 0,
+            "contentEnd": 107,
+            "focusCommentStart": 254,
+            "focusCommentEnd": 298,
+            "contentCommentStart": 0,
+            "contentCommentEnd": 64,
+            "category": "questions",
+            "topic": "Child impact research"
+          },
+          {
+            "focusStart": 299,
+            "focusEnd": 364,
+            "contentStart": 140,
+            "contentEnd": 235,
+            "focusCommentStart": 316,
+            "focusCommentEnd": 364,
+            "contentCommentStart": 140,
+            "contentCommentEnd": 189,
+            "category": "questions",
+            "topic": "Tradeoff analysis"
+          }
+        ]
       },
       {
         "id": "post-4-humor-1",
@@ -1534,22 +1950,6 @@
         "rank": 1,
         "globalRank": 8,
         "content": "4-day work week with kids: Monday you're productive, Tuesday you're productive, Wednesday the school calls because your kid has a fever, Thursday you're catching up from Wednesday. Friday you're off but somehow still on Slack. Revolutionary.",
-        "content_highlight": "4-day work week with kids: Monday you're productive, Tuesday you're productive, ⌊Wednesday the school calls because your kid has a fever, Thursday you're catching up from Wednesday.⌋ Friday you're off but ⌊somehow still on Slack.⌋ Revolutionary.",
-        "focusHighlight": "The 4-day work week conversation ignores the elephant in the room: childcare. ⌊Working parents already struggle with 5-day schedules⌋ because schools, daycares, and activities are built around a Monday-Friday model. Compress to 4 days of 10 hours each and you've just made the childcare crisis worse. The conversation needs to account for the entire family ecosystem, not just ⌊the individual worker's productivity.⌋",
-        "highlightsMeta": [
-          {
-            "category": "humor",
-            "topic": "Sick day cascade",
-            "focusComment": "Working parents already struggle with 5-day schedules",
-            "contentComment": "Wednesday the school calls because your kid has a fever"
-          },
-          {
-            "category": "humor",
-            "topic": "Always-on culture",
-            "focusComment": "the individual worker's productivity.",
-            "contentComment": "somehow still on Slack."
-          }
-        ],
         "account": {
           "display_name": "Dana Williams",
           "acct": "dana@humor.social",
@@ -1559,7 +1959,33 @@
         "favourites_count": 523,
         "replies_count": 41,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 78,
+            "focusEnd": 131,
+            "contentStart": 80,
+            "contentEnd": 180,
+            "focusCommentStart": 78,
+            "focusCommentEnd": 131,
+            "contentCommentStart": 80,
+            "contentCommentEnd": 135,
+            "category": "humor",
+            "topic": "Sick day cascade"
+          },
+          {
+            "focusStart": 375,
+            "focusEnd": 412,
+            "contentStart": 203,
+            "contentEnd": 226,
+            "focusCommentStart": 375,
+            "focusCommentEnd": 412,
+            "contentCommentStart": 203,
+            "contentCommentEnd": 226,
+            "category": "humor",
+            "topic": "Always-on culture"
+          }
+        ]
       }
     ],
     "replies": [
@@ -1618,22 +2044,6 @@
         "rank": 1,
         "globalRank": 1,
         "content": "I'm a nurse. We already do 3x12 shifts and let me tell you, by hour 10 you are making mistakes. The idea that you can just compress hours in healthcare is genuinely dangerous. Patient outcomes correlate directly with nurse fatigue, and there are multiple studies showing error rates spike after hour 8. The people advocating for compressed schedules in clinical settings have never held a patient's life in their hands while running on fumes. This isn't about productivity metrics — it's about safety. The 4-day work week crowd needs to spend a single shift in an understaffed ED before making policy recommendations.",
-        "content_highlight": "I'm a nurse. We already do 3x12 shifts and let me tell you, by hour 10 you are making mistakes. The idea that you can just compress hours in healthcare is genuinely dangerous. ⌊Patient outcomes correlate directly with nurse fatigue, and there are multiple studies showing error rates spike after hour 8.⌋ The people advocating for compressed schedules in clinical settings have never held a patient's life in their hands while running on fumes. This isn't about productivity metrics — ⌊it's about safety.⌋ The 4-day work week crowd needs to spend a single shift in an understaffed ED before making policy recommendations.",
-        "focusHighlight": "Every 4-day work week study I've seen focuses on white-collar knowledge workers. What about healthcare? What about logistics? What about retail? The conversation is fundamentally elitist — it assumes everyone sits at a desk and produces 'output' that can be compressed. ⌊Try telling an ER nurse to do 4 days of 12.5-hour shifts instead of 5 days of 10. The burnout doesn't decrease — it concentrates.⌋ ⌊Every 4-day work week study I've seen focuses on white-collar knowledge workers.⌋",
-        "highlightsMeta": [
-          {
-            "category": "evidence_public",
-            "topic": "Fatigue error rates",
-            "focusComment": "The burnout doesn't decrease — it concentrates.",
-            "contentComment": "error rates spike after hour 8."
-          },
-          {
-            "category": "values",
-            "topic": "Patient safety first",
-            "focusComment": "study I've seen focuses on white-collar knowledge workers.",
-            "contentComment": "it's about safety."
-          }
-        ],
         "account": {
           "display_name": "Amy Rodriguez",
           "acct": "amy@nursing.social",
@@ -1643,7 +2053,33 @@
         "favourites_count": 567,
         "replies_count": 89,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 270,
+            "focusEnd": 399,
+            "contentStart": 176,
+            "contentEnd": 302,
+            "focusCommentStart": 352,
+            "focusCommentEnd": 399,
+            "contentCommentStart": 271,
+            "contentCommentEnd": 302,
+            "category": "evidence_public",
+            "topic": "Fatigue error rates"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 80,
+            "contentStart": 483,
+            "contentEnd": 501,
+            "focusCommentStart": 22,
+            "focusCommentEnd": 80,
+            "contentCommentStart": 483,
+            "contentCommentEnd": 501,
+            "category": "values",
+            "topic": "Patient safety first"
+          }
+        ]
       },
       {
         "id": "post-5-disagree-1",
@@ -1651,22 +2087,6 @@
         "rank": 1,
         "globalRank": 2,
         "content": "Healthcare already runs on shift-based scheduling — nobody is suggesting ER nurses work 4x10. The 4-day week for knowledge workers could actually free up resources and policy attention for improving healthcare scheduling separately. These are different problems with different solutions.",
-        "content_highlight": "⌊Healthcare already runs on shift-based scheduling — nobody is suggesting ER nurses work 4x10.⌋ The 4-day week for knowledge workers could actually ⌊free up resources and policy attention for improving healthcare scheduling separately.⌋ These are different problems with different solutions.",
-        "focusHighlight": "Every 4-day work week study I've seen focuses on white-collar knowledge workers. ⌊What about healthcare? What about logistics? What about retail?⌋ The conversation is fundamentally elitist — it assumes everyone sits at a desk and produces 'output' that can be compressed. ⌊Try telling an ER nurse to do 4 days of 12.5-hour shifts instead of 5 days of 10.⌋ The burnout doesn't decrease — it concentrates.",
-        "highlightsMeta": [
-          {
-            "category": "disagree",
-            "topic": "Separate scheduling",
-            "focusComment": "What about healthcare? What about logistics? What about retail?",
-            "contentComment": "Healthcare already runs on shift-based scheduling"
-          },
-          {
-            "category": "proposals",
-            "topic": "Resource reallocation",
-            "focusComment": "ER nurse to do 4 days of 12.5-hour shifts instead of 5 days of 10.",
-            "contentComment": "free up resources and policy attention for improving healthcare scheduling"
-          }
-        ],
         "account": {
           "display_name": "Kevin O'Brien",
           "acct": "kevin@policy.social",
@@ -1676,7 +2096,33 @@
         "favourites_count": 234,
         "replies_count": 45,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 81,
+            "focusEnd": 144,
+            "contentStart": 0,
+            "contentEnd": 93,
+            "focusCommentStart": 81,
+            "focusCommentEnd": 144,
+            "contentCommentStart": 0,
+            "contentCommentEnd": 49,
+            "category": "disagree",
+            "topic": "Separate scheduling"
+          },
+          {
+            "focusStart": 270,
+            "focusEnd": 351,
+            "contentStart": 146,
+            "contentEnd": 232,
+            "focusCommentStart": 285,
+            "focusCommentEnd": 351,
+            "contentCommentStart": 146,
+            "contentCommentEnd": 220,
+            "category": "proposals",
+            "topic": "Resource reallocation"
+          }
+        ]
       },
       {
         "id": "focus-001",
@@ -1684,22 +2130,6 @@
         "rank": 1,
         "globalRank": 3,
         "content": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop.",
-        "content_highlight": "⌊The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight.⌋ ⌊Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop.⌋",
-        "focusHighlight": "Every 4-day work week study I've seen focuses on white-collar knowledge workers. What about healthcare? What about logistics? What about retail? ⌊The conversation is fundamentally elitist — it assumes everyone sits at a desk and produces 'output' that can be compressed.⌋ Try telling an ER nurse to do 4 days of 12.5-hour shifts instead of 5 days of 10. ⌊The burnout doesn't decrease — it concentrates.⌋",
-        "highlightsMeta": [
-          {
-            "category": "connections",
-            "topic": "Productivity claim",
-            "focusComment": "conversation is fundamentally elitist — it assumes everyone sits at a desk",
-            "contentComment": "productivity revolution hiding in plain sight."
-          },
-          {
-            "category": "evidence_public",
-            "topic": "Iceland workforce scope",
-            "focusComment": "The burnout doesn't decrease — it concentrates.",
-            "contentComment": "showed no productivity drop."
-          }
-        ],
         "account": {
           "display_name": "Robin Patel",
           "acct": "robin@futureofwork.io",
@@ -1709,7 +2139,33 @@
         "favourites_count": 847,
         "replies_count": 234,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 145,
+            "focusEnd": 269,
+            "contentStart": 0,
+            "contentEnd": 89,
+            "focusCommentStart": 149,
+            "focusCommentEnd": 223,
+            "contentCommentStart": 43,
+            "contentCommentEnd": 89,
+            "category": "connections",
+            "topic": "Productivity claim"
+          },
+          {
+            "focusStart": 352,
+            "focusEnd": 399,
+            "contentStart": 90,
+            "contentEnd": 180,
+            "focusCommentStart": 352,
+            "focusCommentEnd": 399,
+            "contentCommentStart": 152,
+            "contentCommentEnd": 180,
+            "category": "evidence_public",
+            "topic": "Iceland workforce scope"
+          }
+        ]
       },
       {
         "id": "focus-004",
@@ -1717,22 +2173,6 @@
         "rank": 2,
         "globalRank": 4,
         "content": "The 4-day work week conversation ignores the elephant in the room: childcare. Working parents already struggle with 5-day schedules.",
-        "content_highlight": "⌊The 4-day work week conversation ignores the elephant in the room: childcare.⌋ ⌊Working parents already struggle with 5-day schedules.⌋",
-        "focusHighlight": "Every 4-day work week study I've seen focuses on white-collar knowledge workers. What about healthcare? What about logistics? What about retail? The conversation is fundamentally elitist — ⌊it assumes everyone sits at a desk and produces 'output' that can be compressed.⌋ Try telling an ER nurse to do 4 days of 12.5-hour shifts instead of 5 days of 10. ⌊The burnout doesn't decrease — it concentrates.⌋",
-        "highlightsMeta": [
-          {
-            "category": "connections",
-            "topic": "Childcare blind spot",
-            "focusComment": "everyone sits at a desk and produces 'output' that can be compressed.",
-            "contentComment": "conversation ignores the elephant in the room: childcare."
-          },
-          {
-            "category": "agree",
-            "topic": "Parent struggle",
-            "focusComment": "The burnout doesn't decrease — it concentrates.",
-            "contentComment": "Working parents already struggle with 5-day schedules."
-          }
-        ],
         "account": {
           "display_name": "Priya Mehta",
           "acct": "priya@parents.social",
@@ -1742,7 +2182,33 @@
         "favourites_count": 612,
         "replies_count": 189,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 189,
+            "focusEnd": 269,
+            "contentStart": 0,
+            "contentEnd": 77,
+            "focusCommentStart": 200,
+            "focusCommentEnd": 269,
+            "contentCommentStart": 20,
+            "contentCommentEnd": 77,
+            "category": "connections",
+            "topic": "Childcare blind spot"
+          },
+          {
+            "focusStart": 352,
+            "focusEnd": 399,
+            "contentStart": 78,
+            "contentEnd": 132,
+            "focusCommentStart": 352,
+            "focusCommentEnd": 399,
+            "contentCommentStart": 78,
+            "contentCommentEnd": 132,
+            "category": "agree",
+            "topic": "Parent struggle"
+          }
+        ]
       },
       {
         "id": "post-5-evidence-1",
@@ -1750,22 +2216,6 @@
         "rank": 1,
         "globalRank": 5,
         "content": "The BLS data is clear: 44% of US workers are in service, production, or transportation roles where physical presence is non-negotiable. The knowledge worker bubble makes us forget that nearly half the workforce can't work remotely, let alone compress their schedules. When we talk about the 4-day work week as a universal solution, we're implicitly writing off almost half the labor force. The research from Autonomy's 2023 report specifically excluded healthcare and manufacturing from their recommendations, which tells you everything about how generalizable these findings actually are.",
-        "content_highlight": "The BLS data is clear: ⌊44% of US workers are in service, production, or transportation roles where physical presence is non-negotiable.⌋ The knowledge worker bubble makes us forget that nearly half the workforce can't work remotely, let alone compress their schedules. ⌊When we talk about the 4-day work week as a universal solution, we're implicitly writing off almost half the labor force.⌋ The research from Autonomy's 2023 report specifically excluded healthcare and manufacturing from their recommendations, which tells you everything about how generalizable these findings actually are.",
-        "focusHighlight": "Every 4-day work week study I've seen focuses on white-collar knowledge workers. What about healthcare? What about logistics? What about retail? ⌊The conversation is fundamentally elitist — it assumes everyone sits at a desk and produces 'output' that can be compressed.⌋ Try telling an ER nurse to do 4 days of 12.5-hour shifts instead of 5 days of 10. ⌊The burnout doesn't decrease — it concentrates.⌋",
-        "highlightsMeta": [
-          {
-            "category": "evidence_public",
-            "topic": "BLS workforce data",
-            "focusComment": "it assumes everyone sits at a desk",
-            "contentComment": "physical presence is non-negotiable."
-          },
-          {
-            "category": "values",
-            "topic": "Labor force exclusion",
-            "focusComment": "The burnout doesn't decrease — it concentrates.",
-            "contentComment": "implicitly writing off almost half the labor force."
-          }
-        ],
         "account": {
           "display_name": "Hannah Fischer",
           "acct": "hannah@data.social",
@@ -1775,7 +2225,33 @@
         "favourites_count": 178,
         "replies_count": 15,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 145,
+            "focusEnd": 269,
+            "contentStart": 23,
+            "contentEnd": 135,
+            "focusCommentStart": 189,
+            "focusCommentEnd": 223,
+            "contentCommentStart": 99,
+            "contentCommentEnd": 135,
+            "category": "evidence_public",
+            "topic": "BLS workforce data"
+          },
+          {
+            "focusStart": 352,
+            "focusEnd": 399,
+            "contentStart": 268,
+            "contentEnd": 389,
+            "focusCommentStart": 352,
+            "focusCommentEnd": 399,
+            "contentCommentStart": 338,
+            "contentCommentEnd": 389,
+            "category": "values",
+            "topic": "Labor force exclusion"
+          }
+        ]
       },
       {
         "id": "focus-006",
@@ -1783,22 +2259,6 @@
         "rank": 1,
         "globalRank": 6,
         "content": "We implemented a 4-day work week at our 200-person fintech company 18 months ago. The results were more nuanced than the headlines suggest.",
-        "content_highlight": "⌊We implemented a 4-day work week at our 200-person fintech company 18 months ago.⌋ ⌊The results were more nuanced than the headlines suggest.⌋",
-        "focusHighlight": "⌊Every 4-day work week study I've seen focuses on white-collar knowledge workers.⌋ What about healthcare? What about logistics? What about retail? The conversation is fundamentally elitist — it assumes everyone sits at a desk and produces 'output' that can be compressed. ⌊Try telling an ER nurse to do 4 days of 12.5-hour shifts instead of 5 days of 10.⌋ The burnout doesn't decrease — it concentrates.",
-        "highlightsMeta": [
-          {
-            "category": "evidence_personal",
-            "topic": "Fintech case study",
-            "focusComment": "focuses on white-collar knowledge workers.",
-            "contentComment": "implemented a 4-day work week at our 200-person fintech company"
-          },
-          {
-            "category": "framing",
-            "topic": "Nuanced outcomes",
-            "focusComment": "Try telling an ER nurse to do 4 days of 12.5-hour shifts",
-            "contentComment": "more nuanced than the headlines suggest."
-          }
-        ],
         "account": {
           "display_name": "Chen Wei",
           "acct": "chen@fintech.social",
@@ -1808,7 +2268,33 @@
         "favourites_count": 445,
         "replies_count": 123,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 80,
+            "contentStart": 0,
+            "contentEnd": 81,
+            "focusCommentStart": 38,
+            "focusCommentEnd": 80,
+            "contentCommentStart": 3,
+            "contentCommentEnd": 66,
+            "category": "evidence_personal",
+            "topic": "Fintech case study"
+          },
+          {
+            "focusStart": 270,
+            "focusEnd": 351,
+            "contentStart": 82,
+            "contentEnd": 139,
+            "focusCommentStart": 270,
+            "focusCommentEnd": 326,
+            "contentCommentStart": 99,
+            "contentCommentEnd": 139,
+            "category": "framing",
+            "topic": "Nuanced outcomes"
+          }
+        ]
       },
       {
         "id": "post-5-predictions-1",
@@ -1816,22 +2302,6 @@
         "rank": 1,
         "globalRank": 7,
         "content": "Within 10 years we'll have a two-tier labor market: knowledge workers on 4-day weeks with full benefits, and service workers on 5-6 day weeks with gig-style contracts. The 4-day movement will accelerate inequality rather than reduce it.",
-        "content_highlight": "⌊Within 10 years we'll have a two-tier labor market: knowledge workers on 4-day weeks with full benefits, and service workers on 5-6 day weeks with gig-style contracts.⌋ The ⌊4-day movement will accelerate inequality rather than reduce it.⌋",
-        "focusHighlight": "Every 4-day work week study I've seen focuses on white-collar knowledge workers. What about healthcare? What about logistics? What about retail? ⌊The conversation is fundamentally elitist⌋ — it assumes everyone sits at a desk and produces 'output' that can be compressed. Try telling an ER nurse to do 4 days of 12.5-hour shifts instead of 5 days of 10. ⌊The burnout doesn't decrease — it concentrates.⌋",
-        "highlightsMeta": [
-          {
-            "category": "predictions",
-            "topic": "Two-tier labor market",
-            "focusComment": "The conversation is fundamentally elitist",
-            "contentComment": "we'll have a two-tier labor market"
-          },
-          {
-            "category": "values",
-            "topic": "Inequality acceleration",
-            "focusComment": "The burnout doesn't decrease — it concentrates.",
-            "contentComment": "4-day movement will accelerate inequality rather than reduce it."
-          }
-        ],
         "account": {
           "display_name": "Yuki Tanaka",
           "acct": "yuki@futures.social",
@@ -1841,7 +2311,33 @@
         "favourites_count": 267,
         "replies_count": 33,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 145,
+            "focusEnd": 186,
+            "contentStart": 0,
+            "contentEnd": 167,
+            "focusCommentStart": 145,
+            "focusCommentEnd": 186,
+            "contentCommentStart": 16,
+            "contentCommentEnd": 50,
+            "category": "predictions",
+            "topic": "Two-tier labor market"
+          },
+          {
+            "focusStart": 352,
+            "focusEnd": 399,
+            "contentStart": 172,
+            "contentEnd": 236,
+            "focusCommentStart": 352,
+            "focusCommentEnd": 399,
+            "contentCommentStart": 172,
+            "contentCommentEnd": 236,
+            "category": "values",
+            "topic": "Inequality acceleration"
+          }
+        ]
       }
     ],
     "replies": [
@@ -1900,22 +2396,6 @@
         "rank": 1,
         "globalRank": 1,
         "content": "This is the most honest assessment I've seen. Everyone else is either fully for or fully against. The serendipity loss is real and I've experienced it firsthand. At our startup we switched to 4 days and within a year our best product ideas had dried up. The stuff that used to come from casual Friday afternoon whiteboard sessions just stopped happening. We eventually realized that some of our most valuable work was the unstructured, unplanned collaboration that happened in the gaps between scheduled work. You can't compress serendipity into a calendar invite. We went back to 5 days but with Wednesday afternoons off as a compromise.",
-        "content_highlight": "This is the most honest assessment I've seen. Everyone else is either fully for or fully against. The serendipity loss is real and I've experienced it firsthand. At our startup we switched to 4 days and within a year our best product ideas had dried up. ⌊The stuff that used to come from casual Friday afternoon whiteboard sessions just stopped happening.⌋ We eventually realized that ⌊some of our most valuable work was the unstructured, unplanned collaboration that happened in the gaps between scheduled work.⌋ You can't compress serendipity into a calendar invite. We went back to 5 days but with Wednesday afternoons off as a compromise.",
-        "focusHighlight": "We implemented a 4-day work week at our 200-person fintech company 18 months ago. The results were more nuanced than the headlines suggest. Yes, productivity held steady for the first 6 months. But then we noticed something: innovation slowed. ⌊The spontaneous hallway conversations, the lunch brainstorms, the 'let me show you something' moments — they all decreased by about 30%.⌋ We gained efficiency but lost serendipity. ⌊We're now doing a hybrid model: 4-day weeks in Q1 and Q3, 5-day weeks in Q2 and Q4.⌋",
-        "highlightsMeta": [
-          {
-            "category": "agree",
-            "topic": "Serendipity loss",
-            "focusComment": "they all decreased by about 30%.",
-            "contentComment": "whiteboard sessions just stopped happening."
-          },
-          {
-            "category": "evidence_personal",
-            "topic": "Unstructured collaboration",
-            "focusComment": "We're now doing a hybrid model",
-            "contentComment": "most valuable work was the unstructured, unplanned collaboration"
-          }
-        ],
         "account": {
           "display_name": "Nadia Petrova",
           "acct": "nadia@startup.social",
@@ -1925,7 +2405,33 @@
         "favourites_count": 389,
         "replies_count": 56,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 244,
+            "focusEnd": 380,
+            "contentStart": 254,
+            "contentEnd": 354,
+            "focusCommentStart": 348,
+            "focusCommentEnd": 380,
+            "contentCommentStart": 311,
+            "contentCommentEnd": 354,
+            "category": "agree",
+            "topic": "Serendipity loss"
+          },
+          {
+            "focusStart": 424,
+            "focusEnd": 507,
+            "contentStart": 383,
+            "contentEnd": 509,
+            "focusCommentStart": 424,
+            "focusCommentEnd": 454,
+            "contentCommentStart": 395,
+            "contentCommentEnd": 459,
+            "category": "evidence_personal",
+            "topic": "Unstructured collaboration"
+          }
+        ]
       },
       {
         "id": "post-6-disagree-1",
@@ -1933,22 +2439,6 @@
         "rank": 1,
         "globalRank": 2,
         "content": "Correlation isn't causation. Innovation might have slowed for a hundred other reasons — market saturation, team maturity, product lifecycle. Attributing it to one fewer day in the office is a classic post-hoc fallacy.",
-        "content_highlight": "⌊Correlation isn't causation. Innovation might have slowed for a hundred other reasons — market saturation, team maturity, product lifecycle.⌋ Attributing it to one fewer day in the office is a ⌊classic post-hoc fallacy.⌋",
-        "focusHighlight": "We implemented a 4-day work week at our 200-person fintech company 18 months ago. The results were more nuanced than the headlines suggest. Yes, productivity held steady for the first 6 months. ⌊But then we noticed something: innovation slowed.⌋ The spontaneous hallway conversations, the lunch brainstorms, the 'let me show you something' moments — they all decreased by about 30%. ⌊We gained efficiency but lost serendipity.⌋ We're now doing a hybrid model: 4-day weeks in Q1 and Q3, 5-day weeks in Q2 and Q4.",
-        "highlightsMeta": [
-          {
-            "category": "disagree",
-            "topic": "Confounding variables",
-            "focusComment": "we noticed something: innovation slowed.",
-            "contentComment": "Innovation might have slowed for a hundred other reasons"
-          },
-          {
-            "category": "framing",
-            "topic": "Post-hoc fallacy",
-            "focusComment": "We gained efficiency but lost serendipity.",
-            "contentComment": "classic post-hoc fallacy."
-          }
-        ],
         "account": {
           "display_name": "Leo Grant",
           "acct": "leo@data.social",
@@ -1958,7 +2448,33 @@
         "favourites_count": 201,
         "replies_count": 28,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 194,
+            "focusEnd": 243,
+            "contentStart": 0,
+            "contentEnd": 140,
+            "focusCommentStart": 203,
+            "focusCommentEnd": 243,
+            "contentCommentStart": 29,
+            "contentCommentEnd": 85,
+            "category": "disagree",
+            "topic": "Confounding variables"
+          },
+          {
+            "focusStart": 381,
+            "focusEnd": 423,
+            "contentStart": 192,
+            "contentEnd": 217,
+            "focusCommentStart": 381,
+            "focusCommentEnd": 423,
+            "contentCommentStart": 192,
+            "contentCommentEnd": 217,
+            "category": "framing",
+            "topic": "Post-hoc fallacy"
+          }
+        ]
       },
       {
         "id": "focus-001",
@@ -1966,22 +2482,6 @@
         "rank": 2,
         "globalRank": 3,
         "content": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Companies that make the switch report lower burnout, higher retention, and better output.",
-        "content_highlight": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. ⌊Companies that make the switch report lower burnout, higher retention, and better output.⌋ ⌊The 4-day work week is not a perk.⌋",
-        "focusHighlight": "We implemented a 4-day work week at our 200-person fintech company 18 months ago. ⌊The results were more nuanced than the headlines suggest.⌋ Yes, productivity held steady for the first 6 months. But then we noticed something: innovation slowed. The spontaneous hallway conversations, the lunch brainstorms, the 'let me show you something' moments — they all decreased by about 30%. ⌊We gained efficiency but lost serendipity.⌋ We're now doing a hybrid model: 4-day weeks in Q1 and Q3, 5-day weeks in Q2 and Q4.",
-        "highlightsMeta": [
-          {
-            "category": "disagree",
-            "topic": "Blanket positive claims",
-            "focusComment": "results were more nuanced than the headlines suggest.",
-            "contentComment": "lower burnout, higher retention, and better output."
-          },
-          {
-            "category": "framing",
-            "topic": "Perk vs revolution",
-            "focusComment": "We gained efficiency but lost serendipity.",
-            "contentComment": "The 4-day work week is not a perk."
-          }
-        ],
         "account": {
           "display_name": "Robin Patel",
           "acct": "robin@futureofwork.io",
@@ -1991,7 +2491,33 @@
         "favourites_count": 847,
         "replies_count": 234,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 82,
+            "focusEnd": 139,
+            "contentStart": 90,
+            "contentEnd": 179,
+            "focusCommentStart": 86,
+            "focusCommentEnd": 139,
+            "contentCommentStart": 128,
+            "contentCommentEnd": 179,
+            "category": "disagree",
+            "topic": "Blanket positive claims"
+          },
+          {
+            "focusStart": 381,
+            "focusEnd": 423,
+            "contentStart": 0,
+            "contentEnd": 89,
+            "focusCommentStart": 381,
+            "focusCommentEnd": 423,
+            "contentCommentStart": 0,
+            "contentCommentEnd": 33,
+            "category": "framing",
+            "topic": "Perk vs revolution"
+          }
+        ]
       },
       {
         "id": "post-6-proposals-1",
@@ -1999,22 +2525,6 @@
         "rank": 1,
         "globalRank": 4,
         "content": "Your seasonal model is interesting. What about a 4.5-day week instead? Half-day Fridays preserve the casual collaboration time while still giving people meaningful time back. We've been doing this for two years and it threads the needle perfectly — structured work Monday through Thursday, Fridays are for the unstructured creative stuff.",
-        "content_highlight": "Your seasonal model is interesting. ⌊What about a 4.5-day week instead? Half-day Fridays preserve the casual collaboration time while still giving people meaningful time back.⌋ We've been doing this for two years and it threads the needle perfectly — ⌊structured work Monday through Thursday, Fridays are for the unstructured creative stuff.⌋",
-        "focusHighlight": "We implemented a 4-day work week at our 200-person fintech company 18 months ago. The results were more nuanced than the headlines suggest. Yes, productivity held steady for the first 6 months. But then we noticed something: innovation slowed. ⌊The spontaneous hallway conversations, the lunch brainstorms, the 'let me show you something' moments — they all decreased by about 30%.⌋ ⌊We gained efficiency but lost serendipity. We're now doing a hybrid model: 4-day weeks in Q1 and Q3, 5-day weeks in Q2 and Q4.⌋",
-        "highlightsMeta": [
-          {
-            "category": "proposals",
-            "topic": "Half-day Friday",
-            "focusComment": "they all decreased by about 30%.",
-            "contentComment": "preserve the casual collaboration time"
-          },
-          {
-            "category": "evidence_personal",
-            "topic": "Structured vs creative",
-            "focusComment": "gained efficiency but lost serendipity.",
-            "contentComment": "Fridays are for the unstructured creative stuff."
-          }
-        ],
         "account": {
           "display_name": "Omar Hassan",
           "acct": "omar@design.social",
@@ -2024,7 +2534,33 @@
         "favourites_count": 167,
         "replies_count": 19,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 244,
+            "focusEnd": 380,
+            "contentStart": 36,
+            "contentEnd": 174,
+            "focusCommentStart": 348,
+            "focusCommentEnd": 380,
+            "contentCommentStart": 88,
+            "contentCommentEnd": 126,
+            "category": "proposals",
+            "topic": "Half-day Friday"
+          },
+          {
+            "focusStart": 381,
+            "focusEnd": 507,
+            "contentStart": 249,
+            "contentEnd": 338,
+            "focusCommentStart": 384,
+            "focusCommentEnd": 423,
+            "contentCommentStart": 290,
+            "contentCommentEnd": 338,
+            "category": "evidence_personal",
+            "topic": "Structured vs creative"
+          }
+        ]
       },
       {
         "id": "focus-005",
@@ -2032,22 +2568,6 @@
         "rank": 1,
         "globalRank": 5,
         "content": "Every 4-day work week study I've seen focuses on white-collar knowledge workers. The conversation is fundamentally elitist.",
-        "content_highlight": "⌊Every 4-day work week study I've seen focuses on white-collar knowledge workers.⌋ ⌊The conversation is fundamentally elitist.⌋",
-        "focusHighlight": "⌊We implemented a 4-day work week at our 200-person fintech company⌋ 18 months ago. The results were more nuanced than the headlines suggest. Yes, productivity held steady for the first 6 months. But then we noticed something: innovation slowed. The spontaneous hallway conversations, the lunch brainstorms, the 'let me show you something' moments — they all decreased by about 30%. We gained efficiency but lost serendipity. ⌊We're now doing a hybrid model: 4-day weeks in Q1 and Q3, 5-day weeks in Q2 and Q4.⌋",
-        "highlightsMeta": [
-          {
-            "category": "framing",
-            "topic": "White-collar bias",
-            "focusComment": "We implemented a 4-day work week",
-            "contentComment": "focuses on white-collar knowledge workers."
-          },
-          {
-            "category": "connections",
-            "topic": "Elitism critique",
-            "focusComment": "We're now doing a hybrid model",
-            "contentComment": "The conversation is fundamentally elitist."
-          }
-        ],
         "account": {
           "display_name": "Marcus Webb",
           "acct": "marcus@health.social",
@@ -2057,7 +2577,33 @@
         "favourites_count": 934,
         "replies_count": 312,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 66,
+            "contentStart": 0,
+            "contentEnd": 80,
+            "focusCommentStart": 0,
+            "focusCommentEnd": 32,
+            "contentCommentStart": 38,
+            "contentCommentEnd": 80,
+            "category": "framing",
+            "topic": "White-collar bias"
+          },
+          {
+            "focusStart": 424,
+            "focusEnd": 507,
+            "contentStart": 81,
+            "contentEnd": 123,
+            "focusCommentStart": 424,
+            "focusCommentEnd": 454,
+            "contentCommentStart": 81,
+            "contentCommentEnd": 123,
+            "category": "connections",
+            "topic": "Elitism critique"
+          }
+        ]
       },
       {
         "id": "post-6-values-1",
@@ -2065,22 +2611,6 @@
         "rank": 1,
         "globalRank": 6,
         "content": "The fact that we're measuring the value of a work schedule by 'innovation output' says everything about how broken our relationship with work is. Maybe the point isn't to maximize creative collisions — maybe it's to let people live fuller lives.",
-        "content_highlight": "⌊The fact that we're measuring the value of a work schedule by 'innovation output' says everything about how broken our relationship with work is.⌋ Maybe the point isn't to maximize creative collisions — ⌊maybe it's to let people live fuller lives.⌋",
-        "focusHighlight": "We implemented a 4-day work week at our 200-person fintech company 18 months ago. The results were more nuanced than the headlines suggest. Yes, productivity held steady for the first 6 months. But then we noticed something: innovation slowed. The spontaneous hallway conversations, the lunch brainstorms, the 'let me show you something' moments — they all decreased by about 30%. ⌊We gained efficiency but lost serendipity.⌋ We're now doing a hybrid model: ⌊4-day weeks in Q1 and Q3, 5-day weeks in Q2 and Q4.⌋",
-        "highlightsMeta": [
-          {
-            "category": "values",
-            "topic": "Innovation worship",
-            "focusComment": "We gained efficiency but lost serendipity.",
-            "contentComment": "how broken our relationship with work is."
-          },
-          {
-            "category": "framing",
-            "topic": "Fuller lives",
-            "focusComment": "4-day weeks in Q1 and Q3, 5-day weeks in Q2 and Q4.",
-            "contentComment": "maybe it's to let people live fuller lives."
-          }
-        ],
         "account": {
           "display_name": "Iris Chang",
           "acct": "iris@philosophy.social",
@@ -2090,7 +2620,33 @@
         "favourites_count": 445,
         "replies_count": 67,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 381,
+            "focusEnd": 423,
+            "contentStart": 0,
+            "contentEnd": 145,
+            "focusCommentStart": 381,
+            "focusCommentEnd": 423,
+            "contentCommentStart": 104,
+            "contentCommentEnd": 145,
+            "category": "values",
+            "topic": "Innovation worship"
+          },
+          {
+            "focusStart": 456,
+            "focusEnd": 507,
+            "contentStart": 202,
+            "contentEnd": 245,
+            "focusCommentStart": 456,
+            "focusCommentEnd": 507,
+            "contentCommentStart": 202,
+            "contentCommentEnd": 245,
+            "category": "framing",
+            "topic": "Fuller lives"
+          }
+        ]
       }
     ],
     "replies": [

@@ -5,7 +5,7 @@ import { Text, Paper, Box, Group, Divider, Button } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
 import Post from "../../../components/Posts/Post";
 import mockData from "../../FakeData/listy-injection.json";
-import type { ListyInjectionData, ListyInjectionEntry, RelatedPostMock, FocusPostMock } from "../../../types/PostType";
+import type { ListyInjectionData, ListyInjectionEntry, RelatedPostMock, FocusPostMock, Relation, CategoryKey } from "../../../types/PostType";
 import { useRelatedStacks } from "../related-stacks-context";
 import { resetHighlightStore, registerNavigateCallback } from "../../../utils/highlightStore";
 import ReplySection from "../../../components/ReplySection";
@@ -30,9 +30,7 @@ function toTopPost(rp: RelatedPostMock) {
     account: { avatar: rp.account.avatar, display_name: rp.account.display_name, acct: rp.account.acct },
     content_rewritten: "",
     rewrite: { content: rp.rewrite?.content ?? rp.content, significant: rp.rewrite?.significant ?? false },
-    content_highlight: rp.content_highlight,
-    focus_highlight: (rp as any).focusHighlight ?? undefined,
-    highlights_meta: rp.highlightsMeta ?? undefined,
+    relations: rp.relations,
   };
 }
 
@@ -83,17 +81,14 @@ function getSignificantWords(text: string): Set<string> {
   );
 }
 
-/** Generate a synthetic focusHighlight by finding the sentence in newFocusText
+/** Generate a synthetic Relation by finding the sentence in newFocusText
  *  that shares the most significant words with the sibling's content. */
-function generateFocusHighlight(newFocusText: string, siblingContent: string): string {
+function generateSyntheticRelation(newFocusText: string, siblingContent: string, category: CategoryKey): Relation {
   const siblingWords = getSignificantWords(siblingContent);
-  if (siblingWords.size === 0) return newFocusText;
 
-  // Split focus text into sentences
+  // Find best matching sentence in the new focus text
   const sentences = newFocusText.match(/[^.!?]+[.!?]+/g) || [newFocusText];
-  let bestSentence = '';
-  let bestScore = 0;
-  let bestStart = 0;
+  let bestStart = 0, bestEnd = newFocusText.length, bestScore = 0;
 
   for (const sentence of sentences) {
     const trimmed = sentence.trim();
@@ -103,66 +98,53 @@ function generateFocusHighlight(newFocusText: string, siblingContent: string): s
     words.forEach(w => { if (siblingWords.has(w)) score++; });
     if (score > bestScore) {
       bestScore = score;
-      bestSentence = trimmed;
       bestStart = start;
+      bestEnd = start + trimmed.length;
     }
   }
 
-  if (bestScore === 0 || !bestSentence) return newFocusText;
-
-  // Insert bracket markers around the best-matching sentence
-  return newFocusText.slice(0, bestStart) + '⌊' + bestSentence + '⌋' + newFocusText.slice(bestStart + bestSentence.length);
+  return {
+    focusStart: bestStart, focusEnd: bestEnd,
+    contentStart: 0, contentEnd: Math.min(siblingContent.length, 100),
+    focusCommentStart: bestStart, focusCommentEnd: bestEnd,
+    contentCommentStart: 0, contentCommentEnd: Math.min(siblingContent.length, 50),
+    category,
+    topic: "Related",
+  };
 }
 
-/** Extract highlight range from a focusHighlight string (bracket positions in plain text) */
-function extractHighlightRange(focusHighlight: string | undefined): { start: number; end: number } | null {
-  if (!focusHighlight) return null;
-  let plain = 0, start = -1, end = -1;
-  for (let i = 0; i < focusHighlight.length; i++) {
-    const ch = focusHighlight[i];
-    if (ch === '⌊' || ch === '⌈' || ch === '⟦') { start = plain; }
-    else if (ch === '⌋' || ch === '⌉' || ch === '⟧') { end = plain; }
-    else { plain++; }
-  }
-  return start >= 0 && end > start ? { start, end } : null;
+/** Get the primary focus range from a post's relations (first relation's focus range) */
+function getPrimaryFocusRange(rp: RelatedPostMock): { start: number; end: number } | null {
+  if (!rp.relations || rp.relations.length === 0) return null;
+  return { start: rp.relations[0].focusStart, end: rp.relations[0].focusEnd };
 }
 
-/** Score how much two highlight ranges overlap (0 = none, higher = more overlap) */
+/** Score how much two ranges overlap */
 function rangeOverlap(a: { start: number; end: number } | null, b: { start: number; end: number } | null): number {
   if (!a || !b) return 0;
-  const overlapStart = Math.max(a.start, b.start);
-  const overlapEnd = Math.min(a.end, b.end);
-  if (overlapEnd <= overlapStart) return 0;
-  return overlapEnd - overlapStart;
+  const s = Math.max(a.start, b.start), e = Math.min(a.end, b.end);
+  return e > s ? e - s : 0;
 }
 
 function syntheticEntryFromRelated(rp: RelatedPostMock, parentEntry: ListyInjectionEntry): ListyInjectionEntry {
-  // The new focus post's highlight range on the parent — this is the region it responds to
-  const focusRange = extractHighlightRange((rp as any).focusHighlight);
-
-  // The new focus post's plain text — siblings need focusHighlight referencing THIS text
+  const focusRange = getPrimaryFocusRange(rp);
   const newFocusPlain = rp.content;
 
-  // Score siblings by how much their focusHighlight overlaps with the new focus post's region.
-  // Also generate a new focusHighlight for each sibling that references the new focus post.
   const siblings = parentEntry.relatedPosts
     .filter(p => p.id !== rp.id)
     .map(p => {
-      const siblingRange = extractHighlightRange((p as any).focusHighlight);
+      const siblingRange = getPrimaryFocusRange(p);
       const overlap = rangeOverlap(focusRange, siblingRange);
       const categoryBonus = p.category === rp.category ? 50 : 0;
-      // Generate focusHighlight for the NEW focus post's text
-      const syntheticFocusHL = generateFocusHighlight(newFocusPlain, p.content);
-      return { post: p, score: overlap + categoryBonus, syntheticFocusHL };
+      const syntheticRelation = generateSyntheticRelation(newFocusPlain, p.content, p.category);
+      return { post: p, score: overlap + categoryBonus, syntheticRelation };
     })
     .sort((a, b) => b.score - a.score)
-    .map(({ post, syntheticFocusHL }, idx) => ({
+    .map(({ post, syntheticRelation }, idx) => ({
       ...post,
       globalRank: idx + 1,
       rank: idx + 1,
-      focusHighlight: syntheticFocusHL,
-      // Synthetic entries get a single-range highlightsMeta matching the post's primary category
-      highlightsMeta: [{ category: post.category, topic: undefined, comment: undefined }],
+      relations: [syntheticRelation],
     }));
 
   return {

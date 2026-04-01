@@ -10,7 +10,7 @@ import StackPostsModal from './StackPostsModal';
 import InteractionControl from './InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, toggleReRankAnchor, clearReRankAnchors, toggleFilterCategory, useHighlightStore } from '../utils/highlightStore';
-import type { HighlightMeta } from '../types/PostType';
+import type { Relation } from '../types/PostType';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -29,11 +29,8 @@ interface PostType {
   };
   content_rewritten: string;
   rewrite: { content: string; significant: boolean };
-  content_highlight: string;
-  /** Focus post text with ⌊bracket⌋ markers — which parts of the focus post this response addresses */
-  focus_highlight?: string;
-  /** Per-range metadata: i-th entry = i-th bracket pair in content_highlight / focus_highlight */
-  highlights_meta?: HighlightMeta[];
+  /** Offset-based relations between this post and the focus post */
+  relations?: Relation[];
 }
 
 interface RelatedStackType {
@@ -122,40 +119,13 @@ function FilterChip({ category, count, active, onClick }: {
   );
 }
 
-// ─── Highlight helpers ───────────────────────────────────────────────────────
+// ─── Highlight helpers (offset-based) ────────────────────────────────────────
 
 interface HighlightRange { start: number; end: number }
 
-/** Strip bracket markers, return plain text + highlight ranges.
- *  Supports overlapping ranges via different bracket types:
- *  ⌊...⌋ = range 0, ⌈...⌉ = range 1, ⟦...⟧ = range 2.
- *  Each type is tracked independently so they can nest/overlap. */
-function parseHighlightRanges(text: string | null | undefined): { plain: string; ranges: HighlightRange[] } {
-  if (!text) return { plain: '', ranges: [] };
-  let plain = '';
-  const ranges: HighlightRange[] = [];
-  const openStarts: Record<string, number> = {};
-  const closerToOpener: Record<string, string> = { '⌋': '⌊', '⌉': '⌈', '⟧': '⟦' };
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '⌊' || ch === '⌈' || ch === '⟦') {
-      openStarts[ch] = plain.length;
-    } else if (ch === '⌋' || ch === '⌉' || ch === '⟧') {
-      const opener = closerToOpener[ch];
-      if (opener in openStarts) {
-        ranges.push({ start: openStarts[opener], end: plain.length });
-        delete openStarts[opener];
-      }
-    } else {
-      plain += ch;
-    }
-  }
-  return { plain, ranges };
-}
-
 // ─── Overlap detection for multi-range highlights ────────────────────────────
 
-interface TaggedRange { start: number; end: number; rangeIndex: number; category: string; topic?: string; comment?: string; focusComment?: string }
+interface TaggedRange { start: number; end: number; rangeIndex: number; category: string; topic?: string; comment?: string }
 
 /** Split overlapping ranges into non-overlapping segments, each tagged with contributing ranges */
 interface Segment { start: number; end: number; contributors: TaggedRange[] }
@@ -180,11 +150,11 @@ function buildSegments(tagged: TaggedRange[]): Segment[] {
 }
 
 /** Build React nodes for multi-range highlights with overlap support.
+ *  Uses offset-based Relation[] — no bracket parsing needed.
  *  Supports 3 visual levels: default (always-on, dimmed), card-hover (bright), substring-hover (one bright, rest dim). */
 function buildMultiHighlightNodes(
   plain: string,
-  ranges: HighlightRange[],
-  meta: HighlightMeta[] | undefined,
+  relations: Relation[] | undefined,
   primaryColors: CategoryStyle,
   opts: {
     isCardHovered: boolean;
@@ -193,19 +163,18 @@ function buildMultiHighlightNodes(
     onRangeHover: (index: number | null) => void;
   },
 ): React.ReactNode[] {
-  if (ranges.length === 0) return [plain];
+  if (!relations || relations.length === 0) return [plain];
 
-  // Build tagged ranges with per-range category and comment substrings
-  const tagged: TaggedRange[] = ranges.map((r, i) => {
-    const m = meta?.[i];
-    return {
-      start: r.start, end: r.end, rangeIndex: i,
-      category: m?.category ?? primaryColors.text,
-      topic: m?.topic,
-      comment: m?.contentComment,     // key phrase within related post highlight to bold
-      focusComment: m?.focusComment,  // passed through for focus post side
-    };
-  });
+  // Build tagged ranges from relations (content side)
+  const tagged: TaggedRange[] = relations.map((r, i) => ({
+    start: r.contentStart, end: r.contentEnd, rangeIndex: i,
+    category: r.category,
+    topic: r.topic,
+    // contentComment is the substring plain[contentCommentStart:contentCommentEnd]
+    comment: (r.contentCommentStart < r.contentCommentEnd)
+      ? plain.slice(r.contentCommentStart, r.contentCommentEnd)
+      : undefined,
+  }));
 
   // Detect overlaps by building segments
   const segments = buildSegments(tagged);
@@ -332,24 +301,30 @@ function buildMultiHighlightNodes(
 
 const WINDOW_CHARS = 140;
 
-function windowContent(plain: string, ranges: HighlightRange[], expanded: boolean): {
-  text: string; adjustedRanges: HighlightRange[]; hasPrefix: boolean; hasSuffix: boolean;
+/** Window content around the first relation's content range. Returns adjusted relations with shifted offsets. */
+function windowContent(plain: string, relations: Relation[] | undefined, expanded: boolean): {
+  text: string; adjustedRelations: Relation[] | undefined; hasPrefix: boolean; hasSuffix: boolean;
 } {
-  const totalChars = WINDOW_CHARS * 2;
-  if (expanded || ranges.length === 0 || plain.length <= totalChars) {
-    return { text: plain, adjustedRanges: ranges, hasPrefix: false, hasSuffix: false };
+  if (!relations || relations.length === 0) {
+    return { text: plain, adjustedRelations: relations, hasPrefix: false, hasSuffix: false };
   }
-  // Center on the first range
-  const first = ranges[0];
-  const center = Math.floor((first.start + first.end) / 2);
+  const totalChars = WINDOW_CHARS * 2;
+  if (expanded || plain.length <= totalChars) {
+    return { text: plain, adjustedRelations: relations, hasPrefix: false, hasSuffix: false };
+  }
+  const first = relations[0];
+  const center = Math.floor((first.contentStart + first.contentEnd) / 2);
   const start = Math.max(0, center - WINDOW_CHARS);
   const end = Math.min(plain.length, center + WINDOW_CHARS);
   const text = plain.slice(start, end);
-  const adjustedRanges = ranges
-    .map((r) => ({ start: r.start - start, end: r.end - start }))
-    .filter((r) => r.end > 0 && r.start < text.length)
-    .map((r) => ({ start: Math.max(0, r.start), end: Math.min(text.length, r.end) }));
-  return { text, adjustedRanges, hasPrefix: start > 0, hasSuffix: end < plain.length };
+  const adjustedRelations = relations.map(r => ({
+    ...r,
+    contentStart: Math.max(0, r.contentStart - start),
+    contentEnd: Math.min(text.length, r.contentEnd - start),
+    contentCommentStart: Math.max(0, r.contentCommentStart - start),
+    contentCommentEnd: Math.min(text.length, r.contentCommentEnd - start),
+  })).filter(r => r.contentEnd > 0 && r.contentStart < text.length);
+  return { text, adjustedRelations, hasPrefix: start > 0, hasSuffix: end < plain.length };
 }
 
 // ─── "More like this" word overlap scoring ──────────────────────────────────
@@ -596,16 +571,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           const colors = getCategoryColors(stack.rel);
           const isExpanded = !!expandedCards[stack.stackId];
 
-          // Parse highlights from content_highlight (supports multiple ⌊...⌋ ranges)
-          const { plain, ranges } = parseHighlightRanges(stack.topPost.content_highlight);
-          // Use plain content as fallback if no highlight markers
-          const plainContent = plain || stack.topPost.content;
-          const effectiveRanges = plain ? ranges : [];
-          const meta = stack.topPost.highlights_meta;
+          const plainContent = stack.topPost.content;
+          const rels = stack.topPost.relations;
 
           // Smart windowing: show only the highlighted portion unless expanded
-          const { text: visibleText, adjustedRanges, hasPrefix, hasSuffix } =
-            windowContent(plainContent, effectiveRanges, isExpanded);
+          const { text: visibleText, adjustedRelations, hasPrefix, hasSuffix } =
+            windowContent(plainContent, rels, isExpanded);
           const isTruncated = hasPrefix || hasSuffix;
 
           // "More like this" visual state
@@ -620,7 +591,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
           // Build React content nodes with multi-range + 3-level hover
           const contentNodes = buildMultiHighlightNodes(
-            visibleText, adjustedRanges, meta, colors,
+            visibleText, adjustedRelations, colors,
             {
               isCardHovered,
               anyCardHovered,
@@ -657,7 +628,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 onMouseEnter={() => {
                   setHoveredIndex(null);
                   setHoveredCardIndex(index);
-                  setHoveredSidebarPost(stack.topPost.id, stack.topPost.content_highlight, stack.rel, stack.topPost.focus_highlight, stack.topPost.highlights_meta);
+                  setHoveredSidebarPost(stack.topPost.id, stack.topPost.relations);
                 }}
                 onMouseLeave={() => { setHoveredCardIndex(null); setHoveredSidebarPost(null); setHoveredHighlightRangeIndex(null); }}
                 style={{

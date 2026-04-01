@@ -78,8 +78,11 @@ export default function FocusPost({ post, relatedPosts, isAncestor, isActive = f
   type Segment = { text: string; highlighted: boolean };
   let segments: Segment[];
 
-  if (activePost?.focusHighlight) {
-    const { highlights } = parseHighlight(activePost.focusHighlight, "category");
+  if (activePost?.relations && activePost.relations.length > 0) {
+    // Build highlight segments from relations' focus ranges
+    const highlights = activePost.relations.map(r => ({
+      start: r.focusStart, end: r.focusEnd, category: r.category, source: "category" as const,
+    }));
     segments = buildSegments(post.plainText, highlights);
   } else {
     segments = [{ text: post.plainText, highlighted: false }];

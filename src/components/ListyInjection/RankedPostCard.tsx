@@ -72,8 +72,10 @@ const RankedPostCard = forwardRef<HTMLDivElement, RankedPostCardProps>(
     const colors = CATEGORY_COLORS[post.category] ?? CATEGORY_COLORS.uncategorized;
     const [expanded, setExpanded] = useState(false);
 
-    // Parse highlight ranges from content_highlight field
-    const { highlights } = parseHighlight(post.content_highlight, "category");
+    // Build highlight ranges from relations' content ranges
+    const highlights = (post.relations ?? []).map(r => ({
+      start: r.contentStart, end: r.contentEnd, category: r.category, source: "category" as const,
+    }));
 
     // Compute windowed content for truncation
     const { text: visibleText, adjustedHighlights, hasPrefix, hasSuffix } =
