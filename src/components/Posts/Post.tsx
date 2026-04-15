@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
@@ -150,6 +150,87 @@ function cleanPostHtml(html: string, card: PreviewCard | null | undefined): Clea
 
 
 
+// Subscribes to the highlight store — only mounted for the *active* post so
+// inactive posts don't re-render on every sidebar hover.
+const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
+  displayText: string;
+  rawText: string;
+  style: React.CSSProperties;
+  isTextExpanded: boolean;
+}>(function ActiveHighlightedContent({ displayText, rawText, style, isTextExpanded }, ref) {
+  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex } = useHighlightStore();
+  const showCrossHighlight = !!hoveredPostId && !!hoveredRelations;
+  const html = useMemo(() => {
+    if (!showCrossHighlight || !hoveredRelations) return displayText;
+    return renderMultiHighlightHtml(
+      displayText,
+      stripHtml(rawText),
+      hoveredRelations,
+      hoveredHighlightRangeIndex,
+    );
+  }, [displayText, rawText, showCrossHighlight, hoveredRelations, hoveredHighlightRangeIndex]);
+
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  // Expose innerRef both to the parent forwarded ref and our scroll logic
+  const setRefs = (el: HTMLDivElement | null) => {
+    innerRef.current = el;
+    if (typeof ref === 'function') ref(el);
+    else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
+  };
+
+  // Save/restore the scroll position of the clamped text box.
+  // When a related post is hovered and its matching highlight is outside the visible clamp,
+  // scroll the box so the first matching <mark> comes into view. Restore on hover-out.
+  const savedScrollTopRef = useRef<number | null>(null);
+  const prevHoveredIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const el = innerRef.current;
+    if (!el || isTextExpanded) {
+      prevHoveredIdRef.current = hoveredPostId;
+      return;
+    }
+    if (hoveredPostId && hoveredPostId !== prevHoveredIdRef.current) {
+      // Remember the current scroll offset so we can return when hover ends
+      if (savedScrollTopRef.current === null) savedScrollTopRef.current = el.scrollTop;
+      // Find first mark and scroll it into view if it's outside the visible region
+      requestAnimationFrame(() => {
+        const mark = el.querySelector('mark') as HTMLElement | null;
+        if (!mark) return;
+        const boxRect = el.getBoundingClientRect();
+        const mRect = mark.getBoundingClientRect();
+        if (mRect.top < boxRect.top || mRect.bottom > boxRect.bottom) {
+          const delta = (mRect.top - boxRect.top) - 16; // 16px top padding so it's not flush
+          el.scrollTo({ top: el.scrollTop + delta, behavior: 'smooth' });
+        }
+      });
+    } else if (!hoveredPostId && prevHoveredIdRef.current) {
+      // Hover ended — restore
+      const back = savedScrollTopRef.current ?? 0;
+      savedScrollTopRef.current = null;
+      el.scrollTo({ top: back, behavior: 'smooth' });
+    }
+    prevHoveredIdRef.current = hoveredPostId;
+  }, [hoveredPostId, isTextExpanded]);
+
+  // When clamped and a post is hovered, swap to a fixed-height scrollable box (same visible height)
+  // so that scrollTop actually scrolls without expanding the layout. When no hover, keep the clamped look.
+  const scrollMode = !isTextExpanded && !!hoveredPostId;
+  const mergedStyle: React.CSSProperties = scrollMode
+    ? {
+        ...style,
+        display: 'block',
+        WebkitLineClamp: undefined,
+        WebkitBoxOrient: undefined,
+        overflow: 'hidden',
+        // Use maxHeight derived from 5 lines at current line-height (matches clamp)
+        maxHeight: `calc(1.5em * 5)`,
+      }
+    : style;
+
+  return <div ref={setRefs} style={mergedStyle} dangerouslySetInnerHTML={{ __html: html }} />;
+});
+
 interface PostProps {
   id: string;
   text: string;
@@ -209,12 +290,13 @@ export default function Post({
   const [isExpanded, setIsExpanded] = useState(isActive);
   const [isTextExpanded, setIsTextExpanded] = useState(false);
   const [hovered, setHovered] = useState(false);
-  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex } = useHighlightStore();
-  const showCrossHighlight = isActive && !!hoveredPostId && !!hoveredRelations;
 
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>(initialCard ? [initialCard] : []);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
-  const { html: displayText, publishedDate, articleUrl } = cleanPostHtml(text, previewCards[0]);
+  const { html: displayText, publishedDate, articleUrl } = useMemo(
+    () => cleanPostHtml(text, previewCards[0]),
+    [text, previewCards],
+  );
 
   const [isOverflowing, setIsOverflowing] = useState(false);
   const textRef = useRef<HTMLDivElement>(null);
@@ -420,14 +502,6 @@ export default function Post({
     onStackIconClick(newRelatedStacks, id, adjustedPosition);
   };
 
-  const handleLinkClick = (e: MouseEvent) => {
-    e.preventDefault();
-    const target = e.target as HTMLAnchorElement;
-    if (target && target.href) {
-      window.open(target.href, '_blank');
-    }
-  };
-
   const handleExpandText = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     event.preventDefault();
@@ -446,18 +520,6 @@ export default function Post({
       handleNavigate();
     }
   };
-
-  useEffect(() => {
-    const links = document.querySelectorAll('.post-content a');
-    links.forEach(link => {
-      link.addEventListener('click', handleLinkClick as EventListener);
-    });
-    return () => {
-      links.forEach(link => {
-        link.removeEventListener('click', handleLinkClick as EventListener);
-      });
-    };
-  }, [text]);
 
   return (
     <div style={{ position: 'relative', marginBottom: '3rem'}}>
@@ -538,29 +600,39 @@ export default function Post({
           onMouseUp={handleMouseUp}
         >
           <div>
-      <div
-        ref={textRef}
-        style={{
-          display: isTextExpanded ? 'block' : '-webkit-box',
-          WebkitBoxOrient: 'vertical',
-          WebkitLineClamp: isTextExpanded ? undefined : 5,
-          overflow: isTextExpanded ? 'visible' : 'hidden',
-          textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
-          marginTop: '0px',
-          lineHeight: '1.5',
-          color: '#011445'
-        }}
-        dangerouslySetInnerHTML={{ __html: (() => {
-          // No highlights by default — only show when a sidebar card is hovered
-          if (!showCrossHighlight || !hoveredRelations) return displayText;
-          return renderMultiHighlightHtml(
-            displayText,
-            stripHtml(text),
-            hoveredRelations,
-            hoveredHighlightRangeIndex,
-          );
-        })() }}
-      />
+      {isActive ? (
+        <ActiveHighlightedContent
+          ref={textRef}
+          displayText={displayText}
+          rawText={text}
+          isTextExpanded={isTextExpanded}
+          style={{
+            display: isTextExpanded ? 'block' : '-webkit-box',
+            WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: isTextExpanded ? undefined : 5,
+            overflow: isTextExpanded ? 'visible' : 'hidden',
+            textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
+            marginTop: '0px',
+            lineHeight: '1.5',
+            color: '#011445',
+          }}
+        />
+      ) : (
+        <div
+          ref={textRef}
+          style={{
+            display: isTextExpanded ? 'block' : '-webkit-box',
+            WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: isTextExpanded ? undefined : 5,
+            overflow: isTextExpanded ? 'visible' : 'hidden',
+            textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
+            marginTop: '0px',
+            lineHeight: '1.5',
+            color: '#011445'
+          }}
+          dangerouslySetInnerHTML={{ __html: displayText }}
+        />
+      )}
       {isOverflowing && (
         <Anchor
           component="button"
