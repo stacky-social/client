@@ -53,12 +53,12 @@ export default function Shell({ children, aside }: {  children: React.ReactNode;
                     }}
             >
                 {aside ?? null}
-            </AppShell.Aside>  
-            <Drawer 
-                opened={opened} 
-                onClose={toggle} 
-                padding="md" 
-                size="xs" 
+            </AppShell.Aside>
+            <Drawer
+                opened={opened}
+                onClose={toggle}
+                padding="md"
+                size="xs"
                 styles={{
                     content: {
                       backgroundColor: '#FCFBF5',
@@ -75,22 +75,20 @@ export default function Shell({ children, aside }: {  children: React.ReactNode;
                 {children}
             </AppShell.Main>
         </AppShell>
-        <button
+        <Burger
+            opened={!navCollapsed}
             onClick={toggleNav}
+            visibleFrom="sm"
+            size="sm"
             aria-label={navCollapsed ? "Expand navigation" : "Collapse navigation"}
             style={{
                 position: 'fixed',
-                left: navCollapsed ? 4 : `calc(clamp(200px, 22vw, 300px) - 32px)`,
+                left: 16,
                 top: 16,
-                zIndex: 300, width: 24, height: 48, borderRadius: '6px',
-                background: '#f1f5f9', border: '1px solid #e2e8f0',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '12px', color: '#64748b',
+                zIndex: 300,
                 transition: 'left 200ms ease',
             }}
-        >
-            {navCollapsed ? '›' : '‹'}
-        </button>
+        />
         </RelatedStacksProvider>
     );
 }
