@@ -83,7 +83,7 @@ export default function Shell({ children, aside }: {  children: React.ReactNode;
             aria-label={navCollapsed ? "Expand navigation" : "Collapse navigation"}
             style={{
                 position: 'fixed',
-                left: 16,
+                left: navCollapsed ? 16 : 'calc(clamp(200px, 22vw, 300px) - 42px)',
                 top: 16,
                 zIndex: 300,
                 transition: 'left 200ms ease',

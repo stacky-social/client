@@ -1,11 +1,11 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Anchor } from '@mantine/core';
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconThumbUp, IconThumbDown, IconChevronRight } from '@tabler/icons-react';
 import { Layers } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import StackPostsModal from './StackPostsModal';
 import InteractionControl from './InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
@@ -90,6 +90,56 @@ const iconMapping: Record<string, JSX.Element> = {
 
 function getCategoryColors(rel: string): CategoryStyle {
   return CATEGORY_COLORS[rel] ?? CATEGORY_COLORS.uncategorized;
+}
+
+// ─── Eye cursor — indicates "click to see more like this" ───────────────────
+// Small 20x20 SVG eye, encoded inline as the cursor image. Fallback: pointer.
+const EYE_CURSOR = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z'/><circle cx='12' cy='12' r='3'/></svg>") 11 11, pointer`;
+
+// ─── Passive "See more like this" tooltip (no button) ───────────────────────
+
+function SeeMoreTooltip({ topic, categoryColors }: { topic?: string; categoryColors: CategoryStyle }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [nudge, setNudge] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const pad = 8;
+    let n = 0;
+    if (rect.left < pad) n = -rect.left + pad;
+    else if (rect.right > window.innerWidth - pad) n = window.innerWidth - pad - rect.right;
+    if (n !== nudge) setNudge(n);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <span
+      style={{
+        position: 'absolute', bottom: '100%', left: '50%',
+        transform: `translateX(calc(-50% + ${nudge}px))`,
+        paddingBottom: 8, whiteSpace: 'nowrap', zIndex: 20, pointerEvents: 'none',
+      }}
+    >
+      <span
+        ref={ref}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          background: 'rgba(255,255,255,0.78)',
+          backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+          borderRadius: 8, padding: '4px 10px',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.05)',
+          border: `1px solid ${categoryColors.border}55`,
+          fontSize: 11, fontWeight: 600, color: categoryColors.text,
+        }}
+      >
+        {topic && <span style={{ color: '#475569', fontWeight: 500 }}>{topic}</span>}
+        {topic && <span style={{ color: '#cbd5e1' }}>·</span>}
+        <span>See more like this</span>
+      </span>
+    </span>
+  );
 }
 
 // ─── Filter chip ─────────────────────────────────────────────────────────────
@@ -193,7 +243,10 @@ function buildMultiHighlightNodes(
   const nodes: React.ReactNode[] = [];
   let lastEnd = 0;
 
-  // Helper: merge adjacent segments that share the same single contributor
+  // Track which range indices have already rendered a tooltip so we never
+  // show duplicates when the same range is split into multiple segments.
+  const tooltipRendered = new Set<number>();
+
   for (const seg of segments) {
     // Add plain text before this segment
     if (seg.start > lastEnd) {
@@ -228,37 +281,53 @@ function buildMultiHighlightNodes(
         return `${rgba} ${pct1}%, ${rgba} ${pct2}%`;
       }).join(', ');
 
+      const hoveredBandContributor = cats.find(c => opts.hoveredRangeIndex === c.rangeIndex);
       nodes.push(
-        <mark
-          key={`seg-${seg.start}`}
-          data-overlap-bands={cats.length}
-          data-overlap-range-ids={cats.map(c => c.rangeIndex).join(',')}
-          onMouseMove={(e) => {
-            const el = e.currentTarget as HTMLElement;
-            const rect = el.getBoundingClientRect();
-            const rel = (e.clientY - rect.top) / rect.height;
-            const bandIdx = Math.max(0, Math.min(cats.length - 1, Math.floor(rel * cats.length)));
-            opts.onRangeHover(cats[bandIdx].rangeIndex);
-          }}
-          onMouseLeave={() => opts.onRangeHover(null)}
-          onClick={(e) => {
-            if (!opts.onRangeClick) return;
-            const el = e.currentTarget as HTMLElement;
-            const rect = el.getBoundingClientRect();
-            const rel = (e.clientY - rect.top) / rect.height;
-            const bandIdx = Math.max(0, Math.min(cats.length - 1, Math.floor(rel * cats.length)));
-            e.stopPropagation();
-            opts.onRangeClick(cats[bandIdx].rangeIndex);
-          }}
-          style={{
-            background: `linear-gradient(180deg, ${gradientStops})`,
-            color: 'inherit', borderRadius: '3px', padding: '1px 0',
-            transition: 'background 200ms ease',
-            cursor: 'pointer',
-          }}
-        >
-          {segText}
-        </mark>
+        <span key={`seg-${seg.start}`} style={{ position: 'relative', display: 'inline' }}>
+          <mark
+            data-overlap-bands={cats.length}
+            data-overlap-range-ids={cats.map(c => c.rangeIndex).join(',')}
+            tabIndex={-1}
+            onMouseMove={(e) => {
+              const el = e.currentTarget as HTMLElement;
+              const rect = el.getBoundingClientRect();
+              const rel = (e.clientY - rect.top) / rect.height;
+              const bandIdx = Math.max(0, Math.min(cats.length - 1, Math.floor(rel * cats.length)));
+              opts.onRangeHover(cats[bandIdx].rangeIndex);
+            }}
+            onMouseLeave={() => opts.onRangeHover(null)}
+            onClick={(e) => {
+              if (!opts.onRangeClick) return;
+              const el = e.currentTarget as HTMLElement;
+              const rect = el.getBoundingClientRect();
+              const rel = (e.clientY - rect.top) / rect.height;
+              const bandIdx = Math.max(0, Math.min(cats.length - 1, Math.floor(rel * cats.length)));
+              e.stopPropagation();
+              (e.currentTarget as HTMLElement).blur();
+              opts.onRangeClick(cats[bandIdx].rangeIndex);
+            }}
+            style={{
+              background: `linear-gradient(180deg, ${gradientStops})`,
+              color: 'inherit', borderRadius: '3px', padding: '1px 0',
+              transition: 'background 200ms ease',
+              cursor: EYE_CURSOR,
+              outline: 'none',
+              border: 'none',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            {segText}
+          </mark>
+          {hoveredBandContributor && !tooltipRendered.has(hoveredBandContributor.rangeIndex) && (() => {
+            tooltipRendered.add(hoveredBandContributor.rangeIndex);
+            return (
+              <SeeMoreTooltip
+                topic={hoveredBandContributor.topic}
+                categoryColors={getCategoryColors(hoveredBandContributor.category)}
+              />
+            );
+          })()}
+        </span>
       );
     } else {
       // Single-contributor segment
@@ -306,24 +375,39 @@ function buildMultiHighlightNodes(
       }
 
       nodes.push(
-        <mark
-          key={`r${c.rangeIndex}-${seg.start}`}
-          data-range-id={c.rangeIndex}
-          onMouseEnter={() => opts.onRangeHover(c.rangeIndex)}
-          onMouseLeave={() => opts.onRangeHover(null)}
-          onClick={(e) => {
-            if (!opts.onRangeClick) return;
-            e.stopPropagation();
-            opts.onRangeClick(c.rangeIndex);
-          }}
-          style={{
-            background: bgColor, color: 'inherit', borderRadius: '3px', padding: '1px 0',
-            transition: 'background 200ms ease',
-            cursor: 'pointer',
-          }}
-        >
-          {markContent}
-        </mark>
+        <span key={`r${c.rangeIndex}-${seg.start}`} style={{ position: 'relative', display: 'inline' }}>
+          <mark
+            data-range-id={c.rangeIndex}
+            tabIndex={-1}
+            onMouseEnter={() => opts.onRangeHover(c.rangeIndex)}
+            onMouseLeave={() => opts.onRangeHover(null)}
+            onClick={(e) => {
+              if (!opts.onRangeClick) return;
+              e.stopPropagation();
+              (e.currentTarget as HTMLElement).blur();
+              opts.onRangeClick(c.rangeIndex);
+            }}
+            style={{
+              background: bgColor, color: 'inherit', borderRadius: '3px', padding: '1px 0',
+              transition: 'background 200ms ease',
+              cursor: EYE_CURSOR,
+              outline: 'none',
+              border: 'none',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            {markContent}
+          </mark>
+          {isThisRangeHovered && !tooltipRendered.has(c.rangeIndex) && (() => {
+            tooltipRendered.add(c.rangeIndex);
+            return (
+              <SeeMoreTooltip
+                topic={c.topic}
+                categoryColors={colors}
+              />
+            );
+          })()}
+        </span>
       );
 
     }
@@ -367,6 +451,22 @@ function windowContent(plain: string, relations: Relation[] | undefined, expande
     contentCommentEnd: Math.min(text.length, r.contentCommentEnd - start),
   })).filter(r => r.contentEnd > 0 && r.contentStart < text.length);
   return { text, adjustedRelations, hasPrefix: start > 0, hasSuffix: end < plain.length };
+}
+
+// ─── offsetTop utility (immune to CSS transforms) ──────────────────────────
+// Walks the offsetParent chain to compute the element's absolute vertical
+// position in the document. Unlike getBoundingClientRect(), this is NOT
+// affected by CSS transforms (e.g. framer-motion FLIP animations), so it
+// always returns the element's true resting DOM position.
+
+function absoluteOffsetTop(el: HTMLElement): number {
+  let top = 0;
+  let cur: HTMLElement | null = el;
+  while (cur) {
+    top += cur.offsetTop;
+    cur = cur.offsetParent as HTMLElement | null;
+  }
+  return top;
 }
 
 // ─── "More like this" word overlap scoring ──────────────────────────────────
@@ -502,6 +602,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     return { displayStacks: result, claimedBy, anchorSet, anchorParent };
   }, [relatedStacks, filterCategory, reRankAnchorIds]);
 
+  /** Set of anchor IDs that actually pulled in at least one claimed post. */
+  const anchorsWithClaims = useMemo(() => {
+    const s = new Set<string>();
+    claimedBy.forEach((anchorId) => s.add(anchorId));
+    return s;
+  }, [claimedBy]);
+
   const EDGE_HOVER_HEIGHT = 28;
 
   const handleNavigate = (postId: string, newStackId: string) => {
@@ -521,18 +628,76 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
   const containerVariants = {
     hidden: { opacity: 1 },
-    show: { opacity: 1, transition: { staggerChildren: 0.2 } },
+    show: { opacity: 1, transition: { staggerChildren: 0.15 } },
   };
 
-  const itemVariants = (index: number) => ({
-    hidden: showupdate ? { opacity: 0, x: -200, y: -200 * (index + 1) } : { opacity: 0, y: 200 },
-    show: { opacity: 1, x: 0, y: 0, transition: { duration: 0.5 } },
-  });
+  // Per-item enter / exit / layout-change variants.
+  // `layout` on motion.div handles reordering (up/down) smoothly.
+  // AnimatePresence handles enter/exit (vanish) when a post appears/disappears.
+  const itemVariants = {
+    hidden: { opacity: 0, y: 24, scale: 0.96 },
+    show: {
+      opacity: 1, y: 0, scale: 1,
+      transition: { duration: 0.35, ease: [0.2, 0.8, 0.2, 1] as any },
+    },
+    exit: {
+      opacity: 0, scale: 0.97,
+      transition: { duration: 0.2, ease: "easeIn" },
+    },
+  };
 
   const handleOpenStackModal = (stackId: string) => {
     setCurrentStackId(stackId);
     setStackPostsModalOpen(true);
   };
+
+  // ── Scroll-pinning state for anchor toggle ─────────────────────────────────
+  // When toggling an anchor, we:
+  //   1. Disable `layout` on the pinned card (no FLIP transform → it snaps to new DOM position).
+  //   2. Compensate scrollTop in useLayoutEffect BEFORE paint so the card never visually moves.
+  //   Other cards keep `layout` and animate smoothly around the pinned one.
+  const pinnedPostIdRef = useRef<string | null>(null);
+  const pinnedPrevTopRef = useRef<number | null>(null);
+
+  /** Toggle an anchor. The interacted card stays visually pinned while other
+   *  cards animate around it. */
+  const handleToggleAnchor = (postId: string, rangeIndex?: number) => {
+    // Clear hover state — card indices shift after reorder, so old
+    // hoveredCardIndex would point at a different card → everything dims.
+    setHoveredCardIndex(null);
+    setHoveredSidebarPost(null);
+    setHoveredHighlightRangeIndex(null);
+    setHoveredCategory(null);
+    clearTapped();
+
+    // Capture position BEFORE the reorder
+    const cardEl = document.querySelector(`[data-post-id="${postId}"]`) as HTMLElement | null;
+    pinnedPostIdRef.current = postId;
+    pinnedPrevTopRef.current = cardEl ? absoluteOffsetTop(cardEl) : null;
+
+    toggleReRankAnchor(postId, rangeIndex);
+  };
+
+  // Compensate scroll BEFORE paint — runs after React commits the DOM update
+  // but before the browser paints, so the card never visually moves.
+  useLayoutEffect(() => {
+    const postId = pinnedPostIdRef.current;
+    const prevTop = pinnedPrevTopRef.current;
+    if (!postId || prevTop === null) return;
+
+    // Clear refs so future renders don't re-compensate
+    pinnedPostIdRef.current = null;
+    pinnedPrevTopRef.current = null;
+
+    const cardEl = document.querySelector(`[data-post-id="${postId}"]`) as HTMLElement | null;
+    if (!cardEl) return;
+    const newTop = absoluteOffsetTop(cardEl);
+    const delta = newTop - prevTop;
+    if (Math.abs(delta) > 1) {
+      const aside = document.querySelector('.mantine-AppShell-aside');
+      if (aside) aside.scrollTop += delta;
+    }
+  });
 
   /** Ref-based guard: set when a touch tap just "activated" a card/range so the
    *  synthetic click that follows doesn't also navigate. */
@@ -574,7 +739,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       // Second tap on the same active range → rerank
       if (tappedCardPostId === postId && tappedRangeIndex === rangeIdx) {
         skipNextClickRef.current = true;
-        toggleReRankAnchor(postId, rangeIdx);
+        handleToggleAnchor(postId, rangeIdx);
         clearTapped();
         return;
       }
@@ -683,25 +848,28 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 <span key={id} style={{
                   background: '#dce4f5', borderRadius: '4px', padding: '1px 6px',
                   fontSize: '10px', fontWeight: 600, color: '#3b5998', cursor: 'pointer',
-                }} onClick={() => toggleReRankAnchor(id)} title="Click to remove this anchor">
+                }} onClick={() => handleToggleAnchor(id)} title="Click to remove this anchor">
                   {topic} ×
                 </span>
               );
             })}
-            <button
-              onClick={() => clearReRankAnchors()}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: '#94a3b8', fontSize: '11px', fontWeight: 600, padding: '0 2px', marginLeft: 'auto',
-              }}
-            >
-              Clear all
-            </button>
+            {reRankAnchorIds.length > 1 && (
+              <button
+                onClick={() => clearReRankAnchors()}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#94a3b8', fontSize: '11px', fontWeight: 600, padding: '0 2px', marginLeft: 'auto',
+                }}
+              >
+                Clear all
+              </button>
+            )}
           </div>
         )}
       </div>
 
       {/* Cards — no inner scroll, the aside's own scrollbar handles everything */}
+      <LayoutGroup>
       <motion.div
         variants={containerVariants} initial="hidden" animate="show"
         style={{
@@ -709,6 +877,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           paddingBottom: '1rem',
         }}
       >
+        <AnimatePresence initial={false} mode="popLayout">
         {displayStacks.map((stack, index) => {
           const isCardHovered = hoveredCardIndex === index;
           const colors = getCategoryColors(stack.rel);
@@ -762,18 +931,61 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               hoveredCategory: isCardActive ? hoveredCategory : null,
               anchoredRangeIndex: anchoredRangeByPost[stack.topPost.id] ?? null,
               onRangeHover: debouncedRangeHover,
-              onRangeClick: (ri) => toggleReRankAnchor(stack.topPost.id, ri),
+              onRangeClick: (ri) => handleToggleAnchor(stack.topPost.id, ri),
             },
           );
+
+          // ── Anchor-group topic (shown above the first card of a group) ─────
+          // When this card is the anchor of a group that has claimed posts below,
+          // show a small section-heading with the topic + a subtle left border
+          // that unifies the grouped cards visually.
+          const anchorForThisCard: string | undefined = isReRanked
+            ? claimedBy.get(stack.topPost.id)
+            : (isAnchor && anchorsWithClaims.has(stack.topPost.id) ? stack.topPost.id : undefined);
+          const anchorForPrev: string | undefined = index > 0
+            ? (claimedBy.has(displayStacks[index - 1].topPost.id)
+                ? claimedBy.get(displayStacks[index - 1].topPost.id)
+                : (anchorSet.has(displayStacks[index - 1].topPost.id) && anchorsWithClaims.has(displayStacks[index - 1].topPost.id)
+                    ? displayStacks[index - 1].topPost.id
+                    : undefined))
+            : undefined;
+          const isInGroup = !!anchorForThisCard;
+          const isGroupStart = isInGroup && anchorForThisCard !== anchorForPrev;
+          const anchorStack = anchorForThisCard
+            ? relatedStacks.find(s => s.topPost.id === anchorForThisCard)
+            : undefined;
+          const anchorRangeIdx = anchorForThisCard
+            ? (anchoredRangeByPost[anchorForThisCard] ?? 0)
+            : undefined;
+          const anchorTopic =
+            anchorStack?.topPost.relations?.[anchorRangeIdx ?? 0]?.topic
+            ?? anchorStack?.topPost.account.display_name
+            ?? undefined;
+          const anchorColors = anchorStack
+            ? getCategoryColors(
+                anchorStack.topPost.relations?.[anchorRangeIdx ?? 0]?.category ?? anchorStack.rel
+              )
+            : colors;
 
           return (
             <motion.div
               key={stack.stackId}
-              variants={itemVariants(index)}
+              layout={pinnedPostIdRef.current !== stack.topPost.id}
+              variants={itemVariants}
+              initial="hidden"
+              animate="show"
+              exit="exit"
               data-related-card
               style={{
                 position: 'relative', width: '100%', borderRadius: '10px',
                 ...cardDimStyle,
+                // Group accent: left border + slight inset for cards inside a group
+                borderLeft: isInGroup ? `3px solid ${anchorColors.border}` : undefined,
+                paddingLeft: isInGroup ? '5px' : undefined,
+                paddingTop: isGroupStart ? '4px' : undefined,
+                marginLeft: isInGroup
+                  ? `${Math.max(0, indentPx - 8)}px`
+                  : (indentPx > 0 ? `${indentPx}px` : undefined),
                 transition: 'filter 200ms ease',
               }}
               onMouseMove={(e) => {
@@ -795,8 +1007,37 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               }}
               onPointerDown={(e) => handleCardTap(e, stack.topPost.id, stack.stackId)}
             >
+              {isGroupStart && (
+                <div
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '2px 0 6px 2px',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <span style={{
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: anchorColors.text,
+                  }}>
+                    More like
+                  </span>
+                  {anchorTopic && (
+                    <span style={{
+                      fontSize: '11px', fontWeight: 600, color: '#475569',
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      maxWidth: '220px',
+                    }}>
+                      {anchorTopic}
+                    </span>
+                  )}
+                </div>
+              )}
               <Paper
                 ref={(el) => { paperRefs.current[index] = el; }}
+                data-post-id={stack.topPost.id}
                 onMouseEnter={() => {
                   if (isTouch) return;
                   setHoveredIndex(null);
@@ -815,7 +1056,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   boxShadow: stack.size > 1 ? 'none' : '0 2px 12px rgba(0,0,0,0.06)',
                   transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
                   cursor: 'pointer',
-                  marginLeft: indentPx > 0 ? `${indentPx}px` : undefined,
                 }}
               >
                 {/* Category tags — one per unique relation category, dims/brightens with highlight hover */}
@@ -846,7 +1086,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                             if (isTouch) {
                               // Touch: tap toggles category highlight; second tap on same category triggers rerank on first matching range
                               if (hoveredCategory === cat && tappedCardPostId === stack.topPost.id) {
-                                toggleReRankAnchor(stack.topPost.id, indices[0]);
+                                handleToggleAnchor(stack.topPost.id, indices[0]);
                                 setHoveredCategory(null);
                                 clearTapped();
                               } else {
@@ -970,7 +1210,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             </motion.div>
           );
         })}
+        </AnimatePresence>
       </motion.div>
+      </LayoutGroup>
 
       <StackPostsModal
         isOpen={stackPostsModalOpen} onClose={() => setStackPostsModalOpen(false)}
