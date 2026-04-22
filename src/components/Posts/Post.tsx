@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
@@ -183,44 +183,37 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   //    (no mid-sentence scrolling). Collapses back when hover ends.
   const [revealHeight, setRevealHeight] = useState<number | null>(null);
 
-  useEffect(() => {
+  // useLayoutEffect keyed on `html` — fires synchronously the moment the new
+  // innerHTML (with marks) is committed to the DOM, BEFORE paint. This is far
+  // more reliable than useEffect + double rAF, which could miss the first frame.
+  useLayoutEffect(() => {
     const el = innerRef.current;
     if (!el || isTextExpanded) { setRevealHeight(null); return; }
 
-    if (showCrossHighlight) {
-      // Wait for marks to render, then check if any are below the visible area
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const box = innerRef.current;
-          if (!box) return;
-          const marks = Array.from(box.querySelectorAll('mark'));
-          if (marks.length === 0) return;
+    if (!showCrossHighlight) { setRevealHeight(null); return; }
 
-          const boxRect = box.getBoundingClientRect();
-          // Find the lowest mark
-          let lowestBottom = 0;
-          for (const m of marks) {
-            const r = m.getBoundingClientRect();
-            const relBottom = r.bottom - boxRect.top + box.scrollTop;
-            if (relBottom > lowestBottom) lowestBottom = relBottom;
-          }
+    const marks = Array.from(el.querySelectorAll('mark'));
+    if (marks.length === 0) { setRevealHeight(null); return; }
 
-          const PADDING = 24; // extra breathing room below the mark
-          const needed = lowestBottom + PADDING;
-          const currentHeight = box.clientHeight;
+    // getBoundingClientRect forces a synchronous reflow — positions are accurate
+    const boxRect = el.getBoundingClientRect();
+    let lowestBottom = 0;
+    for (const m of marks) {
+      const r = m.getBoundingClientRect();
+      const relBottom = r.bottom - boxRect.top;
+      if (relBottom > lowestBottom) lowestBottom = relBottom;
+    }
 
-          if (needed > currentHeight) {
-            // Cap at full content height (don't grow past what's there)
-            setRevealHeight(Math.min(needed, box.scrollHeight));
-          } else {
-            setRevealHeight(null); // all marks visible, no expansion needed
-          }
-        });
-      });
+    const PADDING = 24;
+    const needed = lowestBottom + PADDING;
+    const clampHeight = el.clientHeight;
+
+    if (needed > clampHeight) {
+      setRevealHeight(Math.min(needed, el.scrollHeight));
     } else {
       setRevealHeight(null);
     }
-  }, [showCrossHighlight, hoveredRelations, isTextExpanded]);
+  }, [html, isTextExpanded, showCrossHighlight]);
 
   // Build the merged style: if we need to reveal, override maxHeight + remove clamp
   const mergedStyle: React.CSSProperties = revealHeight
