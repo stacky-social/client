@@ -305,7 +305,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         }
 
         if (Math.abs(delta) > 1) {
-          const target = Math.max(0, box.scrollTop + delta);
+          let target = Math.max(0, box.scrollTop + delta);
+          // Snap to line-height boundary so we never show a partial
+          // character line at the top or bottom of the clamped box.
+          const lh = parseFloat(getComputedStyle(box).lineHeight);
+          if (lh > 0) target = Math.round(target / lh) * lh;
           box.scrollTop = target;
           targetScrollTopRef.current = target;
         }
@@ -639,6 +643,13 @@ export default function Post({
     setIsOverflowing(false);
   };
 
+  const handleCollapseText = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    event.preventDefault();
+    setIsTextExpanded(false);
+    // isOverflowing will be recalculated by the useEffect on next render
+  };
+
   const handleSingleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     handleNavigate();
@@ -767,7 +778,7 @@ export default function Post({
           dangerouslySetInnerHTML={{ __html: displayText }}
         />
       )}
-      {isOverflowing && (
+      {(isOverflowing || isTextExpanded) && (
         <Anchor
           component="button"
           type="button"
@@ -785,11 +796,11 @@ export default function Post({
               },
             },
           })}
-          onClick={handleExpandText}
+          onClick={isTextExpanded ? handleCollapseText : handleExpandText}
           onMouseDown={(event) => event.stopPropagation()}
           onMouseUp={(event) => event.stopPropagation()}
         >
-          Read more
+          {isTextExpanded ? 'Read less' : 'Read more'}
         </Anchor>
       )}
     </div>
