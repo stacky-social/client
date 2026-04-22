@@ -178,24 +178,27 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
   };
 
-  // ── Expand-to-reveal: when a mark is below the 5-line clamp, smoothly grow
-  //    the box downward to reveal it. Text always starts from the beginning
-  //    (no mid-sentence scrolling). Collapses back when hover ends.
+  // ── Expand-to-reveal ──────────────────────────────────────────────────────
+  // When a mark is below the 5-line clamp, smoothly grow the box downward.
+  // Collapses with a matching animation when hover ends.
+  //
+  // Phase: 'normal' → 'expanded' → 'collapsing' → 'normal'
+  //   expanded:   display:block, maxHeight = revealHeight  (large)
+  //   collapsing: display:block, maxHeight = clamp height  (CSS transition plays)
+  //   normal:     -webkit-box with line-clamp              (after timeout)
   const [revealHeight, setRevealHeight] = useState<number | null>(null);
+  const [collapsing, setCollapsing] = useState(false);
+  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // useLayoutEffect keyed on `html` — fires synchronously the moment the new
-  // innerHTML (with marks) is committed to the DOM, BEFORE paint. This is far
-  // more reliable than useEffect + double rAF, which could miss the first frame.
+  // EXPAND: useLayoutEffect fires synchronously when html changes (marks appear).
+  // Only runs when showCrossHighlight is true — does NOT touch state on unhover.
   useLayoutEffect(() => {
     const el = innerRef.current;
-    if (!el || isTextExpanded) { setRevealHeight(null); return; }
-
-    if (!showCrossHighlight) { setRevealHeight(null); return; }
+    if (!el || isTextExpanded || !showCrossHighlight) return;
 
     const marks = Array.from(el.querySelectorAll('mark'));
-    if (marks.length === 0) { setRevealHeight(null); return; }
+    if (marks.length === 0) return;
 
-    // getBoundingClientRect forces a synchronous reflow — positions are accurate
     const boxRect = el.getBoundingClientRect();
     let lowestBottom = 0;
     for (const m of marks) {
@@ -209,36 +212,36 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     const clampHeight = el.clientHeight;
 
     if (needed > clampHeight) {
+      // Cancel any pending collapse — we're re-expanding
+      if (collapseTimerRef.current) { clearTimeout(collapseTimerRef.current); collapseTimerRef.current = null; }
+      setCollapsing(false);
       setRevealHeight(Math.min(needed, el.scrollHeight));
-    } else {
-      setRevealHeight(null);
     }
   }, [html, isTextExpanded, showCrossHighlight]);
 
-  // ── Collapse animation ────────────────────────────────────────────────────
-  // When revealHeight goes from a value → null, we can't just switch back to
-  // -webkit-box because changing `display` kills CSS transitions. Instead,
-  // keep display:block during the collapse, then switch to -webkit-box after
-  // the transition finishes (300ms).
-  const [collapsing, setCollapsing] = useState(false);
-  const prevRevealRef = useRef<number | null>(null);
-
+  // COLLAPSE: when hover ends, start the collapse animation.
+  // revealHeight stays set (keeping display:block) while CSS transition plays.
+  // After 320ms, clear everything → snap to normal -webkit-box style.
   useEffect(() => {
-    if (prevRevealRef.current !== null && revealHeight === null) {
-      // Was expanded, now collapsing — keep display:block for the transition
+    if (!showCrossHighlight && revealHeight !== null) {
       setCollapsing(true);
-      const timer = setTimeout(() => setCollapsing(false), 320);
-      return () => clearTimeout(timer);
+      collapseTimerRef.current = setTimeout(() => {
+        setCollapsing(false);
+        setRevealHeight(null);
+        collapseTimerRef.current = null;
+      }, 320);
     }
-    prevRevealRef.current = revealHeight;
-  }, [revealHeight]);
+    return () => {
+      if (collapseTimerRef.current) { clearTimeout(collapseTimerRef.current); collapseTimerRef.current = null; }
+    };
+  }, [showCrossHighlight]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Build the merged style with 3 states: expanded / collapsing / normal
+  // Build the merged style
   const TRANSITION = 'max-height 300ms ease';
   let mergedStyle: React.CSSProperties;
 
-  if (revealHeight) {
-    // Expanded: display block, large maxHeight
+  if (revealHeight && !collapsing) {
+    // EXPANDED: display:block, large maxHeight
     mergedStyle = {
       ...style,
       display: 'block',
@@ -249,8 +252,9 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       textOverflow: 'clip',
       transition: TRANSITION,
     };
-  } else if (collapsing) {
-    // Collapsing: KEEP display block (so transition works), shrink maxHeight
+  } else if (revealHeight && collapsing) {
+    // COLLAPSING: KEEP display:block + revealHeight in DOM (so browser knows
+    // the starting maxHeight for the transition), but target the small height.
     mergedStyle = {
       ...style,
       display: 'block',
@@ -262,7 +266,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       transition: TRANSITION,
     };
   } else {
-    // Normal: -webkit-box with line-clamp (from style prop)
+    // NORMAL: -webkit-box with line-clamp
     mergedStyle = style;
   }
 
