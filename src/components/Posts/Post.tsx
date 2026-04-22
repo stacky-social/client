@@ -215,22 +215,56 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     }
   }, [html, isTextExpanded, showCrossHighlight]);
 
-  // Build the merged style: if we need to reveal, override maxHeight + remove clamp
-  const mergedStyle: React.CSSProperties = revealHeight
-    ? {
-        ...style,
-        display: 'block',
-        WebkitLineClamp: undefined,
-        WebkitBoxOrient: undefined,
-        overflow: 'hidden',
-        maxHeight: `${revealHeight}px`,
-        textOverflow: 'clip',
-        transition: 'max-height 300ms ease',
-      }
-    : {
-        ...style,
-        transition: 'max-height 300ms ease',
-      };
+  // ── Collapse animation ────────────────────────────────────────────────────
+  // When revealHeight goes from a value → null, we can't just switch back to
+  // -webkit-box because changing `display` kills CSS transitions. Instead,
+  // keep display:block during the collapse, then switch to -webkit-box after
+  // the transition finishes (300ms).
+  const [collapsing, setCollapsing] = useState(false);
+  const prevRevealRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (prevRevealRef.current !== null && revealHeight === null) {
+      // Was expanded, now collapsing — keep display:block for the transition
+      setCollapsing(true);
+      const timer = setTimeout(() => setCollapsing(false), 320);
+      return () => clearTimeout(timer);
+    }
+    prevRevealRef.current = revealHeight;
+  }, [revealHeight]);
+
+  // Build the merged style with 3 states: expanded / collapsing / normal
+  const TRANSITION = 'max-height 300ms ease';
+  let mergedStyle: React.CSSProperties;
+
+  if (revealHeight) {
+    // Expanded: display block, large maxHeight
+    mergedStyle = {
+      ...style,
+      display: 'block',
+      WebkitLineClamp: undefined,
+      WebkitBoxOrient: undefined,
+      overflow: 'hidden',
+      maxHeight: `${revealHeight}px`,
+      textOverflow: 'clip',
+      transition: TRANSITION,
+    };
+  } else if (collapsing) {
+    // Collapsing: KEEP display block (so transition works), shrink maxHeight
+    mergedStyle = {
+      ...style,
+      display: 'block',
+      WebkitLineClamp: undefined,
+      WebkitBoxOrient: undefined,
+      overflow: 'hidden',
+      maxHeight: style.maxHeight ?? 'calc(1.5em * 5)',
+      textOverflow: 'ellipsis',
+      transition: TRANSITION,
+    };
+  } else {
+    // Normal: -webkit-box with line-clamp (from style prop)
+    mergedStyle = style;
+  }
 
   return <div ref={setRefs} className={className} style={mergedStyle} dangerouslySetInnerHTML={{ __html: html }} />;
 });
