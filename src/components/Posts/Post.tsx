@@ -157,7 +157,8 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   rawText: string;
   style: React.CSSProperties;
   isTextExpanded: boolean;
-}>(function ActiveHighlightedContent({ displayText, rawText, style, isTextExpanded }, ref) {
+  className?: string;
+}>(function ActiveHighlightedContent({ displayText, rawText, style, isTextExpanded, className }, ref) {
   const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex } = useHighlightStore();
   const showCrossHighlight = !!hoveredPostId && !!hoveredRelations;
   const html = useMemo(() => {
@@ -262,10 +263,25 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         }
 
         const boxRect = box.getBoundingClientRect();
+        // A mark counts as "not visible" if its top or bottom is clipped by
+        // more than SLIVER_PX. This catches marks that are technically "in" the
+        // box but only showing the top/bottom 5% of a character line.
+        const SLIVER_PX = 8;
         let targetMark: Element | null = null;
         for (const m of allMarks) {
           const r = m.getBoundingClientRect();
-          if (r.bottom > boxRect.bottom || r.top < boxRect.top) {
+          if (r.bottom > boxRect.bottom + SLIVER_PX || r.top < boxRect.top - SLIVER_PX) {
+            // Fully hidden — definitely needs scroll
+            targetMark = m as HTMLElement;
+            break;
+          }
+          if (r.bottom > boxRect.bottom - SLIVER_PX && r.top < boxRect.bottom) {
+            // Bottom-clipped (only a sliver showing) — treat as not visible
+            targetMark = m as HTMLElement;
+            break;
+          }
+          if (r.top < boxRect.top + SLIVER_PX && r.bottom > boxRect.top) {
+            // Top-clipped sliver
             targetMark = m as HTMLElement;
             break;
           }
@@ -342,7 +358,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       ? { ...style, height: lockedHeight, maxHeight: lockedHeight }
       : style;
 
-  return <div ref={setRefs} style={mergedStyle} dangerouslySetInnerHTML={{ __html: html }} />;
+  return <div ref={setRefs} className={className} style={mergedStyle} dangerouslySetInnerHTML={{ __html: html }} />;
 });
 
 interface PostProps {
@@ -720,12 +736,14 @@ export default function Post({
           displayText={displayText}
           rawText={text}
           isTextExpanded={isTextExpanded}
+          className={isTextExpanded ? undefined : 'postClampedText'}
           style={{
             display: isTextExpanded ? 'block' : '-webkit-box',
             WebkitBoxOrient: 'vertical',
             WebkitLineClamp: isTextExpanded ? undefined : 5,
             overflow: isTextExpanded ? 'visible' : 'hidden',
             textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
+            maxHeight: isTextExpanded ? undefined : 'calc(1.5em * 5)',
             marginTop: '0px',
             lineHeight: '1.5',
             color: '#011445',
@@ -734,12 +752,14 @@ export default function Post({
       ) : (
         <div
           ref={textRef}
+          className={isTextExpanded ? undefined : 'postClampedText'}
           style={{
             display: isTextExpanded ? 'block' : '-webkit-box',
             WebkitBoxOrient: 'vertical',
             WebkitLineClamp: isTextExpanded ? undefined : 5,
             overflow: isTextExpanded ? 'visible' : 'hidden',
             textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
+            maxHeight: isTextExpanded ? undefined : 'calc(1.5em * 5)',
             marginTop: '0px',
             lineHeight: '1.5',
             color: '#011445'

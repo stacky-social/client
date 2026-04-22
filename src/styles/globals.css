@@ -32,6 +32,16 @@ html::-webkit-scrollbar-thumb:hover {
     html { overflow-y: scroll; }
 }
 
+/* Strip <p> margins inside clamped post text so -webkit-line-clamp aligns
+   perfectly with the max-height. Without this, <p> margins add extra height
+   that lets a sliver of the next line peek through. */
+.postClampedText p {
+    margin: 0;
+}
+.postClampedText p + p {
+    margin-top: 0.75em;  /* paragraph gap via margin-top only */
+}
+
 .avatarHoverDim {
     cursor: pointer;
 }
