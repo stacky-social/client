@@ -157,7 +157,8 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   rawText: string;
   style: React.CSSProperties;
   className?: string;
-}>(function ActiveHighlightedContent({ displayText, rawText, style, className }, ref) {
+  isTextExpanded: boolean;
+}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded }, ref) {
   const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex } = useHighlightStore();
   const showCrossHighlight = !!hoveredPostId && !!hoveredRelations;
   const html = useMemo(() => {
@@ -170,11 +171,75 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     );
   }, [displayText, rawText, showCrossHighlight, hoveredRelations, hoveredHighlightRangeIndex]);
 
-  // No scroll-to-highlight: marks are rendered in-place. Visible marks get
-  // highlighted; marks below the 5-line clamp are hidden behind "Read more".
-  // Scrolling the clamped box made posts start mid-sentence which looked broken.
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const setRefs = (el: HTMLDivElement | null) => {
+    innerRef.current = el;
+    if (typeof ref === 'function') ref(el);
+    else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
+  };
 
-  return <div ref={ref} className={className} style={style} dangerouslySetInnerHTML={{ __html: html }} />;
+  // ── Expand-to-reveal: when a mark is below the 5-line clamp, smoothly grow
+  //    the box downward to reveal it. Text always starts from the beginning
+  //    (no mid-sentence scrolling). Collapses back when hover ends.
+  const [revealHeight, setRevealHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const el = innerRef.current;
+    if (!el || isTextExpanded) { setRevealHeight(null); return; }
+
+    if (showCrossHighlight) {
+      // Wait for marks to render, then check if any are below the visible area
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const box = innerRef.current;
+          if (!box) return;
+          const marks = Array.from(box.querySelectorAll('mark'));
+          if (marks.length === 0) return;
+
+          const boxRect = box.getBoundingClientRect();
+          // Find the lowest mark
+          let lowestBottom = 0;
+          for (const m of marks) {
+            const r = m.getBoundingClientRect();
+            const relBottom = r.bottom - boxRect.top + box.scrollTop;
+            if (relBottom > lowestBottom) lowestBottom = relBottom;
+          }
+
+          const PADDING = 24; // extra breathing room below the mark
+          const needed = lowestBottom + PADDING;
+          const currentHeight = box.clientHeight;
+
+          if (needed > currentHeight) {
+            // Cap at full content height (don't grow past what's there)
+            setRevealHeight(Math.min(needed, box.scrollHeight));
+          } else {
+            setRevealHeight(null); // all marks visible, no expansion needed
+          }
+        });
+      });
+    } else {
+      setRevealHeight(null);
+    }
+  }, [showCrossHighlight, hoveredRelations, isTextExpanded]);
+
+  // Build the merged style: if we need to reveal, override maxHeight + remove clamp
+  const mergedStyle: React.CSSProperties = revealHeight
+    ? {
+        ...style,
+        display: 'block',
+        WebkitLineClamp: undefined,
+        WebkitBoxOrient: undefined,
+        overflow: 'hidden',
+        maxHeight: `${revealHeight}px`,
+        textOverflow: 'clip',
+        transition: 'max-height 300ms ease',
+      }
+    : {
+        ...style,
+        transition: 'max-height 300ms ease',
+      };
+
+  return <div ref={setRefs} className={className} style={mergedStyle} dangerouslySetInnerHTML={{ __html: html }} />;
 });
 
 interface PostProps {
@@ -558,6 +623,7 @@ export default function Post({
           ref={textRef}
           displayText={displayText}
           rawText={text}
+          isTextExpanded={isTextExpanded}
           className={isTextExpanded ? undefined : 'postClampedText'}
           style={{
             display: isTextExpanded ? 'block' : '-webkit-box',
