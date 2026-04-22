@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
@@ -156,9 +156,8 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   displayText: string;
   rawText: string;
   style: React.CSSProperties;
-  isTextExpanded: boolean;
   className?: string;
-}>(function ActiveHighlightedContent({ displayText, rawText, style, isTextExpanded, className }, ref) {
+}>(function ActiveHighlightedContent({ displayText, rawText, style, className }, ref) {
   const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex } = useHighlightStore();
   const showCrossHighlight = !!hoveredPostId && !!hoveredRelations;
   const html = useMemo(() => {
@@ -171,198 +170,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     );
   }, [displayText, rawText, showCrossHighlight, hoveredRelations, hoveredHighlightRangeIndex]);
 
-  const innerRef = useRef<HTMLDivElement | null>(null);
-  // Expose innerRef both to the parent forwarded ref and our scroll logic
-  const setRefs = (el: HTMLDivElement | null) => {
-    innerRef.current = el;
-    if (typeof ref === 'function') ref(el);
-    else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
-  };
+  // No scroll-to-highlight: marks are rendered in-place. Visible marks get
+  // highlighted; marks below the 5-line clamp are hidden behind "Read more".
+  // Scrolling the clamped box made posts start mid-sentence which looked broken.
 
-  // ── Lock the container height ──────────────────────────────────────────────
-  // Measure the element's height ONCE in the non-hover, non-expanded state
-  // (when `-webkit-line-clamp` produces the authoritative clamped height).
-  // Use this exact pixel value in BOTH hover and non-hover modes so that
-  // switching display modes on hover doesn't visibly resize the container.
-  const [clampedHeight, setClampedHeight] = useState<number | null>(null);
-
-  useLayoutEffect(() => {
-    if (isTextExpanded) return;
-    if (hoveredPostId) return; // only measure when not hovering (that's the true clamped size)
-    if (clampedHeight !== null) return;
-    const el = innerRef.current;
-    if (!el) return;
-    const h = el.offsetHeight;
-    if (h > 0) setClampedHeight(h);
-  }, [isTextExpanded, hoveredPostId, clampedHeight, html]);
-
-  // Re-measure if the post content changes significantly (displayText is stable
-  // per post, but reset if it changes so we don't retain a stale height).
-  useEffect(() => {
-    setClampedHeight(null);
-  }, [displayText]);
-
-  // ── Scroll logic ───────────────────────────────────────────────────────────
-  // When a related post is hovered and its matching highlight is outside the
-  // visible clamped region, scroll the box the MINIMUM amount needed to bring
-  // the mark fully into view. Restore on hover-out.
-  //
-  // KEY INSIGHT: `html` changes when hoveredHighlightRangeIndex updates
-  // (debounced ~200ms after hover). React replaces innerHTML via
-  // dangerouslySetInnerHTML, which RESETS scrollTop to 0. We use a
-  // useLayoutEffect to restore scrollTop before the browser paints, so the
-  // user never sees a flash.
-  const savedScrollTopRef = useRef<number | null>(null);
-  const prevHoveredIdRef = useRef<string | null>(null);
-  const pendingRafRef = useRef<number[]>([]);
-  const targetScrollTopRef = useRef(0);
-
-  // Restore scrollTop after innerHTML replacement (runs before paint).
-  useLayoutEffect(() => {
-    const el = innerRef.current;
-    if (!el || !scrollMode) return;
-    // If we have a target scrollTop and the element's scrollTop was reset
-    // (innerHTML replacement resets it to 0), restore it immediately.
-    if (targetScrollTopRef.current > 0 && el.scrollTop === 0) {
-      el.scrollTop = targetScrollTopRef.current;
-    }
-  });
-
-  useEffect(() => {
-    const el = innerRef.current;
-    if (!el || isTextExpanded) {
-      prevHoveredIdRef.current = hoveredPostId;
-      return;
-    }
-
-    // Cancel any in-flight rAFs from a previous hover so we don't double-scroll
-    pendingRafRef.current.forEach((id) => cancelAnimationFrame(id));
-    pendingRafRef.current = [];
-
-    if (hoveredPostId && hoveredPostId !== prevHoveredIdRef.current) {
-      // Remember the current scroll offset so we can return when hover ends.
-      if (savedScrollTopRef.current === null) savedScrollTopRef.current = el.scrollTop;
-      targetScrollTopRef.current = 0;
-
-      const PADDING = 12;
-
-      const doScroll = (attempt = 0) => {
-        const box = innerRef.current;
-        if (!box) return;
-
-        // Find the first mark that's NOT fully visible. querySelector('mark')
-        // returns the first in DOM order, but that mark might already be on-screen.
-        // We need the one the user can't see.
-        const allMarks = Array.from(box.querySelectorAll('mark'));
-        if (allMarks.length === 0) {
-          if (attempt < 5) {
-            const id = requestAnimationFrame(() => doScroll(attempt + 1));
-            pendingRafRef.current.push(id);
-          }
-          return;
-        }
-
-        const boxRect = box.getBoundingClientRect();
-        // A mark counts as "not visible" if its top or bottom is clipped by
-        // more than SLIVER_PX. This catches marks that are technically "in" the
-        // box but only showing the top/bottom 5% of a character line.
-        const SLIVER_PX = 8;
-        let targetMark: Element | null = null;
-        for (const m of allMarks) {
-          const r = m.getBoundingClientRect();
-          if (r.bottom > boxRect.bottom + SLIVER_PX || r.top < boxRect.top - SLIVER_PX) {
-            // Fully hidden — definitely needs scroll
-            targetMark = m as HTMLElement;
-            break;
-          }
-          if (r.bottom > boxRect.bottom - SLIVER_PX && r.top < boxRect.bottom) {
-            // Bottom-clipped (only a sliver showing) — treat as not visible
-            targetMark = m as HTMLElement;
-            break;
-          }
-          if (r.top < boxRect.top + SLIVER_PX && r.bottom > boxRect.top) {
-            // Top-clipped sliver
-            targetMark = m as HTMLElement;
-            break;
-          }
-        }
-        // If all marks are visible, no scroll needed
-        if (!targetMark) return;
-
-        const mRect = targetMark.getBoundingClientRect();
-        const topGap = mRect.top - boxRect.top;
-        const bottomGap = mRect.bottom - boxRect.bottom;
-        const markHeight = mRect.bottom - mRect.top;
-        const boxHeight = boxRect.bottom - boxRect.top;
-
-        let delta = 0;
-        if (markHeight > boxHeight - PADDING * 2) {
-          delta = topGap - PADDING;
-        } else if (topGap < 0) {
-          delta = topGap - PADDING;
-        } else if (bottomGap > 0) {
-          delta = bottomGap + PADDING;
-        }
-
-        if (Math.abs(delta) > 1) {
-          let target = Math.max(0, box.scrollTop + delta);
-          // Snap to line-height boundary so we never show a partial
-          // character line at the top or bottom of the clamped box.
-          const lh = parseFloat(getComputedStyle(box).lineHeight);
-          if (lh > 0) target = Math.round(target / lh) * lh;
-          box.scrollTop = target;
-          targetScrollTopRef.current = target;
-        }
-      };
-
-      // Double rAF ensures layout has settled after the display-mode switch
-      const r1 = requestAnimationFrame(() => {
-        const r2 = requestAnimationFrame(() => doScroll(0));
-        pendingRafRef.current.push(r2);
-      });
-      pendingRafRef.current.push(r1);
-    } else if (!hoveredPostId && prevHoveredIdRef.current) {
-      // Hover ended — restore scroll position
-      const back = savedScrollTopRef.current ?? 0;
-      savedScrollTopRef.current = null;
-      targetScrollTopRef.current = 0;
-      el.scrollTo({ top: back, behavior: 'smooth' });
-    }
-    prevHoveredIdRef.current = hoveredPostId;
-  }, [hoveredPostId, isTextExpanded]);
-
-  // Clean up any pending rAFs on unmount
-  useEffect(() => {
-    return () => {
-      pendingRafRef.current.forEach((id) => cancelAnimationFrame(id));
-      pendingRafRef.current = [];
-    };
-  }, []);
-
-  // ── Merged style ───────────────────────────────────────────────────────────
-  // Key goals:
-  //   1. Non-hover: keep `-webkit-line-clamp` so we get the ellipsis.
-  //   2. Hover: switch to block+overflow so scrollTop works reliably.
-  //   3. BOTH modes share the exact same pixel height, so no visible size jitter.
-  const scrollMode = !isTextExpanded && !!hoveredPostId;
-  const lockedHeight = clampedHeight !== null && !isTextExpanded
-    ? `${clampedHeight}px`
-    : undefined;
-  const mergedStyle: React.CSSProperties = scrollMode
-    ? {
-        ...style,
-        display: 'block',
-        WebkitLineClamp: undefined,
-        WebkitBoxOrient: undefined,
-        overflow: 'hidden',
-        height: lockedHeight ?? `calc(1.5em * 5)`,
-        maxHeight: lockedHeight ?? `calc(1.5em * 5)`,
-      }
-    : lockedHeight
-      ? { ...style, height: lockedHeight, maxHeight: lockedHeight }
-      : style;
-
-  return <div ref={setRefs} className={className} style={mergedStyle} dangerouslySetInnerHTML={{ __html: html }} />;
+  return <div ref={ref} className={className} style={style} dangerouslySetInnerHTML={{ __html: html }} />;
 });
 
 interface PostProps {
@@ -746,7 +558,6 @@ export default function Post({
           ref={textRef}
           displayText={displayText}
           rawText={text}
-          isTextExpanded={isTextExpanded}
           className={isTextExpanded ? undefined : 'postClampedText'}
           style={{
             display: isTextExpanded ? 'block' : '-webkit-box',
