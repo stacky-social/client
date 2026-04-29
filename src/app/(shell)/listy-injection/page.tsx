@@ -392,25 +392,35 @@ export default function ListyInjectionPage() {
   // Keep ref in sync
   useEffect(() => { activePostIdRef.current = activePostId; }, [activePostId]);
 
-  // Scroll-based focus detection (feed mode only)
+  // Scroll-based focus detection (feed mode only).
+  // Top-anchored: a post becomes active once its top crosses the active line
+  // (30% from the viewport top), and stays active until the next post crosses.
+  // Distance-to-center would let the SECOND post win at scroll-top on tall
+  // viewports because the first post's center sits too far above the middle.
   useEffect(() => {
     if (inThreadMode) return;
     let rafId = 0;
     const onScroll = () => {
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
-        const viewportCenter = window.innerHeight / 2;
-        let bestIdx: number | null = null;
-        let bestDist = Infinity;
+        const activeY = window.innerHeight * 0.3;
+        let bestIdx = -1;
         for (let i = 0; i < postRefs.current.length; i++) {
           const el = postRefs.current[i];
           if (!el) continue;
-          const rect = el.getBoundingClientRect();
-          if (rect.bottom <= 0 || rect.top >= window.innerHeight) continue;
-          const dist = Math.abs(rect.top + rect.height / 2 - viewportCenter);
-          if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+          if (el.getBoundingClientRect().top <= activeY) bestIdx = i;
         }
-        if (bestIdx !== null) {
+        // Fallback: nothing has crossed the line yet (page hasn't scrolled),
+        // pick the first visible post so something is always active.
+        if (bestIdx === -1) {
+          for (let i = 0; i < postRefs.current.length; i++) {
+            const el = postRefs.current[i];
+            if (!el) continue;
+            const rect = el.getBoundingClientRect();
+            if (rect.bottom > 0 && rect.top < window.innerHeight) { bestIdx = i; break; }
+          }
+        }
+        if (bestIdx >= 0) {
           const post = posts[bestIdx];
           if (post && post.postId !== activePostIdRef.current) {
             activePostIdRef.current = post.postId;
