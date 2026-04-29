@@ -96,9 +96,19 @@ function getCategoryColors(rel: string): CategoryStyle {
 // Small 20x20 SVG eye, encoded inline as the cursor image. Fallback: pointer.
 const EYE_CURSOR = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z'/><circle cx='12' cy='12' r='3'/></svg>") 11 11, pointer`;
 
+// ─── Group connector line ───────────────────────────────────────────────────
+// A single continuous vertical line spans from the topic label below the
+// anchor, through all claimed cards, down to the "MORE [topic]" pagination
+// link. Each item in the group renders its own line segment that extends into
+// the flex gap above so the segments visually connect across the gaps. The
+// line is colored with the anchor's category color so the group reads as one
+// thread rather than per-card border segments.
+const GROUP_LINE_WIDTH = 2;
+const GROUP_GAP_PX = 12; // matches the parent's `gap: '0.75rem'`
+
 // ─── Passive "See more like this" tooltip (no button) ───────────────────────
 
-function SeeMoreTooltip({ topic, categoryColors }: { topic?: string; categoryColors: CategoryStyle }) {
+function SeeMoreTooltip({ topic, otherCount, categoryColors }: { topic?: string; otherCount?: number; categoryColors: CategoryStyle }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [nudge, setNudge] = useState(0);
 
@@ -113,6 +123,13 @@ function SeeMoreTooltip({ topic, categoryColors }: { topic?: string; categoryCol
     if (n !== nudge) setNudge(n);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // "7 more Contract reform" — prevalence indicator for the topic.
+  const label = topic
+    ? (otherCount !== undefined && otherCount > 0
+        ? `${otherCount} more ${topic}`
+        : `Only ${topic}`)
+    : 'See more like this';
 
   return (
     <span
@@ -134,9 +151,7 @@ function SeeMoreTooltip({ topic, categoryColors }: { topic?: string; categoryCol
           fontSize: 11, fontWeight: 600, color: categoryColors.text,
         }}
       >
-        {topic && <span style={{ color: '#475569', fontWeight: 500 }}>{topic}</span>}
-        {topic && <span style={{ color: '#cbd5e1' }}>·</span>}
-        <span>See more like this</span>
+        <span>{label}</span>
       </span>
     </span>
   );
@@ -221,6 +236,8 @@ function buildMultiHighlightNodes(
     anchoredRangeIndex: number | null;
     onRangeHover: (index: number | null) => void;
     onRangeClick?: (index: number) => void;
+    /** topic → number of OTHER posts (excluding current) that share this topic */
+    otherCountByTopic?: (topic: string) => number;
   },
 ): React.ReactNode[] {
   if (!relations || relations.length === 0) return [plain];
@@ -282,20 +299,24 @@ function buildMultiHighlightNodes(
       }).join(', ');
 
       const hoveredBandContributor = cats.find(c => opts.hoveredRangeIndex === c.rangeIndex);
+      // Pointer + mouse handlers run side-by-side so an extension that blocks one
+      // event family still leaves the other working (Chrome on Win/Linux hover bug).
+      const overlapHover = (clientY: number, currentTarget: HTMLElement) => {
+        const rect = currentTarget.getBoundingClientRect();
+        const rel = (clientY - rect.top) / rect.height;
+        const bandIdx = Math.max(0, Math.min(cats.length - 1, Math.floor(rel * cats.length)));
+        opts.onRangeHover(cats[bandIdx].rangeIndex);
+      };
       nodes.push(
         <span key={`seg-${seg.start}`} style={{ position: 'relative', display: 'inline' }}>
           <mark
             data-overlap-bands={cats.length}
             data-overlap-range-ids={cats.map(c => c.rangeIndex).join(',')}
             tabIndex={-1}
-            onMouseMove={(e) => {
-              const el = e.currentTarget as HTMLElement;
-              const rect = el.getBoundingClientRect();
-              const rel = (e.clientY - rect.top) / rect.height;
-              const bandIdx = Math.max(0, Math.min(cats.length - 1, Math.floor(rel * cats.length)));
-              opts.onRangeHover(cats[bandIdx].rangeIndex);
-            }}
+            onMouseMove={(e) => overlapHover(e.clientY, e.currentTarget as HTMLElement)}
             onMouseLeave={() => opts.onRangeHover(null)}
+            onPointerMove={(e) => { if (e.pointerType === 'mouse') overlapHover(e.clientY, e.currentTarget as HTMLElement); }}
+            onPointerLeave={(e) => { if (e.pointerType === 'mouse') opts.onRangeHover(null); }}
             onClick={(e) => {
               if (!opts.onRangeClick) return;
               const el = e.currentTarget as HTMLElement;
@@ -313,6 +334,7 @@ function buildMultiHighlightNodes(
               cursor: EYE_CURSOR,
               outline: 'none',
               border: 'none',
+              pointerEvents: 'auto',
               WebkitTapHighlightColor: 'transparent',
             }}
           >
@@ -320,9 +342,11 @@ function buildMultiHighlightNodes(
           </mark>
           {hoveredBandContributor && !tooltipRendered.has(hoveredBandContributor.rangeIndex) && (() => {
             tooltipRendered.add(hoveredBandContributor.rangeIndex);
+            const topic = hoveredBandContributor.topic;
             return (
               <SeeMoreTooltip
-                topic={hoveredBandContributor.topic}
+                topic={topic}
+                otherCount={topic && opts.otherCountByTopic ? opts.otherCountByTopic(topic) : undefined}
                 categoryColors={getCategoryColors(hoveredBandContributor.category)}
               />
             );
@@ -381,6 +405,8 @@ function buildMultiHighlightNodes(
             tabIndex={-1}
             onMouseEnter={() => opts.onRangeHover(c.rangeIndex)}
             onMouseLeave={() => opts.onRangeHover(null)}
+            onPointerEnter={(e) => { if (e.pointerType === 'mouse') opts.onRangeHover(c.rangeIndex); }}
+            onPointerLeave={(e) => { if (e.pointerType === 'mouse') opts.onRangeHover(null); }}
             onClick={(e) => {
               if (!opts.onRangeClick) return;
               e.stopPropagation();
@@ -393,6 +419,7 @@ function buildMultiHighlightNodes(
               cursor: EYE_CURSOR,
               outline: 'none',
               border: 'none',
+              pointerEvents: 'auto',
               WebkitTapHighlightColor: 'transparent',
             }}
           >
@@ -403,6 +430,7 @@ function buildMultiHighlightNodes(
             return (
               <SeeMoreTooltip
                 topic={c.topic}
+                otherCount={c.topic && opts.otherCountByTopic ? opts.otherCountByTopic(c.topic) : undefined}
                 categoryColors={colors}
               />
             );
@@ -541,66 +569,123 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
   }, [relatedStacks]);
 
+  // Topic prevalence — used by tooltip ("7 more Contract reform") and for pagination.
+  const { postTopics, topicTotal } = useMemo(() => {
+    const postTopics = new Map<string, Set<string>>();
+    const topicTotal = new Map<string, number>();
+    for (const stack of relatedStacks) {
+      const topics = new Set<string>();
+      for (const r of stack.topPost.relations ?? []) {
+        if (r.topic) topics.add(r.topic);
+      }
+      postTopics.set(stack.topPost.id, topics);
+      for (const t of topics) topicTotal.set(t, (topicTotal.get(t) ?? 0) + 1);
+    }
+    return { postTopics, topicTotal };
+  }, [relatedStacks]);
+
   const SIMILARITY_THRESHOLD = 0.15;
+  const SHOWN_INCREMENT = 3;
 
-  /** Nested re-ranking: process anchors in order, each pulling unclaimed similar posts after itself. */
-  const { displayStacks, claimedBy, anchorSet, anchorParent } = useMemo(() => {
-    let stacks = relatedStacks;
-    if (filterCategory) {
-      stacks = stacks.filter((s) => s.rel === filterCategory);
-    }
+  // Per-anchor "show this many claims" count. Defaults to SHOWN_INCREMENT when an
+  // anchor is created; bumped by SHOWN_INCREMENT each time the user clicks the
+  // "MORE [topic]" link. Synced to reRankAnchorIds via the effect below.
+  const [shownByAnchor, setShownByAnchor] = useState<Record<string, number>>({});
 
-    if (reRankAnchorIds.length === 0) {
-      return { displayStacks: stacks, claimedBy: new Map<string, string>(), anchorSet: new Set<string>(), anchorParent: new Map<string, string>() };
-    }
+  useEffect(() => {
+    setShownByAnchor(prev => {
+      const next: Record<string, number> = {};
+      let changed = Object.keys(prev).length !== reRankAnchorIds.length;
+      for (const id of reRankAnchorIds) {
+        if (id in prev) next[id] = prev[id];
+        else { next[id] = SHOWN_INCREMENT; changed = true; }
+      }
+      return changed ? next : prev;
+    });
+  }, [reRankAnchorIds]);
 
+  /** Nested re-ranking: process anchors in order, each pulling unclaimed similar posts after itself.
+   *  Re-ranking runs on the FULL set so groupings stay stable; the active filter
+   *  is applied AFTER re-ranking and only hides non-matching cards. This keeps
+   *  filtering from changing the order or breaking groups. */
+  const { displayStacks, claimedBy, anchorSet, anchorParent, groupTotal, groupShown } = useMemo(() => {
     const anchorSet = new Set(reRankAnchorIds);
     const claimedBy = new Map<string, string>(); // postId -> anchorId
     const anchorParent = new Map<string, string>(); // anchorId -> parent anchorId
-    let result = [...stacks];
+    const groupTotal = new Map<string, number>(); // anchorId -> total similar count
+    const groupShown = new Map<string, number>(); // anchorId -> shown similar count
+    let result = [...relatedStacks];
 
-    for (let ai = 0; ai < reRankAnchorIds.length; ai++) {
-      const anchorId = reRankAnchorIds[ai];
-      const anchorIdx = result.findIndex(s => s.topPost.id === anchorId);
-      if (anchorIdx === -1) continue;
+    if (reRankAnchorIds.length > 0) {
+      for (let ai = 0; ai < reRankAnchorIds.length; ai++) {
+        const anchorId = reRankAnchorIds[ai];
+        const anchorIdx = result.findIndex(s => s.topPost.id === anchorId);
+        if (anchorIdx === -1) continue;
 
-      // Determine if this anchor sits inside another anchor's group
-      for (let k = anchorIdx - 1; k >= 0; k--) {
-        const prevId = result[k].topPost.id;
-        if (anchorSet.has(prevId)) { anchorParent.set(anchorId, prevId); break; }
-        if (!claimedBy.has(prevId)) break;
-      }
-
-      const anchor = result[anchorIdx];
-      const anchorContent = anchor.topPost.content;
-
-      // Find similar posts: skip self and senior anchors (added before this one)
-      const similar: { stack: RelatedStackType; score: number }[] = [];
-      for (const s of result) {
-        if (s.topPost.id === anchorId) continue;
-        // Skip anchors that were added BEFORE this one — they're senior, don't move them
-        const sAnchorOrder = reRankAnchorIds.indexOf(s.topPost.id);
-        if (sAnchorOrder >= 0 && sAnchorOrder < ai) continue;
-        const score = similarityScore(s.topPost.content, anchorContent);
-        if (score > SIMILARITY_THRESHOLD) {
-          similar.push({ stack: s, score });
+        // Determine if this anchor sits inside another anchor's group
+        for (let k = anchorIdx - 1; k >= 0; k--) {
+          const prevId = result[k].topPost.id;
+          if (anchorSet.has(prevId)) { anchorParent.set(anchorId, prevId); break; }
+          if (!claimedBy.has(prevId)) break;
         }
-      }
-      similar.sort((a, b) => b.score - a.score);
-      if (similar.length === 0) continue;
 
-      for (const { stack } of similar) {
-        claimedBy.set(stack.topPost.id, anchorId);
-      }
+        const anchor = result[anchorIdx];
+        const anchorContent = anchor.topPost.content;
 
-      const similarIds = new Set(similar.map(s => s.stack.topPost.id));
-      result = result.filter(s => !similarIds.has(s.topPost.id));
-      const newAnchorIdx = result.findIndex(s => s.topPost.id === anchorId);
-      result.splice(newAnchorIdx + 1, 0, ...similar.map(s => s.stack));
+        // Topic-based when the anchor was created by clicking a specific highlight
+        // (so it matches the "N more <topic>" tooltip exactly). Falls back to
+        // content word-similarity when the anchor has no specific range/topic.
+        const anchorRangeIdx = anchoredRangeByPost[anchorId];
+        const anchorTopic = anchorRangeIdx !== undefined
+          ? anchor.topPost.relations?.[anchorRangeIdx]?.topic
+          : undefined;
+
+        const similar: { stack: RelatedStackType; score: number }[] = [];
+        for (const s of result) {
+          if (s.topPost.id === anchorId) continue;
+          // Skip anchors that were added BEFORE this one — they're senior, don't move them
+          const sAnchorOrder = reRankAnchorIds.indexOf(s.topPost.id);
+          if (sAnchorOrder >= 0 && sAnchorOrder < ai) continue;
+
+          if (anchorTopic) {
+            const hasTopic = s.topPost.relations?.some(r => r.topic === anchorTopic) ?? false;
+            if (hasTopic) similar.push({ stack: s, score: 1 });
+          } else {
+            const score = similarityScore(s.topPost.content, anchorContent);
+            if (score > SIMILARITY_THRESHOLD) similar.push({ stack: s, score });
+          }
+        }
+        // Topic-based: keep original order (all scores equal). Similarity-based: sort by score.
+        if (!anchorTopic) similar.sort((a, b) => b.score - a.score);
+        groupTotal.set(anchorId, similar.length);
+        if (similar.length === 0) { groupShown.set(anchorId, 0); continue; }
+
+        // Take only the first N — pagination via "MORE [topic]" link.
+        const shown = shownByAnchor[anchorId] ?? SHOWN_INCREMENT;
+        const visible = similar.slice(0, shown);
+        groupShown.set(anchorId, visible.length);
+
+        for (const { stack } of visible) {
+          claimedBy.set(stack.topPost.id, anchorId);
+        }
+
+        const similarIds = new Set(visible.map(s => s.stack.topPost.id));
+        result = result.filter(s => !similarIds.has(s.topPost.id));
+        const newAnchorIdx = result.findIndex(s => s.topPost.id === anchorId);
+        result.splice(newAnchorIdx + 1, 0, ...visible.map(s => s.stack));
+      }
     }
 
-    return { displayStacks: result, claimedBy, anchorSet, anchorParent };
-  }, [relatedStacks, filterCategory, reRankAnchorIds]);
+    if (filterCategory) {
+      result = result.filter((s) => s.rel === filterCategory);
+    }
+
+    return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
+  }, [relatedStacks, filterCategory, reRankAnchorIds, shownByAnchor]);
+
+  const handleShowMore = (anchorId: string) => {
+    setShownByAnchor(prev => ({ ...prev, [anchorId]: (prev[anchorId] ?? SHOWN_INCREMENT) + SHOWN_INCREMENT }));
+  };
 
   /** Set of anchor IDs that actually pulled in at least one claimed post. */
   const anchorsWithClaims = useMemo(() => {
@@ -878,7 +963,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
         }}
       >
         <AnimatePresence initial={false} mode="popLayout">
-        {displayStacks.map((stack, index) => {
+        {displayStacks.flatMap((stack, index) => {
           const isCardHovered = hoveredCardIndex === index;
           const colors = getCategoryColors(stack.rel);
           const isExpanded = !!expandedCards[stack.stackId];
@@ -894,7 +979,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           // "More like this" visual state + nesting depth for indentation
           const isAnchor = anchorSet.has(stack.topPost.id);
           const isReRanked = claimedBy.has(stack.topPost.id);
-          // Calculate indent depth by walking the anchor chain
+          // Calculate indent depth by walking the anchor chain. Per-level indent
+          // is small (8px) so deep nesting doesn't overflow the right pane.
           let indentDepth = 0;
           if (isReRanked) {
             // Claimed post: depth = 1 (for its claimer) + claimer's own depth
@@ -911,7 +997,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               aid = anchorParent.get(aid);
             }
           }
-          const indentPx = indentDepth * 16;
+          const indentPx = indentDepth * 8;
 
           // Card-level dim/bright: when any card is hovered OR tapped, non-active cards dim.
           const isCardTapped = tappedCardPostId === stack.topPost.id;
@@ -932,25 +1018,35 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               anchoredRangeIndex: anchoredRangeByPost[stack.topPost.id] ?? null,
               onRangeHover: debouncedRangeHover,
               onRangeClick: (ri) => handleToggleAnchor(stack.topPost.id, ri),
+              otherCountByTopic: (topic: string) => {
+                const total = topicTotal.get(topic) ?? 0;
+                const hasSelf = postTopics.get(stack.topPost.id)?.has(topic) ? 1 : 0;
+                return Math.max(0, total - hasSelf);
+              },
             },
           );
 
-          // ── Anchor-group topic (shown above the first card of a group) ─────
-          // When this card is the anchor of a group that has claimed posts below,
-          // show a small section-heading with the topic + a subtle left border
-          // that unifies the grouped cards visually.
-          const anchorForThisCard: string | undefined = isReRanked
-            ? claimedBy.get(stack.topPost.id)
-            : (isAnchor && anchorsWithClaims.has(stack.topPost.id) ? stack.topPost.id : undefined);
-          const anchorForPrev: string | undefined = index > 0
-            ? (claimedBy.has(displayStacks[index - 1].topPost.id)
-                ? claimedBy.get(displayStacks[index - 1].topPost.id)
-                : (anchorSet.has(displayStacks[index - 1].topPost.id) && anchorsWithClaims.has(displayStacks[index - 1].topPost.id)
-                    ? displayStacks[index - 1].topPost.id
-                    : undefined))
-            : undefined;
-          const isInGroup = !!anchorForThisCard;
-          const isGroupStart = isInGroup && anchorForThisCard !== anchorForPrev;
+          // ── Anchor-group topic ─────────────────────────────────────────────
+          // The "Trial results ×" topic label appears between the anchor and its
+          // first claim. Claims get a thin left border + small indent to indicate
+          // nesting under the anchor. The anchor itself is rendered like any
+          // ungrouped card.
+          const anchorOf = (s: RelatedStackType | undefined): string | undefined => {
+            if (!s) return undefined;
+            if (claimedBy.has(s.topPost.id)) return claimedBy.get(s.topPost.id);
+            if (anchorSet.has(s.topPost.id) && anchorsWithClaims.has(s.topPost.id)) return s.topPost.id;
+            return undefined;
+          };
+          const anchorForThisCard = anchorOf(stack);
+          const anchorForPrev = index > 0 ? anchorOf(displayStacks[index - 1]) : undefined;
+          const anchorForNext = index + 1 < displayStacks.length ? anchorOf(displayStacks[index + 1]) : undefined;
+
+          const isClaim = isReRanked; // this card was pulled in under an anchor
+          // First claim of a group: previous card is the anchor of the same group
+          const isFirstClaim = isClaim && index > 0
+            && displayStacks[index - 1].topPost.id === claimedBy.get(stack.topPost.id);
+          const isLastInGroup = !!anchorForThisCard && anchorForThisCard !== anchorForNext;
+
           const anchorStack = anchorForThisCard
             ? relatedStacks.find(s => s.topPost.id === anchorForThisCard)
             : undefined;
@@ -967,7 +1063,103 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               )
             : colors;
 
-          return (
+          // Pagination metadata for "MORE [topic]" link rendered after the last claim of a group
+          const groupTotalForThis = anchorForThisCard ? (groupTotal.get(anchorForThisCard) ?? 0) : 0;
+          const groupShownForThis = anchorForThisCard ? (groupShown.get(anchorForThisCard) ?? 0) : 0;
+          const groupRemaining = Math.max(0, groupTotalForThis - groupShownForThis);
+          const showMoreLink = isClaim && isLastInGroup && groupRemaining > 0;
+
+          // "MORE [topic]" pagination — caps the bottom of the group connector
+          // line. Rendered inside the last claim's motion.div (below the Paper)
+          // so its lifecycle is tied to the card. Kept out of the parent
+          // AnimatePresence's flatMap because popLayout mode strands such
+          // children at opacity:0 forever when their key disappears.
+          const moreEl = showMoreLink && anchorForThisCard ? (
+            <div
+              style={{
+                position: 'relative',
+                marginLeft: `${indentPx}px`,
+                paddingLeft: '8px',
+                marginTop: GROUP_GAP_PX,
+              }}
+            >
+              <div aria-hidden style={{
+                position: 'absolute',
+                left: 0,
+                top: -GROUP_GAP_PX,
+                bottom: '50%',
+                width: GROUP_LINE_WIDTH,
+                background: anchorColors.border,
+                borderRadius: GROUP_LINE_WIDTH,
+              }} />
+              <button
+                type="button"
+                className="show-more-link"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleShowMore(anchorForThisCard);
+                }}
+                style={{ color: anchorColors.text }}
+              >
+                {groupRemaining} more {anchorTopic ?? 'related'}
+              </button>
+            </div>
+          ) : null;
+
+          // Label (between anchor and first claim) — rendered as its own animated row.
+          // The chip + × button cap the top of the connector line; the line itself
+          // begins just below the chip and bridges into the gap before the first claim.
+          const labelEl = isFirstClaim && anchorForThisCard ? (
+            <motion.div
+              key={`label-${anchorForThisCard}`}
+              layout
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              style={{
+                position: 'relative',
+                display: 'flex', alignItems: 'center', gap: '6px',
+                marginLeft: `${indentPx}px`,
+                padding: '2px 0 4px 2px',
+              }}
+            >
+              <div aria-hidden style={{
+                position: 'absolute',
+                left: 0,
+                top: '100%',
+                bottom: -GROUP_GAP_PX,
+                width: GROUP_LINE_WIDTH,
+                background: anchorColors.border,
+                borderRadius: GROUP_LINE_WIDTH,
+              }} />
+              <span style={{
+                fontSize: '11px', fontWeight: 600, color: anchorColors.text,
+                background: anchorColors.bg, border: `1px solid ${anchorColors.border}55`,
+                borderRadius: '4px', padding: '1px 6px',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                maxWidth: '220px',
+              }}>
+                {anchorTopic ?? 'Related'}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleAnchor(anchorForThisCard);
+                }}
+                aria-label={`Dismiss ${anchorTopic ?? 'group'}`}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#94a3b8', fontSize: '14px', lineHeight: 1, padding: '0 2px',
+                }}
+              >
+                ×
+              </button>
+            </motion.div>
+          ) : null;
+
+          const cardEl = (
             <motion.div
               key={stack.stackId}
               layout={pinnedPostIdRef.current !== stack.topPost.id}
@@ -979,13 +1171,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               style={{
                 position: 'relative', width: '100%', borderRadius: '10px',
                 ...cardDimStyle,
-                // Group accent: left border + slight inset for cards inside a group
-                borderLeft: isInGroup ? `3px solid ${anchorColors.border}` : undefined,
-                paddingLeft: isInGroup ? '5px' : undefined,
-                paddingTop: isGroupStart ? '4px' : undefined,
-                marginLeft: isInGroup
-                  ? `${Math.max(0, indentPx - 8)}px`
-                  : (indentPx > 0 ? `${indentPx}px` : undefined),
+                // Claims sit alongside a continuous group connector line (rendered
+                // as an absolute child below). The padding leaves room for it; the
+                // line itself bridges the flex gap above so the group reads as one
+                // continuous thread rather than per-card border segments.
+                paddingLeft: isClaim ? '8px' : undefined,
+                marginLeft: indentPx > 0 ? `${indentPx}px` : undefined,
                 transition: 'filter 200ms ease',
               }}
               onMouseMove={(e) => {
@@ -1002,38 +1193,28 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               }}
               onMouseLeave={() => {
                 if (isTouch) return;
-                setHoveredIndex(null); setHoveredCardIndex(null);
-                setHoveredSidebarPost(null); setHoveredHighlightRangeIndex(null); setHoveredCategory(null);
+                // Only clear bottom-edge hoveredIndex here. Cross-highlight state
+                // (hoveredCardIndex, hoveredSidebarPost, etc.) is owned by the
+                // inner Paper's onMouseEnter/Leave. Clearing it here races with
+                // the next card's Paper.onMouseEnter because this motion.div
+                // extends past the inter-card gap (via the bottom-edge hover
+                // zone) — leaving motion.div A can fire AFTER Paper B has
+                // already set the new highlight, wiping it.
+                setHoveredIndex(null);
               }}
               onPointerDown={(e) => handleCardTap(e, stack.topPost.id, stack.stackId)}
             >
-              {isGroupStart && (
-                <div
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    padding: '2px 0 6px 2px',
-                    pointerEvents: 'none',
-                  }}
-                >
-                  <span style={{
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    color: anchorColors.text,
-                  }}>
-                    More like
-                  </span>
-                  {anchorTopic && (
-                    <span style={{
-                      fontSize: '11px', fontWeight: 600, color: '#475569',
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                      maxWidth: '220px',
-                    }}>
-                      {anchorTopic}
-                    </span>
-                  )}
-                </div>
+              {isClaim && (
+                <div aria-hidden style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: -GROUP_GAP_PX,
+                  bottom: 0,
+                  width: GROUP_LINE_WIDTH,
+                  background: anchorColors.border,
+                  borderRadius: GROUP_LINE_WIDTH,
+                  zIndex: 0,
+                }} />
               )}
               <Paper
                 ref={(el) => { paperRefs.current[index] = el; }}
@@ -1187,6 +1368,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 )}
               </Paper>
 
+              {moreEl}
+
               {/* Bottom-edge hover zone */}
               <div aria-hidden style={{
                 position: 'absolute', left: 0, right: 0, height: EDGE_HOVER_HEIGHT,
@@ -1209,6 +1392,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               )}
             </motion.div>
           );
+
+          return [labelEl, cardEl].filter(Boolean);
         })}
         </AnimatePresence>
       </motion.div>

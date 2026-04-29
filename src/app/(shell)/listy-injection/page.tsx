@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Text, Paper, Box, Group, Divider, Button } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
+import { motion, AnimatePresence } from "framer-motion";
 import Post from "../../../components/Posts/Post";
 import mockData from "../../FakeData/listy-injection.json";
 import type { ListyInjectionData, ListyInjectionEntry, RelatedPostMock, FocusPostMock, Relation, CategoryKey } from "../../../types/PostType";
@@ -208,13 +209,102 @@ export default function ListyInjectionPage() {
     return map;
   }, []);
 
+  /**
+   * Global parent map (childId → parentId) derived from inherent thread hierarchy:
+   *  - Each post in `entry.replies` is a comment to that entry's focusPost
+   *  - Any post (focus, related, reply) with an explicit `inReplyToId` overrides
+   * Posts with no inherent parent are roots and have no ancestors.
+   */
+  const parentMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of entries) {
+      // Focus post may declare a parent
+      if (e.focusPost.inReplyToId) {
+        map.set(e.focusPost.id, e.focusPost.inReplyToId);
+      }
+      // entry.replies are implicit children of the focus post
+      for (const reply of e.replies ?? []) {
+        const parent = reply.inReplyToId ?? e.focusPost.id;
+        if (!map.has(reply.id)) map.set(reply.id, parent);
+      }
+      // Related posts may declare an explicit parent
+      for (const rp of e.relatedPosts) {
+        if (rp.inReplyToId && !map.has(rp.id)) {
+          map.set(rp.id, rp.inReplyToId);
+        }
+      }
+    }
+    return map;
+  }, []);
+
+  /** childrenByParent[parentId] = ids of posts whose inherent parent is parentId */
+  const childrenByParent = useMemo(() => {
+    const map = new Map<string, string[]>();
+    parentMap.forEach((parentId, childId) => {
+      const arr = map.get(parentId) ?? [];
+      arr.push(childId);
+      map.set(parentId, arr);
+    });
+    return map;
+  }, [parentMap]);
+
+  /**
+   * Global post lookup. Returns a normalized FocusPostMock for any id —
+   * focus posts, related posts (via synthetic conversion), or replies stored
+   * inside entry.replies arrays.
+   */
+  const postById = useMemo(() => {
+    const map = new Map<string, FocusPostMock>();
+    for (const e of entries) {
+      map.set(e.focusPost.id, e.focusPost);
+      for (const reply of e.replies ?? []) {
+        if (!map.has(reply.id)) map.set(reply.id, reply);
+      }
+      for (const rp of e.relatedPosts) {
+        if (!map.has(rp.id)) {
+          map.set(rp.id, {
+            id: rp.id,
+            inReplyToId: rp.inReplyToId ?? null,
+            content: `<p>${rp.content}</p>`,
+            plainText: rp.content,
+            account: rp.account,
+            created_at: rp.created_at,
+            favourites_count: rp.favourites_count,
+            replies_count: rp.replies_count,
+            favourited: rp.favourited,
+            bookmarked: rp.bookmarked,
+          });
+        }
+      }
+    }
+    return map;
+  }, []);
+
+  /** Walk inherent parent chain. Returns oldest-ancestor-first (root → parent). */
+  const getAncestorChain = useCallback((id: string): string[] => {
+    const chain: string[] = [];
+    let cursor = parentMap.get(id);
+    const seen = new Set<string>([id]);
+    while (cursor && !seen.has(cursor)) {
+      chain.unshift(cursor);
+      seen.add(cursor);
+      cursor = parentMap.get(cursor);
+    }
+    return chain;
+  }, [parentMap]);
+
   const resolveEntry = useCallback((id: string): ListyInjectionEntry | null => {
     const real = entryMap.get(id);
     if (real) return real;
     const found = allRelatedPosts.get(id);
     if (found) return syntheticEntryFromRelated(found.rp, found.parentEntry);
+    // Reply-only post (lives only inside entry.replies). Build a minimal entry.
+    const post = postById.get(id);
+    if (post) {
+      return { focusPost: post, relatedPosts: [], replies: [] };
+    }
     return null;
-  }, [entryMap, allRelatedPosts]);
+  }, [entryMap, allRelatedPosts, postById]);
 
   /** Get the flat stacks for a given post id (for sidebar) */
   const getRelatedStacks = useCallback((id: string) => {
@@ -223,25 +313,24 @@ export default function ListyInjectionPage() {
     return [];
   }, [resolveEntry]);
 
-  // ── Navigation stack ───────────────────────────────────────────────────────
-  const [navStack, setNavStack] = useState<string[]>([]);
-  const inThreadMode = navStack.length > 0;
+  // ── Navigation history ─────────────────────────────────────────────────────
+  // historyStack is the *visit history* used by the back button. The thread
+  // mode's ancestor chain is NOT derived from this — it's derived from each
+  // post's inherent parent (see getAncestorChain). Visiting a related post
+  // does not artificially make the previously focused post an ancestor.
+  const [historyStack, setHistoryStack] = useState<string[]>([]);
+  const inThreadMode = historyStack.length > 0;
   const savedScrollRef = useRef<Map<string, number>>(new Map());
+  // Direction of the last navigation — drives the slide animation in AnimatePresence.
+  const [navDirection, setNavDirection] = useState<'forward' | 'backward'>('forward');
 
   const navigateToPost = useCallback((postId: string) => {
     // Save current scroll
-    const key = navStack.length > 0 ? navStack[navStack.length - 1] : "__feed__";
+    const key = historyStack.length > 0 ? historyStack[historyStack.length - 1] : "__feed__";
     savedScrollRef.current.set(key, window.scrollY);
 
-    setNavStack(prev => {
-      const next = [...prev];
-      // From feed mode: push active feed post as ancestor if different
-      if (next.length === 0 && activePostIdRef.current && activePostIdRef.current !== postId) {
-        next.push(activePostIdRef.current);
-      }
-      next.push(postId);
-      return next;
-    });
+    setNavDirection('forward');
+    setHistoryStack(prev => [...prev, postId]);
 
     // Update sidebar to show this post's related stacks
     const stacks = getRelatedStacks(postId);
@@ -249,10 +338,11 @@ export default function ListyInjectionPage() {
     setActivePostId(postId);
     activePostIdRef.current = postId;
     window.scrollTo(0, 0);
-  }, [navStack, getRelatedStacks]);
+  }, [historyStack, getRelatedStacks]);
 
   const navigateBack = useCallback(() => {
-    setNavStack(prev => {
+    setNavDirection('backward');
+    setHistoryStack(prev => {
       const next = prev.slice(0, -1);
       const restoreKey = next.length > 0 ? next[next.length - 1] : "__feed__";
       const restoreId = next.length > 0 ? next[next.length - 1] : null;
@@ -377,14 +467,25 @@ export default function ListyInjectionPage() {
     );
   }
 
-  // ── Thread mode render ─────────────────────────────────────────────────────
+  // ── Thread mode content ────────────────────────────────────────────────────
+  let threadContent: React.ReactNode = null;
+  let threadKey = "thread";
   if (inThreadMode) {
-    const currentId = navStack[navStack.length - 1];
-    const ancestorIds = navStack.slice(0, -1);
+    const currentId = historyStack[historyStack.length - 1];
+    threadKey = `thread-${currentId}`;
+    // Ancestors come from the post's *inherent* hierarchy (what it is a comment to),
+    // NOT from the navigation history. Roots have an empty chain.
+    const ancestorIds = getAncestorChain(currentId);
     const currentEntry = resolveEntry(currentId);
     const currentPost = currentEntry ? toPostData(currentEntry) : null;
 
-    return (
+    // Inherent children of the current post (replies below).
+    const inherentReplyIds = childrenByParent.get(currentId) ?? [];
+    const inherentReplies = inherentReplyIds
+      .map((rid) => postById.get(rid))
+      .filter((p): p is FocusPostMock => !!p);
+
+    threadContent = (
       <div style={{ padding: "1rem 0" }}>
         {/* Back button — sticky so it stays visible while scrolling */}
         <button
@@ -420,13 +521,9 @@ export default function ListyInjectionPage() {
                 {renderPost(aPost, {
                   isAncestor: true,
                   onAncestorClick: () => {
-                    // Pop stack down to this ancestor
-                    const targetIdx = ancestorIds.indexOf(aId);
-                    setNavStack(prev => prev.slice(0, targetIdx + 1));
-                    const stacks = getRelatedStacks(aId);
-                    setFromPostRef.current(stacks, aId, { force: true });
-                    setActivePostId(aId);
-                    activePostIdRef.current = aId;
+                    // Navigate to this ancestor — its own ancestor chain will
+                    // be rebuilt structurally on the next render.
+                    navigateToPost(aId);
                   }
                 })}
               </div>
@@ -462,14 +559,14 @@ export default function ListyInjectionPage() {
           </div>
         )}
 
-        {/* Replies */}
-        {currentPost && currentPost.replies.length > 0 && (
+        {/* Replies — derived from inherent hierarchy (children of currentId) */}
+        {inherentReplies.length > 0 && (
           <div style={{ marginTop: "0.5rem" }}>
             <Text size="xs" fw={600} c="dimmed" mb="sm" style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Replies
             </Text>
-            {currentPost.replies.map((reply, index) => (
-              <div key={reply.id} style={{ position: "relative", marginBottom: index < currentPost.replies.length - 1 ? "0.5rem" : 0 }}>
+            {inherentReplies.map((reply, index) => (
+              <div key={reply.id} style={{ position: "relative", marginBottom: index < inherentReplies.length - 1 ? "0.5rem" : 0 }}>
                 <div aria-hidden style={{
                   position: "absolute", left: THREAD_LINE_LEFT, top: 0, height: 8,
                   width: 2, backgroundColor: THREAD_LINE_COLOR, zIndex: 0,
@@ -485,11 +582,11 @@ export default function ListyInjectionPage() {
     );
   }
 
-  // ── Feed mode render ───────────────────────────────────────────────────────
+  // ── Feed mode content ──────────────────────────────────────────────────────
   const totalRelated = posts.reduce((sum, p) => sum + p.relatedStacks.length, 0);
   const uniqueAuthors = new Set(posts.flatMap(p => p.relatedStacks.map(s => s.topPost.account.display_name)));
 
-  return (
+  const feedContent = (
     <div>
       <Paper
         style={{
@@ -533,5 +630,25 @@ export default function ListyInjectionPage() {
         <div style={{ height: "60vh" }} />
       </Box>
     </div>
+  );
+
+  // ── Animated mode switch ───────────────────────────────────────────────────
+  // Forward navigation (clicking into a post): old view slides left, new view slides in from right.
+  // Backward navigation (Back button): old view slides right, new view slides in from left.
+  const enterX = navDirection === 'forward' ? 40 : -40;
+  const exitX = navDirection === 'forward' ? -40 : 40;
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={inThreadMode ? threadKey : 'feed'}
+        initial={{ opacity: 0, x: enterX }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: exitX }}
+        transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
+      >
+        {inThreadMode ? threadContent : feedContent}
+      </motion.div>
+    </AnimatePresence>
   );
 }

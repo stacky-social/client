@@ -98,7 +98,7 @@
             "contentCommentStart": 76,
             "contentCommentEnd": 125,
             "category": "evidence_personal",
-            "topic": "Productivity metrics"
+            "topic": "Productivity gains"
           }
         ]
       },
@@ -172,7 +172,7 @@
             "contentCommentStart": 22,
             "contentCommentEnd": 76,
             "category": "disagree",
-            "topic": "Iceland trial scope"
+            "topic": "Trial results"
           },
           {
             "focusStart": 181,
@@ -184,7 +184,7 @@
             "contentCommentStart": 93,
             "contentCommentEnd": 117,
             "category": "disagree",
-            "topic": "Japan trial duration"
+            "topic": "Trial results"
           }
         ]
       },
@@ -301,7 +301,7 @@
             "contentCommentStart": 0,
             "contentCommentEnd": 31,
             "category": "disagree",
-            "topic": "Burnout causes"
+            "topic": "Burnout"
           },
           {
             "focusStart": 600,
@@ -344,7 +344,7 @@
             "contentCommentStart": 64,
             "contentCommentEnd": 114,
             "category": "evidence_public",
-            "topic": "NZ trial data"
+            "topic": "Trial results"
           },
           {
             "focusStart": 456,
@@ -387,7 +387,7 @@
             "contentCommentStart": 9,
             "contentCommentEnd": 61,
             "category": "evidence_public",
-            "topic": "France productivity"
+            "topic": "Productivity gains"
           },
           {
             "focusStart": 181,
@@ -430,7 +430,7 @@
             "contentCommentStart": 43,
             "contentCommentEnd": 108,
             "category": "evidence_public",
-            "topic": "Burnout epidemic"
+            "topic": "Burnout"
           },
           {
             "focusStart": 570,
@@ -443,6 +443,130 @@
             "contentCommentEnd": 172,
             "category": "evidence_public",
             "topic": "Absenteeism reduction"
+          }
+        ]
+      },
+      {
+        "id": "post-evpub-4",
+        "category": "evidence_public",
+        "rank": 4,
+        "globalRank": 27,
+        "content": "Stanford's 2024 longitudinal study tracked 61 UK firms — those with 4-day schedules saw revenue per employee climb 8% on average versus stable headcount. Microsoft Japan's 40% productivity spike isn't an outlier, it's the leading edge of a robust pattern.",
+        "account": {
+          "display_name": "Priya Reddy",
+          "acct": "priya@research.social",
+          "avatar": ""
+        },
+        "created_at": "2025-03-20T13:21:00Z",
+        "favourites_count": 234,
+        "replies_count": 19,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 181,
+            "focusEnd": 225,
+            "contentStart": 154,
+            "contentEnd": 211,
+            "focusCommentStart": 203,
+            "focusCommentEnd": 225,
+            "contentCommentStart": 154,
+            "contentCommentEnd": 194,
+            "category": "evidence_public",
+            "topic": "Productivity gains"
+          }
+        ]
+      },
+      {
+        "id": "post-evpub-5",
+        "category": "evidence_public",
+        "rank": 5,
+        "globalRank": 28,
+        "content": "Iceland's trial spanned 2015-2019 and covered nearly 1.3% of the entire workforce across municipal and national agencies. Independent reviews confirm output stayed flat or rose. The methodology has since been replicated by 4 Day Week Global across 61 firms with consistent findings.",
+        "account": {
+          "display_name": "Marcus Holt",
+          "acct": "marcus@policy.social",
+          "avatar": ""
+        },
+        "created_at": "2025-03-20T13:38:00Z",
+        "favourites_count": 156,
+        "replies_count": 11,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 90,
+            "focusEnd": 179,
+            "contentStart": 122,
+            "contentEnd": 176,
+            "focusCommentStart": 152,
+            "focusCommentEnd": 179,
+            "contentCommentStart": 150,
+            "contentCommentEnd": 176,
+            "category": "evidence_public",
+            "topic": "Productivity gains"
+          }
+        ]
+      },
+      {
+        "id": "post-agree-4",
+        "category": "agree",
+        "rank": 4,
+        "globalRank": 29,
+        "content": "This is exactly the right framing. The companies that switched aren't quietly walking it back — they're expanding the policy because the output numbers held up. Skeptics keep moving the goalposts and the data keeps landing on the same side: better output with fewer hours.",
+        "account": {
+          "display_name": "Devon Park",
+          "acct": "devon@worker.social",
+          "avatar": ""
+        },
+        "created_at": "2025-03-20T13:54:00Z",
+        "favourites_count": 89,
+        "replies_count": 8,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 456,
+            "focusEnd": 544,
+            "contentStart": 133,
+            "contentEnd": 159,
+            "focusCommentStart": 531,
+            "focusCommentEnd": 544,
+            "contentCommentStart": 133,
+            "contentCommentEnd": 159,
+            "category": "agree",
+            "topic": "Productivity gains"
+          }
+        ]
+      },
+      {
+        "id": "post-evpers-3",
+        "category": "evidence_personal",
+        "rank": 3,
+        "globalRank": 30,
+        "content": "Our design agency moved to 4 days two years ago. Throughput per designer is up 31% measured by billable deliverables shipped on time. We were terrified we'd lose clients — instead we've added six new accounts because our turnaround beats the 5-day shops we compete with. Better output, full stop.",
+        "account": {
+          "display_name": "Casey Wu",
+          "acct": "casey@studio.social",
+          "avatar": ""
+        },
+        "created_at": "2025-03-20T14:12:00Z",
+        "favourites_count": 142,
+        "replies_count": 16,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 494,
+            "focusEnd": 544,
+            "contentStart": 49,
+            "contentEnd": 82,
+            "focusCommentStart": 531,
+            "focusCommentEnd": 544,
+            "contentCommentStart": 49,
+            "contentCommentEnd": 82,
+            "category": "evidence_personal",
+            "topic": "Productivity gains"
           }
         ]
       },
@@ -497,7 +621,7 @@
             "contentCommentStart": 996,
             "contentCommentEnd": 1069,
             "category": "evidence_personal",
-            "topic": "Code quality gains"
+            "topic": "Productivity gains"
           }
         ]
       },
@@ -528,7 +652,7 @@
             "contentCommentStart": 35,
             "contentCommentEnd": 101,
             "category": "evidence_personal",
-            "topic": "Failed implementation"
+            "topic": "Trial results"
           },
           {
             "focusStart": 494,

@@ -72,6 +72,8 @@ export interface Relation {
 
 export interface FocusPostMock {
   id: string;
+  /** ID of the post this is a comment to (inherent thread hierarchy). Null/absent = root post. */
+  inReplyToId?: string | null;
   /** HTML string (Mastodon-style, e.g. <p>…</p>) used for default rendering */
   content: string;
   /** Plain text version of content – used as the base for focusHighlight parsing */
@@ -90,6 +92,8 @@ export interface FocusPostMock {
 
 export interface RelatedPostMock {
   id: string;
+  /** ID of the post this is a comment to (inherent thread hierarchy). Null/absent = root post. */
+  inReplyToId?: string | null;
   category: CategoryKey;
   /** Rank within category (1 = highest relevance) */
   rank: number;
