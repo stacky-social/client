@@ -579,7 +579,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
         if (r.topic) topics.add(r.topic);
       }
       postTopics.set(stack.topPost.id, topics);
-      for (const t of topics) topicTotal.set(t, (topicTotal.get(t) ?? 0) + 1);
+      topics.forEach(t => topicTotal.set(t, (topicTotal.get(t) ?? 0) + 1));
     }
     return { postTopics, topicTotal };
   }, [relatedStacks]);
