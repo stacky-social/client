@@ -50,10 +50,10 @@ Three missing interaction layers:
 | JC1 | How to attach handlers to `<mark>` elements in `dangerouslySetInnerHTML` output? | Event delegation on the container div in `ActiveHighlightedContent`. Listen for `mouseover`/`mouseout`/`click` on the container; check `e.target.closest('mark')`. | Less invasive than rebuilding `renderMultiHighlightHtml` as JSX. The marks already use inline style; we just need to identify which one was interacted with. |
 | JC2 | How to identify which mark/relation was clicked? | Add `data-range-id="{i}"` attribute to each `<mark>` in `renderMultiHighlightHtml`. The `index` variable is already in scope at construction time. | Zero additional state; deterministic; mirrors RelatedStacks.tsx pattern. |
 | JC3 | D1: hover neutral color | `rgba(100, 116, 139, 0.30)` (slate-500 at 30%) as background override. Applied via React state `hoveredFocusMarkIndex: number | null` in `ActiveHighlightedContent`, which injects a `<style>` scoped to a CSS class. | Can't do per-element style override because the `<mark>` is inside `dangerouslySetInnerHTML`. A CSS class + `useEffect` injects the override rule. |
-| JC4 | D1 + cross-highlight conflict | When `hoveredFocusMarkIndex` is set, the neutral style takes priority over the category color. When a sidebar card is being hovered (cross-highlight is active), the cross-highlight colors take priority over D1. Concretely: if `showCrossHighlight` is true, D1 hover state is suppressed (not shown, not stored). | Avoids confusing interaction where the user hovers a sidebar card AND hovers a focus mark simultaneously. Cross-highlight is the higher-signal event. |
+| JC4 | D1 + cross-highlight layering | Focus-post marks are **always visible** (dimmed default state at ~0.25 alpha) when the post has relations, even before any sidebar card is hovered. D1 hover fires regardless of cross-highlight state — the neutral grey (`rgba(100,116,139,0.30) !important`) overrides whichever color is currently showing. Cross-highlight (bright colors) layers on top of the dimmed default when a sidebar card is hovered; D1 hover layers on top of cross-highlight if the user simultaneously hovers a mark. The original "JC4 suppression" (`if (showCrossHighlight) return`) has been removed. | Makes marks always legible as interactive affordances. The original suppression was dead code: marks only existed during cross-highlight, so D1 could never fire. Always-on dimmed marks are the intended baseline. |
 | JC5 | `filterFocusSpan` storage location | New field in `highlightStore.ts`, same module as `filterCategories`. Type: `{ start: number; end: number } | null`. | Keeps all filter state co-located; both RelatedStacks and Post.tsx can subscribe via `useHighlightStore`. |
 | JC6 | D2: "same mark again" detection | Clicking a mark whose `focusStart === filterFocusSpan.start && focusEnd === filterFocusSpan.end` clears the filter. | Toggle semantics — consistent with how C's category filter toggles. |
-| JC7 | D2: what offsets does a mark carry? | `data-range-id` lets us index into `hoveredRelations[i]` to get `focusStart`/`focusEnd`. `hoveredRelations` is already in the store (set when a sidebar card was most recently hovered). If no sidebar card has been hovered yet (`hoveredRelations === null`), clicks on marks do nothing (marks only appear when `showCrossHighlight` is true — i.e., when `hoveredRelations` is set). So this is always safe. | The relations context is always available when marks are visible. |
+| JC7 | D2: what offsets does a mark carry? | `data-range-id` lets us index into the active relations array to get `focusStart`/`focusEnd`. When cross-highlight is active (`showCrossHighlight` is true), the active array is `hoveredRelations`. Otherwise it is `focusRelations` (the focus post's own relations passed as a prop). The D2 click handler resolves the same way as the HTML useMemo: `const rels = showCrossHighlight && hoveredRelations ? hoveredRelations : focusRelations`. | Marks are now always present (dimmed or bright), so D2 must work in both states. `focusRelations` is the merged list of all related posts' relation arrays, wired in `toPostData` and passed as a prop. |
 | JC8 | D3: "relevant relations" for shortest-common computation | Use ALL of a stack's relations (not just the active-category-filtered ones), since the user may have no category filter active. If `filterCategories` is non-empty, restrict to relations whose category is in `filterCategories`. | Consistent with how the category filter behaves in the display pipeline. |
 | JC9 | D3: intersection empty → fallback | When `maxStart >= minEnd` across visible stacks, fall back to rendering the text of `filterFocusSpan` itself (the clicked span). This covers the case where different stacks respond to non-overlapping parts of the focus post. | Graceful degradation; still informative. |
 | JC10 | D3: zero visible stacks | When no stacks pass the combined filter, the label is not rendered (there are no cards to label). | No label needed with no cards. |
@@ -62,6 +62,20 @@ Three missing interaction layers:
 | JC13 | D3: one stack visible | If exactly one stack passes the filter, the "shortest common" is just that stack's focus range text (same as if all stacks have the same range). Fall through normally — the intersection of one span is itself. | No special case needed. |
 | JC14 | Clearing filterFocusSpan | Clear on: same-mark click (D2 toggle), `resetHighlightStore()` call (navigating away), when `relatedStacks` changes (new focus post). RelatedStacks already calls `clearReRankAnchors()` and `clearTapped()` on `relatedStacks` change — add `clearFilterFocusSpan()` to that effect. | Prevents stale filter from persisting across focus post changes. |
 
+### Always-Visible Dimmed Marks (Option B — Locked)
+
+The original implementation rendered marks only when `showCrossHighlight` was true (a sidebar card was being hovered). This made D1 hover dead code: D1 was suppressed during cross-highlight, and marks didn't exist otherwise.
+
+**Option B**, now implemented: marks render in a **dimmed default state** (~0.25 alpha per category color) at all times when the focus post has relations. States stack:
+
+| State | Mark appearance |
+|---|---|
+| Default (no hover anywhere) | Dimmed category color (~0.25 alpha) |
+| Cross-highlight (sidebar card hovered) | Bright category colors (alpha 1.0 for relevant ranges, 0.2 for others) |
+| D1 hover (mark directly hovered on focus post) | Neutral grey `rgba(100,116,139,0.30)` overrides current color via `!important` |
+
+The expand-to-reveal animation **only fires when cross-highlight activates** (not on initial dimmed render), preserving the animation's purpose: smoothly revealing marks that would otherwise be hidden under the 5-line clamp when a sidebar card is first hovered.
+
 ---
 
 ## 5. Behavior Specification
@@ -69,16 +83,16 @@ Three missing interaction layers:
 ### D1 — Neutral highlight on focus-post hover
 
 - Applies ONLY in `ActiveHighlightedContent` (the component rendered for the active/focus post).
-- Activates when `showCrossHighlight` is false (no sidebar card hover in progress) AND user moves mouse over a `<mark>`.
-- While active: the hovered mark's background becomes `rgba(100, 116, 139, 0.30)` — overrides the normal category color via a dynamically injected `<style>` block scoped to a unique ID.
-- When `showCrossHighlight` is true, D1 is suppressed entirely — category colors take over as before.
+- Marks are **always present** when the focus post has relations (dimmed default ~0.25 alpha).
+- D1 activates when the user moves mouse over a `<mark>` — regardless of whether `showCrossHighlight` is true or false.
+- While active: the hovered mark's background becomes `rgba(100, 116, 139, 0.30)` — overrides the current category color (whether dimmed or bright) via a dynamically injected `<style>` block scoped to a unique ID using `!important`.
 - On `mouseout` from a `<mark>`, `hoveredFocusMarkIndex` resets to null, removing the override.
-- Cursor over `<mark>` elements when cross-highlight is inactive: `pointer` (indicates clickability).
+- Cursor over all `<mark>` elements: `pointer` (always indicates clickability).
 
 ### D2 — Click → filter related panel by span
 
-- Activates when user clicks a `<mark>` on the focus post while `showCrossHighlight` could be true or false. (The mark is only visible when `showCrossHighlight` is true, but technically the user could click very quickly — the guard is: only process if a mark is clicked AND `hoveredRelations` is non-null.)
-- On click: extract `data-range-id` → index into `hoveredRelations[i]` → get `focusStart`, `focusEnd`. Compute `focusPlainText.slice(focusStart, focusEnd)` as the text snippet.
+- Activates when user clicks a `<mark>` on the focus post (marks are always visible, so this works in any state).
+- On click: extract `data-range-id` → index into the active relations array (`hoveredRelations` during cross-highlight, `focusRelations` otherwise) → get `focusStart`, `focusEnd`. Compute `focusPlainText.slice(focusStart, focusEnd)` as the text snippet.
 - Call `setFilterFocusSpan({ start: focusStart, end: focusEnd, text: snippet })`.
 - Toggle: if `filterFocusSpan.start === focusStart && filterFocusSpan.end === focusEnd`, call `clearFilterFocusSpan()`.
 - In `RelatedStacks.tsx`, in the `displayStacks` useMemo filter pipeline (after the category filter clause):
@@ -178,13 +192,13 @@ if (filterFocusSpan !== null) {
 
 3. **JC3 — Neutral hover via scoped `<style>` injection.** Cannot override per-element inline style inside `dangerouslySetInnerHTML` from outside. Inject a `<style>` block with a class selector that overrides the mark's background, scoped to a stable unique ID on the container.
 
-4. **JC4 — Cross-highlight suppresses D1.** When a sidebar card is hovered and marks are in category colors, D1 neutral hover is disabled. Cross-highlight is the higher-intent signal. D1 only activates when no sidebar card is being hovered.
+4. **JC4 — Always-visible dimmed marks; D1 fires regardless of cross-highlight.** Focus-post marks render at ~0.25 alpha in their category colors at all times when the post has relations. D1 (neutral grey hover) fires on direct mark hover regardless of whether cross-highlight is active. The original suppression (`if (showCrossHighlight) return`) was removed because it made D1 dead code — marks only existed during cross-highlight, so D1 could never fire. Option B fixes this by making marks always present.
 
 5. **JC5 — filterFocusSpan in highlightStore.** Co-locates all filter state. Both Post.tsx (writer) and RelatedStacks.tsx (reader) access it through the same store hook.
 
 6. **JC6 — Click same mark toggles filter off.** Consistent with C's category filter toggle semantics.
 
-7. **JC7 — Marks only visible when hoveredRelations is set.** D2 is safe: marks only exist during cross-highlight, so `hoveredRelations` is always non-null when a mark can be clicked.
+7. **JC7 — D2 resolves relations from active state.** Marks are always present. The click handler resolves relations as `showCrossHighlight && hoveredRelations ? hoveredRelations : focusRelations`, the same logic as the HTML useMemo. `focusRelations` is the merged flat list of all related posts' relation arrays, provided via the new `focusRelations` prop on `Post`.
 
 8. **JC8 — D3 uses category-filtered relations when filter is active.** If the user has both a category filter and a span filter active, the intersection label only considers the filtered relation categories.
 
