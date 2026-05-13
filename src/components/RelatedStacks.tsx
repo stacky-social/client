@@ -140,57 +140,6 @@ function buildTooltipLabel(
   );
 }
 
-// ─── Passive "See more like this" tooltip (no button) ───────────────────────
-
-function SeeMoreTooltip({ topic, otherCount, categoryColors }: { topic?: string; otherCount?: number; categoryColors: CategoryStyle }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [nudge, setNudge] = useState(0);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const pad = 8;
-    let n = 0;
-    if (rect.left < pad) n = -rect.left + pad;
-    else if (rect.right > window.innerWidth - pad) n = window.innerWidth - pad - rect.right;
-    if (n !== nudge) setNudge(n);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // "7 more Contract reform" — prevalence indicator for the topic.
-  const label = topic
-    ? (otherCount !== undefined && otherCount > 0
-        ? `${otherCount} more ${topic}`
-        : `Only ${topic}`)
-    : 'See more like this';
-
-  return (
-    <span
-      style={{
-        position: 'absolute', bottom: '100%', left: '50%',
-        transform: `translateX(calc(-50% + ${nudge}px))`,
-        paddingBottom: 8, whiteSpace: 'nowrap', zIndex: 20, pointerEvents: 'none',
-      }}
-    >
-      <span
-        ref={ref}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          background: 'rgba(255,255,255,0.78)',
-          backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
-          borderRadius: 8, padding: '4px 10px',
-          boxShadow: '0 4px 14px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.05)',
-          border: `1px solid ${categoryColors.border}55`,
-          fontSize: 11, fontWeight: 600, color: categoryColors.text,
-        }}
-      >
-        <span>{label}</span>
-      </span>
-    </span>
-  );
-}
-
 // ─── Filter chip ─────────────────────────────────────────────────────────────
 
 function FilterChip({ category, count, active, onClick }: {
@@ -272,6 +221,7 @@ function buildMultiHighlightNodes(
     onRangeClick?: (index: number) => void;
     /** topic → number of OTHER posts (excluding current) that share this topic */
     otherCountByTopic?: (topic: string) => number;
+    stackId: string;
   },
 ): React.ReactNode[] {
   if (!relations || relations.length === 0) return [plain];
@@ -293,10 +243,6 @@ function buildMultiHighlightNodes(
 
   const nodes: React.ReactNode[] = [];
   let lastEnd = 0;
-
-  // Track which range indices have already rendered a tooltip so we never
-  // show duplicates when the same range is split into multiple segments.
-  const tooltipRendered = new Set<number>();
 
   for (const seg of segments) {
     // Add plain text before this segment
@@ -332,14 +278,28 @@ function buildMultiHighlightNodes(
         return `${rgba} ${pct1}%, ${rgba} ${pct2}%`;
       }).join(', ');
 
-      const hoveredBandContributor = cats.find(c => opts.hoveredRangeIndex === c.rangeIndex);
       // Pointer + mouse handlers run side-by-side so an extension that blocks one
       // event family still leaves the other working (Chrome on Win/Linux hover bug).
-      const overlapHover = (clientY: number, currentTarget: HTMLElement) => {
+      const overlapHover = (clientX: number, clientY: number, currentTarget: HTMLElement) => {
         const rect = currentTarget.getBoundingClientRect();
         const rel = (clientY - rect.top) / rect.height;
         const bandIdx = Math.max(0, Math.min(cats.length - 1, Math.floor(rel * cats.length)));
-        opts.onRangeHover(cats[bandIdx].rangeIndex);
+        const band = cats[bandIdx];
+        opts.onRangeHover(band.rangeIndex);
+
+        if (!band.topic) {
+          warnMissingTopic(opts.stackId, band.rangeIndex);
+          hideTooltip();
+          return;
+        }
+        const count = opts.otherCountByTopic ? opts.otherCountByTopic(band.topic) : undefined;
+        const colors: TooltipColors = { text: band.colors.text, border: band.colors.border };
+        showTooltip({
+          content: buildTooltipLabel(band.topic, count, band.colors.text),
+          colors,
+          x: clientX,
+          y: clientY,
+        });
       };
       nodes.push(
         <span key={`seg-${seg.start}`} style={{ position: 'relative', display: 'inline' }}>
@@ -347,10 +307,10 @@ function buildMultiHighlightNodes(
             data-overlap-bands={cats.length}
             data-overlap-range-ids={cats.map(c => c.rangeIndex).join(',')}
             tabIndex={-1}
-            onMouseMove={(e) => overlapHover(e.clientY, e.currentTarget as HTMLElement)}
-            onMouseLeave={() => opts.onRangeHover(null)}
-            onPointerMove={(e) => { if (e.pointerType === 'mouse') overlapHover(e.clientY, e.currentTarget as HTMLElement); }}
-            onPointerLeave={(e) => { if (e.pointerType === 'mouse') opts.onRangeHover(null); }}
+            onMouseMove={(e) => overlapHover(e.clientX, e.clientY, e.currentTarget as HTMLElement)}
+            onMouseLeave={() => { opts.onRangeHover(null); hideTooltip(); }}
+            onPointerMove={(e) => { if (e.pointerType === 'mouse') overlapHover(e.clientX, e.clientY, e.currentTarget as HTMLElement); }}
+            onPointerLeave={(e) => { if (e.pointerType === 'mouse') { opts.onRangeHover(null); hideTooltip(); } }}
             onClick={(e) => {
               if (!opts.onRangeClick) return;
               const el = e.currentTarget as HTMLElement;
@@ -374,17 +334,6 @@ function buildMultiHighlightNodes(
           >
             {segText}
           </mark>
-          {hoveredBandContributor && !tooltipRendered.has(hoveredBandContributor.rangeIndex) && (() => {
-            tooltipRendered.add(hoveredBandContributor.rangeIndex);
-            const topic = hoveredBandContributor.topic;
-            return (
-              <SeeMoreTooltip
-                topic={topic}
-                otherCount={topic && opts.otherCountByTopic ? opts.otherCountByTopic(topic) : undefined}
-                categoryColors={getCategoryColors(hoveredBandContributor.category)}
-              />
-            );
-          })()}
         </span>
       );
     } else {
@@ -437,10 +386,39 @@ function buildMultiHighlightNodes(
           <mark
             data-range-id={c.rangeIndex}
             tabIndex={-1}
-            onMouseEnter={() => opts.onRangeHover(c.rangeIndex)}
-            onMouseLeave={() => opts.onRangeHover(null)}
-            onPointerEnter={(e) => { if (e.pointerType === 'mouse') opts.onRangeHover(c.rangeIndex); }}
-            onPointerLeave={(e) => { if (e.pointerType === 'mouse') opts.onRangeHover(null); }}
+            onMouseEnter={(e) => {
+              opts.onRangeHover(c.rangeIndex);
+              if (!c.topic) {
+                warnMissingTopic(opts.stackId, c.rangeIndex);
+                hideTooltip();
+                return;
+              }
+              const count = opts.otherCountByTopic ? opts.otherCountByTopic(c.topic) : undefined;
+              showTooltip({
+                content: buildTooltipLabel(c.topic, count, colors.text),
+                colors: { text: colors.text, border: colors.border },
+                x: e.clientX,
+                y: e.clientY,
+              });
+            }}
+            onMouseLeave={() => { opts.onRangeHover(null); hideTooltip(); }}
+            onPointerEnter={(e) => {
+              if (e.pointerType !== 'mouse') return;
+              opts.onRangeHover(c.rangeIndex);
+              if (!c.topic) {
+                warnMissingTopic(opts.stackId, c.rangeIndex);
+                hideTooltip();
+                return;
+              }
+              const count = opts.otherCountByTopic ? opts.otherCountByTopic(c.topic) : undefined;
+              showTooltip({
+                content: buildTooltipLabel(c.topic, count, colors.text),
+                colors: { text: colors.text, border: colors.border },
+                x: e.clientX,
+                y: e.clientY,
+              });
+            }}
+            onPointerLeave={(e) => { if (e.pointerType === 'mouse') { opts.onRangeHover(null); hideTooltip(); } }}
             onClick={(e) => {
               if (!opts.onRangeClick) return;
               e.stopPropagation();
@@ -459,16 +437,6 @@ function buildMultiHighlightNodes(
           >
             {markContent}
           </mark>
-          {isThisRangeHovered && !tooltipRendered.has(c.rangeIndex) && (() => {
-            tooltipRendered.add(c.rangeIndex);
-            return (
-              <SeeMoreTooltip
-                topic={c.topic}
-                otherCount={c.topic && opts.otherCountByTopic ? opts.otherCountByTopic(c.topic) : undefined}
-                categoryColors={colors}
-              />
-            );
-          })()}
         </span>
       );
 
@@ -1057,6 +1025,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 const hasSelf = postTopics.get(stack.topPost.id)?.has(topic) ? 1 : 0;
                 return Math.max(0, total - hasSelf);
               },
+              stackId: stack.stackId,
             },
           );
 
