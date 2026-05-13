@@ -6,6 +6,7 @@ import { ReactNode } from 'react';
 import {Navbar} from "../../components/NavBar/Navbar";
 import StackLogo from '../../utils/StackLogo';
 import { RelatedStacksProvider } from './related-stacks-context';
+import { HoverTooltip } from '../../components/HoverTooltip';
 
 export default function Shell({ children, aside }: {  children: React.ReactNode; aside: React.ReactNode; }) {
     const [opened, { toggle }] = useDisclosure();
@@ -75,6 +76,7 @@ export default function Shell({ children, aside }: {  children: React.ReactNode;
                 {children}
             </AppShell.Main>
         </AppShell>
+        <HoverTooltip />
         <Burger
             opened={!navCollapsed}
             onClick={toggleNav}
