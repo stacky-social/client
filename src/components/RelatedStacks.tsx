@@ -196,6 +196,40 @@ function FilterChip({ category, count, active, previewActive, previewDim, onClic
   );
 }
 
+// ─── Filter conjunction helper ────────────────────────────────────────────────
+
+/**
+ * Decides whether clicking `candidate` should ADD it to the current filter set
+ * (conjunction non-empty) or SWITCH to it exclusively.
+ *
+ * Real AND semantics: for each stack, collect every distinct `category` across
+ * `stack.topPost.relations`.  If any stack covers every category in
+ * (currentFilters ∪ {candidate}), there would be at least one result — ADD.
+ * Otherwise SWITCH.
+ *
+ * When currentFilters is empty the candidate set is just {candidate}, so any
+ * stack that has candidate in its relations satisfies the check → always ADD,
+ * which is correct for the first selection.
+ */
+function decideFilterMode(
+  stacks: RelatedStackType[],
+  currentFilters: Set<string>,
+  candidate: string,
+): 'ADD' | 'SWITCH' {
+  const candidateSet = new Set(currentFilters);
+  candidateSet.add(candidate);
+  const found = stacks.some(stack => {
+    const cats = new Set<string>();
+    for (const r of stack.topPost.relations ?? []) {
+      cats.add(r.category);
+    }
+    let allPresent = true;
+    candidateSet.forEach(c => { if (!cats.has(c)) allPresent = false; });
+    return allPresent;
+  });
+  return found ? 'ADD' : 'SWITCH';
+}
+
 // ─── Filter hover-preview logic ──────────────────────────────────────────────
 
 /**
@@ -212,8 +246,8 @@ function computePreviewMode(
   if (!hoveredCat) return 'none';
   if (activeCats.has(hoveredCat)) return 'none'; // already active
   if (activeCats.size === 0) return 'none';       // first selection, no preview needed
-  // Conjunction check: does at least one stack have this rel?
-  return relStacks.some(s => s.rel === hoveredCat) ? 'add' : 'switch';
+  // Real conjunction check across relations arrays
+  return decideFilterMode(relStacks, activeCats, hoveredCat) === 'ADD' ? 'add' : 'switch';
 }
 
 // ─── Highlight helpers (offset-based) ────────────────────────────────────────
@@ -605,13 +639,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       next.delete(category);
       setFilterCategories(next);
     } else if (active.size === 0) {
-      // First selection
+      // First selection — always ADD
       setFilterCategories(new Set([category]));
     } else {
-      // Conjunction check: does at least one stack have this rel?
-      const hasAny = relatedStacks.some(s => s.rel === category);
-      // ADD if there are posts with this category; SWITCH otherwise
-      setFilterCategories(hasAny ? new Set(Array.from(active).concat([category])) : new Set([category]));
+      // Real AND conjunction check across relations arrays
+      const mode = decideFilterMode(relatedStacks, active, category);
+      setFilterCategories(mode === 'ADD' ? new Set(Array.from(active).concat([category])) : new Set([category]));
     }
   };
 
