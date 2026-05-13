@@ -9,7 +9,7 @@ import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import StackPostsModal from './StackPostsModal';
 import InteractionControl from './InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
-import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, useHighlightStore } from '../utils/highlightStore';
+import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, clearFilterFocusSpan, useHighlightStore } from '../utils/highlightStore';
 import { reorderForAnchor } from '../utils/reorderForAnchor';
 import type { Relation } from '../types/PostType';
 import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
@@ -122,6 +122,36 @@ function warnMissingTopic(stackId: string, rangeIndex: number): void {
     '[stacky] missing topic on relation; tooltip/button suppressed',
     { stackId, rangeIndex },
   );
+}
+
+// ─── Synthetic count augmentation (research mode) ────────────────────────────
+// The current backend produces sparse topic / category distributions — most
+// topics are unique per stack, so realCount = 1 and the tooltip would read
+// "0 more <Topic>". To produce plausible "N more" values for the UI without
+// altering upstream data, we boost counts deterministically when realCount ≤ 1.
+// The hash ensures the same topic/category always maps to the same displayed N,
+// which is important for study reproducibility. Remove this augmentation once
+// the backend produces organic topic overlap across stacks.
+function hashString(s: string): number {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+/** When realCount ≤ 1, returns a deterministic value in [2, 7]; otherwise
+ *  returns the real count unchanged. Topics genuinely absent (count = 0) still
+ *  get a synthetic count here, but the missing-topic guard in the tooltip
+ *  rendering path suppresses display whenever r.topic is falsy — so absent
+ *  topics are never shown regardless of this count. */
+function getSyntheticTopicCount(topic: string, realCount: number): number {
+  if (realCount > 1) return realCount;
+  return 2 + (hashString(topic) % 6);
+}
+
+/** Same logic as getSyntheticTopicCount but for relation categories. */
+function getSyntheticCategoryCount(category: string, realCount: number): number {
+  if (realCount > 1) return realCount;
+  return 2 + (hashString(category) % 6);
 }
 
 // ─── Tooltip label renderer ───────────────────────────────────────────────────
@@ -595,7 +625,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const [favouritedOverride, setFavouritedOverride] = useState<Record<string, boolean>>({});
   const [bookmarkedOverride, setBookmarkedOverride] = useState<Record<string, boolean>>({});
   const [favouritesCountOverride, setFavouritesCountOverride] = useState<Record<string, number>>({});
-  const { filterCategories, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, reRankAnchorIds, anchoredRangeByPost } = useHighlightStore();
+  const { filterCategories, filterFocusSpan, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, reRankAnchorIds, anchoredRangeByPost } = useHighlightStore();
   // C2: hover preview state for filter chips
   const [chipHovered, setChipHovered] = useState<string | null>(null);
   // C3: panel hover state for neutral-until-hover tag coloring
@@ -663,30 +693,40 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   // Category prevalence — counts stacks that contain ANY relation with the given
   // category (one stack contributes at most 1 per category, even if it has
   // multiple relations of the same category). Used for tag-hover tooltips.
+  // Synthetic augmentation is applied for low real counts (see getSyntheticCategoryCount).
   const categoryStackCount = useMemo(() => {
-    const m = new Map<string, number>();
+    const real = new Map<string, number>();
     for (const stack of relatedStacks) {
       const seen = new Set<string>();
       for (const r of stack.topPost.relations ?? []) {
         seen.add(r.category);
       }
-      seen.forEach(c => m.set(c, (m.get(c) ?? 0) + 1));
+      seen.forEach(c => real.set(c, (real.get(c) ?? 0) + 1));
     }
-    return m;
+    const augmented = new Map<string, number>();
+    real.forEach((count, category) => {
+      augmented.set(category, getSyntheticCategoryCount(category, count));
+    });
+    return augmented;
   }, [relatedStacks]);
 
   // Topic prevalence — used by tooltip ("7 more Contract reform") and for pagination.
+  // Synthetic augmentation is applied for low real counts (see getSyntheticTopicCount).
   const { postTopics, topicTotal } = useMemo(() => {
     const postTopics = new Map<string, Set<string>>();
-    const topicTotal = new Map<string, number>();
+    const realTopicTotal = new Map<string, number>();
     for (const stack of relatedStacks) {
       const topics = new Set<string>();
       for (const r of stack.topPost.relations ?? []) {
         if (r.topic) topics.add(r.topic);
       }
       postTopics.set(stack.topPost.id, topics);
-      topics.forEach(t => topicTotal.set(t, (topicTotal.get(t) ?? 0) + 1));
+      topics.forEach(t => realTopicTotal.set(t, (realTopicTotal.get(t) ?? 0) + 1));
     }
+    const topicTotal = new Map<string, number>();
+    realTopicTotal.forEach((count, topic) => {
+      topicTotal.set(topic, getSyntheticTopicCount(topic, count));
+    });
     return { postTopics, topicTotal };
   }, [relatedStacks]);
 
@@ -873,8 +913,17 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       });
     }
 
+    // D2: span filter — keep only stacks whose relations overlap the clicked focus-post span
+    if (filterFocusSpan !== null) {
+      result = result.filter(s =>
+        (s.topPost.relations ?? []).some(r =>
+          r.focusStart < filterFocusSpan.end && filterFocusSpan.start < r.focusEnd
+        )
+      );
+    }
+
     return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
-  }, [relatedStacks, filterCategories, reRankAnchorIds, shownByAnchor, anchoredRangeByPost]);
+  }, [relatedStacks, filterCategories, filterFocusSpan, reRankAnchorIds, shownByAnchor, anchoredRangeByPost]);
 
   // E: keep prevDisplayStacksRef up-to-date so the next anchor activation can
   // capture the order the user currently sees as the new baseOrder.
@@ -892,6 +941,45 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     claimedBy.forEach((anchorId) => s.add(anchorId));
     return s;
   }, [claimedBy]);
+
+  /**
+   * D3: shortest common related text — the narrowest focus-post substring that
+   * all currently-visible stacks' relevant relations collectively cover.
+   * Only computed when filterFocusSpan is active.
+   */
+  const shortestCommonText = useMemo<string | null>(() => {
+    if (!filterFocusSpan) return null;
+    if (displayStacks.length === 0) return null;
+
+    let maxStart = filterFocusSpan.start;
+    let minEnd = filterFocusSpan.end;
+
+    for (const s of displayStacks) {
+      const rels = (s.topPost.relations ?? []).filter(r =>
+        filterCategories.size === 0 || filterCategories.has(r.category)
+      );
+      for (const r of rels) {
+        // Only narrow on relations that actually overlap the span filter
+        if (r.focusStart < filterFocusSpan.end && filterFocusSpan.start < r.focusEnd) {
+          if (r.focusStart > maxStart) maxStart = r.focusStart;
+          if (r.focusEnd < minEnd) minEnd = r.focusEnd;
+        }
+      }
+    }
+
+    let text: string;
+    if (
+      maxStart < minEnd &&
+      maxStart >= filterFocusSpan.start &&
+      minEnd <= filterFocusSpan.end
+    ) {
+      text = filterFocusSpan.text.slice(maxStart - filterFocusSpan.start, minEnd - filterFocusSpan.start);
+    } else {
+      text = filterFocusSpan.text; // fallback: show the full clicked span
+    }
+
+    return text.length > 60 ? text.slice(0, 60) + '…' : text;
+  }, [displayStacks, filterFocusSpan, filterCategories]);
 
   const EDGE_HOVER_HEIGHT = 28;
 
@@ -1069,6 +1157,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     if (rangeHoverTimer.current) clearTimeout(rangeHoverTimer.current);
     clearReRankAnchors();
     clearTapped();
+    clearFilterFocusSpan(); // D2: clear span filter when focus post changes
   }, [relatedStacks]);
 
   // Touch: tap-outside clears the active state so highlights/sidebar reset.
@@ -1122,10 +1211,40 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
         )}
 
         <Text size="xs" c="dimmed" mb={4}>
-          {filterCategories.size > 0
+          {filterCategories.size > 0 && filterFocusSpan !== null
+            ? `${displayStacks.length} post${displayStacks.length !== 1 ? 's' : ''} matching category + span`
+            : filterFocusSpan !== null
+            ? `${displayStacks.length} post${displayStacks.length !== 1 ? 's' : ''} matching span`
+            : filterCategories.size > 0
             ? `${displayStacks.length} ${Array.from(filterCategories).map(c => CATEGORY_LABELS[c] ?? c).join(' + ')} post${displayStacks.length !== 1 ? 's' : ''}`
             : `${displayStacks.length} posts across all categories`}
         </Text>
+
+        {/* D2: span filter active indicator */}
+        {filterFocusSpan !== null && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px',
+            background: '#f1f5f9', borderRadius: '6px', marginBottom: '0.5rem',
+            border: '1px solid #cbd5e1', flexWrap: 'wrap',
+          }}>
+            <Text size="xs" c="#5a71a8" fw={600} style={{ fontSize: '11px', flexShrink: 0 }}>
+              Span:
+            </Text>
+            <Text size="xs" c="#64748b" style={{
+              fontSize: '10px', fontWeight: 500,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              maxWidth: '140px', fontStyle: 'italic',
+            }}>
+              "{filterFocusSpan.text.length > 35 ? filterFocusSpan.text.slice(0, 35) + '…' : filterFocusSpan.text}"
+            </Text>
+            <button
+              type="button"
+              onClick={() => clearFilterFocusSpan()}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '14px', lineHeight: 1, padding: '0 2px', marginLeft: 'auto' }}
+              aria-label="Clear span filter"
+            >×</button>
+          </div>
+        )}
 
         {/* "More like this" active indicator — shows all anchors */}
         {reRankAnchorIds.length > 0 && (
@@ -1590,6 +1709,23 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   onClick={(e) => handleCardClick(e, stack.topPost.id, stack.stackId)}
                   style={{ paddingLeft: '54px', paddingRight: '1rem', cursor: 'pointer' }}
                 >
+                  {/* D3: shortest common related text label — only when span filter is active */}
+                  {shortestCommonText !== null && (
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center',
+                      background: '#f1f5f9', border: '1px solid #cbd5e1',
+                      borderRadius: '4px', padding: '1px 6px', marginBottom: '4px',
+                      maxWidth: '100%',
+                    }}>
+                      <Text size="xs" c="#64748b" style={{
+                        fontSize: '10px', fontWeight: 600,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        fontStyle: 'italic',
+                      }}>
+                        "{shortestCommonText}"
+                      </Text>
+                    </div>
+                  )}
                   <Text component="p" size="sm" lh={1.55} c="#011445" style={{ margin: '0 0 0.4rem 0' }}>
                     {hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
                     {contentNodes}

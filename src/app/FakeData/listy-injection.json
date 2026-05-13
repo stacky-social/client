@@ -1,2497 +1,1075 @@
 [
   {
     "focusPost": {
-      "id": "focus-001",
-      "content": "<p>The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: why are we still defending an industrial-era schedule in a knowledge economy?</p>",
-      "plainText": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike. Every argument against it boils down to this: we have always worked five days, which is not a reason, it's a habit. The real obstacle isn't economics — it's managerial anxiety about not being able to watch employees for 8 hours. Companies that make the switch report lower burnout, higher retention, and better output. The question is simply: why are we still defending an industrial-era schedule in a knowledge economy?",
+      "id": "112880124583497150",
+      "content": "<p>It’s ironic how we blame China for our own manufacturing inferiority. As the article states, “Chinese manufacturers are adept at mass-producing electric vehicles.” \n\nThe problem is ours, not theirs. It’s simply a reflection of our money obsessed culture that prizes profits above all else. Above health. More than life itself. Our laws and court actions have repeatedly reaffirmed a company’s highest responsibility is to “maximize shareholder value.” Which means make as much money as possible, as quickly as possible, any way possible. The fastest way a manufacturing company can boost its profits is to cut costs. Mortgage the future for the sake of a few more dollars today. In the process we’ve ceded manufacturing to China and other countries who can make EVs, and most other manufactured goods, better than we can. \n\nOver the past few decades we’ve rationalized becoming a “service” economy or an “information” economy. Funny how making things is still important. Cars, iPhones, solar panels, wind turbines, batteries, all of which we rely on China to make for us. By resorting to tariffs we’re only making consumers pay more for things that we can’t manufacture as well or as inexpensively as others can. \n\nIf we want to blame someone for our loss of manufacturing prowess, we have only to look in the mirror.</p>",
+      "plainText": "It’s ironic how we blame China for our own manufacturing inferiority. As the article states, “Chinese manufacturers are adept at mass-producing electric vehicles.” \n\nThe problem is ours, not theirs. It’s simply a reflection of our money obsessed culture that prizes profits above all else. Above health. More than life itself. Our laws and court actions have repeatedly reaffirmed a company’s highest responsibility is to “maximize shareholder value.” Which means make as much money as possible, as quickly as possible, any way possible. The fastest way a manufacturing company can boost its profits is to cut costs. Mortgage the future for the sake of a few more dollars today. In the process we’ve ceded manufacturing to China and other countries who can make EVs, and most other manufactured goods, better than we can. \n\nOver the past few decades we’ve rationalized becoming a “service” economy or an “information” economy. Funny how making things is still important. Cars, iPhones, solar panels, wind turbines, batteries, all of which we rely on China to make for us. By resorting to tariffs we’re only making consumers pay more for things that we can’t manufacture as well or as inexpensively as others can. \n\nIf we want to blame someone for our loss of manufacturing prowess, we have only to look in the mirror.",
       "account": {
-        "display_name": "Robin Patel",
-        "acct": "robin@futureofwork.io",
-        "avatar": ""
+        "display_name": "nickl_nyt",
+        "acct": "nickl_nyt@stacky-nyt.com",
+        "avatar": "https://beta.stacky.social/avatars/original/missing.png"
       },
-      "created_at": "2025-03-20T09:00:00Z",
-      "favourites_count": 847,
-      "replies_count": 234,
+      "created_at": "2024-07-31T08:20:10.368Z",
+      "favourites_count": 0,
+      "replies_count": 1,
       "favourited": false,
       "bookmarked": false
     },
     "relatedPosts": [
       {
-        "id": "post-agree-1",
+        "id": "112854373877034288",
+        "category": "framing",
+        "rank": 1,
+        "globalRank": 1,
+        "content": "I don't see the problem with letting China pump and dump, at massive losses, cars from their EV industry. What better way to fund the energy transition, which will make us less dependent on Russia and other rouge dictatorships, than with Chinese govt money? \n\nJust cut red tape on US lithium mining and subsidize/tariff protect our own industries just enough that the companies continue to grow it capture the luxury market, then let China pay for the masses to convert to EVs and solar. It would be very easy; just do economic analysis on which EV types China sells at a loss, allow those in, then tariff the big and luxury ones that turn a profit. They're desperate to sell bc they already made the capex investments on the factories, so we can dictate terms",
+        "relations": [
+          {
+            "focusStart": 1072,
+            "focusEnd": 1212,
+            "focusCommentStart": 1088,
+            "focusCommentEnd": 1132,
+            "contentStart": 425,
+            "contentEnd": 487,
+            "contentCommentStart": 430,
+            "contentCommentEnd": 486,
+            "category": "framing",
+            "topic": "Consumer costs"
+          },
+          {
+            "focusStart": 1215,
+            "focusEnd": 1317,
+            "focusCommentStart": 1298,
+            "focusCommentEnd": 1316,
+            "contentStart": 0,
+            "contentEnd": 105,
+            "contentCommentStart": 29,
+            "contentCommentEnd": 56,
+            "category": "framing",
+            "topic": "Industrial strategy"
+          }
+        ],
+        "account": {
+          "display_name": "student_3",
+          "acct": "student_3@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-26T19:11:25.771Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880110627141264",
+        "category": "connections",
+        "rank": 1,
+        "globalRank": 2,
+        "content": "Complain all you want about Chinese auto starting to dominate, but if EV is the key to fighting climate change, than shutting Chinese auto out of a car-crazed US market seems like another side of the\"climate -denial\" coin.  Not to mention a slap in the face of Americans under the thumb of inflation. \n\nI agree with the concern of Chinese spyware in American roads, but I also have concerned GM and Ford and Tesla spyware too.  So fix the problem if automotive spyware, and let me buy a half-wat decent inexpensive Chinese EV. \n\n...Because I ain't buying a bloated, expensive American EV.",
+        "relations": [
+          {
+            "focusStart": 1072,
+            "focusEnd": 1212,
+            "focusCommentStart": 1149,
+            "focusCommentEnd": 1211,
+            "contentStart": 428,
+            "contentEnd": 526,
+            "contentCommentStart": 503,
+            "contentCommentEnd": 525,
+            "category": "connections",
+            "topic": "Affordable EV access"
+          },
+          {
+            "focusStart": 1215,
+            "focusEnd": 1317,
+            "focusCommentStart": 1298,
+            "focusCommentEnd": 1316,
+            "contentStart": 63,
+            "contentEnd": 222,
+            "contentCommentStart": 117,
+            "contentCommentEnd": 222,
+            "category": "connections",
+            "topic": "Climate and tradeoffs"
+          }
+        ],
+        "account": {
+          "display_name": "someone_nyt",
+          "acct": "someone_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:16:37.412Z",
+        "favourites_count": 0,
+        "replies_count": 1,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880123275614116",
+        "category": "values",
+        "rank": 1,
+        "globalRank": 3,
+        "content": "In the U.S., we value clean air and clean water, and support a level of environmental respect for the planet.  Not as much as we should, but more than what those in China live with.  That costs money. In an ironic twist of fate, that’s one factor that keeps the fossil fuel based cars on the road here,  in place of renewable energy EVs filling the roads in China.  ( obviously, the cleaner only refers to the operation and not manufacturing). Furthermore, workers building cars in North America earn more making the cars that are much pricier, and the flood of cheaper Chinese cars would undermine the ability of American workers to buy these or any cars. In America, our environmental values, our economy, are just not ready to compete with the global marketplace we created.  It’s been obvious to the American worker, and the American consumer for decades now. While we hoped globalization would bring equality to the world, we also hoped that would happen by raising standards across the globe.  What really has happened, and to everyone but the few richest people,  is the opposite.  We became ‘more equal’ by lowering expectations, opportunities, and real economic security here at home. These cars, perhaps more than any other product that China has mass produced, reflect that reality.",
+        "relations": [
+          {
+            "focusStart": 1072,
+            "focusEnd": 1212,
+            "focusCommentStart": 1149,
+            "focusCommentEnd": 1211,
+            "contentStart": 657,
+            "contentEnd": 777,
+            "contentCommentStart": 669,
+            "contentCommentEnd": 737,
+            "category": "values",
+            "topic": "Economic readiness"
+          },
+          {
+            "focusStart": 327,
+            "focusEnd": 537,
+            "focusCommentStart": 423,
+            "focusCommentEnd": 449,
+            "contentStart": 549,
+            "contentEnd": 656,
+            "contentCommentStart": 589,
+            "contentCommentEnd": 655,
+            "category": "values",
+            "topic": "Workers and pricing"
+          }
+        ],
+        "account": {
+          "display_name": "mh_nyt",
+          "acct": "mh_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:19:50.412Z",
+        "favourites_count": 0,
+        "replies_count": 1,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880118092486546",
+        "category": "agree",
+        "rank": 1,
+        "globalRank": 4,
+        "content": "For 20 years I’ve been hearing how important it is that we shift away from the internal combustion engine. Now, the Chinese have affordable electric vehicles while American and European companies continue selling expensive gas-powered cars. And instead of letting the free market take its course, the hegemonic powers of the west argue about Chinese overcapacity and government subsidies. \n\nThis is how the US and Europe lose their positions as world leaders. They are too busy protecting entrenched interests to truly do something about the environment and to give consumers the options they want. And developing countries are the first ones to witness it. I live in Mexico and I can tell you that we have a bunch of new Chinese cars on the roads. Americans and Europeans won’t see this because they are shielded by tariffs, but you cannot change global economic dynamics with simple domestic policies.",
+        "relations": [
+          {
+            "focusStart": 1072,
+            "focusEnd": 1212,
+            "focusCommentStart": 1088,
+            "focusCommentEnd": 1132,
+            "contentStart": 749,
+            "contentEnd": 903,
+            "contentCommentStart": 805,
+            "contentCommentEnd": 824,
+            "category": "agree",
+            "topic": "Tariffs and consumers"
+          },
+          {
+            "focusStart": 679,
+            "focusEnd": 821,
+            "focusCommentStart": 700,
+            "focusCommentEnd": 728,
+            "contentStart": 107,
+            "contentEnd": 240,
+            "contentCommentStart": 112,
+            "contentCommentEnd": 157,
+            "category": "agree",
+            "topic": "Global EV market"
+          }
+        ],
+        "account": {
+          "display_name": "adrin_nyt",
+          "acct": "adrin_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:18:31.324Z",
+        "favourites_count": 0,
+        "replies_count": 2,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880118820779624",
+        "category": "disagree",
+        "rank": 1,
+        "globalRank": 5,
+        "content": "A major credit to Chinese automakers, they understand the need for mass produced affordable EVs for the consumer market and have made huge amount of progress. Whereas in the US, a mass produced affordable EV is still a dream. EVs here are exorbitantly priced luxury items and the factors driving that are mostly corporate greed. Wall street loves the huge margins from EV sales and so do the EV makers, there is presently no incentive for any of the players here to cater for that need. Instead of competing with Chinese EVs, we effectively close the market to them by putting tariffs. Why should we grudge Chinese success in this aspect when we do not do anything to compete for that particular market segment?",
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 69,
+            "focusCommentStart": 16,
+            "focusCommentEnd": 68,
+            "contentStart": 586,
+            "contentEnd": 711,
+            "contentCommentStart": 586,
+            "contentCommentEnd": 622,
+            "category": "disagree",
+            "topic": "Blame narrative"
+          },
+          {
+            "focusStart": 1072,
+            "focusEnd": 1212,
+            "focusCommentStart": 1072,
+            "focusCommentEnd": 1095,
+            "contentStart": 487,
+            "contentEnd": 585,
+            "contentCommentStart": 541,
+            "contentCommentEnd": 584,
+            "category": "agree",
+            "topic": "Market access"
+          }
+        ],
+        "account": {
+          "display_name": "tinman9_nyt",
+          "acct": "tinman9_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:18:42.437Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880110824825811",
+        "category": "predictions",
+        "rank": 1,
+        "globalRank": 6,
+        "content": "I don't get it\n\nIn the US, \n1. Ford loses 1.5 billion making EVs and each one is 50k or more\n2. GM is slow walking EV (they made less than 1000) \n3. Tesla will be out of business if not for the energy credits given  generously by the US govt\n4. There is no sales tax in many states on \"domestic\" EVs, a state subsidy! \n5. Federal govt is giving $7500 for buying an EV, a federal subsidy!\n\nAnd the Chinese are flooding the global market with cheap EVs!\n\nGo figure!",
+        "relations": [
+          {
+            "focusStart": 538,
+            "focusEnd": 678,
+            "focusCommentStart": 617,
+            "focusCommentEnd": 678,
+            "contentStart": 389,
+            "contentEnd": 451,
+            "contentCommentStart": 393,
+            "contentCommentEnd": 450,
+            "category": "predictions",
+            "topic": "Short-term incentives"
+          },
+          {
+            "focusStart": 327,
+            "focusEnd": 537,
+            "focusCommentStart": 423,
+            "focusCommentEnd": 449,
+            "contentStart": 146,
+            "contentEnd": 241,
+            "contentCommentStart": 179,
+            "contentCommentEnd": 241,
+            "category": "agree",
+            "topic": "Industrial policy"
+          }
+        ],
+        "account": {
+          "display_name": "acommonman_nyt",
+          "acct": "acommonman_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:16:40.428Z",
+        "favourites_count": 0,
+        "replies_count": 2,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880126113503842",
+        "category": "proposals",
+        "rank": 1,
+        "globalRank": 7,
+        "content": "For decades the US was the champion and extolled the virtues of free market capitalism and free trade. The greatest and surest way for growth and prosperity.\n\nNow, when the US faces competition which it cannot win with the rules it crafted, it’s crying foul.\n\nCopying and making it better and cheaper. The Chinese automakers have beaten the US automakers at their own game. With State sponsorship. \n\nCopying anyone is the best compliment anyone can pay.\n\nThe US has to learn manufacturing anew with new technologies. Quality products at scale which are economical to produce for domestic consumption and exports. Beat the competition at their own game. Are we ready?\n\nTariffs and protectionism take us backwards. \n\nOtherwise, the whole world will pass us by in autonomous electric vehicles on the road and in the sky and we will still be stuck in the ICE age! Driving noisy gas guzzlers polluting our own air!",
+        "relations": [
+          {
+            "focusStart": 1072,
+            "focusEnd": 1212,
+            "focusCommentStart": 1072,
+            "focusCommentEnd": 1095,
+            "contentStart": 668,
+            "contentEnd": 712,
+            "contentCommentStart": 668,
+            "contentCommentEnd": 712,
+            "category": "proposals",
+            "topic": "Trade policy"
+          },
+          {
+            "focusStart": 679,
+            "focusEnd": 821,
+            "focusCommentStart": 700,
+            "focusCommentEnd": 728,
+            "contentStart": 455,
+            "contentEnd": 516,
+            "contentCommentStart": 469,
+            "contentCommentEnd": 515,
+            "category": "proposals",
+            "topic": "Industrial renewal"
+          }
+        ],
+        "account": {
+          "display_name": "impartial_nyt",
+          "acct": "impartial_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:20:33.715Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880110229817577",
+        "category": "questions",
+        "rank": 1,
+        "globalRank": 8,
+        "content": "So if the majority if not all of the parts used in American autos are manufactured in China are not they Chinese cars too?  \n\nEven if they are assembled in the USA or Mexico?\n\nRecently I needed to get a new starter for my truck. (Small electric motor on the transmittion connected to the flywheel that starts the vehicle.)\n\nI went to the company web site.  OEM.\nThe part was made in China.\n\nI then went to the aftermarket brands, and all of them were made in China or with Chinese parts in mexico.\n\nI then checked the rebuilt shop for a used reconditioned starter, but all the internal replacment parts were made in China.\n\nEven the other imports from other countries are made with Chinese part.  VW is moving production to China.\n\nSo directly or indirectly, we are all driving Chinese cars in the United States already.",
+        "relations": [
+          {
+            "focusStart": 971,
+            "focusEnd": 1071,
+            "focusCommentStart": 1039,
+            "focusCommentEnd": 1070,
+            "contentStart": 0,
+            "contentEnd": 122,
+            "contentCommentStart": 92,
+            "contentCommentEnd": 122,
+            "category": "questions",
+            "topic": "Supply chains"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 69,
+            "focusCommentStart": 16,
+            "focusCommentEnd": 68,
+            "contentStart": 732,
+            "contentEnd": 820,
+            "contentCommentStart": 759,
+            "contentCommentEnd": 819,
+            "category": "questions",
+            "topic": "Blame framing"
+          }
+        ],
+        "account": {
+          "display_name": "fredster_nyt",
+          "acct": "fredster_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:16:31.349Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112879937675067057",
+        "category": "evidence_personal",
+        "rank": 1,
+        "globalRank": 9,
+        "content": "Living in Asia and seeing the new Chinese EVs everywhere now, it feels like Tesla’s valuation is untenable. And Musk’s grandiose statements about driverless taxis, as a way out of this reality, are not reassuring. I know Musk is considered to be a visionary leader far ahead of the curve, and I know that most of China’s EV technology is a blatant copy of Tesla’s, and I know many Americans say they will never accept Chinese EVs. But wait until you see them. They are beautiful. It may end up being just like how people said Americans would never buy Japanese cars. There’s a reason the US and EU are imposing such high tariffs. Chinese EVs will pose major threats to Tesla and other EV manufacturers.",
+        "relations": [
+          {
+            "focusStart": 1072,
+            "focusEnd": 1212,
+            "focusCommentStart": 1149,
+            "focusCommentEnd": 1211,
+            "contentStart": 567,
+            "contentEnd": 702,
+            "contentCommentStart": 630,
+            "contentCommentEnd": 701,
+            "category": "evidence_personal",
+            "topic": "Tariffs and competitiveness"
+          },
+          {
+            "focusStart": 679,
+            "focusEnd": 821,
+            "focusCommentStart": 802,
+            "focusCommentEnd": 820,
+            "contentStart": 431,
+            "contentEnd": 479,
+            "contentCommentStart": 460,
+            "contentCommentEnd": 479,
+            "category": "evidence_personal",
+            "topic": "Product quality"
+          }
+        ],
+        "account": {
+          "display_name": "ebennett_nyt",
+          "acct": "ebennett_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T07:32:38.372Z",
+        "favourites_count": 0,
+        "replies_count": 1,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880121510261830",
+        "category": "evidence_public",
+        "rank": 1,
+        "globalRank": 10,
+        "content": "@Herry Here you go! Straight from Elon’s mouth.\n\n“Elon Musk told industry analysts Chinese EVs are so good that without trade barriers, “they will pretty much demolish most other car companies in the world.”\n\nSmall, well-built Chinese electric vehicle poses a big threat to the U.S. auto industry | PBS News\nhttps://www.pbs.org/newshour/economy/small-well-built-chinese-electric-vehicle-poses-a-big-threat-to-the-u-s-auto-industry\n\nAmerican Test Of Three Chinese EVs: 'It’s A Wake-Up Call'\nhttps://insideevs.com/news/724040/chinese-ev-xpeng-zeekr-tesla/\n\nWhere’s your proof? Or are you waiting on Ford and GM to rise up?",
+        "relations": [
+          {
+            "focusStart": 70,
+            "focusEnd": 163,
+            "focusCommentStart": 120,
+            "focusCommentEnd": 161,
+            "contentStart": 49,
+            "contentEnd": 207,
+            "contentCommentStart": 137,
+            "contentCommentEnd": 206,
+            "category": "evidence_public",
+            "topic": "Industry competitiveness"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 69,
+            "focusCommentStart": 43,
+            "focusCommentEnd": 68,
+            "contentStart": 209,
+            "contentEnd": 307,
+            "contentCommentStart": 252,
+            "contentCommentEnd": 296,
+            "category": "evidence_public",
+            "topic": "Media coverage"
+          }
+        ],
+        "account": {
+          "display_name": "letitgrow_nyt",
+          "acct": "letitgrow_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:19:23.475Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      }
+    ]
+  },
+  {
+    "focusPost": {
+      "id": "112880110824825811",
+      "content": "<p>I don't get it\n\nIn the US, \n1. Ford loses 1.5 billion making EVs and each one is 50k or more\n2. GM is slow walking EV (they made less than 1000) \n3. Tesla will be out of business if not for the energy credits given  generously by the US govt\n4. There is no sales tax in many states on \"domestic\" EVs, a state subsidy! \n5. Federal govt is giving $7500 for buying an EV, a federal subsidy!\n\nAnd the Chinese are flooding the global market with cheap EVs!\n\nGo figure!</p>",
+      "plainText": "I don't get it\n\nIn the US, \n1. Ford loses 1.5 billion making EVs and each one is 50k or more\n2. GM is slow walking EV (they made less than 1000) \n3. Tesla will be out of business if not for the energy credits given  generously by the US govt\n4. There is no sales tax in many states on \"domestic\" EVs, a state subsidy! \n5. Federal govt is giving $7500 for buying an EV, a federal subsidy!\n\nAnd the Chinese are flooding the global market with cheap EVs!\n\nGo figure!",
+      "account": {
+        "display_name": "acommonman_nyt",
+        "acct": "acommonman_nyt@stacky-nyt.com",
+        "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+      },
+      "created_at": "2024-07-31T08:16:40.428Z",
+      "favourites_count": 0,
+      "replies_count": 2,
+      "favourited": false,
+      "bookmarked": false
+    },
+    "relatedPosts": [
+      {
+        "id": "112879937675067057",
+        "category": "framing",
+        "rank": 1,
+        "globalRank": 1,
+        "content": "Living in Asia and seeing the new Chinese EVs everywhere now, it feels like Tesla’s valuation is untenable. And Musk’s grandiose statements about driverless taxis, as a way out of this reality, are not reassuring. I know Musk is considered to be a visionary leader far ahead of the curve, and I know that most of China’s EV technology is a blatant copy of Tesla’s, and I know many Americans say they will never accept Chinese EVs. But wait until you see them. They are beautiful. It may end up being just like how people said Americans would never buy Japanese cars. There’s a reason the US and EU are imposing such high tariffs. Chinese EVs will pose major threats to Tesla and other EV manufacturers.",
+        "relations": [
+          {
+            "focusStart": 389,
+            "focusEnd": 463,
+            "focusCommentStart": 409,
+            "focusCommentEnd": 450,
+            "contentStart": 630,
+            "contentEnd": 702,
+            "contentCommentStart": 647,
+            "contentCommentEnd": 701,
+            "category": "evidence_personal",
+            "topic": "Tariffs and threats"
+          }
+        ],
+        "account": {
+          "display_name": "ebennett_nyt",
+          "acct": "ebennett_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T07:32:38.372Z",
+        "favourites_count": 0,
+        "replies_count": 1,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880115557783489",
+        "category": "values",
+        "rank": 1,
+        "globalRank": 2,
+        "content": "Trump may now see EV as a future with the support of Trump, even as Tesla is being considered more as an automated Taxi device more than a passenger car by Elon Musk, but nobody knows where the EV market is to go.\n\nCertainly one thing is true.   Expecting the old Internal Combustion Engines to last in the U.S is not readily possible other than in specialty markets.\n\nPeople of the U.S can hold to the ICE vehicles, but as Thailand and Asia and much of Europe buys into EV use, the ability to sustain ICE vehicles solely for the U.S consumer market is just not going to be sustainable.\n\nThe cat is out of the bag and the movement away from auto exhaust is going to take hold worldwide whichever Nation seeks to lead the way.   China currently is in the lead and it may be inevitable to see S. Korea and even India producing larger quantities of EV vehicles. {At least 16 companies produce EV in India including TATA, MG and Mahindra with an estimated 10 Million EV produced there yearly by 2030.]\n\nEV is moving along and it is not to be easily stopped!",
+        "relations": [
+          {
+            "focusStart": 389,
+            "focusEnd": 463,
+            "focusCommentStart": 397,
+            "focusCommentEnd": 435,
+            "contentStart": 728,
+            "contentEnd": 858,
+            "contentCommentStart": 728,
+            "contentCommentEnd": 758,
+            "category": "values",
+            "topic": "Who leads EV adoption"
+          }
+        ],
+        "account": {
+          "display_name": "markkropf_nyt",
+          "acct": "markkropf_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:17:52.646Z",
+        "favourites_count": 0,
+        "replies_count": 1,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880118820779624",
+        "category": "connections",
+        "rank": 1,
+        "globalRank": 3,
+        "content": "A major credit to Chinese automakers, they understand the need for mass produced affordable EVs for the consumer market and have made huge amount of progress. Whereas in the US, a mass produced affordable EV is still a dream. EVs here are exorbitantly priced luxury items and the factors driving that are mostly corporate greed. Wall street loves the huge margins from EV sales and so do the EV makers, there is presently no incentive for any of the players here to cater for that need. Instead of competing with Chinese EVs, we effectively close the market to them by putting tariffs. Why should we grudge Chinese success in this aspect when we do not do anything to compete for that particular market segment?",
+        "relations": [
+          {
+            "focusStart": 28,
+            "focusEnd": 92,
+            "focusCommentStart": 69,
+            "focusCommentEnd": 92,
+            "contentStart": 226,
+            "contentEnd": 328,
+            "contentCommentStart": 239,
+            "contentCommentEnd": 271,
+            "category": "disagree",
+            "topic": "US pricing reality"
+          }
+        ],
+        "account": {
+          "display_name": "tinman9_nyt",
+          "acct": "tinman9_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:18:42.437Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880130349714573",
+        "category": "predictions",
+        "rank": 1,
+        "globalRank": 4,
+        "content": "@Mike  While I'm looking forward to a union-labor built Bolt sometime soon, I'm not holding my breath.  I'm desperate for a lower cost, small electric hatchback in the $25,000 range, and if the Chinese vehicles were sold in the U.S. I would seriously consider one. Instead, we see the legacy U.S. automakers almost completely ignoring the segment under $30,000, and Ford is even repurposing an EV plant to make Ford 150 super trucks.  The legacies are barely trying, and the Biden tariffs guarantee that they don't have to.",
+        "relations": [
+          {
+            "focusStart": 93,
+            "focusEnd": 144,
+            "focusCommentStart": 102,
+            "focusCommentEnd": 117,
+            "contentStart": 435,
+            "contentEnd": 523,
+            "contentCommentStart": 475,
+            "contentCommentEnd": 522,
+            "category": "predictions",
+            "topic": "Legacy OEM effort"
+          }
+        ],
+        "account": {
+          "display_name": "lloyd_nyt",
+          "acct": "lloyd_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:21:38.354Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112854373877034288",
+        "category": "disagree",
+        "rank": 1,
+        "globalRank": 5,
+        "content": "I don't see the problem with letting China pump and dump, at massive losses, cars from their EV industry. What better way to fund the energy transition, which will make us less dependent on Russia and other rouge dictatorships, than with Chinese govt money? \n\nJust cut red tape on US lithium mining and subsidize/tariff protect our own industries just enough that the companies continue to grow it capture the luxury market, then let China pay for the masses to convert to EVs and solar. It would be very easy; just do economic analysis on which EV types China sells at a loss, allow those in, then tariff the big and luxury ones that turn a profit. They're desperate to sell bc they already made the capex investments on the factories, so we can dictate terms",
+        "relations": [
+          {
+            "focusStart": 319,
+            "focusEnd": 387,
+            "focusCommentStart": 371,
+            "focusCommentEnd": 386,
+            "contentStart": 594,
+            "contentEnd": 649,
+            "contentCommentStart": 599,
+            "contentCommentEnd": 648,
+            "category": "framing",
+            "topic": "Selective tariffs"
+          }
+        ],
+        "account": {
+          "display_name": "student_3",
+          "acct": "student_3@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-26T19:11:25.771Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880111329545135",
+        "category": "questions",
+        "rank": 1,
+        "globalRank": 6,
+        "content": "How about American car makers producing EVs that regular folks can afford, as opposed to canceling ones like the Chevrolet Bolt? \n\nHow about that?\n\n*crickets*",
+        "relations": [
+          {
+            "focusStart": 28,
+            "focusEnd": 92,
+            "focusCommentStart": 81,
+            "focusCommentEnd": 92,
+            "contentStart": 0,
+            "contentEnd": 128,
+            "contentCommentStart": 49,
+            "contentCommentEnd": 73,
+            "category": "questions",
+            "topic": "Affordable models"
+          }
+        ],
+        "account": {
+          "display_name": "nathanhansard_nyt",
+          "acct": "nathanhansard_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:16:48.130Z",
+        "favourites_count": 0,
+        "replies_count": 1,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880118092486546",
+        "category": "evidence_personal",
+        "rank": 1,
+        "globalRank": 7,
+        "content": "For 20 years I’ve been hearing how important it is that we shift away from the internal combustion engine. Now, the Chinese have affordable electric vehicles while American and European companies continue selling expensive gas-powered cars. And instead of letting the free market take its course, the hegemonic powers of the west argue about Chinese overcapacity and government subsidies. \n\nThis is how the US and Europe lose their positions as world leaders. They are too busy protecting entrenched interests to truly do something about the environment and to give consumers the options they want. And developing countries are the first ones to witness it. I live in Mexico and I can tell you that we have a bunch of new Chinese cars on the roads. Americans and Europeans won’t see this because they are shielded by tariffs, but you cannot change global economic dynamics with simple domestic policies.",
+        "relations": [
+          {
+            "focusStart": 389,
+            "focusEnd": 463,
+            "focusCommentStart": 441,
+            "focusCommentEnd": 450,
+            "contentStart": 107,
+            "contentEnd": 240,
+            "contentCommentStart": 112,
+            "contentCommentEnd": 157,
+            "category": "agree",
+            "topic": "Affordable EVs abroad"
+          }
+        ],
+        "account": {
+          "display_name": "adrin_nyt",
+          "acct": "adrin_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:18:31.324Z",
+        "favourites_count": 0,
+        "replies_count": 2,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880110627141264",
+        "category": "proposals",
+        "rank": 1,
+        "globalRank": 8,
+        "content": "Complain all you want about Chinese auto starting to dominate, but if EV is the key to fighting climate change, than shutting Chinese auto out of a car-crazed US market seems like another side of the\"climate -denial\" coin.  Not to mention a slap in the face of Americans under the thumb of inflation. \n\nI agree with the concern of Chinese spyware in American roads, but I also have concerned GM and Ford and Tesla spyware too.  So fix the problem if automotive spyware, and let me buy a half-wat decent inexpensive Chinese EV. \n\n...Because I ain't buying a bloated, expensive American EV.",
+        "relations": [
+          {
+            "focusStart": 389,
+            "focusEnd": 463,
+            "focusCommentStart": 441,
+            "focusCommentEnd": 450,
+            "contentStart": 224,
+            "contentEnd": 300,
+            "contentCommentStart": 241,
+            "contentCommentEnd": 299,
+            "category": "connections",
+            "topic": "Consumer burden"
+          }
+        ],
+        "account": {
+          "display_name": "someone_nyt",
+          "acct": "someone_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:16:37.412Z",
+        "favourites_count": 0,
+        "replies_count": 1,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880122793185688",
         "category": "agree",
         "rank": 1,
         "globalRank": 9,
-        "content": "The data is in and it's overwhelming. Iceland, Microsoft Japan, Unilever NZ — they all confirm the same thing. Output doesn't suffer; it improves. Time to stop treating these trials as curiosities.",
-        "account": {
-          "display_name": "Maya Chen",
-          "acct": "maya@tech.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T09:42:00Z",
-        "favourites_count": 312,
-        "replies_count": 28,
-        "favourited": false,
-        "bookmarked": false,
+        "content": "The U.S. spends decades manufacturing most of our consumer products in China, decimating U.S. industrial capacity in the process, then turns around and prevents its own citizens from buying reasonably-priced EVs because they are made by a Chinese company. Hard to grasp how any of this is in Americans' interests.",
         "relations": [
           {
-            "focusStart": 90,
-            "focusEnd": 226,
-            "contentStart": 38,
-            "contentEnd": 133,
-            "focusCommentStart": 152,
-            "focusCommentEnd": 179,
-            "contentCommentStart": 78,
-            "contentCommentEnd": 110,
-            "category": "agree",
-            "topic": "Trial results"
-          },
-          {
-            "focusStart": 531,
-            "focusEnd": 544,
-            "contentStart": 95,
-            "contentEnd": 146,
-            "focusCommentStart": 531,
-            "focusCommentEnd": 544,
-            "contentCommentStart": 111,
-            "contentCommentEnd": 146,
-            "category": "evidence_public",
-            "topic": "Productivity gains"
-          }
-        ]
-      },
-      {
-        "id": "post-agree-2",
-        "category": "agree",
-        "rank": 2,
-        "globalRank": 16,
-        "content": "The butts-in-seats mentality is pure management theater. I've watched teams produce more in 32 hours than they ever did in 40 once the pressure culture was stripped away.",
-        "account": {
-          "display_name": "Sam Okonkwo",
-          "acct": "sam@labor.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T10:05:00Z",
-        "favourites_count": 189,
-        "replies_count": 14,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 384,
-            "focusEnd": 454,
-            "contentStart": 4,
-            "contentEnd": 56,
-            "focusCommentStart": 384,
-            "focusCommentEnd": 442,
-            "contentCommentStart": 4,
-            "contentCommentEnd": 56,
-            "category": "agree",
-            "topic": "Management culture"
-          },
-          {
-            "focusStart": 600,
-            "focusEnd": 646,
-            "contentStart": 76,
-            "contentEnd": 125,
-            "focusCommentStart": 600,
-            "focusCommentEnd": 646,
-            "contentCommentStart": 76,
-            "contentCommentEnd": 125,
-            "category": "evidence_personal",
-            "topic": "Productivity gains"
-          }
-        ]
-      },
-      {
-        "id": "post-agree-3",
-        "category": "agree",
-        "rank": 3,
-        "globalRank": 23,
-        "content": "Exactly this. The 5-day 40-hour week was designed for factory floors and shift work. Applying it to knowledge work makes zero sense. We should be measuring outcomes, not hours.",
-        "account": {
-          "display_name": "Jordan Kim",
-          "acct": "jordan@academic.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T10:31:00Z",
-        "favourites_count": 97,
-        "replies_count": 9,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 273,
-            "focusEnd": 342,
-            "contentStart": 18,
-            "contentEnd": 84,
-            "focusCommentStart": 273,
-            "focusCommentEnd": 327,
-            "contentCommentStart": 18,
-            "contentCommentEnd": 68,
-            "category": "agree",
-            "topic": "Industrial-era origins"
-          },
-          {
-            "focusStart": 600,
-            "focusEnd": 646,
-            "contentStart": 133,
-            "contentEnd": 176,
-            "focusCommentStart": 600,
-            "focusCommentEnd": 646,
-            "contentCommentStart": 146,
-            "contentCommentEnd": 176,
-            "category": "proposals",
-            "topic": "Outcome measurement"
-          }
-        ]
-      },
-      {
-        "id": "focus-002",
-        "category": "disagree",
-        "rank": 1,
-        "globalRank": 14,
-        "content": "The Iceland trial was mostly public sector workers in controlled conditions. Microsoft Japan tested it for one month. This isn't generalizable data — it's cherry-picked success stories.",
-        "account": {
-          "display_name": "Taylor Brooks",
-          "acct": "taylor@skeptic.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T09:55:00Z",
-        "favourites_count": 203,
-        "replies_count": 41,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 90,
-            "focusEnd": 180,
-            "contentStart": 4,
-            "contentEnd": 102,
-            "focusCommentStart": 152,
-            "focusCommentEnd": 180,
-            "contentCommentStart": 22,
-            "contentCommentEnd": 76,
-            "category": "disagree",
-            "topic": "Trial results"
-          },
-          {
-            "focusStart": 181,
-            "focusEnd": 226,
-            "contentStart": 77,
-            "contentEnd": 117,
-            "focusCommentStart": 203,
-            "focusCommentEnd": 226,
-            "contentCommentStart": 93,
-            "contentCommentEnd": 117,
-            "category": "disagree",
-            "topic": "Trial results"
-          }
-        ]
-      },
-      {
-        "id": "post-disagree-2",
-        "category": "disagree",
-        "rank": 2,
-        "globalRank": 20,
-        "content": "Works great for software engineers. Doesn't work for restaurants, hospitals, retail, construction — about 60% of the workforce. This is a tech worker fantasy dressed up as universal policy.",
-        "account": {
-          "display_name": "Chris Walsh",
-          "acct": "chris@startup.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T11:10:00Z",
-        "favourites_count": 156,
-        "replies_count": 33,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 43,
-            "focusEnd": 88,
-            "contentStart": 53,
-            "contentEnd": 127,
-            "focusCommentStart": 43,
-            "focusCommentEnd": 88,
-            "contentCommentStart": 100,
-            "contentCommentEnd": 127,
-            "category": "disagree",
-            "topic": "Workforce coverage"
-          },
-          {
-            "focusStart": 600,
-            "focusEnd": 646,
-            "contentStart": 138,
-            "contentEnd": 189,
-            "focusCommentStart": 600,
-            "focusCommentEnd": 646,
-            "contentCommentStart": 138,
-            "contentCommentEnd": 189,
-            "category": "values",
-            "topic": "Class privilege"
-          }
-        ]
-      },
-      {
-        "id": "post-disagree-3",
-        "category": "disagree",
-        "rank": 3,
-        "globalRank": 25,
-        "content": "Reducing legitimate coordination concerns to managerial anxiety is a strawman. Synchronous collaboration, client availability, and team coverage are real operational constraints, not psychological issues.",
-        "account": {
-          "display_name": "Morgan Davies",
-          "acct": "morgan@policy.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T11:48:00Z",
-        "favourites_count": 88,
-        "replies_count": 17,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 227,
-            "focusEnd": 342,
-            "contentStart": 9,
-            "contentEnd": 63,
-            "focusCommentStart": 306,
-            "focusCommentEnd": 342,
-            "contentCommentStart": 9,
-            "contentCommentEnd": 41,
-            "category": "disagree",
-            "topic": "Strawman accusation"
-          },
-          {
-            "focusStart": 384,
-            "focusEnd": 454,
-            "contentStart": 79,
-            "contentEnd": 177,
-            "focusCommentStart": 384,
-            "focusCommentEnd": 442,
-            "contentCommentStart": 145,
-            "contentCommentEnd": 177,
-            "category": "evidence_public",
-            "topic": "Operational constraints"
-          }
-        ]
-      },
-      {
-        "id": "post-disagree-4",
-        "category": "disagree",
-        "rank": 4,
-        "globalRank": 26,
-        "content": "Burnout isn't about days worked — it's about autonomy, workload, and psychological safety. Compressing 5 days of work into 4 without reducing workload just creates a different kind of stress.",
-        "account": {
-          "display_name": "Casey Williams",
-          "acct": "casey@honest.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T12:22:00Z",
-        "favourites_count": 74,
-        "replies_count": 11,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 494,
-            "focusEnd": 544,
+            "focusStart": 389,
+            "focusEnd": 463,
+            "focusCommentStart": 409,
+            "focusCommentEnd": 450,
             "contentStart": 0,
-            "contentEnd": 31,
-            "focusCommentStart": 494,
-            "focusCommentEnd": 544,
-            "contentCommentStart": 0,
-            "contentCommentEnd": 31,
-            "category": "disagree",
-            "topic": "Burnout"
-          },
-          {
-            "focusStart": 600,
-            "focusEnd": 646,
-            "contentStart": 91,
-            "contentEnd": 191,
-            "focusCommentStart": 600,
-            "focusCommentEnd": 646,
-            "contentCommentStart": 151,
-            "contentCommentEnd": 191,
-            "category": "predictions",
-            "topic": "Compression risk"
-          }
-        ]
-      },
-      {
-        "id": "post-evpub-1",
-        "category": "evidence_public",
-        "rank": 1,
-        "globalRank": 4,
-        "content": "Worth adding to the data pile: Perpetual Guardian NZ (2018) saw 20% productivity gain and 27% reduction in stress. The 4 Day Week Global trial across 61 companies in 2022 — 92% of firms continued the policy after the trial ended.",
-        "account": {
-          "display_name": "Jamie Liu",
-          "acct": "jamie@data.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T10:18:00Z",
-        "favourites_count": 445,
-        "replies_count": 52,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 90,
-            "focusEnd": 180,
-            "contentStart": 31,
-            "contentEnd": 114,
-            "focusCommentStart": 152,
-            "focusCommentEnd": 180,
-            "contentCommentStart": 64,
-            "contentCommentEnd": 114,
-            "category": "evidence_public",
-            "topic": "Trial results"
-          },
-          {
-            "focusStart": 456,
-            "focusEnd": 545,
-            "contentStart": 173,
-            "contentEnd": 229,
-            "focusCommentStart": 456,
-            "focusCommentEnd": 507,
-            "contentCommentStart": 173,
-            "contentCommentEnd": 229,
-            "category": "evidence_public",
-            "topic": "Adoption persistence"
-          }
-        ]
-      },
-      {
-        "id": "post-evpub-2",
-        "category": "evidence_public",
-        "rank": 2,
-        "globalRank": 11,
-        "content": "EU data: French workers produce more per hour than US workers despite working fewer hours annually. The OECD consistently shows that beyond 50 hours per week, output per hour collapses. Hours are not output.",
-        "account": {
-          "display_name": "Alex Rivera",
-          "acct": "alex@research.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T10:55:00Z",
-        "favourites_count": 281,
-        "replies_count": 23,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 43,
-            "focusEnd": 88,
-            "contentStart": 9,
-            "contentEnd": 99,
-            "focusCommentStart": 43,
-            "focusCommentEnd": 88,
-            "contentCommentStart": 9,
-            "contentCommentEnd": 61,
-            "category": "evidence_public",
-            "topic": "Productivity gains"
-          },
-          {
-            "focusStart": 181,
-            "focusEnd": 226,
-            "contentStart": 133,
-            "contentEnd": 185,
-            "focusCommentStart": 203,
-            "focusCommentEnd": 226,
-            "contentCommentStart": 159,
-            "contentCommentEnd": 185,
-            "category": "evidence_public",
-            "topic": "Diminishing returns"
-          }
-        ]
-      },
-      {
-        "id": "post-evpub-3",
-        "category": "evidence_public",
-        "rank": 3,
-        "globalRank": 15,
-        "content": "Gallup 2023 State of the Global Workplace: 59% of workers are quiet quitting and burnout is at record highs. Companies with 4-day weeks report 57% reduction in absenteeism. This isn't soft data anymore.",
-        "account": {
-          "display_name": "Lee Park",
-          "acct": "lee@anon.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T13:07:00Z",
-        "favourites_count": 198,
-        "replies_count": 19,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 494,
-            "focusEnd": 544,
-            "contentStart": 43,
-            "contentEnd": 108,
-            "focusCommentStart": 494,
-            "focusCommentEnd": 544,
-            "contentCommentStart": 43,
-            "contentCommentEnd": 108,
-            "category": "evidence_public",
-            "topic": "Burnout"
-          },
-          {
-            "focusStart": 570,
-            "focusEnd": 647,
-            "contentStart": 143,
-            "contentEnd": 172,
-            "focusCommentStart": 587,
-            "focusCommentEnd": 647,
-            "contentCommentStart": 143,
-            "contentCommentEnd": 172,
-            "category": "evidence_public",
-            "topic": "Absenteeism reduction"
-          }
-        ]
-      },
-      {
-        "id": "post-evpub-4",
-        "category": "evidence_public",
-        "rank": 4,
-        "globalRank": 27,
-        "content": "Stanford's 2024 longitudinal study tracked 61 UK firms — those with 4-day schedules saw revenue per employee climb 8% on average versus stable headcount. Microsoft Japan's 40% productivity spike isn't an outlier, it's the leading edge of a robust pattern.",
-        "account": {
-          "display_name": "Priya Reddy",
-          "acct": "priya@research.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T13:21:00Z",
-        "favourites_count": 234,
-        "replies_count": 19,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 181,
-            "focusEnd": 225,
-            "contentStart": 154,
-            "contentEnd": 211,
-            "focusCommentStart": 203,
-            "focusCommentEnd": 225,
-            "contentCommentStart": 154,
-            "contentCommentEnd": 194,
-            "category": "evidence_public",
-            "topic": "Productivity gains"
-          }
-        ]
-      },
-      {
-        "id": "post-evpub-5",
-        "category": "evidence_public",
-        "rank": 5,
-        "globalRank": 28,
-        "content": "Iceland's trial spanned 2015-2019 and covered nearly 1.3% of the entire workforce across municipal and national agencies. Independent reviews confirm output stayed flat or rose. The methodology has since been replicated by 4 Day Week Global across 61 firms with consistent findings.",
-        "account": {
-          "display_name": "Marcus Holt",
-          "acct": "marcus@policy.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T13:38:00Z",
-        "favourites_count": 156,
-        "replies_count": 11,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 90,
-            "focusEnd": 179,
-            "contentStart": 122,
-            "contentEnd": 176,
-            "focusCommentStart": 152,
-            "focusCommentEnd": 179,
-            "contentCommentStart": 150,
-            "contentCommentEnd": 176,
-            "category": "evidence_public",
-            "topic": "Productivity gains"
-          }
-        ]
-      },
-      {
-        "id": "post-agree-4",
-        "category": "agree",
-        "rank": 4,
-        "globalRank": 29,
-        "content": "This is exactly the right framing. The companies that switched aren't quietly walking it back — they're expanding the policy because the output numbers held up. Skeptics keep moving the goalposts and the data keeps landing on the same side: better output with fewer hours.",
-        "account": {
-          "display_name": "Devon Park",
-          "acct": "devon@worker.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T13:54:00Z",
-        "favourites_count": 89,
-        "replies_count": 8,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 456,
-            "focusEnd": 544,
-            "contentStart": 133,
-            "contentEnd": 159,
-            "focusCommentStart": 531,
-            "focusCommentEnd": 544,
-            "contentCommentStart": 133,
-            "contentCommentEnd": 159,
+            "contentEnd": 313,
+            "contentCommentStart": 229,
+            "contentCommentEnd": 254,
             "category": "agree",
-            "topic": "Productivity gains"
+            "topic": "Chinese EV supply"
           }
-        ]
-      },
-      {
-        "id": "post-evpers-3",
-        "category": "evidence_personal",
-        "rank": 3,
-        "globalRank": 30,
-        "content": "Our design agency moved to 4 days two years ago. Throughput per designer is up 31% measured by billable deliverables shipped on time. We were terrified we'd lose clients — instead we've added six new accounts because our turnaround beats the 5-day shops we compete with. Better output, full stop.",
+        ],
         "account": {
-          "display_name": "Casey Wu",
-          "acct": "casey@studio.social",
-          "avatar": ""
+          "display_name": "ben_nyt",
+          "acct": "ben_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
         },
-        "created_at": "2025-03-20T14:12:00Z",
-        "favourites_count": 142,
-        "replies_count": 16,
+        "created_at": "2024-07-31T08:19:43.050Z",
+        "favourites_count": 0,
+        "replies_count": 0,
         "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 494,
-            "focusEnd": 544,
-            "contentStart": 49,
-            "contentEnd": 82,
-            "focusCommentStart": 531,
-            "focusCommentEnd": 544,
-            "contentCommentStart": 49,
-            "contentCommentEnd": 82,
-            "category": "evidence_personal",
-            "topic": "Productivity gains"
-          }
-        ]
+        "bookmarked": false
       },
       {
-        "id": "focus-003",
-        "category": "evidence_personal",
-        "rank": 1,
-        "globalRank": 2,
-        "content": "We've been on a 4-day week for 18 months. Annual turnover dropped from 28% to 11%. We shipped more features in Q1 this year than any prior Q1. I was a skeptic — now I'd never go back. Here's what actually changed: we eliminated all recurring meetings under 30 minutes, consolidated standups into async written updates, and gave every team full autonomy over which day they take off. Some chose Monday, some chose Friday, a few chose Wednesday to create a mid-week reset. The key insight was that productivity didn't just stay flat — it actively improved because people stopped filling time with performative work. The 40-hour week creates a culture of looking busy. When you only have 32 hours, there's no room for theater. Every meeting needs a clear agenda and outcome. Every task gets prioritized ruthlessly. The fluff evaporates. Our engineering velocity went up 23% measured by story points delivered, and our customer satisfaction scores hit all-time highs. The most surprising result? Our on-call incidents dropped 40% because people were shipping more carefully, not more recklessly. They had fewer hours so they wrote better code the first time instead of rushing and patching later.",
-        "account": {
-          "display_name": "Blair O'Brien",
-          "acct": "blair@startup.io",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T11:34:00Z",
-        "favourites_count": 523,
-        "replies_count": 67,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 384,
-            "focusEnd": 454,
-            "contentStart": 42,
-            "contentEnd": 82,
-            "focusCommentStart": 384,
-            "focusCommentEnd": 442,
-            "contentCommentStart": 42,
-            "contentCommentEnd": 82,
-            "category": "evidence_personal",
-            "topic": "Retention improvement"
-          },
-          {
-            "focusStart": 494,
-            "focusEnd": 544,
-            "contentStart": 562,
-            "contentEnd": 613,
-            "focusCommentStart": 494,
-            "focusCommentEnd": 544,
-            "contentCommentStart": 562,
-            "contentCommentEnd": 613,
-            "category": "agree",
-            "topic": "Performative work"
-          },
-          {
-            "focusStart": 600,
-            "focusEnd": 646,
-            "contentStart": 992,
-            "contentEnd": 1091,
-            "focusCommentStart": 600,
-            "focusCommentEnd": 646,
-            "contentCommentStart": 996,
-            "contentCommentEnd": 1069,
-            "category": "evidence_personal",
-            "topic": "Productivity gains"
-          }
-        ]
-      },
-      {
-        "id": "post-evpers-2",
-        "category": "evidence_personal",
-        "rank": 2,
-        "globalRank": 19,
-        "content": "My team tried it for 6 months. The Monday-Thursday pressure was brutal — everyone rushed, cut corners, meetings got worse because we had fewer of them. We went back to 5 days. Not everyone's context is the same.",
-        "account": {
-          "display_name": "Drew Santos",
-          "acct": "drew@engineering.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T14:02:00Z",
-        "favourites_count": 167,
-        "replies_count": 31,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 43,
-            "focusEnd": 88,
-            "contentStart": 31,
-            "contentEnd": 151,
-            "focusCommentStart": 43,
-            "focusCommentEnd": 88,
-            "contentCommentStart": 35,
-            "contentCommentEnd": 101,
-            "category": "evidence_personal",
-            "topic": "Trial results"
-          },
-          {
-            "focusStart": 494,
-            "focusEnd": 544,
-            "contentStart": 176,
-            "contentEnd": 211,
-            "focusCommentStart": 494,
-            "focusCommentEnd": 544,
-            "contentCommentStart": 176,
-            "contentCommentEnd": 211,
-            "category": "disagree",
-            "topic": "Context dependency"
-          }
-        ]
-      },
-      {
-        "id": "post-pred-1",
-        "category": "predictions",
-        "rank": 1,
-        "globalRank": 8,
-        "content": "In 10 years this will look like the debate over the 8-hour workday in 1900. Of course it'll win — it just needs enough early adopters to demonstrate the competitive advantage to laggards.",
-        "account": {
-          "display_name": "Jordan Kim",
-          "acct": "jordan@academic.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T12:44:00Z",
-        "favourites_count": 334,
-        "replies_count": 38,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 273,
-            "focusEnd": 342,
-            "contentStart": 32,
-            "contentEnd": 75,
-            "focusCommentStart": 273,
-            "focusCommentEnd": 327,
-            "contentCommentStart": 32,
-            "contentCommentEnd": 75,
-            "category": "predictions",
-            "topic": "Historical parallel"
-          },
-          {
-            "focusStart": 570,
-            "focusEnd": 647,
-            "contentStart": 119,
-            "contentEnd": 174,
-            "focusCommentStart": 587,
-            "focusCommentEnd": 647,
-            "contentCommentStart": 119,
-            "contentCommentEnd": 174,
-            "category": "evidence_public",
-            "topic": "Competitive advantage"
-          }
-        ]
-      },
-      {
-        "id": "post-pred-2",
-        "category": "predictions",
-        "rank": 2,
-        "globalRank": 13,
-        "content": "The future isn't a 4-day week — it's variable async work where output-based contracts replace time-based ones entirely. The 4-day framing is still too attached to the hours paradigm.",
-        "account": {
-          "display_name": "Maya Chen",
-          "acct": "maya@tech.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T13:30:00Z",
-        "favourites_count": 211,
-        "replies_count": 29,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 0,
-            "focusEnd": 19,
-            "contentStart": 37,
-            "contentEnd": 119,
-            "focusCommentStart": 0,
-            "focusCommentEnd": 19,
-            "contentCommentStart": 63,
-            "contentCommentEnd": 119,
-            "category": "predictions",
-            "topic": "Async work future"
-          },
-          {
-            "focusStart": 600,
-            "focusEnd": 646,
-            "contentStart": 124,
-            "contentEnd": 182,
-            "focusCommentStart": 600,
-            "focusCommentEnd": 646,
-            "contentCommentStart": 124,
-            "contentCommentEnd": 182,
-            "category": "framing",
-            "topic": "Hours paradigm trap"
-          }
-        ]
-      },
-      {
-        "id": "post-pred-3",
-        "category": "predictions",
-        "rank": 3,
-        "globalRank": 18,
-        "content": "Watch how this plays out: companies will adopt 4-day weeks and simultaneously cut headcount, expecting the same work from fewer people. The productivity revolution becomes a cost-cutting exercise.",
-        "account": {
-          "display_name": "Sam Okonkwo",
-          "acct": "sam@labor.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T14:15:00Z",
-        "favourites_count": 178,
-        "replies_count": 22,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 43,
-            "focusEnd": 88,
-            "contentStart": 63,
-            "contentEnd": 135,
-            "focusCommentStart": 43,
-            "focusCommentEnd": 88,
-            "contentCommentStart": 63,
-            "contentCommentEnd": 135,
-            "category": "predictions",
-            "topic": "Headcount reduction"
-          },
-          {
-            "focusStart": 456,
-            "focusEnd": 545,
-            "contentStart": 140,
-            "contentEnd": 196,
-            "focusCommentStart": 456,
-            "focusCommentEnd": 507,
-            "contentCommentStart": 140,
-            "contentCommentEnd": 196,
-            "category": "values",
-            "topic": "Corporate co-opting"
-          }
-        ]
-      },
-      {
-        "id": "post-q-1",
-        "category": "questions",
-        "rank": 1,
-        "globalRank": 22,
-        "content": "Genuine question: how does this work for customer-facing roles where clients expect 5-day availability? Do you hire more people, stagger shifts, or accept reduced service hours? I haven't seen a good answer.",
-        "account": {
-          "display_name": "Casey Williams",
-          "acct": "casey@honest.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T10:44:00Z",
-        "favourites_count": 129,
-        "replies_count": 44,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 343,
-            "focusEnd": 455,
-            "contentStart": 41,
-            "contentEnd": 103,
-            "focusCommentStart": 347,
-            "focusCommentEnd": 376,
-            "contentCommentStart": 69,
-            "contentCommentEnd": 103,
-            "category": "questions",
-            "topic": "Client availability gap"
-          },
-          {
-            "focusStart": 570,
-            "focusEnd": 647,
-            "contentStart": 111,
-            "contentEnd": 177,
-            "focusCommentStart": 587,
-            "focusCommentEnd": 647,
-            "contentCommentStart": 111,
-            "contentCommentEnd": 177,
-            "category": "proposals",
-            "topic": "Staffing models"
-          }
-        ]
-      },
-      {
-        "id": "post-q-2",
-        "category": "questions",
-        "rank": 2,
-        "globalRank": 24,
-        "content": "How are we measuring productivity here? Revenue per employee? Lines of code? Tasks completed? The metric matters enormously. Output that looks good on a spreadsheet might mask quality degradation.",
-        "account": {
-          "display_name": "Jamie Liu",
-          "acct": "jamie@data.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T11:59:00Z",
-        "favourites_count": 93,
-        "replies_count": 18,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 43,
-            "focusEnd": 88,
-            "contentStart": 11,
-            "contentEnd": 39,
-            "focusCommentStart": 43,
-            "focusCommentEnd": 88,
-            "contentCommentStart": 11,
-            "contentCommentEnd": 39,
-            "category": "questions",
-            "topic": "Metric definition"
-          },
-          {
-            "focusStart": 159,
-            "focusEnd": 179,
-            "contentStart": 125,
-            "contentEnd": 196,
-            "focusCommentStart": 159,
-            "focusCommentEnd": 179,
-            "contentCommentStart": 125,
-            "contentCommentEnd": 196,
-            "category": "disagree",
-            "topic": "Quality degradation"
-          }
-        ]
-      },
-      {
-        "id": "post-conn-1",
-        "category": "connections",
-        "rank": 1,
-        "globalRank": 12,
-        "content": "Connect this to AI labor displacement: if knowledge workers are being automated out anyway, the 4-day week is a stopgap. The real conversation is about decoupling income from hours entirely — UBI, not just shorter weeks.",
-        "account": {
-          "display_name": "Robin Patel",
-          "acct": "robin@futureofwork.io",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T13:50:00Z",
-        "favourites_count": 267,
-        "replies_count": 35,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 273,
-            "focusEnd": 341,
-            "contentStart": 92,
-            "contentEnd": 120,
-            "focusCommentStart": 273,
-            "focusCommentEnd": 341,
-            "contentCommentStart": 92,
-            "contentCommentEnd": 120,
-            "category": "connections",
-            "topic": "AI displacement link"
-          },
-          {
-            "focusStart": 600,
-            "focusEnd": 646,
-            "contentStart": 152,
-            "contentEnd": 220,
-            "focusCommentStart": 600,
-            "focusCommentEnd": 646,
-            "contentCommentStart": 152,
-            "contentCommentEnd": 195,
-            "category": "proposals",
-            "topic": "UBI connection"
-          }
-        ]
-      },
-      {
-        "id": "post-conn-2",
-        "category": "connections",
-        "rank": 2,
-        "globalRank": 21,
-        "content": "Nobody mentions the climate angle: a 20% reduction in commuting days equals significant CO2 savings. The UK's 4-day week campaign calculated 127 million car trips eliminated annually. The policy has environmental co-benefits.",
-        "account": {
-          "display_name": "Alex Rivera",
-          "acct": "alex@research.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T14:38:00Z",
-        "favourites_count": 144,
-        "replies_count": 16,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 0,
-            "focusEnd": 19,
-            "contentStart": 35,
-            "contentEnd": 100,
-            "focusCommentStart": 0,
-            "focusCommentEnd": 19,
-            "contentCommentStart": 37,
-            "contentCommentEnd": 100,
-            "category": "connections",
-            "topic": "Climate co-benefits"
-          },
-          {
-            "focusStart": 456,
-            "focusEnd": 545,
-            "contentStart": 141,
-            "contentEnd": 183,
-            "focusCommentStart": 456,
-            "focusCommentEnd": 507,
-            "contentCommentStart": 141,
-            "contentCommentEnd": 183,
-            "category": "evidence_public",
-            "topic": "UK commute data"
-          }
-        ]
-      },
-      {
-        "id": "post-prop-1",
-        "category": "proposals",
+        "id": "112880121510261830",
+        "category": "evidence_public",
         "rank": 1,
         "globalRank": 10,
-        "content": "Instead of mandating overnight change, propose a government pilot fund: companies get tax credits for running 12-month trials with third-party productivity audits. Build the evidence base systematically, then legislate from data.",
-        "account": {
-          "display_name": "Morgan Davies",
-          "acct": "morgan@policy.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T12:10:00Z",
-        "favourites_count": 302,
-        "replies_count": 47,
-        "favourited": false,
-        "bookmarked": false,
+        "content": "@Herry Here you go! Straight from Elon’s mouth.\n\n“Elon Musk told industry analysts Chinese EVs are so good that without trade barriers, “they will pretty much demolish most other car companies in the world.”\n\nSmall, well-built Chinese electric vehicle poses a big threat to the U.S. auto industry | PBS News\nhttps://www.pbs.org/newshour/economy/small-well-built-chinese-electric-vehicle-poses-a-big-threat-to-the-u-s-auto-industry\n\nAmerican Test Of Three Chinese EVs: 'It’s A Wake-Up Call'\nhttps://insideevs.com/news/724040/chinese-ev-xpeng-zeekr-tesla/\n\nWhere’s your proof? Or are you waiting on Ford and GM to rise up?",
         "relations": [
           {
-            "focusStart": 90,
-            "focusEnd": 180,
-            "contentStart": 47,
-            "contentEnd": 163,
-            "focusCommentStart": 152,
-            "focusCommentEnd": 180,
-            "contentCommentStart": 86,
-            "contentCommentEnd": 125,
-            "category": "proposals",
-            "topic": "Tax credit pilot"
-          },
-          {
-            "focusStart": 227,
-            "focusEnd": 342,
-            "contentStart": 164,
-            "contentEnd": 229,
-            "focusCommentStart": 273,
-            "focusCommentEnd": 327,
-            "contentCommentStart": 164,
-            "contentCommentEnd": 229,
+            "focusStart": 319,
+            "focusEnd": 387,
+            "focusCommentStart": 345,
+            "focusCommentEnd": 386,
+            "contentStart": 49,
+            "contentEnd": 207,
+            "contentCommentStart": 137,
+            "contentCommentEnd": 206,
             "category": "evidence_public",
-            "topic": "Data-driven policy"
+            "topic": "Subsidies vs industry rhetoric"
           }
-        ]
-      },
-      {
-        "id": "post-prop-2",
-        "category": "proposals",
-        "rank": 2,
-        "globalRank": 17,
-        "content": "Better proposal: eliminate time-based employment contracts for knowledge workers entirely. Replace with deliverable-based contracts. Work until the work is done, then stop. Radical but honest.",
+        ],
         "account": {
-          "display_name": "Blair O'Brien",
-          "acct": "blair@startup.io",
-          "avatar": ""
+          "display_name": "letitgrow_nyt",
+          "acct": "letitgrow_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
         },
-        "created_at": "2025-03-20T13:17:00Z",
-        "favourites_count": 189,
-        "replies_count": 26,
+        "created_at": "2024-07-31T08:19:23.475Z",
+        "favourites_count": 0,
+        "replies_count": 0,
         "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 384,
-            "focusEnd": 454,
-            "contentStart": 17,
-            "contentEnd": 90,
-            "focusCommentStart": 384,
-            "focusCommentEnd": 442,
-            "contentCommentStart": 17,
-            "contentCommentEnd": 90,
-            "category": "proposals",
-            "topic": "Contract reform"
-          },
-          {
-            "focusStart": 600,
-            "focusEnd": 646,
-            "contentStart": 104,
-            "contentEnd": 172,
-            "focusCommentStart": 600,
-            "focusCommentEnd": 646,
-            "contentCommentStart": 104,
-            "contentCommentEnd": 160,
-            "category": "framing",
-            "topic": "Output over hours"
-          }
-        ]
+        "bookmarked": false
+      }
+    ]
+  },
+  {
+    "focusPost": {
+      "id": "112880110229817577",
+      "content": "<p>So if the majority if not all of the parts used in American autos are manufactured in China are not they Chinese cars too?  \n\nEven if they are assembled in the USA or Mexico?\n\nRecently I needed to get a new starter for my truck. (Small electric motor on the transmittion connected to the flywheel that starts the vehicle.)\n\nI went to the company web site.  OEM.\nThe part was made in China.\n\nI then went to the aftermarket brands, and all of them were made in China or with Chinese parts in mexico.\n\nI then checked the rebuilt shop for a used reconditioned starter, but all the internal replacment parts were made in China.\n\nEven the other imports from other countries are made with Chinese part.  VW is moving production to China.\n\nSo directly or indirectly, we are all driving Chinese cars in the United States already.</p>",
+      "plainText": "So if the majority if not all of the parts used in American autos are manufactured in China are not they Chinese cars too?  \n\nEven if they are assembled in the USA or Mexico?\n\nRecently I needed to get a new starter for my truck. (Small electric motor on the transmittion connected to the flywheel that starts the vehicle.)\n\nI went to the company web site.  OEM.\nThe part was made in China.\n\nI then went to the aftermarket brands, and all of them were made in China or with Chinese parts in mexico.\n\nI then checked the rebuilt shop for a used reconditioned starter, but all the internal replacment parts were made in China.\n\nEven the other imports from other countries are made with Chinese part.  VW is moving production to China.\n\nSo directly or indirectly, we are all driving Chinese cars in the United States already.",
+      "account": {
+        "display_name": "fredster_nyt",
+        "acct": "fredster_nyt@stacky-nyt.com",
+        "avatar": "https://beta.stacky.social/avatars/original/missing.png"
       },
+      "created_at": "2024-07-31T08:16:31.349Z",
+      "favourites_count": 0,
+      "replies_count": 0,
+      "favourited": false,
+      "bookmarked": false
+    },
+    "relatedPosts": [
       {
-        "id": "post-val-1",
-        "category": "values",
-        "rank": 1,
-        "globalRank": 5,
-        "content": "The 4-day week is fundamentally a class issue. White-collar knowledge workers will benefit; service, care, and gig workers won't. Let's be honest that this debate is mostly about a privileged subset of the workforce.",
-        "account": {
-          "display_name": "Sam Okonkwo",
-          "acct": "sam@labor.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T11:20:00Z",
-        "favourites_count": 412,
-        "replies_count": 58,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 456,
-            "focusEnd": 545,
-            "contentStart": 32,
-            "contentEnd": 46,
-            "focusCommentStart": 456,
-            "focusCommentEnd": 507,
-            "contentCommentStart": 32,
-            "contentCommentEnd": 46,
-            "category": "values",
-            "topic": "Class divide"
-          },
-          {
-            "focusStart": 570,
-            "focusEnd": 647,
-            "contentStart": 92,
-            "contentEnd": 129,
-            "focusCommentStart": 587,
-            "focusCommentEnd": 647,
-            "contentCommentStart": 92,
-            "contentCommentEnd": 129,
-            "category": "disagree",
-            "topic": "Excluded workers"
-          }
-        ]
-      },
-      {
-        "id": "post-val-2",
-        "category": "values",
-        "rank": 2,
-        "globalRank": 7,
-        "content": "The deeper issue is dignity. Surveillance-based management treats workers as children who can't be trusted. Any schedule built on that premise is degrading regardless of how many days it spans.",
-        "account": {
-          "display_name": "Blair O'Brien",
-          "acct": "blair@philosophy.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T12:55:00Z",
-        "favourites_count": 356,
-        "replies_count": 42,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 384,
-            "focusEnd": 454,
-            "contentStart": 29,
-            "contentEnd": 107,
-            "focusCommentStart": 384,
-            "focusCommentEnd": 442,
-            "contentCommentStart": 29,
-            "contentCommentEnd": 85,
-            "category": "values",
-            "topic": "Worker dignity"
-          },
-          {
-            "focusStart": 600,
-            "focusEnd": 646,
-            "contentStart": 146,
-            "contentEnd": 193,
-            "focusCommentStart": 600,
-            "focusCommentEnd": 646,
-            "contentCommentStart": 146,
-            "contentCommentEnd": 193,
-            "category": "framing",
-            "topic": "Schedule-agnostic harm"
-          }
-        ]
-      },
-      {
-        "id": "post-humor-1",
-        "category": "humor",
-        "rank": 1,
-        "globalRank": 1,
-        "content": "BREAKING: Local man discovers that making people work less makes them work better. Scientists baffled. Economists furious. HR departments frantically searching for a way to turn this into a performance management metric. Middle managers reportedly seen wandering office hallways muttering about 'culture' and 'synergy' as their calendars clear up. One VP of People Operations was found sobbing into a spreadsheet titled 'Engagement Metrics Q3' after realizing that employees who aren't exhausted actually like their jobs. In related news, a Fortune 500 CEO announced that his company would trial a 4-day week, but only for the C-suite, because 'leadership needs to test it first.' The trial has been running for 6 months. No results have been shared. The CEO was last seen on a golf course on a Thursday afternoon. When reached for comment, a spokesperson said 'we're still gathering data' while booking a Friday flight to Aspen.",
-        "account": {
-          "display_name": "Drew Santos",
-          "acct": "drew@funny.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T09:30:00Z",
-        "favourites_count": 1203,
-        "replies_count": 87,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 43,
-            "focusEnd": 88,
-            "contentStart": 10,
-            "contentEnd": 82,
-            "focusCommentStart": 43,
-            "focusCommentEnd": 88,
-            "contentCommentStart": 35,
-            "contentCommentEnd": 82,
-            "category": "humor",
-            "topic": "Productivity paradox"
-          },
-          {
-            "focusStart": 343,
-            "focusEnd": 455,
-            "contentStart": 123,
-            "contentEnd": 220,
-            "focusCommentStart": 347,
-            "focusCommentEnd": 376,
-            "contentCommentStart": 173,
-            "contentCommentEnd": 220,
-            "category": "humor",
-            "topic": "Management theater"
-          }
-        ]
-      },
-      {
-        "id": "post-framing-1",
+        "id": "112880119122024698",
         "category": "framing",
         "rank": 1,
-        "globalRank": 3,
-        "content": "The wrong frame: this is a debate about days. The right frame: this is about whether employers own your time or your output. Four days is a symptom. Worker autonomy is the actual issue. When we argue about 4 days vs. 5 days, we're already operating inside a framework that assumes employers have a legitimate claim on a fixed quantity of your waking hours. That's the real question worth interrogating. The entire concept of 'buying time' rather than 'buying results' is a relic of manufacturing — you needed bodies on the line for X hours to produce Y widgets. Knowledge work doesn't operate that way. A developer might solve a critical architecture problem in 20 minutes of deep thought after days of subconscious processing, or spend 8 hours writing boilerplate that an intern could do. Same hours, wildly different value. The 4-day week movement is popular because it's a concrete, tractable demand. But it's a half-measure. The real revolution is outcome-based employment where your time is your own as long as the work gets done. Some weeks that's 20 hours. Some weeks it's 50. The average shakes out, and adults manage their own energy.",
-        "account": {
-          "display_name": "Taylor Brooks",
-          "acct": "taylor@skeptic.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T10:22:00Z",
-        "favourites_count": 478,
-        "replies_count": 61,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 570,
-            "focusEnd": 647,
-            "contentStart": 40,
-            "contentEnd": 45,
-            "focusCommentStart": 587,
-            "focusCommentEnd": 647,
-            "contentCommentStart": 40,
-            "contentCommentEnd": 45,
-            "category": "framing",
-            "topic": "Days vs autonomy"
-          },
-          {
-            "focusStart": 0,
-            "focusEnd": 89,
-            "contentStart": 425,
-            "contentEnd": 495,
-            "focusCommentStart": 43,
-            "focusCommentEnd": 89,
-            "contentCommentStart": 425,
-            "contentCommentEnd": 495,
-            "category": "connections",
-            "topic": "Manufacturing relic"
-          }
-        ]
-      },
-      {
-        "id": "post-framing-2",
-        "category": "framing",
-        "rank": 2,
-        "globalRank": 6,
-        "content": "We should stop arguing for the 4-day week on productivity grounds — it concedes the premise that worker wellbeing only matters if it produces more output. The better argument: people deserve time. Full stop.",
-        "account": {
-          "display_name": "Morgan Davies",
-          "acct": "morgan@policy.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T11:05:00Z",
-        "favourites_count": 389,
-        "replies_count": 49,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 43,
-            "focusEnd": 88,
-            "contentStart": 45,
-            "contentEnd": 65,
-            "focusCommentStart": 43,
-            "focusCommentEnd": 88,
-            "contentCommentStart": 45,
-            "contentCommentEnd": 65,
-            "category": "framing",
-            "topic": "Productivity framing flaw"
-          },
-          {
-            "focusStart": 494,
-            "focusEnd": 544,
-            "contentStart": 97,
-            "contentEnd": 154,
-            "focusCommentStart": 494,
-            "focusCommentEnd": 544,
-            "contentCommentStart": 97,
-            "contentCommentEnd": 154,
-            "category": "values",
-            "topic": "Wellbeing vs output"
-          }
-        ]
-      }
-    ],
-    "replies": [
-      {
-        "id": "reply-001-1",
-        "content": "<p>This is exactly what the research shows. The pushback is always from managers, never from data.</p>",
-        "plainText": "This is exactly what the research shows. The pushback is always from managers, never from data.",
-        "account": {
-          "display_name": "Ava Moretti",
-          "acct": "ava@work.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T15:30:00Z",
-        "favourites_count": 42,
-        "replies_count": 3,
-        "favourited": false,
-        "bookmarked": false
-      },
-      {
-        "id": "reply-001-2",
-        "content": "<p>I want to agree but my company tried this and reverted after 4 months. Context matters so much.</p>",
-        "plainText": "I want to agree but my company tried this and reverted after 4 months. Context matters so much.",
-        "account": {
-          "display_name": "Leo Chang",
-          "acct": "leo@dev.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T16:15:00Z",
-        "favourites_count": 28,
-        "replies_count": 7,
-        "favourited": false,
-        "bookmarked": false
-      }
-    ]
-  },
-  {
-    "focusPost": {
-      "id": "focus-002",
-      "content": "<p>The Iceland trial was mostly public sector workers in controlled conditions. Microsoft Japan tested it for one month. This isn't generalizable data — it's cherry-picked success stories.</p>",
-      "plainText": "The Iceland trial was mostly public sector workers in controlled conditions. Microsoft Japan tested it for one month. This isn't generalizable data — it's cherry-picked success stories.",
-      "account": {
-        "display_name": "Taylor Brooks",
-        "acct": "taylor@skeptic.social",
-        "avatar": ""
-      },
-      "created_at": "2025-03-20T09:55:00Z",
-      "favourites_count": 203,
-      "replies_count": 41,
-      "favourited": false,
-      "bookmarked": false
-    },
-    "relatedPosts": [
-      {
-        "id": "focus-001",
-        "category": "disagree",
-        "rank": 1,
-        "globalRank": 27,
-        "content": "Calling the Iceland trial 'cherry-picked' ignores its scale. It ran for four years, covered 2,500 workers across dozens of workplaces, and was independently evaluated by Autonomy and ALDA. That's not anecdotal — it's one of the most rigorous labor experiments in modern history.",
-        "account": {
-          "display_name": "Robin Patel",
-          "acct": "robin@futureofwork.io",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T10:10:00Z",
-        "favourites_count": 178,
-        "replies_count": 22,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 0,
-            "focusEnd": 76,
-            "contentStart": 61,
-            "contentEnd": 188,
-            "focusCommentStart": 22,
-            "focusCommentEnd": 76,
-            "contentCommentStart": 143,
-            "contentCommentEnd": 188,
-            "category": "disagree",
-            "topic": "Trial scale defense"
-          },
-          {
-            "focusStart": 150,
-            "focusEnd": 185,
-            "contentStart": 217,
-            "contentEnd": 278,
-            "focusCommentStart": 155,
-            "focusCommentEnd": 185,
-            "contentCommentStart": 217,
-            "contentCommentEnd": 278,
-            "category": "evidence_public",
-            "topic": "Research rigor"
-          }
-        ]
-      },
-      {
-        "id": "post-e1-agree-1",
-        "category": "agree",
-        "rank": 2,
-        "globalRank": 28,
-        "content": "Thank you. The 4-day week crowd never mentions that Iceland's trial was overwhelmingly government offices and social services — sectors with very different productivity metrics than private industry. Try running a restaurant four days a week.",
-        "account": {
-          "display_name": "Chris Walsh",
-          "acct": "chris@startup.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T10:20:00Z",
-        "favourites_count": 145,
-        "replies_count": 19,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 0,
-            "focusEnd": 76,
-            "contentStart": 52,
-            "contentEnd": 199,
-            "focusCommentStart": 22,
-            "focusCommentEnd": 76,
-            "contentCommentStart": 141,
-            "contentCommentEnd": 199,
-            "category": "agree",
-            "topic": "Public sector bias"
-          },
-          {
-            "focusStart": 118,
-            "focusEnd": 185,
-            "contentStart": 204,
-            "contentEnd": 242,
-            "focusCommentStart": 123,
-            "focusCommentEnd": 185,
-            "contentCommentStart": 204,
-            "contentCommentEnd": 242,
-            "category": "disagree",
-            "topic": "Service industry gap"
-          }
-        ]
-      },
-      {
-        "id": "post-e1-evpub-1",
-        "category": "evidence_public",
-        "rank": 3,
-        "globalRank": 29,
-        "content": "The 4 Day Week Global pilot (2022) included 61 companies across multiple industries and countries. 92% chose to continue after the trial. Revenue rose 35% on average compared to the same period in prior years. This is private-sector data at scale.",
-        "account": {
-          "display_name": "Jamie Liu",
-          "acct": "jamie@data.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T10:35:00Z",
-        "favourites_count": 201,
-        "replies_count": 27,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 77,
-            "focusEnd": 117,
-            "contentStart": 44,
-            "contentEnd": 137,
-            "focusCommentStart": 93,
-            "focusCommentEnd": 117,
-            "contentCommentStart": 99,
-            "contentCommentEnd": 137,
-            "category": "evidence_public",
-            "topic": "Global pilot scope"
-          },
-          {
-            "focusStart": 118,
-            "focusEnd": 185,
-            "contentStart": 151,
-            "contentEnd": 209,
-            "focusCommentStart": 123,
-            "focusCommentEnd": 185,
-            "contentCommentStart": 151,
-            "contentCommentEnd": 209,
-            "category": "evidence_public",
-            "topic": "Revenue uplift"
-          }
-        ]
-      },
-      {
-        "id": "focus-003",
-        "category": "questions",
-        "rank": 4,
-        "globalRank": 30,
-        "content": "Genuine question: if the data is cherry-picked, what would convincing data look like? A nationwide mandate? A Fortune 500 company running it for 5 years? At some point, demanding more evidence becomes a way to avoid acting on existing evidence.",
-        "account": {
-          "display_name": "Blair O'Brien",
-          "acct": "blair@startup.io",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T10:45:00Z",
-        "favourites_count": 167,
-        "replies_count": 33,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 150,
-            "focusEnd": 185,
-            "contentStart": 18,
-            "contentEnd": 85,
-            "focusCommentStart": 155,
-            "focusCommentEnd": 185,
-            "contentCommentStart": 18,
-            "contentCommentEnd": 85,
-            "category": "questions",
-            "topic": "Evidence threshold"
-          },
-          {
-            "focusStart": 0,
-            "focusEnd": 76,
-            "contentStart": 154,
-            "contentEnd": 244,
-            "focusCommentStart": 22,
-            "focusCommentEnd": 76,
-            "contentCommentStart": 169,
-            "contentCommentEnd": 244,
-            "category": "framing",
-            "topic": "Paralysis by analysis"
-          }
-        ]
-      }
-    ],
-    "replies": [
-      {
-        "id": "reply-e1-1",
-        "content": "<p>I worked in Iceland during the trial. The 'controlled conditions' framing is misleading — some of the participating workplaces were hospitals and police stations, not just desk jobs.</p>",
-        "plainText": "I worked in Iceland during the trial. The 'controlled conditions' framing is misleading — some of the participating workplaces were hospitals and police stations, not just desk jobs.",
-        "account": {
-          "display_name": "Sigrid Jonsdottir",
-          "acct": "sigrid@reykjavik.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T10:02:00Z",
-        "favourites_count": 89,
-        "replies_count": 7,
-        "favourited": false,
-        "bookmarked": false
-      },
-      {
-        "id": "reply-e1-2",
-        "content": "<p>The Microsoft Japan thing is always cited but nobody mentions it was a single August — the month most Japanese workers take vacation anyway. Context matters.</p>",
-        "plainText": "The Microsoft Japan thing is always cited but nobody mentions it was a single August — the month most Japanese workers take vacation anyway. Context matters.",
-        "account": {
-          "display_name": "Kenji Tanaka",
-          "acct": "kenji@tokyo.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T10:15:00Z",
-        "favourites_count": 124,
-        "replies_count": 11,
-        "favourited": false,
-        "bookmarked": false
-      }
-    ]
-  },
-  {
-    "focusPost": {
-      "id": "focus-003",
-      "content": "<p>We've been on a 4-day week for 18 months. Annual turnover dropped from 28% to 11%. We shipped more features in Q1 this year than any prior Q1. I was a skeptic — now I'd never go back. Here's what actually changed: we eliminated all recurring meetings under 30 minutes, consolidated standups into async written updates, and gave every team full autonomy over which day they take off. Some chose Monday, some chose Friday, a few chose Wednesday to create a mid-week reset. The key insight was that productivity didn't just stay flat — it actively improved because people stopped filling time with performative work. The 40-hour week creates a culture of looking busy. When you only have 32 hours, there's no room for theater. Every meeting needs a clear agenda and outcome. Every task gets prioritized ruthlessly. The fluff evaporates. Our engineering velocity went up 23% measured by story points delivered, and our customer satisfaction scores hit all-time highs. The most surprising result? Our on-call incidents dropped 40% because people were shipping more carefully, not more recklessly. They had fewer hours so they wrote better code the first time instead of rushing and patching later.</p>",
-      "plainText": "We've been on a 4-day week for 18 months. Annual turnover dropped from 28% to 11%. We shipped more features in Q1 this year than any prior Q1. I was a skeptic — now I'd never go back. Here's what actually changed: we eliminated all recurring meetings under 30 minutes, consolidated standups into async written updates, and gave every team full autonomy over which day they take off. Some chose Monday, some chose Friday, a few chose Wednesday to create a mid-week reset. The key insight was that productivity didn't just stay flat — it actively improved because people stopped filling time with performative work. The 40-hour week creates a culture of looking busy. When you only have 32 hours, there's no room for theater. Every meeting needs a clear agenda and outcome. Every task gets prioritized ruthlessly. The fluff evaporates. Our engineering velocity went up 23% measured by story points delivered, and our customer satisfaction scores hit all-time highs. The most surprising result? Our on-call incidents dropped 40% because people were shipping more carefully, not more recklessly. They had fewer hours so they wrote better code the first time instead of rushing and patching later.",
-      "account": {
-        "display_name": "Blair O'Brien",
-        "acct": "blair@startup.io",
-        "avatar": ""
-      },
-      "created_at": "2025-03-20T11:34:00Z",
-      "favourites_count": 523,
-      "replies_count": 67,
-      "favourited": false,
-      "bookmarked": false
-    },
-    "relatedPosts": [
-      {
-        "id": "post-e2-agree-1",
-        "category": "agree",
-        "rank": 1,
-        "globalRank": 31,
-        "content": "This mirrors our experience exactly. Once we cut the performative meetings and trusted teams to self-organize their schedules, velocity went through the roof. The 4-day week forces discipline that 5 days lets you avoid.",
-        "account": {
-          "display_name": "Wei Zhang",
-          "acct": "wei@async.dev",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T11:50:00Z",
-        "favourites_count": 198,
-        "replies_count": 15,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 214,
-            "focusEnd": 382,
-            "contentStart": 45,
-            "contentEnd": 158,
-            "focusCommentStart": 217,
-            "focusCommentEnd": 267,
-            "contentCommentStart": 127,
-            "contentCommentEnd": 158,
-            "category": "agree",
-            "topic": "Meeting culture reform"
-          },
-          {
-            "focusStart": 562,
-            "focusEnd": 613,
-            "contentStart": 163,
-            "contentEnd": 219,
-            "focusCommentStart": 562,
-            "focusCommentEnd": 613,
-            "contentCommentStart": 163,
-            "contentCommentEnd": 219,
-            "category": "framing",
-            "topic": "Forced discipline"
-          }
-        ]
-      },
-      {
-        "id": "focus-002",
-        "category": "disagree",
-        "rank": 2,
-        "globalRank": 32,
-        "content": "Story points are a notoriously unreliable productivity metric — teams routinely inflate estimates to hit velocity targets. A 23% increase in story points delivered could mean nothing. What happened to revenue, customer churn, or defect rate?",
-        "account": {
-          "display_name": "Taylor Brooks",
-          "acct": "taylor@skeptic.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T12:00:00Z",
-        "favourites_count": 134,
-        "replies_count": 26,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 834,
-            "focusEnd": 905,
-            "contentStart": 0,
-            "contentEnd": 122,
-            "focusCommentStart": 850,
-            "focusCommentEnd": 870,
-            "contentCommentStart": 19,
-            "contentCommentEnd": 61,
-            "category": "disagree",
-            "topic": "Story point inflation"
-          },
-          {
-            "focusStart": 992,
-            "focusEnd": 1025,
-            "contentStart": 184,
-            "contentEnd": 241,
-            "focusCommentStart": 996,
-            "focusCommentEnd": 1025,
-            "contentCommentStart": 184,
-            "contentCommentEnd": 241,
-            "category": "questions",
-            "topic": "Missing metrics"
-          }
-        ]
-      },
-      {
-        "id": "post-e2-evpub-1",
-        "category": "evidence_public",
-        "rank": 3,
-        "globalRank": 33,
-        "content": "The turnover reduction alone justifies the investment. At average tech hiring costs of $30K-$50K per role, dropping from 28% to 11% turnover on a 100-person team saves roughly $500K-$850K annually. The 4-day week pays for itself in retention.",
-        "account": {
-          "display_name": "Jamie Liu",
-          "acct": "jamie@data.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T12:15:00Z",
-        "favourites_count": 223,
-        "replies_count": 18,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 42,
-            "focusEnd": 82,
-            "contentStart": 55,
-            "contentEnd": 197,
-            "focusCommentStart": 42,
-            "focusCommentEnd": 82,
-            "contentCommentStart": 162,
-            "contentCommentEnd": 197,
-            "category": "evidence_public",
-            "topic": "Hiring cost savings"
-          },
-          {
-            "focusStart": 911,
-            "focusEnd": 962,
-            "contentStart": 202,
-            "contentEnd": 242,
-            "focusCommentStart": 915,
-            "focusCommentEnd": 962,
-            "contentCommentStart": 202,
-            "contentCommentEnd": 242,
-            "category": "agree",
-            "topic": "Retention ROI"
-          }
-        ]
-      },
-      {
-        "id": "focus-001",
-        "category": "questions",
-        "rank": 4,
-        "globalRank": 34,
-        "content": "How big is your company, and what industry? The 'let teams choose their own day off' approach works when everyone is an engineer. What about cross-functional teams where design, product, and engineering all need to overlap?",
-        "account": {
-          "display_name": "Casey Williams",
-          "acct": "casey@honest.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T12:30:00Z",
-        "favourites_count": 112,
-        "replies_count": 29,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 323,
-            "focusEnd": 381,
-            "contentStart": 48,
-            "contentEnd": 163,
-            "focusCommentStart": 339,
-            "focusCommentEnd": 381,
-            "contentCommentStart": 94,
-            "contentCommentEnd": 129,
-            "category": "questions",
-            "topic": "Cross-team coordination"
-          },
-          {
-            "focusStart": 614,
-            "focusEnd": 665,
-            "contentStart": 0,
-            "contentEnd": 43,
-            "focusCommentStart": 618,
-            "focusCommentEnd": 665,
-            "contentCommentStart": 0,
-            "contentCommentEnd": 43,
-            "category": "questions",
-            "topic": "Company context"
-          }
-        ]
-      }
-    ],
-    "replies": [
-      {
-        "id": "reply-e2-1",
-        "content": "<p>The mid-week Wednesday off is genius. We tried it and it completely changes the rhythm — you never have more than 2 consecutive work days. Burnout basically disappeared.</p>",
-        "plainText": "The mid-week Wednesday off is genius. We tried it and it completely changes the rhythm — you never have more than 2 consecutive work days. Burnout basically disappeared.",
-        "account": {
-          "display_name": "Alex Rivera",
-          "acct": "alex@research.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T11:45:00Z",
-        "favourites_count": 76,
-        "replies_count": 5,
-        "favourited": false,
-        "bookmarked": false
-      },
-      {
-        "id": "reply-e2-2",
-        "content": "<p>What do you do about on-call coverage on the fifth day? Genuinely curious since you mentioned incidents dropping.</p>",
-        "plainText": "What do you do about on-call coverage on the fifth day? Genuinely curious since you mentioned incidents dropping.",
-        "account": {
-          "display_name": "Drew Santos",
-          "acct": "drew@engineering.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T11:52:00Z",
-        "favourites_count": 43,
-        "replies_count": 8,
-        "favourited": false,
-        "bookmarked": false
-      }
-    ]
-  },
-  {
-    "focusPost": {
-      "id": "focus-004",
-      "content": "<p>The 4-day work week conversation ignores the elephant in the room: childcare. Working parents already struggle with 5-day schedules because schools, daycares, and activities are built around a Monday-Friday model. Compress to 4 days of 10 hours each and you've just made the childcare crisis worse. The conversation needs to account for the entire family ecosystem, not just the individual worker's productivity.</p>",
-      "plainText": "The 4-day work week conversation ignores the elephant in the room: childcare. Working parents already struggle with 5-day schedules because schools, daycares, and activities are built around a Monday-Friday model. Compress to 4 days of 10 hours each and you've just made the childcare crisis worse. The conversation needs to account for the entire family ecosystem, not just the individual worker's productivity.",
-      "account": {
-        "display_name": "Priya Mehta",
-        "acct": "priya@parents.social",
-        "avatar": ""
-      },
-      "created_at": "2025-03-21T08:15:00Z",
-      "favourites_count": 612,
-      "replies_count": 189,
-      "favourited": false,
-      "bookmarked": false
-    },
-    "relatedPosts": [
-      {
-        "id": "post-4-agree-1",
-        "category": "agree",
-        "rank": 1,
         "globalRank": 1,
-        "content": "Finally someone says it. I'm a single mom with two kids under 8. Every time someone tweets about the 4-day work week paradise I think: great, so who watches my kids during the extra 2 hours per day? Extended daycare costs more than the salary bump I'd theoretically get from being more productive. The entire framing assumes a support network that most working parents simply do not have. My mother lives three states away. My ex has the kids every other weekend. The 4-day model would literally break my schedule.",
-        "account": {
-          "display_name": "Lucia Torres",
-          "acct": "lucia@family.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-21T08:45:00Z",
-        "favourites_count": 445,
-        "replies_count": 67,
-        "favourited": false,
-        "bookmarked": false,
+        "content": "Most cars, and small trucks, have been Toyotas in Thailand. Toyota has a very big factory in Bangkok that supplies the country plus Australia and New Zealand which have no car manufacturing.  One time I did an informal 'study' and every second car driving towards me in the other lane was a Toyota.  All the many millions of taxis in the country are Toyota Corollas.  \nIn previous years I would see the very occasional Tesla in Bangkok.  The very high price made them unavailable to all but the super rich.  Last year I did see many BYDs and others, and the advertising was everywhere as the article said.  EVs will be a great thing for Bangkok. The streets are jammed up with cars, often moving at less than walking speed.  They are mostly newish cars so the air quality isn't really bad, but EVs will be so much better.  Also Thailand imports all of the oil it consumes ( it has a little , fast depleting, natural gas, and quite a few vehicles do run on nat gas) , and has amazing solar power potential which for some reason it is not tapping into.  Maybe this new big demand for electric will drive the solar market ahead.  Solar is well suited to EVs since the cars can be charged at nite.  \nThe start of the EV revolution in Thailand will be a very positive thing for the country, especially since the Chinese car companies are opening factories in Thailand providing well paying jobs in a country that doesn't have enough of those.",
         "relations": [
           {
-            "focusStart": 214,
-            "focusEnd": 298,
-            "contentStart": 199,
-            "contentEnd": 297,
-            "focusCommentStart": 214,
-            "focusCommentEnd": 298,
-            "contentCommentStart": 199,
-            "contentCommentEnd": 247,
-            "category": "agree",
-            "topic": "Daycare cost burden"
-          },
-          {
-            "focusStart": 299,
-            "focusEnd": 364,
-            "contentStart": 325,
-            "contentEnd": 388,
-            "focusCommentStart": 316,
-            "focusCommentEnd": 364,
-            "contentCommentStart": 348,
-            "contentCommentEnd": 388,
-            "category": "evidence_personal",
-            "topic": "Missing support network"
-          }
-        ]
-      },
-      {
-        "id": "post-4-disagree-1",
-        "category": "disagree",
-        "rank": 1,
-        "globalRank": 2,
-        "content": "This is a false framing. The 4-day work week doesn't have to mean 4x10. Most successful implementations are 4x8 — 32 hours at the same pay. No childcare problem, because you get a whole day back. The assumption that compressed hours is the only model shows you haven't actually looked at what's being proposed.",
-        "account": {
-          "display_name": "Derek Huang",
-          "acct": "derek@work.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-21T09:02:00Z",
-        "favourites_count": 298,
-        "replies_count": 34,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 214,
-            "focusEnd": 298,
-            "contentStart": 25,
-            "contentEnd": 139,
-            "focusCommentStart": 214,
-            "focusCommentEnd": 298,
-            "contentCommentStart": 45,
-            "contentCommentEnd": 111,
-            "category": "disagree",
-            "topic": "4x8 vs 4x10 model"
-          },
-          {
-            "focusStart": 337,
-            "focusEnd": 412,
-            "contentStart": 170,
-            "contentEnd": 195,
-            "focusCommentStart": 366,
-            "focusCommentEnd": 412,
-            "contentCommentStart": 170,
-            "contentCommentEnd": 195,
+            "focusStart": 126,
+            "focusEnd": 174,
+            "focusCommentStart": 143,
+            "focusCommentEnd": 173,
+            "contentStart": 508,
+            "contentEnd": 645,
+            "contentCommentStart": 528,
+            "contentCommentEnd": 548,
             "category": "framing",
-            "topic": "Day reclaimed"
+            "topic": "Regional assembly"
           }
-        ]
-      },
-      {
-        "id": "focus-001",
-        "category": "connections",
-        "rank": 1,
-        "globalRank": 3,
-        "content": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop. Microsoft Japan saw a 40% productivity spike.",
+        ],
         "account": {
-          "display_name": "Robin Patel",
-          "acct": "robin@futureofwork.io",
-          "avatar": ""
+          "display_name": "mandy_nyt",
+          "acct": "mandy_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
         },
-        "created_at": "2025-03-20T09:00:00Z",
-        "favourites_count": 847,
-        "replies_count": 234,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 0,
-            "focusEnd": 77,
-            "contentStart": 0,
-            "contentEnd": 89,
-            "focusCommentStart": 20,
-            "focusCommentEnd": 77,
-            "contentCommentStart": 43,
-            "contentCommentEnd": 89,
-            "category": "connections",
-            "topic": "Productivity framing"
-          },
-          {
-            "focusStart": 375,
-            "focusEnd": 412,
-            "contentStart": 181,
-            "contentEnd": 226,
-            "focusCommentStart": 375,
-            "focusCommentEnd": 412,
-            "contentCommentStart": 203,
-            "contentCommentEnd": 226,
-            "category": "evidence_public",
-            "topic": "Japan spike data"
-          }
-        ]
-      },
-      {
-        "id": "post-4-evidence-1",
-        "category": "evidence_personal",
-        "rank": 1,
-        "globalRank": 4,
-        "content": "We tried the 4-day week at our agency and the parents on the team were the most vocal opponents, which surprised everyone. The issue wasn't productivity — it was the school pickup logistics. Our office hours shifted to 7am-5:30pm to fit 10 hours in, and that meant nobody could do the 3pm school run. We ended up creating a two-track system: parents could stay on 5x8, others could do 4x10. It worked, but the resentment was palpable. The parents felt like second-class citizens getting an inferior schedule, and the non-parents felt like they were subsidizing the parents' flexibility. It nearly tore the team apart before we found the right balance.",
-        "account": {
-          "display_name": "Rachel Nguyen",
-          "acct": "rachel@agency.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-21T10:20:00Z",
-        "favourites_count": 156,
-        "replies_count": 23,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 140,
-            "focusEnd": 213,
-            "contentStart": 191,
-            "contentEnd": 300,
-            "focusCommentStart": 178,
-            "focusCommentEnd": 213,
-            "contentCommentStart": 265,
-            "contentCommentEnd": 300,
-            "category": "evidence_personal",
-            "topic": "School run conflict"
-          },
-          {
-            "focusStart": 214,
-            "focusEnd": 298,
-            "contentStart": 406,
-            "contentEnd": 586,
-            "focusCommentStart": 214,
-            "focusCommentEnd": 298,
-            "contentCommentStart": 410,
-            "contentCommentEnd": 478,
-            "category": "values",
-            "topic": "Two-tier resentment"
-          }
-        ]
-      },
-      {
-        "id": "focus-005",
-        "category": "connections",
-        "rank": 2,
-        "globalRank": 5,
-        "content": "Every 4-day work week study I've seen focuses on white-collar knowledge workers. What about healthcare? What about logistics? The conversation is fundamentally elitist.",
-        "account": {
-          "display_name": "Marcus Webb",
-          "acct": "marcus@health.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-21T11:00:00Z",
-        "favourites_count": 334,
-        "replies_count": 56,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 299,
-            "focusEnd": 412,
-            "contentStart": 0,
-            "contentEnd": 80,
-            "focusCommentStart": 316,
-            "focusCommentEnd": 364,
-            "contentCommentStart": 38,
-            "contentCommentEnd": 80,
-            "category": "connections",
-            "topic": "Knowledge worker bias"
-          },
-          {
-            "focusStart": 0,
-            "focusEnd": 77,
-            "contentStart": 126,
-            "contentEnd": 168,
-            "focusCommentStart": 20,
-            "focusCommentEnd": 77,
-            "contentCommentStart": 126,
-            "contentCommentEnd": 168,
-            "category": "values",
-            "topic": "Elitism accusation"
-          }
-        ]
-      },
-      {
-        "id": "post-4-proposals-1",
-        "category": "proposals",
-        "rank": 1,
-        "globalRank": 6,
-        "content": "What if we flipped the script entirely? Instead of asking employers to adopt a 4-day week, we should be pushing for universal childcare infrastructure that decouples work schedules from school schedules. In Denmark, most daycares operate from 6:30am to 5pm with subsidized rates. The 4-day conversation becomes much simpler once you remove the childcare constraint. The real policy failure isn't the work schedule — it's the care infrastructure around it. Fix the foundation and the scheduling flexibility follows naturally.",
-        "account": {
-          "display_name": "Astrid Lindgren",
-          "acct": "astrid@nordic.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-21T12:15:00Z",
-        "favourites_count": 201,
-        "replies_count": 18,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 78,
-            "focusEnd": 213,
-            "contentStart": 116,
-            "contentEnd": 203,
-            "focusCommentStart": 94,
-            "focusCommentEnd": 131,
-            "contentCommentStart": 156,
-            "contentCommentEnd": 203,
-            "category": "proposals",
-            "topic": "Universal childcare"
-          },
-          {
-            "focusStart": 299,
-            "focusEnd": 412,
-            "contentStart": 204,
-            "contentEnd": 279,
-            "focusCommentStart": 316,
-            "focusCommentEnd": 364,
-            "contentCommentStart": 221,
-            "contentCommentEnd": 279,
-            "category": "evidence_public",
-            "topic": "Denmark daycare model"
-          }
-        ]
-      },
-      {
-        "id": "post-4-questions-1",
-        "category": "questions",
-        "rank": 1,
-        "globalRank": 7,
-        "content": "Has anyone actually studied what happens to children's schedules when their parents switch to a 4-day week? I'd love to see data on whether kids benefit from having a parent home on Fridays vs the stress of longer days Monday-Thursday.",
-        "account": {
-          "display_name": "James Park",
-          "acct": "james@research.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-21T09:30:00Z",
-        "favourites_count": 89,
-        "replies_count": 12,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 214,
-            "focusEnd": 298,
-            "contentStart": 0,
-            "contentEnd": 107,
-            "focusCommentStart": 254,
-            "focusCommentEnd": 298,
-            "contentCommentStart": 0,
-            "contentCommentEnd": 64,
-            "category": "questions",
-            "topic": "Child impact research"
-          },
-          {
-            "focusStart": 299,
-            "focusEnd": 364,
-            "contentStart": 140,
-            "contentEnd": 235,
-            "focusCommentStart": 316,
-            "focusCommentEnd": 364,
-            "contentCommentStart": 140,
-            "contentCommentEnd": 189,
-            "category": "questions",
-            "topic": "Tradeoff analysis"
-          }
-        ]
-      },
-      {
-        "id": "post-4-humor-1",
-        "category": "humor",
-        "rank": 1,
-        "globalRank": 8,
-        "content": "4-day work week with kids: Monday you're productive, Tuesday you're productive, Wednesday the school calls because your kid has a fever, Thursday you're catching up from Wednesday. Friday you're off but somehow still on Slack. Revolutionary.",
-        "account": {
-          "display_name": "Dana Williams",
-          "acct": "dana@humor.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-21T10:45:00Z",
-        "favourites_count": 523,
-        "replies_count": 41,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 78,
-            "focusEnd": 131,
-            "contentStart": 80,
-            "contentEnd": 180,
-            "focusCommentStart": 78,
-            "focusCommentEnd": 131,
-            "contentCommentStart": 80,
-            "contentCommentEnd": 135,
-            "category": "humor",
-            "topic": "Sick day cascade"
-          },
-          {
-            "focusStart": 375,
-            "focusEnd": 412,
-            "contentStart": 203,
-            "contentEnd": 226,
-            "focusCommentStart": 375,
-            "focusCommentEnd": 412,
-            "contentCommentStart": 203,
-            "contentCommentEnd": 226,
-            "category": "humor",
-            "topic": "Always-on culture"
-          }
-        ]
-      }
-    ],
-    "replies": [
-      {
-        "id": "reply-004-1",
-        "content": "<p>The Denmark comparison is so important. Countries with strong childcare infrastructure have much easier transitions to flexible work.</p>",
-        "plainText": "The Denmark comparison is so important. Countries with strong childcare infrastructure have much easier transitions to flexible work.",
-        "account": {
-          "display_name": "Sofia Klein",
-          "acct": "sofia@eu.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-21T13:00:00Z",
-        "favourites_count": 34,
-        "replies_count": 2,
-        "favourited": false,
-        "bookmarked": false
-      },
-      {
-        "id": "reply-004-2",
-        "content": "<p>As a dad of three, the two-track system Rachel described is exactly what happened at my company. It created a visible divide.</p>",
-        "plainText": "As a dad of three, the two-track system Rachel described is exactly what happened at my company. It created a visible divide.",
-        "account": {
-          "display_name": "Tom Bradley",
-          "acct": "tom@work.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-21T14:20:00Z",
-        "favourites_count": 21,
+        "created_at": "2024-07-31T08:18:47.032Z",
+        "favourites_count": 0,
         "replies_count": 1,
         "favourited": false,
         "bookmarked": false
-      }
-    ]
-  },
-  {
-    "focusPost": {
-      "id": "focus-005",
-      "content": "<p>Every 4-day work week study I've seen focuses on white-collar knowledge workers. What about healthcare? What about logistics? What about retail? The conversation is fundamentally elitist — it assumes everyone sits at a desk and produces 'output' that can be compressed. Try telling an ER nurse to do 4 days of 12.5-hour shifts instead of 5 days of 10. The burnout doesn't decrease — it concentrates.</p>",
-      "plainText": "Every 4-day work week study I've seen focuses on white-collar knowledge workers. What about healthcare? What about logistics? What about retail? The conversation is fundamentally elitist — it assumes everyone sits at a desk and produces 'output' that can be compressed. Try telling an ER nurse to do 4 days of 12.5-hour shifts instead of 5 days of 10. The burnout doesn't decrease — it concentrates.",
-      "account": {
-        "display_name": "Marcus Webb",
-        "acct": "marcus@health.social",
-        "avatar": ""
-      },
-      "created_at": "2025-03-21T11:00:00Z",
-      "favourites_count": 934,
-      "replies_count": 312,
-      "favourited": false,
-      "bookmarked": false
-    },
-    "relatedPosts": [
-      {
-        "id": "post-5-agree-1",
-        "category": "agree",
-        "rank": 1,
-        "globalRank": 1,
-        "content": "I'm a nurse. We already do 3x12 shifts and let me tell you, by hour 10 you are making mistakes. The idea that you can just compress hours in healthcare is genuinely dangerous. Patient outcomes correlate directly with nurse fatigue, and there are multiple studies showing error rates spike after hour 8. The people advocating for compressed schedules in clinical settings have never held a patient's life in their hands while running on fumes. This isn't about productivity metrics — it's about safety. The 4-day work week crowd needs to spend a single shift in an understaffed ED before making policy recommendations.",
-        "account": {
-          "display_name": "Amy Rodriguez",
-          "acct": "amy@nursing.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-21T11:30:00Z",
-        "favourites_count": 567,
-        "replies_count": 89,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 270,
-            "focusEnd": 399,
-            "contentStart": 176,
-            "contentEnd": 302,
-            "focusCommentStart": 352,
-            "focusCommentEnd": 399,
-            "contentCommentStart": 271,
-            "contentCommentEnd": 302,
-            "category": "evidence_public",
-            "topic": "Fatigue error rates"
-          },
-          {
-            "focusStart": 0,
-            "focusEnd": 80,
-            "contentStart": 483,
-            "contentEnd": 501,
-            "focusCommentStart": 22,
-            "focusCommentEnd": 80,
-            "contentCommentStart": 483,
-            "contentCommentEnd": 501,
-            "category": "values",
-            "topic": "Patient safety first"
-          }
-        ]
       },
       {
-        "id": "post-5-disagree-1",
-        "category": "disagree",
+        "id": "112880118820779624",
+        "category": "connections",
         "rank": 1,
         "globalRank": 2,
-        "content": "Healthcare already runs on shift-based scheduling — nobody is suggesting ER nurses work 4x10. The 4-day week for knowledge workers could actually free up resources and policy attention for improving healthcare scheduling separately. These are different problems with different solutions.",
-        "account": {
-          "display_name": "Kevin O'Brien",
-          "acct": "kevin@policy.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-21T11:45:00Z",
-        "favourites_count": 234,
-        "replies_count": 45,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 81,
-            "focusEnd": 144,
-            "contentStart": 0,
-            "contentEnd": 93,
-            "focusCommentStart": 81,
-            "focusCommentEnd": 144,
-            "contentCommentStart": 0,
-            "contentCommentEnd": 49,
-            "category": "disagree",
-            "topic": "Separate scheduling"
-          },
-          {
-            "focusStart": 270,
-            "focusEnd": 351,
-            "contentStart": 146,
-            "contentEnd": 232,
-            "focusCommentStart": 285,
-            "focusCommentEnd": 351,
-            "contentCommentStart": 146,
-            "contentCommentEnd": 220,
-            "category": "proposals",
-            "topic": "Resource reallocation"
-          }
-        ]
-      },
-      {
-        "id": "focus-001",
-        "category": "connections",
-        "rank": 1,
-        "globalRank": 3,
-        "content": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Iceland's four-year trial covering 1% of its entire workforce showed no productivity drop.",
-        "account": {
-          "display_name": "Robin Patel",
-          "acct": "robin@futureofwork.io",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T09:00:00Z",
-        "favourites_count": 847,
-        "replies_count": 234,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 145,
-            "focusEnd": 269,
-            "contentStart": 0,
-            "contentEnd": 89,
-            "focusCommentStart": 149,
-            "focusCommentEnd": 223,
-            "contentCommentStart": 43,
-            "contentCommentEnd": 89,
-            "category": "connections",
-            "topic": "Productivity claim"
-          },
-          {
-            "focusStart": 352,
-            "focusEnd": 399,
-            "contentStart": 90,
-            "contentEnd": 180,
-            "focusCommentStart": 352,
-            "focusCommentEnd": 399,
-            "contentCommentStart": 152,
-            "contentCommentEnd": 180,
-            "category": "evidence_public",
-            "topic": "Iceland workforce scope"
-          }
-        ]
-      },
-      {
-        "id": "focus-004",
-        "category": "connections",
-        "rank": 2,
-        "globalRank": 4,
-        "content": "The 4-day work week conversation ignores the elephant in the room: childcare. Working parents already struggle with 5-day schedules.",
-        "account": {
-          "display_name": "Priya Mehta",
-          "acct": "priya@parents.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-21T08:15:00Z",
-        "favourites_count": 612,
-        "replies_count": 189,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 189,
-            "focusEnd": 269,
-            "contentStart": 0,
-            "contentEnd": 77,
-            "focusCommentStart": 200,
-            "focusCommentEnd": 269,
-            "contentCommentStart": 20,
-            "contentCommentEnd": 77,
-            "category": "connections",
-            "topic": "Childcare blind spot"
-          },
-          {
-            "focusStart": 352,
-            "focusEnd": 399,
-            "contentStart": 78,
-            "contentEnd": 132,
-            "focusCommentStart": 352,
-            "focusCommentEnd": 399,
-            "contentCommentStart": 78,
-            "contentCommentEnd": 132,
-            "category": "agree",
-            "topic": "Parent struggle"
-          }
-        ]
-      },
-      {
-        "id": "post-5-evidence-1",
-        "category": "evidence_public",
-        "rank": 1,
-        "globalRank": 5,
-        "content": "The BLS data is clear: 44% of US workers are in service, production, or transportation roles where physical presence is non-negotiable. The knowledge worker bubble makes us forget that nearly half the workforce can't work remotely, let alone compress their schedules. When we talk about the 4-day work week as a universal solution, we're implicitly writing off almost half the labor force. The research from Autonomy's 2023 report specifically excluded healthcare and manufacturing from their recommendations, which tells you everything about how generalizable these findings actually are.",
-        "account": {
-          "display_name": "Hannah Fischer",
-          "acct": "hannah@data.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-21T13:10:00Z",
-        "favourites_count": 178,
-        "replies_count": 15,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 145,
-            "focusEnd": 269,
-            "contentStart": 23,
-            "contentEnd": 135,
-            "focusCommentStart": 189,
-            "focusCommentEnd": 223,
-            "contentCommentStart": 99,
-            "contentCommentEnd": 135,
-            "category": "evidence_public",
-            "topic": "BLS workforce data"
-          },
-          {
-            "focusStart": 352,
-            "focusEnd": 399,
-            "contentStart": 268,
-            "contentEnd": 389,
-            "focusCommentStart": 352,
-            "focusCommentEnd": 399,
-            "contentCommentStart": 338,
-            "contentCommentEnd": 389,
-            "category": "values",
-            "topic": "Labor force exclusion"
-          }
-        ]
-      },
-      {
-        "id": "focus-006",
-        "category": "evidence_personal",
-        "rank": 1,
-        "globalRank": 6,
-        "content": "We implemented a 4-day work week at our 200-person fintech company 18 months ago. The results were more nuanced than the headlines suggest.",
-        "account": {
-          "display_name": "Chen Wei",
-          "acct": "chen@fintech.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-22T09:00:00Z",
-        "favourites_count": 445,
-        "replies_count": 123,
-        "favourited": false,
-        "bookmarked": false,
+        "content": "A major credit to Chinese automakers, they understand the need for mass produced affordable EVs for the consumer market and have made huge amount of progress. Whereas in the US, a mass produced affordable EV is still a dream. EVs here are exorbitantly priced luxury items and the factors driving that are mostly corporate greed. Wall street loves the huge margins from EV sales and so do the EV makers, there is presently no incentive for any of the players here to cater for that need. Instead of competing with Chinese EVs, we effectively close the market to them by putting tariffs. Why should we grudge Chinese success in this aspect when we do not do anything to compete for that particular market segment?",
         "relations": [
           {
             "focusStart": 0,
-            "focusEnd": 80,
+            "focusEnd": 122,
+            "focusCommentStart": 37,
+            "focusCommentEnd": 91,
             "contentStart": 0,
-            "contentEnd": 81,
-            "focusCommentStart": 38,
-            "focusCommentEnd": 80,
-            "contentCommentStart": 3,
-            "contentCommentEnd": 66,
-            "category": "evidence_personal",
-            "topic": "Fintech case study"
-          },
-          {
-            "focusStart": 270,
-            "focusEnd": 351,
-            "contentStart": 82,
-            "contentEnd": 139,
-            "focusCommentStart": 270,
-            "focusCommentEnd": 326,
-            "contentCommentStart": 99,
-            "contentCommentEnd": 139,
-            "category": "framing",
-            "topic": "Nuanced outcomes"
+            "contentEnd": 158,
+            "contentCommentStart": 67,
+            "contentCommentEnd": 119,
+            "category": "connections",
+            "topic": "Affordable EVs"
           }
-        ]
+        ],
+        "account": {
+          "display_name": "tinman9_nyt",
+          "acct": "tinman9_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:18:42.437Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
       },
       {
-        "id": "post-5-predictions-1",
+        "id": "112880124583497150",
+        "category": "values",
+        "rank": 1,
+        "globalRank": 3,
+        "content": "It’s ironic how we blame China for our own manufacturing inferiority. As the article states, “Chinese manufacturers are adept at mass-producing electric vehicles.” \n\nThe problem is ours, not theirs. It’s simply a reflection of our money obsessed culture that prizes profits above all else. Above health. More than life itself. Our laws and court actions have repeatedly reaffirmed a company’s highest responsibility is to “maximize shareholder value.” Which means make as much money as possible, as quickly as possible, any way possible. The fastest way a manufacturing company can boost its profits is to cut costs. Mortgage the future for the sake of a few more dollars today. In the process we’ve ceded manufacturing to China and other countries who can make EVs, and most other manufactured goods, better than we can. \n\nOver the past few decades we’ve rationalized becoming a “service” economy or an “information” economy. Funny how making things is still important. Cars, iPhones, solar panels, wind turbines, batteries, all of which we rely on China to make for us. By resorting to tariffs we’re only making consumers pay more for things that we can’t manufacture as well or as inexpensively as others can. \n\nIf we want to blame someone for our loss of manufacturing prowess, we have only to look in the mirror.",
+        "relations": [
+          {
+            "focusStart": 732,
+            "focusEnd": 820,
+            "focusCommentStart": 759,
+            "focusCommentEnd": 819,
+            "contentStart": 971,
+            "contentEnd": 1071,
+            "contentCommentStart": 1039,
+            "contentCommentEnd": 1070,
+            "category": "agree",
+            "topic": "Dependence on China"
+          }
+        ],
+        "account": {
+          "display_name": "nickl_nyt",
+          "acct": "nickl_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:20:10.368Z",
+        "favourites_count": 0,
+        "replies_count": 1,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880110325095475",
         "category": "predictions",
         "rank": 1,
-        "globalRank": 7,
-        "content": "Within 10 years we'll have a two-tier labor market: knowledge workers on 4-day weeks with full benefits, and service workers on 5-6 day weeks with gig-style contracts. The 4-day movement will accelerate inequality rather than reduce it.",
-        "account": {
-          "display_name": "Yuki Tanaka",
-          "acct": "yuki@futures.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-21T14:00:00Z",
-        "favourites_count": 267,
-        "replies_count": 33,
-        "favourited": false,
-        "bookmarked": false,
+        "globalRank": 4,
+        "content": "China recognised years ago fossil fuel engines will eventually go the way of the horse and cart so they've invested heavily in electric cars and as such are a decade ahead of the west. Their cars are so superior in engineering, design and value for money. Ive spent some time in Bejing and driven a few and I'm impressed and would buy one if they were available here. The key to the future of the EV Is who can develop a self generating power supply and again the Chinese are streets ahead of the west",
         "relations": [
           {
-            "focusStart": 145,
-            "focusEnd": 186,
+            "focusStart": 0,
+            "focusEnd": 122,
+            "focusCommentStart": 70,
+            "focusCommentEnd": 91,
             "contentStart": 0,
-            "contentEnd": 167,
-            "focusCommentStart": 145,
-            "focusCommentEnd": 186,
-            "contentCommentStart": 16,
-            "contentCommentEnd": 50,
+            "contentEnd": 184,
+            "contentCommentStart": 157,
+            "contentCommentEnd": 183,
             "category": "predictions",
-            "topic": "Two-tier labor market"
-          },
-          {
-            "focusStart": 352,
-            "focusEnd": 399,
-            "contentStart": 172,
-            "contentEnd": 236,
-            "focusCommentStart": 352,
-            "focusCommentEnd": 399,
-            "contentCommentStart": 172,
-            "contentCommentEnd": 236,
-            "category": "values",
-            "topic": "Inequality acceleration"
+            "topic": "Manufacturing depth"
           }
-        ]
-      }
-    ],
-    "replies": [
-      {
-        "id": "reply-005-1",
-        "content": "<p>Nurse here. The 3x12 schedule is already brutal. Anyone proposing changes to healthcare scheduling should be required to shadow a 12-hour shift first.</p>",
-        "plainText": "Nurse here. The 3x12 schedule is already brutal. Anyone proposing changes to healthcare scheduling should be required to shadow a 12-hour shift first.",
+        ],
         "account": {
-          "display_name": "Pat Stevens",
-          "acct": "pat@nursing.social",
-          "avatar": ""
+          "display_name": "howard_nyt",
+          "acct": "howard_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
         },
-        "created_at": "2025-03-21T15:00:00Z",
-        "favourites_count": 89,
-        "replies_count": 5,
+        "created_at": "2024-07-31T08:16:32.802Z",
+        "favourites_count": 0,
+        "replies_count": 1,
         "favourited": false,
         "bookmarked": false
       },
       {
-        "id": "reply-005-2",
-        "content": "<p>The two-tier prediction is already happening. My company went to 4 days, our warehouse stayed at 5. The resentment is real.</p>",
-        "plainText": "The two-tier prediction is already happening. My company went to 4 days, our warehouse stayed at 5. The resentment is real.",
+        "id": "112880116475128424",
+        "category": "questions",
+        "rank": 1,
+        "globalRank": 5,
+        "content": "What is the EV charging infrastructure in Thailand to support the sale of EVs? \nWhat are the subsidies and policies, if any, set in place by the Thai government to support the purchase of EVs vs a polluting ICE vehicle?\nWhat are the true costs of owning an EV vs an ICE vehicle in Thailand (purchase price, taxes, insurance, repair costs)?\nHow is electricity generated mostly in Thailand and what are their plans to move to renewables?\nHow easy and widespread is for people living in Thailand to charge effectively an EV?\nWhat is the demand or the socio-political context for Thai people wanting to buy an EV?\nIs the need for EVs just in Bangkok, or also in more rural areas?\nHow reliable are Chinese made EVs vs Japanese made ICE vehicles and what do Thai car owners/buyers think about it?\n\nI wish the article gave more context and answers about these questions. Just because you have more EVs at, supposedly, lower prices, doesn’t mean that people will buy them.",
+        "relations": [
+          {
+            "focusStart": 732,
+            "focusEnd": 820,
+            "focusCommentStart": 759,
+            "focusCommentEnd": 819,
+            "contentStart": 792,
+            "contentEnd": 964,
+            "contentCommentStart": 925,
+            "contentCommentEnd": 963,
+            "category": "questions",
+            "topic": "Local adoption context"
+          }
+        ],
         "account": {
-          "display_name": "Andre Clark",
-          "acct": "andre@logistics.social",
-          "avatar": ""
+          "display_name": "pivi_nyt",
+          "acct": "pivi_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
         },
-        "created_at": "2025-03-21T16:30:00Z",
-        "favourites_count": 56,
-        "replies_count": 3,
+        "created_at": "2024-07-31T08:18:06.645Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112879937675067057",
+        "category": "evidence_personal",
+        "rank": 1,
+        "globalRank": 6,
+        "content": "Living in Asia and seeing the new Chinese EVs everywhere now, it feels like Tesla’s valuation is untenable. And Musk’s grandiose statements about driverless taxis, as a way out of this reality, are not reassuring. I know Musk is considered to be a visionary leader far ahead of the curve, and I know that most of China’s EV technology is a blatant copy of Tesla’s, and I know many Americans say they will never accept Chinese EVs. But wait until you see them. They are beautiful. It may end up being just like how people said Americans would never buy Japanese cars. There’s a reason the US and EU are imposing such high tariffs. Chinese EVs will pose major threats to Tesla and other EV manufacturers.",
+        "relations": [
+          {
+            "focusStart": 362,
+            "focusEnd": 389,
+            "focusCommentStart": 375,
+            "focusCommentEnd": 388,
+            "contentStart": 0,
+            "contentEnd": 107,
+            "contentCommentStart": 19,
+            "contentCommentEnd": 60,
+            "category": "evidence_personal",
+            "topic": "On-the-ground Asia"
+          }
+        ],
+        "account": {
+          "display_name": "ebennett_nyt",
+          "acct": "ebennett_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T07:32:38.372Z",
+        "favourites_count": 0,
+        "replies_count": 1,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880112082639027",
+        "category": "proposals",
+        "rank": 1,
+        "globalRank": 7,
+        "content": "Chinese cars are popping up here in Spain.  I rode in a BYD taxi earlier this year.  The interior was very upscale.  Per the driver it wasn’t much more expensive than a KIA Nero, a popular car for taxis here.  Tariffs will protect manufacturers from the U.S. and Europe for a while but like Hyundai and KIA in the past the value delivered for the price will steadily win more and more customers.  We need affordable EVs to enable the move away from gas cars, and a lot more accessible charging stations.",
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 122,
+            "focusCommentStart": 70,
+            "focusCommentEnd": 91,
+            "contentStart": 210,
+            "contentEnd": 395,
+            "contentCommentStart": 323,
+            "contentCommentEnd": 394,
+            "category": "proposals",
+            "topic": "Tariffs as delay"
+          }
+        ],
+        "account": {
+          "display_name": "charles_nyt",
+          "acct": "charles_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:16:59.621Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880118092486546",
+        "category": "agree",
+        "rank": 1,
+        "globalRank": 8,
+        "content": "For 20 years I’ve been hearing how important it is that we shift away from the internal combustion engine. Now, the Chinese have affordable electric vehicles while American and European companies continue selling expensive gas-powered cars. And instead of letting the free market take its course, the hegemonic powers of the west argue about Chinese overcapacity and government subsidies. \n\nThis is how the US and Europe lose their positions as world leaders. They are too busy protecting entrenched interests to truly do something about the environment and to give consumers the options they want. And developing countries are the first ones to witness it. I live in Mexico and I can tell you that we have a bunch of new Chinese cars on the roads. Americans and Europeans won’t see this because they are shielded by tariffs, but you cannot change global economic dynamics with simple domestic policies.",
+        "relations": [
+          {
+            "focusStart": 732,
+            "focusEnd": 820,
+            "focusCommentStart": 770,
+            "focusCommentEnd": 819,
+            "contentStart": 107,
+            "contentEnd": 240,
+            "contentCommentStart": 129,
+            "contentCommentEnd": 239,
+            "category": "agree",
+            "topic": "Market reality"
+          }
+        ],
+        "account": {
+          "display_name": "adrin_nyt",
+          "acct": "adrin_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:18:31.324Z",
+        "favourites_count": 0,
+        "replies_count": 2,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880121510261830",
+        "category": "evidence_public",
+        "rank": 1,
+        "globalRank": 9,
+        "content": "@Herry Here you go! Straight from Elon’s mouth.\n\n“Elon Musk told industry analysts Chinese EVs are so good that without trade barriers, “they will pretty much demolish most other car companies in the world.”\n\nSmall, well-built Chinese electric vehicle poses a big threat to the U.S. auto industry | PBS News\nhttps://www.pbs.org/newshour/economy/small-well-built-chinese-electric-vehicle-poses-a-big-threat-to-the-u-s-auto-industry\n\nAmerican Test Of Three Chinese EVs: 'It’s A Wake-Up Call'\nhttps://insideevs.com/news/724040/chinese-ev-xpeng-zeekr-tesla/\n\nWhere’s your proof? Or are you waiting on Ford and GM to rise up?",
+        "relations": [
+          {
+            "focusStart": 362,
+            "focusEnd": 389,
+            "focusCommentStart": 375,
+            "focusCommentEnd": 388,
+            "contentStart": 49,
+            "contentEnd": 207,
+            "contentCommentStart": 137,
+            "contentCommentEnd": 206,
+            "category": "evidence_public",
+            "topic": "Industry rhetoric"
+          }
+        ],
+        "account": {
+          "display_name": "letitgrow_nyt",
+          "acct": "letitgrow_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:19:23.475Z",
+        "favourites_count": 0,
+        "replies_count": 0,
         "favourited": false,
         "bookmarked": false
       }
@@ -2499,323 +1077,309 @@
   },
   {
     "focusPost": {
-      "id": "focus-006",
-      "content": "<p>We implemented a 4-day work week at our 200-person fintech company 18 months ago. The results were more nuanced than the headlines suggest. Yes, productivity held steady for the first 6 months. But then we noticed something: innovation slowed. The spontaneous hallway conversations, the lunch brainstorms, the 'let me show you something' moments — they all decreased by about 30%. We gained efficiency but lost serendipity. We're now doing a hybrid model: 4-day weeks in Q1 and Q3, 5-day weeks in Q2 and Q4.</p>",
-      "plainText": "We implemented a 4-day work week at our 200-person fintech company 18 months ago. The results were more nuanced than the headlines suggest. Yes, productivity held steady for the first 6 months. But then we noticed something: innovation slowed. The spontaneous hallway conversations, the lunch brainstorms, the 'let me show you something' moments — they all decreased by about 30%. We gained efficiency but lost serendipity. We're now doing a hybrid model: 4-day weeks in Q1 and Q3, 5-day weeks in Q2 and Q4.",
+      "id": "112854373877034288",
+      "content": "I don't see the problem with letting China pump and dump, at massive losses, cars from their EV industry. What better way to fund the energy transition, which will make us less dependent on Russia and other rouge dictatorships, than with Chinese govt money? \n\nJust cut red tape on US lithium mining and subsidize/tariff protect our own industries just enough that the companies continue to grow it capture the luxury market, then let China pay for the masses to convert to EVs and solar. It would be very easy; just do economic analysis on which EV types China sells at a loss, allow those in, then tariff the big and luxury ones that turn a profit. They're desperate to sell bc they already made the capex investments on the factories, so we can dictate terms",
+      "plainText": "I don't see the problem with letting China pump and dump, at massive losses, cars from their EV industry. What better way to fund the energy transition, which will make us less dependent on Russia and other rouge dictatorships, than with Chinese govt money? \n\nJust cut red tape on US lithium mining and subsidize/tariff protect our own industries just enough that the companies continue to grow it capture the luxury market, then let China pay for the masses to convert to EVs and solar. It would be very easy; just do economic analysis on which EV types China sells at a loss, allow those in, then tariff the big and luxury ones that turn a profit. They're desperate to sell bc they already made the capex investments on the factories, so we can dictate terms",
       "account": {
-        "display_name": "Chen Wei",
-        "acct": "chen@fintech.social",
-        "avatar": ""
+        "display_name": "student_3",
+        "acct": "student_3@stacky-nyt.com",
+        "avatar": "https://beta.stacky.social/avatars/original/missing.png"
       },
-      "created_at": "2025-03-22T09:00:00Z",
-      "favourites_count": 1245,
-      "replies_count": 456,
+      "created_at": "2024-07-26T19:11:25.771Z",
+      "favourites_count": 0,
+      "replies_count": 0,
       "favourited": false,
       "bookmarked": false
     },
     "relatedPosts": [
       {
-        "id": "post-6-agree-1",
-        "category": "agree",
-        "rank": 1,
-        "globalRank": 1,
-        "content": "This is the most honest assessment I've seen. Everyone else is either fully for or fully against. The serendipity loss is real and I've experienced it firsthand. At our startup we switched to 4 days and within a year our best product ideas had dried up. The stuff that used to come from casual Friday afternoon whiteboard sessions just stopped happening. We eventually realized that some of our most valuable work was the unstructured, unplanned collaboration that happened in the gaps between scheduled work. You can't compress serendipity into a calendar invite. We went back to 5 days but with Wednesday afternoons off as a compromise.",
-        "account": {
-          "display_name": "Nadia Petrova",
-          "acct": "nadia@startup.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-22T09:45:00Z",
-        "favourites_count": 389,
-        "replies_count": 56,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 244,
-            "focusEnd": 380,
-            "contentStart": 254,
-            "contentEnd": 354,
-            "focusCommentStart": 348,
-            "focusCommentEnd": 380,
-            "contentCommentStart": 311,
-            "contentCommentEnd": 354,
-            "category": "agree",
-            "topic": "Serendipity loss"
-          },
-          {
-            "focusStart": 424,
-            "focusEnd": 507,
-            "contentStart": 383,
-            "contentEnd": 509,
-            "focusCommentStart": 424,
-            "focusCommentEnd": 454,
-            "contentCommentStart": 395,
-            "contentCommentEnd": 459,
-            "category": "evidence_personal",
-            "topic": "Unstructured collaboration"
-          }
-        ]
-      },
-      {
-        "id": "post-6-disagree-1",
-        "category": "disagree",
-        "rank": 1,
-        "globalRank": 2,
-        "content": "Correlation isn't causation. Innovation might have slowed for a hundred other reasons — market saturation, team maturity, product lifecycle. Attributing it to one fewer day in the office is a classic post-hoc fallacy.",
-        "account": {
-          "display_name": "Leo Grant",
-          "acct": "leo@data.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-22T10:15:00Z",
-        "favourites_count": 201,
-        "replies_count": 28,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 194,
-            "focusEnd": 243,
-            "contentStart": 0,
-            "contentEnd": 140,
-            "focusCommentStart": 203,
-            "focusCommentEnd": 243,
-            "contentCommentStart": 29,
-            "contentCommentEnd": 85,
-            "category": "disagree",
-            "topic": "Confounding variables"
-          },
-          {
-            "focusStart": 381,
-            "focusEnd": 423,
-            "contentStart": 192,
-            "contentEnd": 217,
-            "focusCommentStart": 381,
-            "focusCommentEnd": 423,
-            "contentCommentStart": 192,
-            "contentCommentEnd": 217,
-            "category": "framing",
-            "topic": "Post-hoc fallacy"
-          }
-        ]
-      },
-      {
-        "id": "focus-001",
-        "category": "disagree",
-        "rank": 2,
-        "globalRank": 3,
-        "content": "The 4-day work week is not a perk — it's a productivity revolution hiding in plain sight. Companies that make the switch report lower burnout, higher retention, and better output.",
-        "account": {
-          "display_name": "Robin Patel",
-          "acct": "robin@futureofwork.io",
-          "avatar": ""
-        },
-        "created_at": "2025-03-20T09:00:00Z",
-        "favourites_count": 847,
-        "replies_count": 234,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 82,
-            "focusEnd": 139,
-            "contentStart": 90,
-            "contentEnd": 179,
-            "focusCommentStart": 86,
-            "focusCommentEnd": 139,
-            "contentCommentStart": 128,
-            "contentCommentEnd": 179,
-            "category": "disagree",
-            "topic": "Blanket positive claims"
-          },
-          {
-            "focusStart": 381,
-            "focusEnd": 423,
-            "contentStart": 0,
-            "contentEnd": 89,
-            "focusCommentStart": 381,
-            "focusCommentEnd": 423,
-            "contentCommentStart": 0,
-            "contentCommentEnd": 33,
-            "category": "framing",
-            "topic": "Perk vs revolution"
-          }
-        ]
-      },
-      {
-        "id": "post-6-proposals-1",
-        "category": "proposals",
-        "rank": 1,
-        "globalRank": 4,
-        "content": "Your seasonal model is interesting. What about a 4.5-day week instead? Half-day Fridays preserve the casual collaboration time while still giving people meaningful time back. We've been doing this for two years and it threads the needle perfectly — structured work Monday through Thursday, Fridays are for the unstructured creative stuff.",
-        "account": {
-          "display_name": "Omar Hassan",
-          "acct": "omar@design.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-22T11:30:00Z",
-        "favourites_count": 167,
-        "replies_count": 19,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 244,
-            "focusEnd": 380,
-            "contentStart": 36,
-            "contentEnd": 174,
-            "focusCommentStart": 348,
-            "focusCommentEnd": 380,
-            "contentCommentStart": 88,
-            "contentCommentEnd": 126,
-            "category": "proposals",
-            "topic": "Half-day Friday"
-          },
-          {
-            "focusStart": 381,
-            "focusEnd": 507,
-            "contentStart": 249,
-            "contentEnd": 338,
-            "focusCommentStart": 384,
-            "focusCommentEnd": 423,
-            "contentCommentStart": 290,
-            "contentCommentEnd": 338,
-            "category": "evidence_personal",
-            "topic": "Structured vs creative"
-          }
-        ]
-      },
-      {
-        "id": "focus-005",
+        "id": "112880123275614116",
         "category": "framing",
         "rank": 1,
-        "globalRank": 5,
-        "content": "Every 4-day work week study I've seen focuses on white-collar knowledge workers. The conversation is fundamentally elitist.",
-        "account": {
-          "display_name": "Marcus Webb",
-          "acct": "marcus@health.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-21T11:00:00Z",
-        "favourites_count": 934,
-        "replies_count": 312,
-        "favourited": false,
-        "bookmarked": false,
+        "globalRank": 1,
+        "content": "In the U.S., we value clean air and clean water, and support a level of environmental respect for the planet.  Not as much as we should, but more than what those in China live with.  That costs money. In an ironic twist of fate, that’s one factor that keeps the fossil fuel based cars on the road here,  in place of renewable energy EVs filling the roads in China.  ( obviously, the cleaner only refers to the operation and not manufacturing). Furthermore, workers building cars in North America earn more making the cars that are much pricier, and the flood of cheaper Chinese cars would undermine the ability of American workers to buy these or any cars. In America, our environmental values, our economy, are just not ready to compete with the global marketplace we created.  It’s been obvious to the American worker, and the American consumer for decades now. While we hoped globalization would bring equality to the world, we also hoped that would happen by raising standards across the globe.  What really has happened, and to everyone but the few richest people,  is the opposite.  We became ‘more equal’ by lowering expectations, opportunities, and real economic security here at home. These cars, perhaps more than any other product that China has mass produced, reflect that reality.",
         "relations": [
           {
-            "focusStart": 0,
-            "focusEnd": 66,
-            "contentStart": 0,
-            "contentEnd": 80,
-            "focusCommentStart": 0,
-            "focusCommentEnd": 32,
-            "contentCommentStart": 38,
-            "contentCommentEnd": 80,
-            "category": "framing",
-            "topic": "White-collar bias"
-          },
-          {
-            "focusStart": 424,
-            "focusEnd": 507,
-            "contentStart": 81,
-            "contentEnd": 123,
-            "focusCommentStart": 424,
-            "focusCommentEnd": 454,
-            "contentCommentStart": 81,
-            "contentCommentEnd": 123,
-            "category": "connections",
-            "topic": "Elitism critique"
-          }
-        ]
-      },
-      {
-        "id": "post-6-values-1",
-        "category": "values",
-        "rank": 1,
-        "globalRank": 6,
-        "content": "The fact that we're measuring the value of a work schedule by 'innovation output' says everything about how broken our relationship with work is. Maybe the point isn't to maximize creative collisions — maybe it's to let people live fuller lives.",
-        "account": {
-          "display_name": "Iris Chang",
-          "acct": "iris@philosophy.social",
-          "avatar": ""
-        },
-        "created_at": "2025-03-22T12:00:00Z",
-        "favourites_count": 445,
-        "replies_count": 67,
-        "favourited": false,
-        "bookmarked": false,
-        "relations": [
-          {
-            "focusStart": 381,
-            "focusEnd": 423,
-            "contentStart": 0,
-            "contentEnd": 145,
-            "focusCommentStart": 381,
-            "focusCommentEnd": 423,
-            "contentCommentStart": 104,
-            "contentCommentEnd": 145,
+            "focusStart": 425,
+            "focusEnd": 487,
+            "focusCommentStart": 430,
+            "focusCommentEnd": 458,
+            "contentStart": 1000,
+            "contentEnd": 1193,
+            "contentCommentStart": 1115,
+            "contentCommentEnd": 1192,
             "category": "values",
-            "topic": "Innovation worship"
-          },
-          {
-            "focusStart": 456,
-            "focusEnd": 507,
-            "contentStart": 202,
-            "contentEnd": 245,
-            "focusCommentStart": 456,
-            "focusCommentEnd": 507,
-            "contentCommentStart": 202,
-            "contentCommentEnd": 245,
-            "category": "framing",
-            "topic": "Fuller lives"
+            "topic": "Globalization outcomes"
           }
-        ]
-      }
-    ],
-    "replies": [
-      {
-        "id": "reply-006-1",
-        "content": "<p>The seasonal model is brilliant. Different quarters have different energy levels anyway — Q4 is always crunch time for us.</p>",
-        "plainText": "The seasonal model is brilliant. Different quarters have different energy levels anyway — Q4 is always crunch time for us.",
+        ],
         "account": {
-          "display_name": "Jake Morrison",
-          "acct": "jake@tech.social",
-          "avatar": ""
+          "display_name": "mh_nyt",
+          "acct": "mh_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
         },
-        "created_at": "2025-03-22T13:00:00Z",
-        "favourites_count": 78,
-        "replies_count": 4,
+        "created_at": "2024-07-31T08:19:50.412Z",
+        "favourites_count": 0,
+        "replies_count": 1,
         "favourited": false,
         "bookmarked": false
       },
       {
-        "id": "reply-006-2",
-        "content": "<p>We tried the half-day Friday approach Omar mentioned. It works well but people treat Friday morning as a write-off too. Culture matters more than the schedule.</p>",
-        "plainText": "We tried the half-day Friday approach Omar mentioned. It works well but people treat Friday morning as a write-off too. Culture matters more than the schedule.",
+        "id": "112880124583497150",
+        "category": "disagree",
+        "rank": 1,
+        "globalRank": 2,
+        "content": "It’s ironic how we blame China for our own manufacturing inferiority. As the article states, “Chinese manufacturers are adept at mass-producing electric vehicles.” \n\nThe problem is ours, not theirs. It’s simply a reflection of our money obsessed culture that prizes profits above all else. Above health. More than life itself. Our laws and court actions have repeatedly reaffirmed a company’s highest responsibility is to “maximize shareholder value.” Which means make as much money as possible, as quickly as possible, any way possible. The fastest way a manufacturing company can boost its profits is to cut costs. Mortgage the future for the sake of a few more dollars today. In the process we’ve ceded manufacturing to China and other countries who can make EVs, and most other manufactured goods, better than we can. \n\nOver the past few decades we’ve rationalized becoming a “service” economy or an “information” economy. Funny how making things is still important. Cars, iPhones, solar panels, wind turbines, batteries, all of which we rely on China to make for us. By resorting to tariffs we’re only making consumers pay more for things that we can’t manufacture as well or as inexpensively as others can. \n\nIf we want to blame someone for our loss of manufacturing prowess, we have only to look in the mirror.",
+        "relations": [
+          {
+            "focusStart": 260,
+            "focusEnd": 487,
+            "focusCommentStart": 303,
+            "focusCommentEnd": 346,
+            "contentStart": 1072,
+            "contentEnd": 1212,
+            "contentCommentStart": 1107,
+            "contentCommentEnd": 1211,
+            "category": "disagree",
+            "topic": "Tariff incidence"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 105,
+            "focusCommentStart": 29,
+            "focusCommentEnd": 56,
+            "contentStart": 0,
+            "contentEnd": 69,
+            "contentCommentStart": 16,
+            "contentCommentEnd": 68,
+            "category": "framing",
+            "topic": "Blame vs leverage"
+          }
+        ],
         "account": {
-          "display_name": "Mia Santos",
-          "acct": "mia@hr.social",
-          "avatar": ""
+          "display_name": "nickl_nyt",
+          "acct": "nickl_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
         },
-        "created_at": "2025-03-22T14:30:00Z",
-        "favourites_count": 45,
+        "created_at": "2024-07-31T08:20:10.368Z",
+        "favourites_count": 0,
+        "replies_count": 1,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880126113503842",
+        "category": "values",
+        "rank": 1,
+        "globalRank": 3,
+        "content": "For decades the US was the champion and extolled the virtues of free market capitalism and free trade. The greatest and surest way for growth and prosperity.\n\nNow, when the US faces competition which it cannot win with the rules it crafted, it’s crying foul.\n\nCopying and making it better and cheaper. The Chinese automakers have beaten the US automakers at their own game. With State sponsorship. \n\nCopying anyone is the best compliment anyone can pay.\n\nThe US has to learn manufacturing anew with new technologies. Quality products at scale which are economical to produce for domestic consumption and exports. Beat the competition at their own game. Are we ready?\n\nTariffs and protectionism take us backwards. \n\nOtherwise, the whole world will pass us by in autonomous electric vehicles on the road and in the sky and we will still be stuck in the ICE age! Driving noisy gas guzzlers polluting our own air!",
+        "relations": [
+          {
+            "focusStart": 594,
+            "focusEnd": 649,
+            "focusCommentStart": 599,
+            "focusCommentEnd": 629,
+            "contentStart": 668,
+            "contentEnd": 712,
+            "contentCommentStart": 668,
+            "contentCommentEnd": 712,
+            "category": "proposals",
+            "topic": "Protectionism"
+          }
+        ],
+        "account": {
+          "display_name": "impartial_nyt",
+          "acct": "impartial_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:20:33.715Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880118820779624",
+        "category": "connections",
+        "rank": 1,
+        "globalRank": 4,
+        "content": "A major credit to Chinese automakers, they understand the need for mass produced affordable EVs for the consumer market and have made huge amount of progress. Whereas in the US, a mass produced affordable EV is still a dream. EVs here are exorbitantly priced luxury items and the factors driving that are mostly corporate greed. Wall street loves the huge margins from EV sales and so do the EV makers, there is presently no incentive for any of the players here to cater for that need. Instead of competing with Chinese EVs, we effectively close the market to them by putting tariffs. Why should we grudge Chinese success in this aspect when we do not do anything to compete for that particular market segment?",
+        "relations": [
+          {
+            "focusStart": 650,
+            "focusEnd": 760,
+            "focusCommentStart": 740,
+            "focusCommentEnd": 760,
+            "contentStart": 586,
+            "contentEnd": 711,
+            "contentCommentStart": 646,
+            "contentCommentEnd": 710,
+            "category": "agree",
+            "topic": "Market power"
+          }
+        ],
+        "account": {
+          "display_name": "tinman9_nyt",
+          "acct": "tinman9_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:18:42.437Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880127140272756",
+        "category": "agree",
+        "rank": 1,
+        "globalRank": 5,
+        "content": "nothing encapsulates absurdity better than antagonistic policy positions\n\nIn my country anyway, Government policy explicitly punishes combustion engine owners and rewards electric vehicle owners. Through taxation, subsidy, lack of environmental accountability on manufacturing and constant messaging about how massive changes are necessary in lifestyles. Every natural event is somehow framed as a result of profligacy and neglect on the part of the citizenry. God is angry, essentially.\n\nI am told constantly that I must change my ways. I need a new electric vehicle. Now, I am old enough to know that when the weather forecaster is selling umbrellas, something ain't right.\nSo, apparently what needs to happen is for me to buy a Ford electric vehicle. Lots of advertising for those. But those ads are on the same websites telling me that this is an emergency. An existential crisis. The most important thing. \n\nAnd yet the same Government won't allow inexpensive EVs to be sold here. So forgive me if I take all of this doom as a sales maneuver. \n\nYou could allow Chinese EVs, and ban cryptocurrency mining, and solve electricity supply. But that's actually not what anyone wants. Governments want to fund projects, and sell specific new vehicles from favoured manufacturers. And endless crisis generation/management is simply an over the top way to keep this going.",
+        "relations": [
+          {
+            "focusStart": 594,
+            "focusEnd": 649,
+            "focusCommentStart": 599,
+            "focusCommentEnd": 648,
+            "contentStart": 913,
+            "contentEnd": 1047,
+            "contentCommentStart": 941,
+            "contentCommentEnd": 984,
+            "category": "agree",
+            "topic": "Inexpensive EV access"
+          }
+        ],
+        "account": {
+          "display_name": "stefancaunter_nyt",
+          "acct": "stefancaunter_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:20:49.382Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880110824825811",
+        "category": "predictions",
+        "rank": 1,
+        "globalRank": 6,
+        "content": "I don't get it\n\nIn the US, \n1. Ford loses 1.5 billion making EVs and each one is 50k or more\n2. GM is slow walking EV (they made less than 1000) \n3. Tesla will be out of business if not for the energy credits given  generously by the US govt\n4. There is no sales tax in many states on \"domestic\" EVs, a state subsidy! \n5. Federal govt is giving $7500 for buying an EV, a federal subsidy!\n\nAnd the Chinese are flooding the global market with cheap EVs!\n\nGo figure!",
+        "relations": [
+          {
+            "focusStart": 106,
+            "focusEnd": 257,
+            "focusCommentStart": 238,
+            "focusCommentEnd": 256,
+            "contentStart": 389,
+            "contentEnd": 451,
+            "contentCommentStart": 409,
+            "contentCommentEnd": 450,
+            "category": "predictions",
+            "topic": "Cheap imports"
+          }
+        ],
+        "account": {
+          "display_name": "acommonman_nyt",
+          "acct": "acommonman_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:16:40.428Z",
+        "favourites_count": 0,
         "replies_count": 2,
         "favourited": false,
         "bookmarked": false
       },
       {
-        "id": "reply-006-3",
-        "content": "<p>200 person company data is so much more valuable than the Iceland/Microsoft anecdotes. Thank you for sharing the nuance including the downsides.</p>",
-        "plainText": "200 person company data is so much more valuable than the Iceland/Microsoft anecdotes. Thank you for sharing the nuance including the downsides.",
+        "id": "112880110627141264",
+        "category": "proposals",
+        "rank": 1,
+        "globalRank": 7,
+        "content": "Complain all you want about Chinese auto starting to dominate, but if EV is the key to fighting climate change, than shutting Chinese auto out of a car-crazed US market seems like another side of the\"climate -denial\" coin.  Not to mention a slap in the face of Americans under the thumb of inflation. \n\nI agree with the concern of Chinese spyware in American roads, but I also have concerned GM and Ford and Tesla spyware too.  So fix the problem if automotive spyware, and let me buy a half-wat decent inexpensive Chinese EV. \n\n...Because I ain't buying a bloated, expensive American EV.",
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 105,
+            "focusCommentStart": 29,
+            "focusCommentEnd": 56,
+            "contentStart": 63,
+            "contentEnd": 222,
+            "contentCommentStart": 117,
+            "contentCommentEnd": 222,
+            "category": "connections",
+            "topic": "Climate vs closed market"
+          }
+        ],
         "account": {
-          "display_name": "Alex Rivera",
-          "acct": "alex@research.social",
-          "avatar": ""
+          "display_name": "someone_nyt",
+          "acct": "someone_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
         },
-        "created_at": "2025-03-22T15:00:00Z",
-        "favourites_count": 34,
+        "created_at": "2024-07-31T08:16:37.412Z",
+        "favourites_count": 0,
         "replies_count": 1,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880123986818991",
+        "category": "questions",
+        "rank": 1,
+        "globalRank": 8,
+        "content": "What happened to American ingenuity in making great cars that all Americans can afford? Henry Ford must be spinning in his grave that Made in the USA can't compete with China when it comes to EVs.",
+        "relations": [
+          {
+            "focusStart": 260,
+            "focusEnd": 487,
+            "focusCommentStart": 303,
+            "focusCommentEnd": 346,
+            "contentStart": 0,
+            "contentEnd": 196,
+            "contentCommentStart": 150,
+            "contentCommentEnd": 195,
+            "category": "questions",
+            "topic": "Industrial competitiveness"
+          }
+        ],
+        "account": {
+          "display_name": "paulwortman_nyt",
+          "acct": "paulwortman_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:20:01.263Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "112880118092486546",
+        "category": "evidence_personal",
+        "rank": 1,
+        "globalRank": 9,
+        "content": "For 20 years I’ve been hearing how important it is that we shift away from the internal combustion engine. Now, the Chinese have affordable electric vehicles while American and European companies continue selling expensive gas-powered cars. And instead of letting the free market take its course, the hegemonic powers of the west argue about Chinese overcapacity and government subsidies. \n\nThis is how the US and Europe lose their positions as world leaders. They are too busy protecting entrenched interests to truly do something about the environment and to give consumers the options they want. And developing countries are the first ones to witness it. I live in Mexico and I can tell you that we have a bunch of new Chinese cars on the roads. Americans and Europeans won’t see this because they are shielded by tariffs, but you cannot change global economic dynamics with simple domestic policies.",
+        "relations": [
+          {
+            "focusStart": 425,
+            "focusEnd": 487,
+            "focusCommentStart": 430,
+            "focusCommentEnd": 458,
+            "contentStart": 749,
+            "contentEnd": 903,
+            "contentCommentStart": 805,
+            "contentCommentEnd": 824,
+            "category": "agree",
+            "topic": "Who pays for transition"
+          }
+        ],
+        "account": {
+          "display_name": "adrin_nyt",
+          "acct": "adrin_nyt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T08:18:31.324Z",
+        "favourites_count": 0,
+        "replies_count": 2,
         "favourited": false,
         "bookmarked": false
       }
