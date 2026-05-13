@@ -238,6 +238,8 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                                                 <Badge
                                                     color="gray"
                                                     variant="outline"
+                                                    tt="uppercase"
+                                                    fw={700}
                                                     style={{
                                                         position: 'absolute',
                                                         top: '10px',
