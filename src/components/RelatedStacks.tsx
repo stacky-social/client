@@ -10,6 +10,7 @@ import StackPostsModal from './StackPostsModal';
 import InteractionControl from './InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, clearFilterFocusSpan, useHighlightStore } from '../utils/highlightStore';
+import { reorderForAnchor } from '../utils/reorderForAnchor';
 import type { Relation } from '../types/PostType';
 import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
 import './RelatedStacks.css';
@@ -749,76 +750,156 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     });
   }, [reRankAnchorIds]);
 
-  /** Nested re-ranking: process anchors in order, each pulling unclaimed similar posts after itself.
-   *  Re-ranking runs on the FULL set so groupings stay stable; the active filter
-   *  is applied AFTER re-ranking and only hides non-matching cards. This keeps
-   *  filtering from changing the order or breaking groups. */
+  // E: base order tracking — the post-ID order at the moment the active anchor was created.
+  // Using refs (not state) so captures don't trigger extra re-renders.
+  const baseOrderRef = useRef<string[]>([]);
+  const activeAnchorIdRef = useRef<string | null>(null);
+  // E: previous render's displayStacks — updated after each render via useEffect.
+  // Used to capture the "current visible order" when a new anchor replaces the old one.
+  const prevDisplayStacksRef = useRef<RelatedStackType[]>([]);
+
+  /** E: Single-anchor reordering — above-matched move above target, below-matched move below.
+   *  Re-ranking runs on the base order captured at anchor-creation time so a new anchor
+   *  can layer on top of the previously visible ordering. The active filter is applied
+   *  AFTER re-ranking (same as before) so filtering never breaks group connectivity. */
   const { displayStacks, claimedBy, anchorSet, anchorParent, groupTotal, groupShown } = useMemo(() => {
     const anchorSet = new Set(reRankAnchorIds);
     const claimedBy = new Map<string, string>(); // postId -> anchorId
     const anchorParent = new Map<string, string>(); // anchorId -> parent anchorId
     const groupTotal = new Map<string, number>(); // anchorId -> total similar count
     const groupShown = new Map<string, number>(); // anchorId -> shown similar count
-    let result = [...relatedStacks];
 
-    if (reRankAnchorIds.length > 0) {
-      for (let ai = 0; ai < reRankAnchorIds.length; ai++) {
-        const anchorId = reRankAnchorIds[ai];
-        const anchorIdx = result.findIndex(s => s.topPost.id === anchorId);
-        if (anchorIdx === -1) continue;
-
-        // Determine if this anchor sits inside another anchor's group
-        for (let k = anchorIdx - 1; k >= 0; k--) {
-          const prevId = result[k].topPost.id;
-          if (anchorSet.has(prevId)) { anchorParent.set(anchorId, prevId); break; }
-          if (!claimedBy.has(prevId)) break;
-        }
-
-        const anchor = result[anchorIdx];
-        const anchorContent = anchor.topPost.content;
-
-        // Topic-based when the anchor was created by clicking a specific highlight
-        // (so it matches the "N more <topic>" tooltip exactly). Falls back to
-        // content word-similarity when the anchor has no specific range/topic.
-        const anchorRangeIdx = anchoredRangeByPost[anchorId];
-        const anchorTopic = anchorRangeIdx !== undefined
-          ? anchor.topPost.relations?.[anchorRangeIdx]?.topic
-          : undefined;
-
-        const similar: { stack: RelatedStackType; score: number }[] = [];
-        for (const s of result) {
-          if (s.topPost.id === anchorId) continue;
-          // Skip anchors that were added BEFORE this one — they're senior, don't move them
-          const sAnchorOrder = reRankAnchorIds.indexOf(s.topPost.id);
-          if (sAnchorOrder >= 0 && sAnchorOrder < ai) continue;
-
-          if (anchorTopic) {
-            const hasTopic = s.topPost.relations?.some(r => r.topic === anchorTopic) ?? false;
-            if (hasTopic) similar.push({ stack: s, score: 1 });
-          } else {
-            const score = similarityScore(s.topPost.content, anchorContent);
-            if (score > SIMILARITY_THRESHOLD) similar.push({ stack: s, score });
-          }
-        }
-        // Topic-based: keep original order (all scores equal). Similarity-based: sort by score.
-        if (!anchorTopic) similar.sort((a, b) => b.score - a.score);
-        groupTotal.set(anchorId, similar.length);
-        if (similar.length === 0) { groupShown.set(anchorId, 0); continue; }
-
-        // Take only the first N — pagination via "MORE [topic]" link.
-        const shown = shownByAnchor[anchorId] ?? SHOWN_INCREMENT;
-        const visible = similar.slice(0, shown);
-        groupShown.set(anchorId, visible.length);
-
-        for (const { stack } of visible) {
-          claimedBy.set(stack.topPost.id, anchorId);
-        }
-
-        const similarIds = new Set(visible.map(s => s.stack.topPost.id));
-        result = result.filter(s => !similarIds.has(s.topPost.id));
-        const newAnchorIdx = result.findIndex(s => s.topPost.id === anchorId);
-        result.splice(newAnchorIdx + 1, 0, ...visible.map(s => s.stack));
+    // No active anchors — revert to server order and clear tracking refs.
+    if (reRankAnchorIds.length === 0) {
+      baseOrderRef.current = [];
+      activeAnchorIdRef.current = null;
+      let result = [...relatedStacks];
+      if (filterCategories.size > 0) {
+        result = result.filter((s) => {
+          const cats = new Set<string>();
+          for (const r of s.topPost.relations ?? []) cats.add(r.category);
+          let allPresent = true;
+          filterCategories.forEach(c => { if (!cats.has(c)) allPresent = false; });
+          return allPresent;
+        });
       }
+      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
+    }
+
+    // E: Only the most recently added anchor drives reordering (single-anchor semantics).
+    const anchorId = reRankAnchorIds[reRankAnchorIds.length - 1];
+
+    // Detect anchor transition: new anchor was added or replaced the previous one.
+    if (anchorId !== activeAnchorIdRef.current) {
+      // Capture the order the user currently sees as the new base.
+      // prevDisplayStacksRef holds the displayStacks from the previous render (before this anchor).
+      const prev = prevDisplayStacksRef.current;
+      baseOrderRef.current = (prev.length > 0 ? prev : relatedStacks).map(s => s.topPost.id);
+      activeAnchorIdRef.current = anchorId;
+    }
+
+    // Reconstruct baseStacks from the captured IDs (drop IDs no longer in relatedStacks).
+    const stackById = new Map(relatedStacks.map(s => [s.topPost.id, s]));
+    const baseStacks: RelatedStackType[] = baseOrderRef.current
+      .map(id => stackById.get(id))
+      .filter((s): s is RelatedStackType => s !== undefined);
+    // Fall back to relatedStacks order if base is somehow empty.
+    const workingStacks = baseStacks.length > 0 ? baseStacks : [...relatedStacks];
+
+    // Find anchor entry in the working set.
+    const anchorEntry = workingStacks.find(s => s.topPost.id === anchorId);
+    if (!anchorEntry) {
+      // Anchor not found — return as-is.
+      let result = [...workingStacks];
+      if (filterCategories.size > 0) {
+        result = result.filter((s) => {
+          const cats = new Set<string>();
+          for (const r of s.topPost.relations ?? []) cats.add(r.category);
+          let allPresent = true;
+          filterCategories.forEach(c => { if (!cats.has(c)) allPresent = false; });
+          return allPresent;
+        });
+      }
+      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
+    }
+
+    const anchorContent = anchorEntry.topPost.content;
+
+    // Topic-based when the anchor was created by clicking a specific highlight.
+    // Falls back to content word-similarity when the anchor has no specific topic.
+    const anchorRangeIdx = anchoredRangeByPost[anchorId];
+    const anchorTopic = anchorRangeIdx !== undefined
+      ? anchorEntry.topPost.relations?.[anchorRangeIdx]?.topic
+      : undefined;
+
+    // Build the set of ALL matching post IDs (before pagination).
+    const allMatchedIds = new Set<string>();
+    if (anchorTopic) {
+      for (const s of workingStacks) {
+        if (s.topPost.id === anchorId) continue;
+        if (s.topPost.relations?.some(r => r.topic === anchorTopic)) {
+          allMatchedIds.add(s.topPost.id);
+        }
+      }
+    } else {
+      // Similarity-based fallback — collect sorted by score.
+      const scored: { id: string; score: number }[] = [];
+      for (const s of workingStacks) {
+        if (s.topPost.id === anchorId) continue;
+        const score = similarityScore(s.topPost.content, anchorContent);
+        if (score > SIMILARITY_THRESHOLD) scored.push({ id: s.topPost.id, score });
+      }
+      // Sort by score descending; then add IDs in that order (Set preserves insertion order).
+      scored.sort((a, b) => b.score - a.score);
+      for (const { id } of scored) allMatchedIds.add(id);
+    }
+
+    groupTotal.set(anchorId, allMatchedIds.size);
+
+    if (allMatchedIds.size === 0) {
+      groupShown.set(anchorId, 0);
+      let result = [...workingStacks];
+      if (filterCategories.size > 0) {
+        result = result.filter((s) => {
+          const cats = new Set<string>();
+          for (const r of s.topPost.relations ?? []) cats.add(r.category);
+          let allPresent = true;
+          filterCategories.forEach(c => { if (!cats.has(c)) allPresent = false; });
+          return allPresent;
+        });
+      }
+      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
+    }
+
+    // Pagination: only show the first N matched posts.
+    const shown = shownByAnchor[anchorId] ?? SHOWN_INCREMENT;
+    const allMatchedArray = Array.from(allMatchedIds);
+    const visibleMatchedIds = new Set(allMatchedArray.slice(0, shown));
+    groupShown.set(anchorId, visibleMatchedIds.size);
+
+    allMatchedArray.slice(0, shown).forEach(id => {
+      claimedBy.set(id, anchorId);
+    });
+
+    // Remove non-visible matched posts (they are paginated out).
+    const hiddenMatchedIds = new Set(allMatchedArray.slice(shown));
+    const paginatedStacks = workingStacks.filter(s => !hiddenMatchedIds.has(s.topPost.id));
+
+    // E: Apply above/below split — matched above anchor stay above, matched below stay below.
+    let result = reorderForAnchor(
+      paginatedStacks,
+      anchorId,
+      (pid) => visibleMatchedIds.has(pid),
+    );
+
+    // Populate anchorParent for visual connector-line indentation (single anchor: no parent).
+    // If there are older anchors still in reRankAnchorIds (shouldn't happen with single-anchor
+    // semantics, but kept for safety), walk the result to detect nesting.
+    const anchorIdx = result.findIndex(s => s.topPost.id === anchorId);
+    for (let k = anchorIdx - 1; k >= 0; k--) {
+      const prevId = result[k].topPost.id;
+      if (anchorSet.has(prevId)) { anchorParent.set(anchorId, prevId); break; }
+      if (!claimedBy.has(prevId)) break;
     }
 
     // C1: multi-category filter with AND semantics across relations array
@@ -842,7 +923,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     }
 
     return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
-  }, [relatedStacks, filterCategories, filterFocusSpan, reRankAnchorIds, shownByAnchor]);
+  }, [relatedStacks, filterCategories, filterFocusSpan, reRankAnchorIds, shownByAnchor, anchoredRangeByPost]);
+
+  // E: keep prevDisplayStacksRef up-to-date so the next anchor activation can
+  // capture the order the user currently sees as the new baseOrder.
+  useEffect(() => {
+    prevDisplayStacksRef.current = displayStacks;
+  }, [displayStacks]);
 
   const handleShowMore = (anchorId: string) => {
     setShownByAnchor(prev => ({ ...prev, [anchorId]: (prev[anchorId] ?? SHOWN_INCREMENT) + SHOWN_INCREMENT }));
