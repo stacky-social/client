@@ -606,7 +606,7 @@ export default function ListyInjectionPage() {
         withBorder
       >
         <Group style={{ justifyContent: "space-between" }}>
-          <Text size="xl" fw={700}>#FourDayWorkWeek</Text>
+          <Text size="xl" fw={700}>#ChineseEVs</Text>
           <Button color="blue" variant="outline" size="sm">Follow hashtag</Button>
         </Group>
         <Divider my="md" />
