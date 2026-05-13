@@ -31,7 +31,6 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [countdown, setCountdown] = useState<number>(0);
     const [simulatedReplies, setSimulatedReplies] = useState<any[]>([]);
-    const [avatar, setAvatar] = useState(avatars[0]);
 
     const draftIdRef = useRef(uuidv4());
     const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -230,7 +229,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                                                 }}
                                             >
                                                 <Group>
-                                                    <Avatar src={avatar} radius="xl" />
+                                                    <Avatar src={avatars[index % avatars.length]} radius="xl" />
                                                     <div>
                                                         <Text fw="700" size="sm">Robot {index + 1}</Text>
                                                     </div>
