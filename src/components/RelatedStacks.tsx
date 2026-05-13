@@ -764,9 +764,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       }
     }
 
-    // C1: multi-category filter with OR semantics
+    // C1: multi-category filter with AND semantics across relations array
     if (filterCategories.size > 0) {
-      result = result.filter((s) => filterCategories.has(s.rel));
+      result = result.filter((s) => {
+        const cats = new Set<string>();
+        for (const r of s.topPost.relations ?? []) cats.add(r.category);
+        let allPresent = true;
+        filterCategories.forEach(c => { if (!cats.has(c)) allPresent = false; });
+        return allPresent;
+      });
     }
 
     return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
