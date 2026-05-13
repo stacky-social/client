@@ -45,7 +45,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
 
     useEffect(() => {
         if (countdown > 0) {
-            setButtonLabel(`Submit? (Wait ${countdown} seconds)`);
+            setButtonLabel(`Wait ${countdown}s…`);
             if (!countdownIntervalRef.current) {
                 countdownIntervalRef.current = setInterval(() => {
                     setCountdown((c) => Math.max(0, c - 1));
@@ -195,20 +195,11 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                     ) : (
                         <>
                             {(advice || praise) && (
-                                <Paper
-                                    style={{
-                                        padding: '10px',
-                                        backgroundColor: '#f9f9f9',
-                                        borderRadius: '8px',
-                                        fontFamily: 'Roboto, sans-serif',
-                                        fontSize: '14px',
-                                        marginBottom: '10px'
-                                    }}
-                                >
+                                <div style={{ marginBottom: '10px' }}>
                                     <Text fw="900" size="xl">Feedback</Text>
-                                    {praise && <Text>{praise}</Text>}
-                                    {advice && <Text>{advice}</Text>}
-                                </Paper>
+                                    {praise && <Text mt={4}>{praise}</Text>}
+                                    {advice && <Text mt={4}>{advice}</Text>}
+                                </div>
                             )}
 
                             {simulatedReplies.length > 0 && (
