@@ -27,6 +27,11 @@ interface HighlightState {
   reRankAnchorIds: string[];
   /** Which highlight range triggered each anchor (postId -> rangeIndex) */
   anchoredRangeByPost: Record<string, number>;
+  /**
+   * D2: focus-post mark clicked — filter sidebar to stacks whose relations overlap this span.
+   * Carries the text snippet so RelatedStacks can compute D3 without needing the full focus post text.
+   */
+  filterFocusSpan: { start: number; end: number; text: string } | null;
 }
 
 const INITIAL: HighlightState = {
@@ -39,6 +44,7 @@ const INITIAL: HighlightState = {
   tappedRangeIndex: null,
   reRankAnchorIds: [],
   anchoredRangeByPost: {},
+  filterFocusSpan: null,
 };
 
 // ─── Module-level store ─────────────────────────────────────────────────────
@@ -138,7 +144,20 @@ export function toggleFilterCategory(category: string): void {
 }
 
 export function resetHighlightStore(): void {
-  state = { ...INITIAL, filterCategories: new Set() };
+  state = { ...INITIAL, filterCategories: new Set(), filterFocusSpan: null };
+  notify();
+}
+
+/** D2: Set the span filter from a clicked focus-post mark. */
+export function setFilterFocusSpan(span: { start: number; end: number; text: string }): void {
+  state = { ...state, filterFocusSpan: span };
+  notify();
+}
+
+/** D2: Clear the span filter. */
+export function clearFilterFocusSpan(): void {
+  if (state.filterFocusSpan === null) return;
+  state = { ...state, filterFocusSpan: null };
   notify();
 }
 
@@ -167,7 +186,7 @@ function getSnapshot() {
 
 // Server snapshot uses a stable object. We cannot reuse INITIAL directly since
 // Set instances are mutable — create a fresh frozen copy for the server.
-const SERVER_SNAPSHOT: HighlightState = { ...INITIAL, filterCategories: new Set() };
+const SERVER_SNAPSHOT: HighlightState = { ...INITIAL, filterCategories: new Set(), filterFocusSpan: null };
 function getServerSnapshot() {
   return SERVER_SNAPSHOT;
 }
