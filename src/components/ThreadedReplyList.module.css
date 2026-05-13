@@ -1,0 +1,18 @@
+/* Wrapper for a single reply node and all of its descendants */
+.replyGroup {
+  position: relative;
+}
+
+/* The vertical connecting line that runs from the parent avatar
+   through all child replies at this indent level.
+   Positioned absolutely so it stretches to the full height of
+   the subtree without any JS measurement. */
+.threadLine {
+  position: absolute;
+  left: 20px;           /* center of the 40px-diameter Mantine Avatar */
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: #cbd5e1;
+  z-index: 0;
+}
