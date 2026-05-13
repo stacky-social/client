@@ -31,7 +31,6 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [countdown, setCountdown] = useState<number>(0);
     const [simulatedReplies, setSimulatedReplies] = useState<any[]>([]);
-    const [avatar, setAvatar] = useState(avatars[0]);
 
     const draftIdRef = useRef(uuidv4());
     const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -46,7 +45,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
 
     useEffect(() => {
         if (countdown > 0) {
-            setButtonLabel(`Submit? (Wait ${countdown} seconds)`);
+            setButtonLabel(`Wait ${countdown}s…`);
             if (!countdownIntervalRef.current) {
                 countdownIntervalRef.current = setInterval(() => {
                     setCountdown((c) => Math.max(0, c - 1));
@@ -196,20 +195,11 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                     ) : (
                         <>
                             {(advice || praise) && (
-                                <Paper
-                                    style={{
-                                        padding: '10px',
-                                        backgroundColor: '#f9f9f9',
-                                        borderRadius: '8px',
-                                        fontFamily: 'Roboto, sans-serif',
-                                        fontSize: '14px',
-                                        marginBottom: '10px'
-                                    }}
-                                >
+                                <div style={{ marginBottom: '10px' }}>
                                     <Text fw="900" size="xl">Feedback</Text>
-                                    {praise && <Text>{praise}</Text>}
-                                    {advice && <Text>{advice}</Text>}
-                                </Paper>
+                                    {praise && <Text mt={4}>{praise}</Text>}
+                                    {advice && <Text mt={4}>{advice}</Text>}
+                                </div>
                             )}
 
                             {simulatedReplies.length > 0 && (
@@ -230,7 +220,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                                                 }}
                                             >
                                                 <Group>
-                                                    <Avatar src={avatar} radius="xl" />
+                                                    <Avatar src={avatars[index % avatars.length]} radius="xl" />
                                                     <div>
                                                         <Text fw="700" size="sm">Robot {index + 1}</Text>
                                                     </div>
@@ -239,6 +229,8 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                                                 <Badge
                                                     color="gray"
                                                     variant="outline"
+                                                    tt="uppercase"
+                                                    fw={700}
                                                     style={{
                                                         position: 'absolute',
                                                         top: '10px',
