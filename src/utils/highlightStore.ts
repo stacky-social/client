@@ -10,8 +10,11 @@ interface HighlightState {
   hoveredPostId: string | null;
   /** Relations for the hovered post (offset-based substring pairs) */
   hoveredRelations: Relation[] | null;
-  /** Which category to filter the sidebar by (null = show all) */
-  filterCategory: string | null;
+  /**
+   * Set of categories to filter the sidebar by (empty = show all).
+   * Multiple categories use OR semantics (show posts matching ANY active category).
+   */
+  filterCategories: Set<string>;
   /** Level 2: which specific substring within the hovered card is being hovered (index into bracket pairs) */
   hoveredHighlightRangeIndex: number | null;
   /** Category tag hover: when set, all ranges of this category behave as hovered (within the hovered card) */
@@ -29,7 +32,7 @@ interface HighlightState {
 const INITIAL: HighlightState = {
   hoveredPostId: null,
   hoveredRelations: null,
-  filterCategory: null,
+  filterCategories: new Set(),
   hoveredHighlightRangeIndex: null,
   hoveredCategory: null,
   tappedCardPostId: null,
@@ -108,20 +111,34 @@ export function clearReRankAnchors(): void {
   notify();
 }
 
-export function setFilterCategory(category: string | null): void {
-  if (state.filterCategory === category) return;
-  state = { ...state, filterCategory: category };
+/** Directly set the filter categories set. Pass an empty Set to clear all filters. */
+export function setFilterCategories(cats: Set<string>): void {
+  state = { ...state, filterCategories: new Set(cats) };
   notify();
 }
 
+/**
+ * @deprecated Use setFilterCategories. Kept for backward compatibility.
+ * Sets a single category filter (replaces any existing selection).
+ */
+export function setFilterCategory(category: string | null): void {
+  state = { ...state, filterCategories: category ? new Set([category]) : new Set() };
+  notify();
+}
+
+/**
+ * Single-category toggle for StackCount and legacy callers.
+ * Clicking the active category clears the filter; clicking a new one REPLACES.
+ */
 export function toggleFilterCategory(category: string): void {
-  const next = state.filterCategory === category ? null : category;
-  state = { ...state, filterCategory: next };
+  const active = state.filterCategories;
+  const next = active.has(category) && active.size === 1 ? new Set<string>() : new Set([category]);
+  state = { ...state, filterCategories: next };
   notify();
 }
 
 export function resetHighlightStore(): void {
-  state = { ...INITIAL };
+  state = { ...INITIAL, filterCategories: new Set() };
   notify();
 }
 
@@ -148,8 +165,11 @@ function getSnapshot() {
   return state;
 }
 
+// Server snapshot uses a stable object. We cannot reuse INITIAL directly since
+// Set instances are mutable — create a fresh frozen copy for the server.
+const SERVER_SNAPSHOT: HighlightState = { ...INITIAL, filterCategories: new Set() };
 function getServerSnapshot() {
-  return INITIAL;
+  return SERVER_SNAPSHOT;
 }
 
 export function useHighlightStore(): HighlightState {

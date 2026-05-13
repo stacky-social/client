@@ -138,7 +138,7 @@ const StackCount: React.FC<StackCountProps> = ({
   if (count === -1) return null;
 
   const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
-  const { filterCategory } = useHighlightStore();
+  const { filterCategories } = useHighlightStore();
 
   const handlePaperClick = (event: React.MouseEvent) => {
     event.preventDefault();
@@ -170,7 +170,7 @@ const StackCount: React.FC<StackCountProps> = ({
           >
             {relatedStacks.map((stack, index) => {
               const isHovered = hoveredIndex === index;
-              const isFilterActive = filterCategory === stack.rel;
+              const isFilterActive = filterCategories.has(stack.rel);
 
               return (
                 <motion.div

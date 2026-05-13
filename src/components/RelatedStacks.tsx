@@ -9,7 +9,7 @@ import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import StackPostsModal from './StackPostsModal';
 import InteractionControl from './InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
-import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, toggleFilterCategory, useHighlightStore } from '../utils/highlightStore';
+import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, useHighlightStore } from '../utils/highlightStore';
 import type { Relation } from '../types/PostType';
 import './RelatedStacks.css';
 
@@ -159,29 +159,95 @@ function SeeMoreTooltip({ topic, otherCount, categoryColors }: { topic?: string;
 
 // ─── Filter chip ─────────────────────────────────────────────────────────────
 
-function FilterChip({ category, count, active, onClick }: {
-  category: string; count: number; active: boolean; onClick: () => void;
+function FilterChip({ category, count, active, previewActive, previewDim, onClick, onMouseEnter, onMouseLeave }: {
+  category: string; count: number; active: boolean;
+  /** Preview: this chip would become active if clicked (hover preview for ADD mode) */
+  previewActive?: boolean;
+  /** Preview: this chip would be deactivated if another chip is clicked (hover preview for SWITCH mode) */
+  previewDim?: boolean;
+  onClick: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }) {
   const colors = getCategoryColors(category);
   const label = CATEGORY_LABELS[category] ?? category;
+  const isLit = active || previewActive;
   return (
     <button
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       aria-label={`${active ? "Remove" : "Show"} ${label} filter`}
       aria-pressed={active}
       style={{
         display: "inline-flex", alignItems: "center", gap: "4px",
-        background: active ? colors.bg : "#f8f9fa",
-        border: `1.5px solid ${active ? colors.border : "#e2e8f0"}`,
+        background: isLit ? colors.bg : "#f8f9fa",
+        border: `1.5px solid ${isLit ? colors.border : "#e2e8f0"}`,
         borderRadius: "16px", padding: "3px 10px 3px 7px",
         cursor: "pointer", transition: "all 150ms ease", outline: "none", flexShrink: 0,
+        opacity: previewDim ? 0.5 : 1,
+        filter: previewDim ? "grayscale(0.4)" : "none",
       }}
     >
-      {React.cloneElement(iconMapping[category] ?? iconMapping['default'], { color: active ? colors.text : "#64748b", size: 13 })}
-      <Text size="xs" fw={active ? 700 : 500} c={active ? colors.text : "#64748b"} style={{ fontSize: "11px", lineHeight: 1, whiteSpace: "nowrap" }}>{label}</Text>
-      <Text size="xs" c={active ? colors.text : "#94a3b8"} style={{ fontSize: "10px", lineHeight: 1 }}>{count}</Text>
+      {React.cloneElement(iconMapping[category] ?? iconMapping['default'], { color: isLit ? colors.text : "#64748b", size: 13 })}
+      <Text size="xs" fw={600} c={isLit ? colors.text : "#64748b"} style={{ fontSize: "11px", lineHeight: 1, whiteSpace: "nowrap" }}>{label}</Text>
+      <Text size="xs" c={isLit ? colors.text : "#94a3b8"} style={{ fontSize: "10px", lineHeight: 1 }}>{count}</Text>
     </button>
   );
+}
+
+// ─── Filter conjunction helper ────────────────────────────────────────────────
+
+/**
+ * Decides whether clicking `candidate` should ADD it to the current filter set
+ * (conjunction non-empty) or SWITCH to it exclusively.
+ *
+ * Real AND semantics: for each stack, collect every distinct `category` across
+ * `stack.topPost.relations`.  If any stack covers every category in
+ * (currentFilters ∪ {candidate}), there would be at least one result — ADD.
+ * Otherwise SWITCH.
+ *
+ * When currentFilters is empty the candidate set is just {candidate}, so any
+ * stack that has candidate in its relations satisfies the check → always ADD,
+ * which is correct for the first selection.
+ */
+function decideFilterMode(
+  stacks: RelatedStackType[],
+  currentFilters: Set<string>,
+  candidate: string,
+): 'ADD' | 'SWITCH' {
+  const candidateSet = new Set(currentFilters);
+  candidateSet.add(candidate);
+  const found = stacks.some(stack => {
+    const cats = new Set<string>();
+    for (const r of stack.topPost.relations ?? []) {
+      cats.add(r.category);
+    }
+    let allPresent = true;
+    candidateSet.forEach(c => { if (!cats.has(c)) allPresent = false; });
+    return allPresent;
+  });
+  return found ? 'ADD' : 'SWITCH';
+}
+
+// ─── Filter hover-preview logic ──────────────────────────────────────────────
+
+/**
+ * Determines what visual signal to show when hovering a filter chip.
+ * - 'add'    → clicking would add this category to the active set (conjunction non-empty)
+ * - 'switch' → clicking would replace the active set with this category alone
+ * - 'none'   → no preview needed (nothing active, or hovering an already-active chip)
+ */
+function computePreviewMode(
+  hoveredCat: string | null,
+  activeCats: Set<string>,
+  relStacks: RelatedStackType[],
+): 'none' | 'add' | 'switch' {
+  if (!hoveredCat) return 'none';
+  if (activeCats.has(hoveredCat)) return 'none'; // already active
+  if (activeCats.size === 0) return 'none';       // first selection, no preview needed
+  // Real conjunction check across relations arrays
+  return decideFilterMode(relStacks, activeCats, hoveredCat) === 'ADD' ? 'add' : 'switch';
 }
 
 // ─── Highlight helpers (offset-based) ────────────────────────────────────────
@@ -526,7 +592,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const [favouritedOverride, setFavouritedOverride] = useState<Record<string, boolean>>({});
   const [bookmarkedOverride, setBookmarkedOverride] = useState<Record<string, boolean>>({});
   const [favouritesCountOverride, setFavouritesCountOverride] = useState<Record<string, number>>({});
-  const { filterCategory, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, reRankAnchorIds, anchoredRangeByPost } = useHighlightStore();
+  const { filterCategories, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, reRankAnchorIds, anchoredRangeByPost } = useHighlightStore();
+  // C2: hover preview state for filter chips
+  const [chipHovered, setChipHovered] = useState<string | null>(null);
+  // C3: panel hover state for neutral-until-hover tag coloring
+  const [panelHovered, setPanelHovered] = useState(false);
   // Touch device detection (cached on mount). Touch devices use tap-to-activate behavior.
   const [isTouch, setIsTouch] = useState(false);
   useEffect(() => {
@@ -559,6 +629,24 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   };
 
   const [currentStackId, setCurrentStackId] = useState<string | null>(null);
+
+  // C1: Smart conjunction click handler for filter chips
+  const handleFilterChipClick = (category: string) => {
+    const active = filterCategories;
+    if (active.has(category)) {
+      // Deselect this chip
+      const next = new Set(active);
+      next.delete(category);
+      setFilterCategories(next);
+    } else if (active.size === 0) {
+      // First selection — always ADD
+      setFilterCategories(new Set([category]));
+    } else {
+      // Real AND conjunction check across relations arrays
+      const mode = decideFilterMode(relatedStacks, active, category);
+      setFilterCategories(mode === 'ADD' ? new Set(Array.from(active).concat([category])) : new Set([category]));
+    }
+  };
 
   const categories = useMemo(() => {
     const map = new Map<string, number>();
@@ -676,12 +764,19 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       }
     }
 
-    if (filterCategory) {
-      result = result.filter((s) => s.rel === filterCategory);
+    // C1: multi-category filter with AND semantics across relations array
+    if (filterCategories.size > 0) {
+      result = result.filter((s) => {
+        const cats = new Set<string>();
+        for (const r of s.topPost.relations ?? []) cats.add(r.category);
+        let allPresent = true;
+        filterCategories.forEach(c => { if (!cats.has(c)) allPresent = false; });
+        return allPresent;
+      });
     }
 
     return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
-  }, [relatedStacks, filterCategory, reRankAnchorIds, shownByAnchor]);
+  }, [relatedStacks, filterCategories, reRankAnchorIds, shownByAnchor]);
 
   const handleShowMore = (anchorId: string) => {
     setShownByAnchor(prev => ({ ...prev, [anchorId]: (prev[anchorId] ?? SHOWN_INCREMENT) + SHOWN_INCREMENT }));
@@ -901,15 +996,29 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
         {categories.length > 1 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginBottom: "0.75rem" }}>
-            {categories.map(([category, count]) => (
-              <FilterChip key={category} category={category} count={count} active={filterCategory === category} onClick={() => toggleFilterCategory(category)} />
-            ))}
+            {(() => {
+              // C2: compute preview mode once for the whole chip row
+              const previewMode = computePreviewMode(chipHovered, filterCategories, relatedStacks);
+              return categories.map(([category, count]) => (
+                <FilterChip
+                  key={category}
+                  category={category}
+                  count={count}
+                  active={filterCategories.has(category)}
+                  previewActive={previewMode !== 'none' && category === chipHovered}
+                  previewDim={previewMode === 'switch' && filterCategories.has(category)}
+                  onClick={() => handleFilterChipClick(category)}
+                  onMouseEnter={() => setChipHovered(category)}
+                  onMouseLeave={() => setChipHovered(null)}
+                />
+              ));
+            })()}
           </div>
         )}
 
         <Text size="xs" c="dimmed" mb={4}>
-          {filterCategory
-            ? `${displayStacks.length} ${CATEGORY_LABELS[filterCategory] ?? filterCategory} post${displayStacks.length !== 1 ? 's' : ''}`
+          {filterCategories.size > 0
+            ? `${displayStacks.length} ${Array.from(filterCategories).map(c => CATEGORY_LABELS[c] ?? c).join(' + ')} post${displayStacks.length !== 1 ? 's' : ''}`
             : `${displayStacks.length} posts across all categories`}
         </Text>
 
@@ -954,6 +1063,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       </div>
 
       {/* Cards — no inner scroll, the aside's own scrollbar handles everything */}
+      {/* C3: panelHovered wrapper — reveals category colors on multi-type cards when mouse enters cards area */}
+      <div onMouseEnter={() => setPanelHovered(true)} onMouseLeave={() => setPanelHovered(false)}>
       <LayoutGroup>
       <motion.div
         variants={containerVariants} initial="hidden" animate="show"
@@ -1253,6 +1364,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                     }
                     const hri = isCardActive ? (isCardTapped ? tappedRangeIndex : hoveredHighlightRangeIndex) : null;
                     const hcat = isCardActive ? hoveredCategory : null;
+                    // C3: multi-type posts show neutral color until panel is hovered
+                    const isMultiType = tags.length > 1;
+                    const showTagColor = !isMultiType || panelHovered;
                     return tags.map(({ cat, indices }) => {
                       const tc = getCategoryColors(cat);
                       const anyDirected = hri !== null || hcat !== null;
@@ -1275,19 +1389,25 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                                 setHoveredSidebarPost(stack.topPost.id, stack.topPost.relations);
                                 setHoveredCategory(cat);
                               }
+                            } else {
+                              // C4 desktop: clicking a relation tag filters the panel by this category
+                              handleFilterChipClick(cat);
                             }
                           }}
                           style={{
-                            background: tc.bg, color: tc.text, borderRadius: '5px',
+                            // C3: neutral colors for multi-type cards until panel is hovered
+                            background: showTagColor ? tc.bg : '#f0f0f0',
+                            color: showTagColor ? tc.text : '#888888',
+                            borderRadius: '5px',
                             padding: '2px 7px', display: 'flex', alignItems: 'center', gap: '4px',
-                            border: `1px solid ${tc.border}`,
+                            border: `1px solid ${showTagColor ? tc.border : '#d0d0d0'}`,
                             opacity: tagBright ? 1 : 0.3,
-                            transition: 'opacity 200ms ease',
+                            transition: 'background 200ms ease, color 200ms ease, border-color 200ms ease, opacity 200ms ease',
                             cursor: 'pointer',
                           }}
                         >
-                          {React.cloneElement(iconMapping[cat] || iconMapping['default'], { color: tc.text, size: 12 })}
-                          <Text size="xs" c={tc.text} fw={700} style={{ fontSize: '10px' }}>
+                          {React.cloneElement(iconMapping[cat] || iconMapping['default'], { color: showTagColor ? tc.text : '#888888', size: 12 })}
+                          <Text size="xs" c={showTagColor ? tc.text : '#888888'} fw={700} style={{ fontSize: '10px' }}>
                             {CATEGORY_LABELS[cat] ?? cat}
                           </Text>
                         </div>
@@ -1398,6 +1518,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
         </AnimatePresence>
       </motion.div>
       </LayoutGroup>
+      </div>{/* end panelHovered wrapper */}
 
       <StackPostsModal
         isOpen={stackPostsModalOpen} onClose={() => setStackPostsModalOpen(false)}
