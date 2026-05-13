@@ -62,49 +62,48 @@ Three missing interaction layers:
 | JC13 | D3: one stack visible | If exactly one stack passes the filter, the "shortest common" is just that stack's focus range text (same as if all stacks have the same range). Fall through normally — the intersection of one span is itself. | No special case needed. |
 | JC14 | Clearing filterFocusSpan | Clear on: same-mark click (D2 toggle), `resetHighlightStore()` call (navigating away), when `relatedStacks` changes (new focus post). RelatedStacks already calls `clearReRankAnchors()` and `clearTapped()` on `relatedStacks` change — add `clearFilterFocusSpan()` to that effect. | Prevents stale filter from persisting across focus post changes. |
 
-### Dwell-Triggered Mark Visibility (Option B — Revised)
+### Dwell-Triggered Mark Visibility (Option B — Per-Mark Dwell)
 
-The original Option B implementation rendered marks in a **permanently dimmed state** (~0.25 alpha) whenever the focus post had relations. User feedback found this too noisy — the always-on tinting was visually distracting.
+The original Option B implementation rendered marks in a **permanently dimmed state** (~0.25 alpha) whenever the focus post had relations. An intermediate revision made all marks appear after 1500ms of cursor presence anywhere inside the focus-post container. Both were found too noisy. The current model targets **individual marks**: only the specific mark the cursor dwells on becomes visible.
 
-**Current behavior:** Marks on the focus post are **invisible by default** (absent from the DOM). They become visible only under three conditions, computed as `marksVisible`:
+**Current behavior:** `<mark>` elements are **always present in the DOM** (so cursor-over-mark events fire reliably), but they are **visually invisible by default** (`background: transparent !important` via scoped `<style>`). A mark becomes visible only under one of three conditions:
 
-```
-marksVisible = showCrossHighlight || focusHoverShowMarks || filterFocusSpan !== null
-```
+- **`showCrossHighlight`** — the user is hovering a sidebar card. The scoped style rule is cleared; inline category colors on each `<mark>` take over (full brightness for the hovered range, 0.2 alpha for others). All marks are visible.
+- **`dwellOnMarkIndex !== null`** — the user has held the cursor on a specific `<mark>` for ≥ **1500ms** (`FOCUS_HOVER_DWELL_MS`, a named constant). Only that one mark becomes visible in **neutral grey** (`rgba(100,116,139,0.30)`). Moving the cursor to a different mark cancels the timer, immediately hides the previously-shown mark, and starts a fresh 1500ms timer on the new mark. Leaving a mark with no incoming mark cancels the timer and hides the mark.
+- **`filterFocusSpan !== null` (and matching relation found)** — a span filter is active (D2 click was used). The matching mark stays visible in neutral grey so the user can see which span is filtered and toggle it off.
 
-- **`showCrossHighlight`** — the user is hovering a sidebar card (existing cross-highlight path). Marks appear at full category brightness.
-- **`focusHoverShowMarks`** — the user has held the cursor inside the focus-post text area continuously for ≥ **1500ms** (`FOCUS_HOVER_DWELL_MS`, a named constant). Marks appear dimmed (~0.25 alpha).
-- **`filterFocusSpan !== null`** — a span filter is active (D2 click was used). Marks stay visible so the user can see which span is filtered and toggle it off.
-
-The dwell timer is managed via `focusHoverTimerRef` (a `useRef<ReturnType<typeof setTimeout> | null>`). `onMouseEnter` starts the timer; `onMouseLeave` cancels it and immediately clears `focusHoverShowMarks`. A `useEffect` cleanup on unmount prevents timer leaks.
+The state is `dwellOnMarkIndex: number | null` (React state). The timer is `dwellTimerRef` (`useRef<ReturnType<typeof setTimeout> | null>`). Both `mouseover` and `mouseout` are handled via event delegation on the container element (same `useEffect` that handles D2 click). A `useEffect` cleanup on unmount prevents timer leaks.
 
 The constant `FOCUS_HOVER_DWELL_MS = 1500` is declared at module level and can be tuned without touching component logic.
 
-Mark states when `marksVisible` is true:
+A derived value `visibleMarkIdx` combines dwell and filter into a single index (dwell wins over filter if both are active). A second derived value `anyMarkVisuallyActive` replaces the old `marksVisible` flag for expand/collapse gating.
+
+Mark states summary:
 
 | Trigger | Mark appearance |
 |---|---|
 | Cross-highlight (`showCrossHighlight`) | Bright category colors (alpha 1.0 for hovered range, 0.2 for others) |
-| Dwell (`focusHoverShowMarks`) | Dimmed category colors (~0.25 alpha) |
-| Span filter active (`filterFocusSpan !== null`) | Dimmed category colors (~0.25 alpha) |
-| D1 hover (mark directly hovered on focus post) | Neutral grey `rgba(100,116,139,0.30)` via `!important` scoped style |
+| Per-mark dwell (`dwellOnMarkIndex`) | One mark: neutral grey `rgba(100,116,139,0.30)`. All others: invisible. |
+| Span filter active (`filterFocusSpan` matched) | Matching mark: neutral grey. All others: invisible. |
+| Default | All marks invisible (but present in DOM for event handling). |
 
-When `marksVisible` is false, no `<mark>` elements are present in the DOM.
+The D1 neutral-hover affordance is now unified with dwell: hovering a mark IS the dwell trigger. There is no separate "D1 hover immediate" effect — the 1500ms threshold acts as the intentionality gate.
 
-The expand-to-reveal animation now triggers on **any** `marksVisible → true` transition (cross-highlight OR dwell). The collapse animation fires when `marksVisible` becomes false. This ensures dwell-revealed marks that fall below the 5-line clamp are also expanded to view.
+The expand-to-reveal animation triggers on any `anyMarkVisuallyActive → true` transition. The collapse animation fires when `anyMarkVisuallyActive` becomes false. This ensures dwell-revealed marks that fall below the 5-line clamp are expanded to view.
 
 ---
 
 ## 5. Behavior Specification
 
-### D1 — Neutral highlight on focus-post hover
+### D1 — Neutral highlight on focus-post hover (per-mark dwell)
 
 - Applies ONLY in `ActiveHighlightedContent` (the component rendered for the active/focus post).
-- Marks are **invisible by default** (absent from DOM). They become visible only when `marksVisible` is true: cross-highlight active, dwell threshold (1500ms) reached, or span filter active.
-- D1 activates when the user moves the mouse over a `<mark>` element that is currently in the DOM — regardless of which trigger made `marksVisible` true.
-- While active: the hovered mark's background becomes `rgba(100, 116, 139, 0.30)` — overrides the current category color (whether dimmed or bright) via a dynamically injected `<style>` block scoped to a unique ID using `!important`.
-- On `mouseout` from a `<mark>`, `hoveredFocusMarkIndex` resets to null, removing the override.
-- Cursor over all `<mark>` elements: `pointer` (always indicates clickability).
+- Marks are **always present in the DOM** but visually invisible (`background: transparent !important` via scoped `<style>`).
+- D1 is unified with the dwell mechanism: hovering a `<mark>` starts a 1500ms (`FOCUS_HOVER_DWELL_MS`) timer for that specific mark. After 1500ms, that mark's background becomes `rgba(100, 116, 139, 0.30)` (neutral grey) via a `!important` rule in the scoped style block. All other marks remain invisible.
+- Moving the cursor to a different mark: timer is cancelled, the previously-shown mark immediately reverts to invisible, and a fresh 1500ms timer starts for the new mark.
+- On `mouseout` from a mark (with no incoming mark): timer is cancelled, `dwellOnMarkIndex` resets to null, mark becomes invisible. A 200ms CSS transition (`transition: background 200ms ease`) softens the fade-out.
+- When cross-highlight is active: the scoped style block only sets `cursor: pointer`; inline category colors on each `<mark>` take over. The dwell timer still tracks state but the CSS override for neutral grey is not applied.
+- Cursor over all `<mark>` elements: `pointer` (always indicates clickability, even when invisible).
 
 ### D2 — Click → filter related panel by span
 
