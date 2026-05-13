@@ -153,6 +153,9 @@ function cleanPostHtml(html: string, card: PreviewCard | null | undefined): Clea
 
 
 
+// Dwell duration (ms) before focus-post marks become visible on hover.
+const FOCUS_HOVER_DWELL_MS = 1500;
+
 // Subscribes to the highlight store — only mounted for the *active* post so
 // inactive posts don't re-render on every sidebar hover.
 const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
@@ -165,9 +168,25 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
 }>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [] }, ref) {
   const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, filterFocusSpan } = useHighlightStore();
   const showCrossHighlight = !!hoveredPostId && !!hoveredRelations;
+
+  // Dwell-triggered mark visibility: true after FOCUS_HOVER_DWELL_MS of continuous hover
+  const [focusHoverShowMarks, setFocusHoverShowMarks] = useState<boolean>(false);
+  const focusHoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timer on unmount to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      if (focusHoverTimerRef.current) clearTimeout(focusHoverTimerRef.current);
+    };
+  }, []);
+
+  // Marks are visible when: cross-highlight active, dwell triggered, or a span filter is active
+  const marksVisible = showCrossHighlight || focusHoverShowMarks || filterFocusSpan !== null;
+
   const html = useMemo(() => {
+    if (!marksVisible) return displayText;
     // Prefer cross-highlight relations when active (brightened state).
-    // Otherwise render the post's own relations in a dimmed default state.
+    // Otherwise render the post's own relations in a dimmed state.
     const relations = showCrossHighlight && hoveredRelations ? hoveredRelations : focusRelations;
     if (!relations || relations.length === 0) return displayText;
     return renderMultiHighlightHtml(
@@ -177,7 +196,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       showCrossHighlight ? hoveredHighlightRangeIndex : null,
       /* dimmed */ !showCrossHighlight,
     );
-  }, [displayText, rawText, showCrossHighlight, hoveredRelations, focusRelations, hoveredHighlightRangeIndex]);
+  }, [displayText, rawText, marksVisible, showCrossHighlight, hoveredRelations, focusRelations, hoveredHighlightRangeIndex]);
 
   const innerRef = useRef<HTMLDivElement | null>(null);
   const setRefs = (el: HTMLDivElement | null) => {
@@ -193,7 +212,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
 
   // ── Expand-to-reveal ──────────────────────────────────────────────────────
   // When a mark is below the 5-line clamp, smoothly grow the box downward.
-  // Collapses with a matching animation when hover ends.
+  // Collapses with a matching animation when marks become invisible.
   //
   // Phase: 'normal' → 'expanded' → 'collapsing' → 'normal'
   //   expanded:   display:block, maxHeight = revealHeight  (large)
@@ -204,10 +223,10 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // EXPAND: useLayoutEffect fires synchronously when html changes (marks appear).
-  // Only runs when showCrossHighlight is true — does NOT touch state on unhover.
+  // Triggers on any marksVisible → true transition (cross-highlight OR dwell).
   useLayoutEffect(() => {
     const el = innerRef.current;
-    if (!el || isTextExpanded || !showCrossHighlight) return;
+    if (!el || isTextExpanded || !marksVisible) return;
 
     const marks = Array.from(el.querySelectorAll('mark'));
     if (marks.length === 0) return;
@@ -230,13 +249,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       setCollapsing(false);
       setRevealHeight(Math.min(needed, el.scrollHeight));
     }
-  }, [html, isTextExpanded, showCrossHighlight]);
+  }, [html, isTextExpanded, marksVisible]);
 
-  // COLLAPSE: when hover ends, start the collapse animation.
+  // COLLAPSE: when marks become invisible, start the collapse animation.
   // revealHeight stays set (keeping display:block) while CSS transition plays.
   // After 320ms, clear everything → snap to normal -webkit-box style.
   useEffect(() => {
-    if (!showCrossHighlight && revealHeight !== null) {
+    if (!marksVisible && revealHeight !== null) {
       setCollapsing(true);
       collapseTimerRef.current = setTimeout(() => {
         setCollapsing(false);
@@ -247,7 +266,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     return () => {
       if (collapseTimerRef.current) { clearTimeout(collapseTimerRef.current); collapseTimerRef.current = null; }
     };
-  }, [showCrossHighlight]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [marksVisible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // D1/D2: event delegation on the container div — hover neutral highlight + click span filter
   useEffect(() => {
@@ -304,7 +323,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       el.removeEventListener('mouseout', handleMouseOut);
       el.removeEventListener('click', handleClick, true);
     };
-  }, [showCrossHighlight, hoveredRelations, focusRelations, filterFocusSpan, rawText]);
+  }, [showCrossHighlight, hoveredRelations, focusRelations, filterFocusSpan, rawText, focusHoverShowMarks, marksVisible]);
 
   // D1: inject a scoped <style> to apply neutral background to the hovered mark
   useEffect(() => {
@@ -367,7 +386,28 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     mergedStyle = style;
   }
 
-  return <div ref={setRefs} id={containerIdRef.current} className={className} style={mergedStyle} dangerouslySetInnerHTML={{ __html: html }} />;
+  return (
+    <div
+      ref={setRefs}
+      id={containerIdRef.current}
+      className={className}
+      style={mergedStyle}
+      dangerouslySetInnerHTML={{ __html: html }}
+      onMouseEnter={() => {
+        if (focusHoverTimerRef.current) clearTimeout(focusHoverTimerRef.current);
+        focusHoverTimerRef.current = setTimeout(() => {
+          setFocusHoverShowMarks(true);
+        }, FOCUS_HOVER_DWELL_MS);
+      }}
+      onMouseLeave={() => {
+        if (focusHoverTimerRef.current) {
+          clearTimeout(focusHoverTimerRef.current);
+          focusHoverTimerRef.current = null;
+        }
+        setFocusHoverShowMarks(false);
+      }}
+    />
+  );
 });
 
 interface PostProps {
