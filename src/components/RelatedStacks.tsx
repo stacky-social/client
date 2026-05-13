@@ -9,7 +9,7 @@ import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import StackPostsModal from './StackPostsModal';
 import InteractionControl from './InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
-import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, useHighlightStore } from '../utils/highlightStore';
+import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, clearFilterFocusSpan, useHighlightStore } from '../utils/highlightStore';
 import type { Relation } from '../types/PostType';
 import './RelatedStacks.css';
 
@@ -592,7 +592,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const [favouritedOverride, setFavouritedOverride] = useState<Record<string, boolean>>({});
   const [bookmarkedOverride, setBookmarkedOverride] = useState<Record<string, boolean>>({});
   const [favouritesCountOverride, setFavouritesCountOverride] = useState<Record<string, number>>({});
-  const { filterCategories, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, reRankAnchorIds, anchoredRangeByPost } = useHighlightStore();
+  const { filterCategories, filterFocusSpan, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, reRankAnchorIds, anchoredRangeByPost } = useHighlightStore();
   // C2: hover preview state for filter chips
   const [chipHovered, setChipHovered] = useState<string | null>(null);
   // C3: panel hover state for neutral-until-hover tag coloring
@@ -775,8 +775,17 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       });
     }
 
+    // D2: span filter — keep only stacks whose relations overlap the clicked focus-post span
+    if (filterFocusSpan !== null) {
+      result = result.filter(s =>
+        (s.topPost.relations ?? []).some(r =>
+          r.focusStart < filterFocusSpan.end && filterFocusSpan.start < r.focusEnd
+        )
+      );
+    }
+
     return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
-  }, [relatedStacks, filterCategories, reRankAnchorIds, shownByAnchor]);
+  }, [relatedStacks, filterCategories, filterFocusSpan, reRankAnchorIds, shownByAnchor]);
 
   const handleShowMore = (anchorId: string) => {
     setShownByAnchor(prev => ({ ...prev, [anchorId]: (prev[anchorId] ?? SHOWN_INCREMENT) + SHOWN_INCREMENT }));
@@ -788,6 +797,45 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     claimedBy.forEach((anchorId) => s.add(anchorId));
     return s;
   }, [claimedBy]);
+
+  /**
+   * D3: shortest common related text — the narrowest focus-post substring that
+   * all currently-visible stacks' relevant relations collectively cover.
+   * Only computed when filterFocusSpan is active.
+   */
+  const shortestCommonText = useMemo<string | null>(() => {
+    if (!filterFocusSpan) return null;
+    if (displayStacks.length === 0) return null;
+
+    let maxStart = filterFocusSpan.start;
+    let minEnd = filterFocusSpan.end;
+
+    for (const s of displayStacks) {
+      const rels = (s.topPost.relations ?? []).filter(r =>
+        filterCategories.size === 0 || filterCategories.has(r.category)
+      );
+      for (const r of rels) {
+        // Only narrow on relations that actually overlap the span filter
+        if (r.focusStart < filterFocusSpan.end && filterFocusSpan.start < r.focusEnd) {
+          if (r.focusStart > maxStart) maxStart = r.focusStart;
+          if (r.focusEnd < minEnd) minEnd = r.focusEnd;
+        }
+      }
+    }
+
+    let text: string;
+    if (
+      maxStart < minEnd &&
+      maxStart >= filterFocusSpan.start &&
+      minEnd <= filterFocusSpan.end
+    ) {
+      text = filterFocusSpan.text.slice(maxStart - filterFocusSpan.start, minEnd - filterFocusSpan.start);
+    } else {
+      text = filterFocusSpan.text; // fallback: show the full clicked span
+    }
+
+    return text.length > 60 ? text.slice(0, 60) + '…' : text;
+  }, [displayStacks, filterFocusSpan, filterCategories]);
 
   const EDGE_HOVER_HEIGHT = 28;
 
@@ -964,6 +1012,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     if (rangeHoverTimer.current) clearTimeout(rangeHoverTimer.current);
     clearReRankAnchors();
     clearTapped();
+    clearFilterFocusSpan(); // D2: clear span filter when focus post changes
   }, [relatedStacks]);
 
   // Touch: tap-outside clears the active state so highlights/sidebar reset.
@@ -1017,10 +1066,40 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
         )}
 
         <Text size="xs" c="dimmed" mb={4}>
-          {filterCategories.size > 0
+          {filterCategories.size > 0 && filterFocusSpan !== null
+            ? `${displayStacks.length} post${displayStacks.length !== 1 ? 's' : ''} matching category + span`
+            : filterFocusSpan !== null
+            ? `${displayStacks.length} post${displayStacks.length !== 1 ? 's' : ''} matching span`
+            : filterCategories.size > 0
             ? `${displayStacks.length} ${Array.from(filterCategories).map(c => CATEGORY_LABELS[c] ?? c).join(' + ')} post${displayStacks.length !== 1 ? 's' : ''}`
             : `${displayStacks.length} posts across all categories`}
         </Text>
+
+        {/* D2: span filter active indicator */}
+        {filterFocusSpan !== null && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px',
+            background: '#f1f5f9', borderRadius: '6px', marginBottom: '0.5rem',
+            border: '1px solid #cbd5e1', flexWrap: 'wrap',
+          }}>
+            <Text size="xs" c="#5a71a8" fw={600} style={{ fontSize: '11px', flexShrink: 0 }}>
+              Span:
+            </Text>
+            <Text size="xs" c="#64748b" style={{
+              fontSize: '10px', fontWeight: 500,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              maxWidth: '140px', fontStyle: 'italic',
+            }}>
+              "{filterFocusSpan.text.length > 35 ? filterFocusSpan.text.slice(0, 35) + '…' : filterFocusSpan.text}"
+            </Text>
+            <button
+              type="button"
+              onClick={() => clearFilterFocusSpan()}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '14px', lineHeight: 1, padding: '0 2px', marginLeft: 'auto' }}
+              aria-label="Clear span filter"
+            >×</button>
+          </div>
+        )}
 
         {/* "More like this" active indicator — shows all anchors */}
         {reRankAnchorIds.length > 0 && (
@@ -1440,6 +1519,23 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   onClick={(e) => handleCardClick(e, stack.topPost.id, stack.stackId)}
                   style={{ paddingLeft: '54px', paddingRight: '1rem', cursor: 'pointer' }}
                 >
+                  {/* D3: shortest common related text label — only when span filter is active */}
+                  {shortestCommonText !== null && (
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center',
+                      background: '#f1f5f9', border: '1px solid #cbd5e1',
+                      borderRadius: '4px', padding: '1px 6px', marginBottom: '4px',
+                      maxWidth: '100%',
+                    }}>
+                      <Text size="xs" c="#64748b" style={{
+                        fontSize: '10px', fontWeight: 600,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        fontStyle: 'italic',
+                      }}>
+                        "{shortestCommonText}"
+                      </Text>
+                    </div>
+                  )}
                   <Text component="p" size="sm" lh={1.55} c="#011445" style={{ margin: '0 0 0.4rem 0' }}>
                     {hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
                     {contentNodes}
