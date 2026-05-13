@@ -1070,7 +1070,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           const groupTotalForThis = anchorForThisCard ? (groupTotal.get(anchorForThisCard) ?? 0) : 0;
           const groupShownForThis = anchorForThisCard ? (groupShown.get(anchorForThisCard) ?? 0) : 0;
           const groupRemaining = Math.max(0, groupTotalForThis - groupShownForThis);
-          const showMoreLink = isClaim && isLastInGroup && groupRemaining > 0;
+          if (isClaim && isLastInGroup && groupRemaining > 0 && !anchorTopic && anchorForThisCard) {
+            warnMissingTopic(anchorForThisCard, anchorRangeIdx ?? -1);
+          }
+          const showMoreLink = isClaim && isLastInGroup && groupRemaining > 0 && !!anchorTopic;
 
           // "MORE [topic]" pagination — caps the bottom of the group connector
           // line. Rendered inside the last claim's motion.div (below the Paper)
@@ -1104,7 +1107,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 }}
                 style={{ color: anchorColors.text }}
               >
-                {groupRemaining} more {anchorTopic ?? 'related'}
+                {groupRemaining} more <strong style={{ color: anchorColors.text }}>{anchorTopic}</strong>
               </button>
             </div>
           ) : null;
