@@ -571,6 +571,21 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
   }, [relatedStacks]);
 
+  // Category prevalence — counts stacks that contain ANY relation with the given
+  // category (one stack contributes at most 1 per category, even if it has
+  // multiple relations of the same category). Used for tag-hover tooltips.
+  const categoryStackCount = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const stack of relatedStacks) {
+      const seen = new Set<string>();
+      for (const r of stack.topPost.relations ?? []) {
+        seen.add(r.category);
+      }
+      seen.forEach(c => m.set(c, (m.get(c) ?? 0) + 1));
+    }
+    return m;
+  }, [relatedStacks]);
+
   // Topic prevalence — used by tooltip ("7 more Contract reform") and for pagination.
   const { postTopics, topicTotal } = useMemo(() => {
     const postTopics = new Map<string, Set<string>>();
@@ -1293,11 +1308,23 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       const tc = getCategoryColors(cat);
                       const anyDirected = hri !== null || hcat !== null;
                       const tagBright = !anyDirected || indices.includes(hri ?? -1) || hcat === cat;
+                      const categoryLabel = CATEGORY_LABELS[cat] ?? cat;
+                      const otherCount = Math.max(0, (categoryStackCount.get(cat) ?? 0) - 1);
+                      const tagHover = (clientX: number, clientY: number) => {
+                        showTooltip({
+                          content: buildTooltipLabel(categoryLabel, otherCount, tc.text),
+                          colors: { text: tc.text, border: tc.border },
+                          x: clientX,
+                          y: clientY,
+                        });
+                      };
                       return (
                         <div
                           key={cat}
-                          onMouseEnter={() => { if (!isTouch) setHoveredCategory(cat); }}
-                          onMouseLeave={() => { if (!isTouch) setHoveredCategory(null); }}
+                          onMouseEnter={(e) => { if (!isTouch) setHoveredCategory(cat); tagHover(e.clientX, e.clientY); }}
+                          onMouseLeave={() => { if (!isTouch) setHoveredCategory(null); hideTooltip(); }}
+                          onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; tagHover(e.clientX, e.clientY); }}
+                          onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTooltip(); }}
                           onClick={(e) => {
                             e.stopPropagation();
                             if (isTouch) {
