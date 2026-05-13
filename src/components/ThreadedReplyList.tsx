@@ -41,6 +41,9 @@ interface ThreadedReplyListProps {
   /** Render function provided by page.tsx so Post wiring (handlers, highlights)
    *  stays in one place and is not duplicated here. */
   renderPost: (p: PostType) => React.ReactNode;
+  /** How many top-level reply branches to show. Each branch includes its full
+   *  descendant subtree — no branch is split. Omit to show all. */
+  visibleTopLevelCount?: number;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -105,6 +108,7 @@ export default function ThreadedReplyList({
   replies,
   rootId,
   renderPost,
+  visibleTopLevelCount,
 }: ThreadedReplyListProps) {
   const childMap = buildChildMap(replies);
   const topLevelReplies = childMap.get(rootId) ?? [];
@@ -113,9 +117,15 @@ export default function ThreadedReplyList({
     return null;
   }
 
+  // Slice at the top-level only; each shown branch gets its full subtree.
+  const visibleReplies =
+    visibleTopLevelCount !== undefined
+      ? topLevelReplies.slice(0, visibleTopLevelCount)
+      : topLevelReplies;
+
   return (
     <div>
-      {topLevelReplies.map((post) =>
+      {visibleReplies.map((post) =>
         renderTree(post, 0, childMap, renderPost)
       )}
     </div>
