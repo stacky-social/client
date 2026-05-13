@@ -50,7 +50,7 @@ Three missing interaction layers:
 | JC1 | How to attach handlers to `<mark>` elements in `dangerouslySetInnerHTML` output? | Event delegation on the container div in `ActiveHighlightedContent`. Listen for `mouseover`/`mouseout`/`click` on the container; check `e.target.closest('mark')`. | Less invasive than rebuilding `renderMultiHighlightHtml` as JSX. The marks already use inline style; we just need to identify which one was interacted with. |
 | JC2 | How to identify which mark/relation was clicked? | Add `data-range-id="{i}"` attribute to each `<mark>` in `renderMultiHighlightHtml`. The `index` variable is already in scope at construction time. | Zero additional state; deterministic; mirrors RelatedStacks.tsx pattern. |
 | JC3 | D1: hover neutral color | `rgba(100, 116, 139, 0.30)` (slate-500 at 30%) as background override. Applied via React state `hoveredFocusMarkIndex: number | null` in `ActiveHighlightedContent`, which injects a `<style>` scoped to a CSS class. | Can't do per-element style override because the `<mark>` is inside `dangerouslySetInnerHTML`. A CSS class + `useEffect` injects the override rule. |
-| JC4 | D1 + cross-highlight layering | Focus-post marks are **always visible** (dimmed default state at ~0.25 alpha) when the post has relations, even before any sidebar card is hovered. D1 hover fires regardless of cross-highlight state — the neutral grey (`rgba(100,116,139,0.30) !important`) overrides whichever color is currently showing. Cross-highlight (bright colors) layers on top of the dimmed default when a sidebar card is hovered; D1 hover layers on top of cross-highlight if the user simultaneously hovers a mark. The original "JC4 suppression" (`if (showCrossHighlight) return`) has been removed. | Makes marks always legible as interactive affordances. The original suppression was dead code: marks only existed during cross-highlight, so D1 could never fire. Always-on dimmed marks are the intended baseline. |
+| JC4 | D1 + cross-highlight layering | Focus-post marks are **invisible by default**. They appear only when: a sidebar card is hovered (cross-highlight, full brightness), the user has dwelled over the focus-post text area for ≥1500ms (dimmed ~0.25 alpha), or a span filter is active (dimmed). D1 hover (neutral grey `!important`) fires whenever a mark is present in the DOM. Cross-highlight produces bright marks; dwell and filter produce dimmed marks. The dwell timer (`FOCUS_HOVER_DWELL_MS = 1500`) is a named constant. | Avoids always-on visual noise while keeping marks discoverable. The dwell threshold is long enough to distinguish deliberate exploration from accidental hover. A named constant makes it easy to tune without touching logic. |
 | JC5 | `filterFocusSpan` storage location | New field in `highlightStore.ts`, same module as `filterCategories`. Type: `{ start: number; end: number } | null`. | Keeps all filter state co-located; both RelatedStacks and Post.tsx can subscribe via `useHighlightStore`. |
 | JC6 | D2: "same mark again" detection | Clicking a mark whose `focusStart === filterFocusSpan.start && focusEnd === filterFocusSpan.end` clears the filter. | Toggle semantics — consistent with how C's category filter toggles. |
 | JC7 | D2: what offsets does a mark carry? | `data-range-id` lets us index into the active relations array to get `focusStart`/`focusEnd`. When cross-highlight is active (`showCrossHighlight` is true), the active array is `hoveredRelations`. Otherwise it is `focusRelations` (the focus post's own relations passed as a prop). The D2 click handler resolves the same way as the HTML useMemo: `const rels = showCrossHighlight && hoveredRelations ? hoveredRelations : focusRelations`. | Marks are now always present (dimmed or bright), so D2 must work in both states. `focusRelations` is the merged list of all related posts' relation arrays, wired in `toPostData` and passed as a prop. |
@@ -62,19 +62,36 @@ Three missing interaction layers:
 | JC13 | D3: one stack visible | If exactly one stack passes the filter, the "shortest common" is just that stack's focus range text (same as if all stacks have the same range). Fall through normally — the intersection of one span is itself. | No special case needed. |
 | JC14 | Clearing filterFocusSpan | Clear on: same-mark click (D2 toggle), `resetHighlightStore()` call (navigating away), when `relatedStacks` changes (new focus post). RelatedStacks already calls `clearReRankAnchors()` and `clearTapped()` on `relatedStacks` change — add `clearFilterFocusSpan()` to that effect. | Prevents stale filter from persisting across focus post changes. |
 
-### Always-Visible Dimmed Marks (Option B — Locked)
+### Dwell-Triggered Mark Visibility (Option B — Revised)
 
-The original implementation rendered marks only when `showCrossHighlight` was true (a sidebar card was being hovered). This made D1 hover dead code: D1 was suppressed during cross-highlight, and marks didn't exist otherwise.
+The original Option B implementation rendered marks in a **permanently dimmed state** (~0.25 alpha) whenever the focus post had relations. User feedback found this too noisy — the always-on tinting was visually distracting.
 
-**Option B**, now implemented: marks render in a **dimmed default state** (~0.25 alpha per category color) at all times when the focus post has relations. States stack:
+**Current behavior:** Marks on the focus post are **invisible by default** (absent from the DOM). They become visible only under three conditions, computed as `marksVisible`:
 
-| State | Mark appearance |
+```
+marksVisible = showCrossHighlight || focusHoverShowMarks || filterFocusSpan !== null
+```
+
+- **`showCrossHighlight`** — the user is hovering a sidebar card (existing cross-highlight path). Marks appear at full category brightness.
+- **`focusHoverShowMarks`** — the user has held the cursor inside the focus-post text area continuously for ≥ **1500ms** (`FOCUS_HOVER_DWELL_MS`, a named constant). Marks appear dimmed (~0.25 alpha).
+- **`filterFocusSpan !== null`** — a span filter is active (D2 click was used). Marks stay visible so the user can see which span is filtered and toggle it off.
+
+The dwell timer is managed via `focusHoverTimerRef` (a `useRef<ReturnType<typeof setTimeout> | null>`). `onMouseEnter` starts the timer; `onMouseLeave` cancels it and immediately clears `focusHoverShowMarks`. A `useEffect` cleanup on unmount prevents timer leaks.
+
+The constant `FOCUS_HOVER_DWELL_MS = 1500` is declared at module level and can be tuned without touching component logic.
+
+Mark states when `marksVisible` is true:
+
+| Trigger | Mark appearance |
 |---|---|
-| Default (no hover anywhere) | Dimmed category color (~0.25 alpha) |
-| Cross-highlight (sidebar card hovered) | Bright category colors (alpha 1.0 for relevant ranges, 0.2 for others) |
-| D1 hover (mark directly hovered on focus post) | Neutral grey `rgba(100,116,139,0.30)` overrides current color via `!important` |
+| Cross-highlight (`showCrossHighlight`) | Bright category colors (alpha 1.0 for hovered range, 0.2 for others) |
+| Dwell (`focusHoverShowMarks`) | Dimmed category colors (~0.25 alpha) |
+| Span filter active (`filterFocusSpan !== null`) | Dimmed category colors (~0.25 alpha) |
+| D1 hover (mark directly hovered on focus post) | Neutral grey `rgba(100,116,139,0.30)` via `!important` scoped style |
 
-The expand-to-reveal animation **only fires when cross-highlight activates** (not on initial dimmed render), preserving the animation's purpose: smoothly revealing marks that would otherwise be hidden under the 5-line clamp when a sidebar card is first hovered.
+When `marksVisible` is false, no `<mark>` elements are present in the DOM.
+
+The expand-to-reveal animation now triggers on **any** `marksVisible → true` transition (cross-highlight OR dwell). The collapse animation fires when `marksVisible` becomes false. This ensures dwell-revealed marks that fall below the 5-line clamp are also expanded to view.
 
 ---
 
@@ -83,8 +100,8 @@ The expand-to-reveal animation **only fires when cross-highlight activates** (no
 ### D1 — Neutral highlight on focus-post hover
 
 - Applies ONLY in `ActiveHighlightedContent` (the component rendered for the active/focus post).
-- Marks are **always present** when the focus post has relations (dimmed default ~0.25 alpha).
-- D1 activates when the user moves mouse over a `<mark>` — regardless of whether `showCrossHighlight` is true or false.
+- Marks are **invisible by default** (absent from DOM). They become visible only when `marksVisible` is true: cross-highlight active, dwell threshold (1500ms) reached, or span filter active.
+- D1 activates when the user moves the mouse over a `<mark>` element that is currently in the DOM — regardless of which trigger made `marksVisible` true.
 - While active: the hovered mark's background becomes `rgba(100, 116, 139, 0.30)` — overrides the current category color (whether dimmed or bright) via a dynamically injected `<style>` block scoped to a unique ID using `!important`.
 - On `mouseout` from a `<mark>`, `hoveredFocusMarkIndex` resets to null, removing the override.
 - Cursor over all `<mark>` elements: `pointer` (always indicates clickability).
@@ -151,12 +168,16 @@ if (filterFocusSpan !== null) {
 1. `pnpm build` must produce zero TypeScript errors and zero build warnings related to changed files.
 2. Manual test (documented in PR test plan):
    - Open a post with related stacks.
-   - Hover a sidebar card → focus post marks appear in category colors.
-   - While sidebar card is hovered, move mouse to a focus-post mark → NO neutral color (cross-highlight takes priority, JC4).
-   - Un-hover sidebar card → marks disappear. Now hover directly over the focus-post text area where a mark was → neutral grey appears.
-   - Click the mark → sidebar filters to only posts relating to that span. Count label updates.
+   - Hover briefly over the focus post text — marks should NOT appear (under 1500ms).
+   - Hover and hold over the focus post text for 1.5s → marks fade in at dimmed category colors.
+   - Move mouse away → marks disappear immediately.
+   - Hover a sidebar card → focus post marks appear in full category colors (cross-highlight).
+   - While sidebar card is hovered, move mouse to a focus-post mark → neutral grey (D1) overrides.
+   - Un-hover sidebar card → marks disappear. Now dwell (1.5s) on focus post → dimmed marks appear.
+   - Click a mark during dwell-visible state → sidebar filters to only posts relating to that span. Count label updates.
    - Click same mark again → filter clears, all sidebar posts return.
    - Click a different mark → span filter switches.
+   - With span filter active, leave focus post — marks stay visible (filter keeps `marksVisible` true).
    - With span filter active, each sidebar card shows the intersection label chip.
    - Apply a category filter (Group C chips) → AND: only stacks matching both span and category show.
    - Navigate away → no stale span filter on next post.
@@ -192,7 +213,7 @@ if (filterFocusSpan !== null) {
 
 3. **JC3 — Neutral hover via scoped `<style>` injection.** Cannot override per-element inline style inside `dangerouslySetInnerHTML` from outside. Inject a `<style>` block with a class selector that overrides the mark's background, scoped to a stable unique ID on the container.
 
-4. **JC4 — Always-visible dimmed marks; D1 fires regardless of cross-highlight.** Focus-post marks render at ~0.25 alpha in their category colors at all times when the post has relations. D1 (neutral grey hover) fires on direct mark hover regardless of whether cross-highlight is active. The original suppression (`if (showCrossHighlight) return`) was removed because it made D1 dead code — marks only existed during cross-highlight, so D1 could never fire. Option B fixes this by making marks always present.
+4. **JC4 — Dwell-triggered marks; D1 fires whenever marks are present.** Focus-post marks are invisible by default (absent from DOM). They appear only when `marksVisible = showCrossHighlight || focusHoverShowMarks || filterFocusSpan !== null`. `focusHoverShowMarks` becomes true after 1500ms of continuous cursor presence over the focus-post text area (`FOCUS_HOVER_DWELL_MS`, tunable constant). D1 (neutral grey hover) fires on direct mark hover regardless of which trigger made marks visible. The always-on dimmed state (original Option B) was replaced because it produced constant visual noise; the dwell threshold filters out accidental hover while keeping marks discoverable on deliberate inspection.
 
 5. **JC5 — filterFocusSpan in highlightStore.** Co-locates all filter state. Both Post.tsx (writer) and RelatedStacks.tsx (reader) access it through the same store hook.
 
