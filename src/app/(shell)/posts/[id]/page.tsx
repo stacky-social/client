@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import { Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
+import { Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import Post from "../../../../components/Posts/Post";
 import RepliesStack from "../../../../components/RepliesStack";
@@ -79,6 +79,8 @@ export default function PostView({ params }: { params: { id: string } }) {
   // UI state
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("time");
+  /** Number of top-level reply branches visible in the Time tab. */
+  const [visibleTopLevelReplies, setVisibleTopLevelReplies] = useState(5);
   const [recommendedLoading, setRecommendedLoading] = useState(false);
   const [recommendedPosts, setRecommendedPosts] = useState<PostType[]>([]);
   const [loadingRepliesStack, setLoadingRepliesStack] = useState(false);
@@ -106,6 +108,8 @@ export default function PostView({ params }: { params: { id: string } }) {
   // -------------------- Derived values --------------------
   const filteredReplies = useMemo(() => replies.filter((r) => r.in_reply_to_id === id), [replies, id]);
   const replyIDs = useMemo(() => filteredReplies.map((r) => r.id), [filteredReplies]);
+  /** Count of top-level reply branches for the tree-aware pagination button. */
+  const totalTopLevelReplies = filteredReplies.length;
 
   // Allow quick lookup of any post by id (ancestors, replies, recommended, and the focus post)
   const allPostsById = useMemo(() => {
@@ -504,7 +508,25 @@ export default function PostView({ params }: { params: { id: string } }) {
                   replies={replies}
                   rootId={id}
                   renderPost={renderPost}
+                  visibleTopLevelCount={visibleTopLevelReplies}
                 />
+                {visibleTopLevelReplies < totalTopLevelReplies && (
+                  <Button
+                    onClick={() =>
+                      setVisibleTopLevelReplies((v) =>
+                        Math.min(v + 5, totalTopLevelReplies)
+                      )
+                    }
+                    variant="outline"
+                    fullWidth
+                    style={{ marginTop: 10 }}
+                  >
+                    {totalTopLevelReplies - visibleTopLevelReplies} more{" "}
+                    {totalTopLevelReplies - visibleTopLevelReplies === 1
+                      ? "reply"
+                      : "replies"}
+                  </Button>
+                )}
               </Tabs.Panel>
 
               <Tabs.Panel value="recommended">
