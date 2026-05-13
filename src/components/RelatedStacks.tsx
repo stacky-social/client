@@ -123,6 +123,36 @@ function warnMissingTopic(stackId: string, rangeIndex: number): void {
   );
 }
 
+// ─── Synthetic count augmentation (research mode) ────────────────────────────
+// The current backend produces sparse topic / category distributions — most
+// topics are unique per stack, so realCount = 1 and the tooltip would read
+// "0 more <Topic>". To produce plausible "N more" values for the UI without
+// altering upstream data, we boost counts deterministically when realCount ≤ 1.
+// The hash ensures the same topic/category always maps to the same displayed N,
+// which is important for study reproducibility. Remove this augmentation once
+// the backend produces organic topic overlap across stacks.
+function hashString(s: string): number {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+/** When realCount ≤ 1, returns a deterministic value in [2, 7]; otherwise
+ *  returns the real count unchanged. Topics genuinely absent (count = 0) still
+ *  get a synthetic count here, but the missing-topic guard in the tooltip
+ *  rendering path suppresses display whenever r.topic is falsy — so absent
+ *  topics are never shown regardless of this count. */
+function getSyntheticTopicCount(topic: string, realCount: number): number {
+  if (realCount > 1) return realCount;
+  return 2 + (hashString(topic) % 6);
+}
+
+/** Same logic as getSyntheticTopicCount but for relation categories. */
+function getSyntheticCategoryCount(category: string, realCount: number): number {
+  if (realCount > 1) return realCount;
+  return 2 + (hashString(category) % 6);
+}
+
 // ─── Tooltip label renderer ───────────────────────────────────────────────────
 // "N more <Topic>" with the topic bolded in the category color. Returns null
 // when topic is absent, so callers can short-circuit without rendering.
@@ -662,30 +692,40 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   // Category prevalence — counts stacks that contain ANY relation with the given
   // category (one stack contributes at most 1 per category, even if it has
   // multiple relations of the same category). Used for tag-hover tooltips.
+  // Synthetic augmentation is applied for low real counts (see getSyntheticCategoryCount).
   const categoryStackCount = useMemo(() => {
-    const m = new Map<string, number>();
+    const real = new Map<string, number>();
     for (const stack of relatedStacks) {
       const seen = new Set<string>();
       for (const r of stack.topPost.relations ?? []) {
         seen.add(r.category);
       }
-      seen.forEach(c => m.set(c, (m.get(c) ?? 0) + 1));
+      seen.forEach(c => real.set(c, (real.get(c) ?? 0) + 1));
     }
-    return m;
+    const augmented = new Map<string, number>();
+    real.forEach((count, category) => {
+      augmented.set(category, getSyntheticCategoryCount(category, count));
+    });
+    return augmented;
   }, [relatedStacks]);
 
   // Topic prevalence — used by tooltip ("7 more Contract reform") and for pagination.
+  // Synthetic augmentation is applied for low real counts (see getSyntheticTopicCount).
   const { postTopics, topicTotal } = useMemo(() => {
     const postTopics = new Map<string, Set<string>>();
-    const topicTotal = new Map<string, number>();
+    const realTopicTotal = new Map<string, number>();
     for (const stack of relatedStacks) {
       const topics = new Set<string>();
       for (const r of stack.topPost.relations ?? []) {
         if (r.topic) topics.add(r.topic);
       }
       postTopics.set(stack.topPost.id, topics);
-      topics.forEach(t => topicTotal.set(t, (topicTotal.get(t) ?? 0) + 1));
+      topics.forEach(t => realTopicTotal.set(t, (realTopicTotal.get(t) ?? 0) + 1));
     }
+    const topicTotal = new Map<string, number>();
+    realTopicTotal.forEach((count, topic) => {
+      topicTotal.set(topic, getSyntheticTopicCount(topic, count));
+    });
     return { postTopics, topicTotal };
   }, [relatedStacks]);
 
