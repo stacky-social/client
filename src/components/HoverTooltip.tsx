@@ -30,6 +30,7 @@ type Listener = (state: TooltipState) => void;
 
 const listeners = new Set<Listener>();
 let currentState: TooltipState = initialState;
+let mountCount = 0;
 
 function setState(partial: Partial<TooltipState>) {
   currentState = { ...currentState, ...partial };
@@ -60,10 +61,25 @@ export function HoverTooltip(): JSX.Element | null {
   const nodeRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    // Sync local state with current module state before subscribing
+    // to prevent stale state if showTooltip was called during render.
+    setLocalState(currentState);
+
     const listener: Listener = (s) => setLocalState(s);
     listeners.add(listener);
+
+    // Guard against multi-mount in development.
+    mountCount += 1;
+    if (mountCount > 1 && process.env.NODE_ENV !== "production") {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[HoverTooltip] More than one instance is mounted; only one is supported.",
+      );
+    }
+
     return () => {
       listeners.delete(listener);
+      mountCount -= 1;
     };
   }, []);
 
