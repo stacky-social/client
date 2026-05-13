@@ -49,6 +49,8 @@ function toPostData(entry: ListyInjectionEntry) {
   const aggregatedStacks = Array.from(categoryMap.entries()).map(([cat, { count, topPost }]) => ({
     stackId: `agg-${entry.focusPost.id}-${cat}`, rel: cat, size: count, topPost,
   }));
+  // All focus-post relations from every related post (for dimmed always-visible marks)
+  const focusRelations = entry.relatedPosts.flatMap((rp) => rp.relations ?? []);
   return {
     postId: entry.focusPost.id,
     text: entry.focusPost.content,
@@ -66,6 +68,7 @@ function toPostData(entry: ListyInjectionEntry) {
     aggregatedStacks,
     previewCard: null,
     replies: entry.replies ?? [],
+    focusRelations,
   };
 }
 
@@ -183,6 +186,7 @@ function replyToPostData(reply: FocusPostMock) {
     aggregatedStacks: [] as ReturnType<typeof toPostData>["aggregatedStacks"],
     previewCard: null,
     replies: [] as FocusPostMock[],
+    focusRelations: [] as ReturnType<typeof toPostData>["focusRelations"],
   };
 }
 
@@ -473,6 +477,7 @@ export default function ListyInjectionPage() {
         }}
         initialCard={null}
         onNavigate={opts?.isAncestor ? opts.onAncestorClick ? () => opts.onAncestorClick!() : undefined : navigateToPost}
+        focusRelations={opts?.isAncestor ? [] : postData.focusRelations}
       />
     );
   }

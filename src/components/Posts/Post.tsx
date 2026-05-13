@@ -44,12 +44,14 @@ function hexToRgba(hex: string, alpha: number): string {
 
 /** Render multi-range focus highlights into HTML using offset-based Relations.
  *  Each relation's focus range gets its category color.
- *  Level 2: when hoveredRangeIndex is set, non-active highlights dim their BACKGROUND only. */
+ *  Level 2: when hoveredRangeIndex is set, non-active highlights dim their BACKGROUND only.
+ *  When dimmed=true, all marks render at low alpha (always-visible default state). */
 function renderMultiHighlightHtml(
   displayHtml: string,
   focusPlainText: string,
   relations: Relation[],
   hoveredRangeIndex: number | null,
+  dimmed?: boolean,
 ): string {
   if (relations.length === 0) return displayHtml;
 
@@ -58,7 +60,8 @@ function renderMultiHighlightHtml(
     if (!catColors) return null;
 
     const snippet = focusPlainText.slice(r.focusStart, r.focusEnd);
-    const bgAlpha = (hoveredRangeIndex === null || hoveredRangeIndex === i) ? 1 : 0.2;
+    let bgAlpha = (hoveredRangeIndex === null || hoveredRangeIndex === i) ? 1 : 0.2;
+    if (dimmed) bgAlpha = 0.25;
     const bgColor = bgAlpha < 1 ? hexToRgba(catColors.bg, bgAlpha) : catColors.bg;
 
     // focusComment substring to bold — only when this specific highlight is hovered (Level 2)
@@ -158,18 +161,23 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   style: React.CSSProperties;
   className?: string;
   isTextExpanded: boolean;
-}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded }, ref) {
+  focusRelations?: Relation[];
+}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [] }, ref) {
   const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, filterFocusSpan } = useHighlightStore();
   const showCrossHighlight = !!hoveredPostId && !!hoveredRelations;
   const html = useMemo(() => {
-    if (!showCrossHighlight || !hoveredRelations) return displayText;
+    // Prefer cross-highlight relations when active (brightened state).
+    // Otherwise render the post's own relations in a dimmed default state.
+    const relations = showCrossHighlight && hoveredRelations ? hoveredRelations : focusRelations;
+    if (!relations || relations.length === 0) return displayText;
     return renderMultiHighlightHtml(
       displayText,
       stripHtml(rawText),
-      hoveredRelations,
-      hoveredHighlightRangeIndex,
+      relations,
+      showCrossHighlight ? hoveredHighlightRangeIndex : null,
+      /* dimmed */ !showCrossHighlight,
     );
-  }, [displayText, rawText, showCrossHighlight, hoveredRelations, hoveredHighlightRangeIndex]);
+  }, [displayText, rawText, showCrossHighlight, hoveredRelations, focusRelations, hoveredHighlightRangeIndex]);
 
   const innerRef = useRef<HTMLDivElement | null>(null);
   const setRefs = (el: HTMLDivElement | null) => {
@@ -247,8 +255,6 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     if (!el) return;
 
     const handleMouseOver = (e: MouseEvent) => {
-      // D1 suppressed while cross-highlight is active (sidebar card hovered)
-      if (showCrossHighlight) return;
       const target = (e.target as HTMLElement).closest('mark');
       if (!target) return;
       const rid = target.getAttribute('data-range-id');
@@ -268,7 +274,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       const rid = target.getAttribute('data-range-id');
       if (rid === null) return;
       const idx = parseInt(rid, 10);
-      const rels = hoveredRelations;
+      const rels = showCrossHighlight && hoveredRelations ? hoveredRelations : focusRelations;
       if (!rels || idx >= rels.length) return;
       const rel = rels[idx];
       e.stopPropagation();
@@ -298,7 +304,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       el.removeEventListener('mouseout', handleMouseOut);
       el.removeEventListener('click', handleClick, true);
     };
-  }, [showCrossHighlight, hoveredRelations, filterFocusSpan, rawText]);
+  }, [showCrossHighlight, hoveredRelations, focusRelations, filterFocusSpan, rawText]);
 
   // D1: inject a scoped <style> to apply neutral background to the hovered mark
   useEffect(() => {
@@ -310,12 +316,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       styleEl.id = styleId;
       document.head.appendChild(styleEl);
     }
-    if (hoveredFocusMarkIndex !== null && !showCrossHighlight) {
+    if (hoveredFocusMarkIndex !== null) {
       styleEl.textContent = `#${id} mark[data-range-id="${hoveredFocusMarkIndex}"] { background: rgba(100,116,139,0.30) !important; cursor: pointer; }
 #${id} mark { cursor: pointer; }`;
     } else {
-      // When cross-highlight active, marks are presentational; pointer only when inactive
-      styleEl.textContent = `#${id} mark { cursor: ${showCrossHighlight ? 'pointer' : 'pointer'}; }`;
+      styleEl.textContent = `#${id} mark { cursor: pointer; }`;
     }
   }, [hoveredFocusMarkIndex, showCrossHighlight]);
 
@@ -387,6 +392,8 @@ interface PostProps {
   initialCard?: PreviewCard | null;
   /** When provided, intercepts post navigation instead of routing to /posts/{id} */
   onNavigate?: (postId: string) => void;
+  /** Relations for the focus post's own text spans — used to render dimmed marks in the default state */
+  focusRelations?: Relation[];
 }
 
 export default function Post({
@@ -407,6 +414,7 @@ export default function Post({
   setActivePostId,
   initialCard,
   onNavigate,
+  focusRelations = [],
 }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
@@ -747,6 +755,7 @@ export default function Post({
           displayText={displayText}
           rawText={text}
           isTextExpanded={isTextExpanded}
+          focusRelations={focusRelations}
           className={isTextExpanded ? undefined : 'postClampedText'}
           style={{
             display: isTextExpanded ? 'block' : '-webkit-box',
