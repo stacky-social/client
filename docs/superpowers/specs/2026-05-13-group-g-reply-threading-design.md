@@ -138,7 +138,7 @@ No other files are modified.
 
 2. **Thread line implemented via `position: absolute; top:0; bottom:0` on a wrapper div, not measured pixel-by-pixel.** This avoids JS ResizeObserver complexity and works correctly when cards have variable heights (e.g., long text, media attachments).
 
-3. **Removed "More Replies" pagination from the Time tab.** The existing pagination was a flat-list slice; it cannot be trivially adapted to a tree without splitting branches. For the tree view, all descendants are already in memory. This is a deliberate simplification that makes the feature correct.
+3. **Tree-aware "More replies" pagination on the Time tab.** The original flat-list pagination (`visibleReplies`, +15 per click) was removed by the threading PR because slicing a flat array truncates mid-branch. It has been restored as branch-level pagination: the first 5 top-level replies (each with their full descendant subtrees) are shown initially; clicking "N more replies" reveals the next 5. Slicing happens only at the top-level array so no branch is ever split. Page size is 5 (smaller than the old flat 15) because each top-level branch can represent many posts once its subtree is included. The button label shows the exact remaining count (e.g. "3 more replies") and disappears when all branches are visible. Pagination is client-side over the fully-loaded `replies` array — no extra API calls.
 
 4. **Children sorted ascending by `created_at` within each level.** The existing "time" tab sorts descending (newest first) for the flat list. For a threaded tree, ascending (oldest first) is the convention used by Twitter/X and Mastodon's own web client, and makes conversational flow easier to follow. This is a behavior change, documented here.
 
