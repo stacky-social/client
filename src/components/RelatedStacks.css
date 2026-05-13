@@ -16,7 +16,7 @@
     transform: translateY(-100%);
     transition: opacity 500ms, transform 500ms;
   }
-  
+
   .rel-display {
     position: absolute;
     top: 10px;
@@ -30,7 +30,35 @@
     display: flex;
     align-items: center;
   }
-  
+
   .has-overflow:after {
     content: "..."
+  }
+
+  /* Suppress browser focus outline / tap highlight on clickable highlight marks */
+  mark[data-range-id]:focus,
+  mark[data-range-id]:focus-visible,
+  mark[data-overlap-bands]:focus,
+  mark[data-overlap-bands]:focus-visible {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+  mark[data-range-id],
+  mark[data-overlap-bands] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .show-more-link {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 4px 0;
+    text-underline-offset: 3px;
+  }
+  .show-more-link:hover {
+    text-decoration: underline;
   }

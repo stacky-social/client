@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
@@ -9,6 +9,97 @@ import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
 import { PreviewCardType } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
+import { useHighlightStore } from '../../utils/highlightStore';
+import type { Relation } from '../../types/PostType';
+
+// ─── Focus post cross-highlight helpers ──────────────────────────────────────
+
+/** Strip all HTML tags to get plain text for matching */
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
+}
+
+const CROSS_HIGHLIGHT_CATEGORY_COLORS: Record<string, { bg: string; border: string }> = {
+  agree:              { bg: "#d4f9d3", border: "#4caf50" },
+  disagree:           { bg: "#ffe0e0", border: "#f44336" },
+  predictions:        { bg: "#fff3cd", border: "#ff9800" },
+  evidence_public:    { bg: "#e3f2fd", border: "#2196f3" },
+  evidence_personal:  { bg: "#f3e5f5", border: "#9c27b0" },
+  connections:        { bg: "#e0f2f1", border: "#009688" },
+  questions:          { bg: "#fce4ec", border: "#e91e63" },
+  humor:              { bg: "#fff8e1", border: "#ffc107" },
+  values:             { bg: "#ede7f6", border: "#673ab7" },
+  framing:            { bg: "#e0f7fa", border: "#00bcd4" },
+  proposals:          { bg: "#e8eaf6", border: "#3f51b5" },
+  pointers:           { bg: "#e8eaf6", border: "#3f51b5" },
+};
+
+/** Convert hex color to rgba string */
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/** Render multi-range focus highlights into HTML using offset-based Relations.
+ *  Each relation's focus range gets its category color.
+ *  Level 2: when hoveredRangeIndex is set, non-active highlights dim their BACKGROUND only. */
+function renderMultiHighlightHtml(
+  displayHtml: string,
+  focusPlainText: string,
+  relations: Relation[],
+  hoveredRangeIndex: number | null,
+): string {
+  if (relations.length === 0) return displayHtml;
+
+  const entries = relations.map((r, i) => {
+    const catColors = CROSS_HIGHLIGHT_CATEGORY_COLORS[r.category];
+    if (!catColors) return null;
+
+    const snippet = focusPlainText.slice(r.focusStart, r.focusEnd);
+    const bgAlpha = (hoveredRangeIndex === null || hoveredRangeIndex === i) ? 1 : 0.2;
+    const bgColor = bgAlpha < 1 ? hexToRgba(catColors.bg, bgAlpha) : catColors.bg;
+
+    // focusComment substring to bold — only when this specific highlight is hovered (Level 2)
+    const isThisRangeHovered = hoveredRangeIndex === i;
+    const focusComment = (isThisRangeHovered && r.focusCommentStart < r.focusCommentEnd)
+      ? focusPlainText.slice(r.focusCommentStart, r.focusCommentEnd)
+      : undefined;
+
+    return { snippet, bgColor, focusComment, index: i };
+  }).filter(Boolean) as Array<{ snippet: string; bgColor: string; focusComment?: string; index: number }>;
+
+  // Sort by longest snippet first to avoid partial matches
+  entries.sort((a, b) => b.snippet.length - a.snippet.length);
+
+  let result = displayHtml;
+  const usedPositions = new Set<number>();
+
+  for (const entry of entries) {
+    const escaped = entry.snippet.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped, 'g');
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(result)) !== null) {
+      if (!usedPositions.has(match.index)) {
+        usedPositions.add(match.index);
+        let innerHtml = entry.snippet;
+        if (entry.focusComment && entry.snippet.includes(entry.focusComment)) {
+          const ci = entry.snippet.indexOf(entry.focusComment);
+          const before = entry.snippet.slice(0, ci);
+          const bold = `<span style="text-shadow:0 0 0.7px currentColor,0 0 0.7px currentColor">${entry.focusComment}</span>`;
+          const after = entry.snippet.slice(ci + entry.focusComment.length);
+          innerHtml = before + bold + after;
+        }
+        const markHtml = `<mark style="background:${entry.bgColor};padding:1px 0;color:inherit;border-radius:3px;transition:background 200ms ease">${innerHtml}</mark>`;
+        result = result.slice(0, match.index) + markHtml + result.slice(match.index + entry.snippet.length);
+        break;
+      }
+    }
+  }
+
+  return result;
+}
 
 type PreviewCard = PreviewCardType;
 
@@ -59,6 +150,129 @@ function cleanPostHtml(html: string, card: PreviewCard | null | undefined): Clea
 
 
 
+// Subscribes to the highlight store — only mounted for the *active* post so
+// inactive posts don't re-render on every sidebar hover.
+const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
+  displayText: string;
+  rawText: string;
+  style: React.CSSProperties;
+  className?: string;
+  isTextExpanded: boolean;
+}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded }, ref) {
+  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex } = useHighlightStore();
+  const showCrossHighlight = !!hoveredPostId && !!hoveredRelations;
+  const html = useMemo(() => {
+    if (!showCrossHighlight || !hoveredRelations) return displayText;
+    return renderMultiHighlightHtml(
+      displayText,
+      stripHtml(rawText),
+      hoveredRelations,
+      hoveredHighlightRangeIndex,
+    );
+  }, [displayText, rawText, showCrossHighlight, hoveredRelations, hoveredHighlightRangeIndex]);
+
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const setRefs = (el: HTMLDivElement | null) => {
+    innerRef.current = el;
+    if (typeof ref === 'function') ref(el);
+    else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
+  };
+
+  // ── Expand-to-reveal ──────────────────────────────────────────────────────
+  // When a mark is below the 5-line clamp, smoothly grow the box downward.
+  // Collapses with a matching animation when hover ends.
+  //
+  // Phase: 'normal' → 'expanded' → 'collapsing' → 'normal'
+  //   expanded:   display:block, maxHeight = revealHeight  (large)
+  //   collapsing: display:block, maxHeight = clamp height  (CSS transition plays)
+  //   normal:     -webkit-box with line-clamp              (after timeout)
+  const [revealHeight, setRevealHeight] = useState<number | null>(null);
+  const [collapsing, setCollapsing] = useState(false);
+  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // EXPAND: useLayoutEffect fires synchronously when html changes (marks appear).
+  // Only runs when showCrossHighlight is true — does NOT touch state on unhover.
+  useLayoutEffect(() => {
+    const el = innerRef.current;
+    if (!el || isTextExpanded || !showCrossHighlight) return;
+
+    const marks = Array.from(el.querySelectorAll('mark'));
+    if (marks.length === 0) return;
+
+    const boxRect = el.getBoundingClientRect();
+    let lowestBottom = 0;
+    for (const m of marks) {
+      const r = m.getBoundingClientRect();
+      const relBottom = r.bottom - boxRect.top;
+      if (relBottom > lowestBottom) lowestBottom = relBottom;
+    }
+
+    const PADDING = 24;
+    const needed = lowestBottom + PADDING;
+    const clampHeight = el.clientHeight;
+
+    if (needed > clampHeight) {
+      // Cancel any pending collapse — we're re-expanding
+      if (collapseTimerRef.current) { clearTimeout(collapseTimerRef.current); collapseTimerRef.current = null; }
+      setCollapsing(false);
+      setRevealHeight(Math.min(needed, el.scrollHeight));
+    }
+  }, [html, isTextExpanded, showCrossHighlight]);
+
+  // COLLAPSE: when hover ends, start the collapse animation.
+  // revealHeight stays set (keeping display:block) while CSS transition plays.
+  // After 320ms, clear everything → snap to normal -webkit-box style.
+  useEffect(() => {
+    if (!showCrossHighlight && revealHeight !== null) {
+      setCollapsing(true);
+      collapseTimerRef.current = setTimeout(() => {
+        setCollapsing(false);
+        setRevealHeight(null);
+        collapseTimerRef.current = null;
+      }, 320);
+    }
+    return () => {
+      if (collapseTimerRef.current) { clearTimeout(collapseTimerRef.current); collapseTimerRef.current = null; }
+    };
+  }, [showCrossHighlight]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Build the merged style
+  const TRANSITION = 'max-height 300ms ease';
+  let mergedStyle: React.CSSProperties;
+
+  if (revealHeight && !collapsing) {
+    // EXPANDED: display:block, large maxHeight
+    mergedStyle = {
+      ...style,
+      display: 'block',
+      WebkitLineClamp: undefined,
+      WebkitBoxOrient: undefined,
+      overflow: 'hidden',
+      maxHeight: `${revealHeight}px`,
+      textOverflow: 'clip',
+      transition: TRANSITION,
+    };
+  } else if (revealHeight && collapsing) {
+    // COLLAPSING: KEEP display:block + revealHeight in DOM (so browser knows
+    // the starting maxHeight for the transition), but target the small height.
+    mergedStyle = {
+      ...style,
+      display: 'block',
+      WebkitLineClamp: undefined,
+      WebkitBoxOrient: undefined,
+      overflow: 'hidden',
+      maxHeight: style.maxHeight ?? 'calc(1.5em * 5)',
+      textOverflow: 'ellipsis',
+      transition: TRANSITION,
+    };
+  } else {
+    // NORMAL: -webkit-box with line-clamp
+    mergedStyle = style;
+  }
+
+  return <div ref={setRefs} className={className} style={mergedStyle} dangerouslySetInnerHTML={{ __html: html }} />;
+});
+
 interface PostProps {
   id: string;
   text: string;
@@ -79,7 +293,8 @@ interface PostProps {
   activePostId: string | null;
   setActivePostId: (id: string | null) => void;
   initialCard?: PreviewCard | null;
-  
+  /** When provided, intercepts post navigation instead of routing to /posts/{id} */
+  onNavigate?: (postId: string) => void;
 }
 
 export default function Post({
@@ -99,6 +314,7 @@ export default function Post({
   activePostId,
   setActivePostId,
   initialCard,
+  onNavigate,
 }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
@@ -119,7 +335,10 @@ export default function Post({
 
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>(initialCard ? [initialCard] : []);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
-  const { html: displayText, publishedDate, articleUrl } = cleanPostHtml(text, previewCards[0]);
+  const { html: displayText, publishedDate, articleUrl } = useMemo(
+    () => cleanPostHtml(text, previewCards[0]),
+    [text, previewCards],
+  );
 
   const [isOverflowing, setIsOverflowing] = useState(false);
   const textRef = useRef<HTMLDivElement>(null);
@@ -162,9 +381,9 @@ export default function Post({
 
 
   const handleNavigate = () => {
+    if (onNavigate) { onNavigate(id); return; }
     const url = `/posts/${id}`;
     localStorage.setItem('relatedStacks', JSON.stringify(tempRelatedStacks));
-
     localStorage.setItem('relatedStacksSize', JSON.stringify(stackCount));
     sessionStorage.setItem(`previousPath:${url}`, window.location.pathname);
     sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
@@ -172,6 +391,7 @@ export default function Post({
   };
 
   const handleReply = () => {
+    if (onNavigate) { onNavigate(id); return; }
     const url = `/posts/${id}`;
     sessionStorage.setItem(`previousPath:${url}`, window.location.pathname);
     sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
@@ -324,19 +544,18 @@ export default function Post({
     onStackIconClick(newRelatedStacks, id, adjustedPosition);
   };
 
-  const handleLinkClick = (e: MouseEvent) => {
-    e.preventDefault();
-    const target = e.target as HTMLAnchorElement;
-    if (target && target.href) {
-      window.open(target.href, '_blank');
-    }
-  };
-
   const handleExpandText = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     event.preventDefault();
     setIsTextExpanded(true);
     setIsOverflowing(false);
+  };
+
+  const handleCollapseText = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    event.preventDefault();
+    setIsTextExpanded(false);
+    // isOverflowing will be recalculated by the useEffect on next render
   };
 
   const handleSingleClick = (e: React.MouseEvent) => {
@@ -351,18 +570,6 @@ export default function Post({
     }
   };
 
-  useEffect(() => {
-    const links = document.querySelectorAll('.post-content a');
-    links.forEach(link => {
-      link.addEventListener('click', handleLinkClick as EventListener);
-    });
-    return () => {
-      links.forEach(link => {
-        link.removeEventListener('click', handleLinkClick as EventListener);
-      });
-    };
-  }, [text]);
-
   return (
     <div style={{ position: 'relative', marginBottom: '3rem'}}>
       <Paper
@@ -372,7 +579,7 @@ export default function Post({
           width: "100%",
           backgroundColor: '#fff',
           zIndex: 5,
-          borderRadius: '10px', // 左上角圆角
+          borderRadius: '10px',
           border: isActive ? '2px solid rgb(156, 184, 255)' : '2px solid #e7e7e7',
           boxShadow: isActive ? 'rgba(0, 0, 0, 0.18) 0px 12px 24px, rgba(0, 0, 0, 0.12) 0px 6px 12px' : 'none',
           transform: isActive ? 'translateY(-2px)' : 'none',
@@ -380,12 +587,11 @@ export default function Post({
           paddingLeft: '1rem',
           paddingRight: '1rem',
           paddingTop: '1rem',
-          cursor: 'pointer'
+          cursor: 'pointer',
         }}
         onMouseEnter={() => { setHovered(true); }}
         onMouseLeave={() => { setHovered(false); }}
       >
-
 {stackCount !== 0 && (
   <UnstyledButton
     onClick={(event) => {
@@ -443,21 +649,44 @@ export default function Post({
           onMouseUp={handleMouseUp}
         >
           <div>
-      <div
-        ref={textRef}
-        style={{
-          display: isTextExpanded ? 'block' : '-webkit-box',
-          WebkitBoxOrient: 'vertical',
-          WebkitLineClamp: isTextExpanded ? undefined : 5,
-          overflow: isTextExpanded ? 'visible' : 'hidden',
-          textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
-          marginTop: '0px',
-          lineHeight: '1.5',
-          color: '#011445'
-        }}
-        dangerouslySetInnerHTML={{ __html: displayText }}
-      />
-      {isOverflowing && (
+      {isActive ? (
+        <ActiveHighlightedContent
+          ref={textRef}
+          displayText={displayText}
+          rawText={text}
+          isTextExpanded={isTextExpanded}
+          className={isTextExpanded ? undefined : 'postClampedText'}
+          style={{
+            display: isTextExpanded ? 'block' : '-webkit-box',
+            WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: isTextExpanded ? undefined : 5,
+            overflow: isTextExpanded ? 'visible' : 'hidden',
+            textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
+            maxHeight: isTextExpanded ? undefined : 'calc(1.5em * 5)',
+            marginTop: '0px',
+            lineHeight: '1.5',
+            color: '#011445',
+          }}
+        />
+      ) : (
+        <div
+          ref={textRef}
+          className={isTextExpanded ? undefined : 'postClampedText'}
+          style={{
+            display: isTextExpanded ? 'block' : '-webkit-box',
+            WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: isTextExpanded ? undefined : 5,
+            overflow: isTextExpanded ? 'visible' : 'hidden',
+            textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
+            maxHeight: isTextExpanded ? undefined : 'calc(1.5em * 5)',
+            marginTop: '0px',
+            lineHeight: '1.5',
+            color: '#011445'
+          }}
+          dangerouslySetInnerHTML={{ __html: displayText }}
+        />
+      )}
+      {(isOverflowing || isTextExpanded) && (
         <Anchor
           component="button"
           type="button"
@@ -475,11 +704,11 @@ export default function Post({
               },
             },
           })}
-          onClick={handleExpandText}
+          onClick={isTextExpanded ? handleCollapseText : handleExpandText}
           onMouseDown={(event) => event.stopPropagation()}
           onMouseUp={(event) => event.stopPropagation()}
         >
-          Read more
+          {isTextExpanded ? 'Read less' : 'Read more'}
         </Anchor>
       )}
     </div>

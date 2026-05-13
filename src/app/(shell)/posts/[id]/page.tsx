@@ -50,17 +50,9 @@ const mapWithStackFields = <T extends object>(x: T) => ({
   stackCount: null,
 });
 
-// UI constants (avoid magic numbers sprinkled throughout)
-const CONNECTOR_STYLE = {
-  position: "absolute" as const,
-  left: "10%",
-  bottom: -48,
-  width: 2,
-  height: 48,
-  backgroundColor: "#545454",
-  transform: "translateX(-50%)",
-  zIndex: 0,
-};
+// Thread connector line style shared by ancestor + reply connectors
+const THREAD_LINE_COLOR = "#ccd1dc";
+const THREAD_LINE_LEFT = 32; // aligns with avatar center (~16px padding + ~19px half-avatar)
 
 // -------------------- Component --------------------
 export default function PostView({ params }: { params: { id: string } }) {
@@ -462,16 +454,41 @@ export default function PostView({ params }: { params: { id: string } }) {
       <BackButton />
       <div>
         <div style={{ position: "relative" }}>
-          {/* Ancestors */}
-          {ancestors.map((a) => (
-            <div key={a.id} style={{ position: "relative", marginBottom: "1rem", marginLeft: 40 }}>
-              {renderPost(a)}
-              <div style={CONNECTOR_STYLE} />
+          {/* Ancestors with thread line */}
+          {ancestors.length > 0 && (
+            <div style={{ position: "relative" }}>
+              {ancestors.map((a, index) => (
+                <div key={a.id} style={{ position: "relative" }}>
+                  {/* Vertical line connecting this ancestor to the next post below */}
+                  <div style={{
+                    position: "absolute",
+                    left: THREAD_LINE_LEFT,
+                    top: index === 0 ? "50%" : 0,
+                    bottom: 0,
+                    width: 2,
+                    backgroundColor: THREAD_LINE_COLOR,
+                    zIndex: 0,
+                  }} />
+                  {renderPost(a)}
+                </div>
+              ))}
             </div>
-          ))}
+          )}
 
           {/* Current Post */}
           <div ref={currentPostRef} style={{ position: "relative" }}>
+            {/* Connector from last ancestor into focal post */}
+            {ancestors.length > 0 && (
+              <div style={{
+                position: "absolute",
+                left: THREAD_LINE_LEFT,
+                top: 0,
+                height: "50%",
+                width: 2,
+                backgroundColor: THREAD_LINE_COLOR,
+                zIndex: 0,
+              }} />
+            )}
             {post && renderPost(post, { stackCount: size, relatedStacks: focusRelatedStacks })}
           </div>
         </div>

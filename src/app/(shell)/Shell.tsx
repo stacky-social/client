@@ -6,21 +6,23 @@ import { ReactNode } from 'react';
 import {Navbar} from "../../components/NavBar/Navbar";
 import StackLogo from '../../utils/StackLogo';
 import { RelatedStacksProvider } from './related-stacks-context';
+import { HoverTooltip } from '../../components/HoverTooltip';
 
 export default function Shell({ children, aside }: {  children: React.ReactNode; aside: React.ReactNode; }) {
     const [opened, { toggle }] = useDisclosure();
+    const [navCollapsed, { toggle: toggleNav }] = useDisclosure(false);
 
     return (
         <RelatedStacksProvider>
         <AppShell
             header={{ height: { base: 64, sm: 0 } }}
             navbar={{
-                width: "clamp(200px, 22vw, 300px)",
+                width: navCollapsed ? 0 : "clamp(200px, 22vw, 300px)",
                 breakpoint: "sm",
-                collapsed: { mobile: !opened },
+                collapsed: { mobile: !opened, desktop: navCollapsed },
               }}
             aside={{
-            width: "clamp(360px, 26vw, 520px)",
+            width: navCollapsed ? "clamp(400px, 32vw, 600px)" : "clamp(360px, 26vw, 520px)",
             breakpoint: "lg",
             collapsed: { mobile: true },
             }}
@@ -32,26 +34,32 @@ export default function Shell({ children, aside }: {  children: React.ReactNode;
                     <StackLogo size={30} />
                 </Group>
             </AppShell.Header>
-            <AppShell.Navbar p="md" visibleFrom="sm" style={{ backgroundColor: '#FCFBF5' }}>
+            <AppShell.Navbar p="md" visibleFrom="sm" style={{
+                backgroundColor: '#FCFBF5',
+                overflow: 'hidden',
+                opacity: navCollapsed ? 0 : 1,
+                transition: 'opacity 200ms ease',
+            }}>
                 <Navbar />
             </AppShell.Navbar>
             <AppShell.Aside
                 p="md"
                 pt="0"
                 withBorder
-                style={{ background: "#FCFBF5", 
-                    overflowY: 'auto', 
+                style={{ background: "#FCFBF5",
+                    overflowY: 'auto',
+                    overscrollBehavior: 'contain',
                     scrollbarWidth: 'none',
                     '-ms-overflow-style': 'none',
                     }}
             >
                 {aside ?? null}
-            </AppShell.Aside>  
-            <Drawer 
-                opened={opened} 
-                onClose={toggle} 
-                padding="md" 
-                size="xs" 
+            </AppShell.Aside>
+            <Drawer
+                opened={opened}
+                onClose={toggle}
+                padding="md"
+                size="xs"
                 styles={{
                     content: {
                       backgroundColor: '#FCFBF5',
@@ -68,6 +76,21 @@ export default function Shell({ children, aside }: {  children: React.ReactNode;
                 {children}
             </AppShell.Main>
         </AppShell>
+        <HoverTooltip />
+        <Burger
+            opened={!navCollapsed}
+            onClick={toggleNav}
+            visibleFrom="sm"
+            size="sm"
+            aria-label={navCollapsed ? "Expand navigation" : "Collapse navigation"}
+            style={{
+                position: 'fixed',
+                left: navCollapsed ? 16 : 'calc(clamp(200px, 22vw, 300px) - 42px)',
+                top: 16,
+                zIndex: 300,
+                transition: 'left 200ms ease',
+            }}
+        />
         </RelatedStacksProvider>
     );
 }

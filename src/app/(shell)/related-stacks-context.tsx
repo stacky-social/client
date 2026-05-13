@@ -21,8 +21,10 @@ export function RelatedStacksProvider({ children }: { children: React.ReactNode 
 
   const setFromPost = (stacks: RelatedStacksArray, postId: string, options?: { force?: boolean }) => {
     if (options?.force) {
+      // Skip no-op updates so the aside doesn't re-render (and replay framer-motion) on every scroll tick
+      if (postId === activePostId) return;
       previousPostIdRef.current = activePostId;
-      setRelatedStacks(Array.isArray(stacks) ? [...stacks] : []);
+      setRelatedStacks(Array.isArray(stacks) ? stacks : []);
       setActivePostId(postId);
       return;
     }
@@ -35,7 +37,7 @@ export function RelatedStacksProvider({ children }: { children: React.ReactNode 
     }
 
     previousPostIdRef.current = activePostId;
-    setRelatedStacks(Array.isArray(stacks) ? [...stacks] : []);
+    setRelatedStacks(Array.isArray(stacks) ? stacks : []);
     setActivePostId(postId);
   };
 
