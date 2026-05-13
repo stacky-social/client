@@ -9,7 +9,7 @@ import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
 import { PreviewCardType } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
-import { useHighlightStore } from '../../utils/highlightStore';
+import { useHighlightStore, setFilterFocusSpan, clearFilterFocusSpan } from '../../utils/highlightStore';
 import type { Relation } from '../../types/PostType';
 
 // ─── Focus post cross-highlight helpers ──────────────────────────────────────
@@ -91,7 +91,7 @@ function renderMultiHighlightHtml(
           const after = entry.snippet.slice(ci + entry.focusComment.length);
           innerHtml = before + bold + after;
         }
-        const markHtml = `<mark style="background:${entry.bgColor};padding:1px 0;color:inherit;border-radius:3px;transition:background 200ms ease">${innerHtml}</mark>`;
+        const markHtml = `<mark data-range-id="${entry.index}" style="background:${entry.bgColor};padding:1px 0;color:inherit;border-radius:3px;transition:background 200ms ease">${innerHtml}</mark>`;
         result = result.slice(0, match.index) + markHtml + result.slice(match.index + entry.snippet.length);
         break;
       }
@@ -159,7 +159,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   className?: string;
   isTextExpanded: boolean;
 }>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded }, ref) {
-  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex } = useHighlightStore();
+  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, filterFocusSpan } = useHighlightStore();
   const showCrossHighlight = !!hoveredPostId && !!hoveredRelations;
   const html = useMemo(() => {
     if (!showCrossHighlight || !hoveredRelations) return displayText;
@@ -177,6 +177,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     if (typeof ref === 'function') ref(el);
     else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
   };
+
+  // D1/D2: stable container ID for scoped CSS and event delegation
+  const containerIdRef = useRef<string>(`ahc-${Math.random().toString(36).slice(2)}`);
+  // D1: index of the mark currently hovered directly on the focus post
+  const [hoveredFocusMarkIndex, setHoveredFocusMarkIndex] = useState<number | null>(null);
 
   // ── Expand-to-reveal ──────────────────────────────────────────────────────
   // When a mark is below the 5-line clamp, smoothly grow the box downward.
@@ -236,6 +241,93 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     };
   }, [showCrossHighlight]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // D1/D2: event delegation on the container div — hover neutral highlight + click span filter
+  useEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+
+    const handleMouseOver = (e: MouseEvent) => {
+      // D1 suppressed while cross-highlight is active (sidebar card hovered)
+      if (showCrossHighlight) return;
+      const target = (e.target as HTMLElement).closest('mark');
+      if (!target) return;
+      const rid = target.getAttribute('data-range-id');
+      if (rid !== null) setHoveredFocusMarkIndex(parseInt(rid, 10));
+    };
+    const handleMouseOut = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement).closest('mark');
+      if (!target) return;
+      // Don't clear if the mouse is moving to a child of the same mark
+      const related = e.relatedTarget as HTMLElement | null;
+      if (related && target.contains(related)) return;
+      setHoveredFocusMarkIndex(null);
+    };
+    const handleClick = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement).closest('mark');
+      if (!target) return;
+      const rid = target.getAttribute('data-range-id');
+      if (rid === null) return;
+      const idx = parseInt(rid, 10);
+      const rels = hoveredRelations;
+      if (!rels || idx >= rels.length) return;
+      const rel = rels[idx];
+      e.stopPropagation();
+      // Toggle: clicking the same span clears the filter; different span sets it
+      if (
+        filterFocusSpan !== null &&
+        filterFocusSpan.start === rel.focusStart &&
+        filterFocusSpan.end === rel.focusEnd
+      ) {
+        clearFilterFocusSpan();
+      } else {
+        const plainText = stripHtml(rawText);
+        setFilterFocusSpan({
+          start: rel.focusStart,
+          end: rel.focusEnd,
+          text: plainText.slice(rel.focusStart, rel.focusEnd),
+        });
+      }
+    };
+
+    el.addEventListener('mouseover', handleMouseOver);
+    el.addEventListener('mouseout', handleMouseOut);
+    // Capture phase so our handler fires before the card navigation handler
+    el.addEventListener('click', handleClick, true);
+    return () => {
+      el.removeEventListener('mouseover', handleMouseOver);
+      el.removeEventListener('mouseout', handleMouseOut);
+      el.removeEventListener('click', handleClick, true);
+    };
+  }, [showCrossHighlight, hoveredRelations, filterFocusSpan, rawText]);
+
+  // D1: inject a scoped <style> to apply neutral background to the hovered mark
+  useEffect(() => {
+    const id = containerIdRef.current;
+    const styleId = `d1-hover-${id}`;
+    let styleEl = document.getElementById(styleId) as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = styleId;
+      document.head.appendChild(styleEl);
+    }
+    if (hoveredFocusMarkIndex !== null && !showCrossHighlight) {
+      styleEl.textContent = `#${id} mark[data-range-id="${hoveredFocusMarkIndex}"] { background: rgba(100,116,139,0.30) !important; cursor: pointer; }
+#${id} mark { cursor: pointer; }`;
+    } else {
+      // When cross-highlight active, marks are presentational; pointer only when inactive
+      styleEl.textContent = `#${id} mark { cursor: ${showCrossHighlight ? 'pointer' : 'pointer'}; }`;
+    }
+  }, [hoveredFocusMarkIndex, showCrossHighlight]);
+
+  // Cleanup scoped style on unmount
+  useEffect(() => {
+    const id = containerIdRef.current;
+    return () => {
+      const el = document.getElementById(`d1-hover-${id}`);
+      if (el) el.remove();
+    };
+  }, []);
+
   // Build the merged style
   const TRANSITION = 'max-height 300ms ease';
   let mergedStyle: React.CSSProperties;
@@ -270,7 +362,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     mergedStyle = style;
   }
 
-  return <div ref={setRefs} className={className} style={mergedStyle} dangerouslySetInnerHTML={{ __html: html }} />;
+  return <div ref={setRefs} id={containerIdRef.current} className={className} style={mergedStyle} dangerouslySetInnerHTML={{ __html: html }} />;
 });
 
 interface PostProps {
