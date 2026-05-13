@@ -50,6 +50,8 @@ interface RelatedStacksProps {
   onOpenModalWithStackId?: (stackId: string) => void;
   /** When provided, intercepts post navigation instead of routing to /posts/{id} */
   onPostNavigate?: (postId: string) => void;
+  /** H5: when set, appends ?from={sourcePostId} to related-post navigation URLs */
+  sourcePostId?: string;
 }
 
 // ─── Category colors ─────────────────────────────────────────────────────────
@@ -618,7 +620,7 @@ function similarityScore(textA: string, textB: string): number {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth = "100%", onStackClick, showupdate, onOpenModalWithStackId, onPostNavigate }) => {
+const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth = "100%", onStackClick, showupdate, onOpenModalWithStackId, onPostNavigate, sourcePostId }) => {
   const router = useRouter();
   const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
@@ -985,7 +987,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
   const handleNavigate = (postId: string, newStackId: string) => {
     if (onPostNavigate) { onPostNavigate(postId); return; }
-    const url = `/posts/${postId}?stackId=${newStackId || ''}`;
+    // H5: build params — preserve stackId, add ?from= when navigating from a known focus post
+    const navParams = new URLSearchParams();
+    if (newStackId) navParams.set("stackId", newStackId);
+    if (sourcePostId) navParams.set("from", sourcePostId);
+    const search = navParams.toString();
+    const url = `/posts/${postId}${search ? "?" + search : ""}`;
     sessionStorage.setItem(`previousPath:/posts/${postId}`, window.location.pathname);
     sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
     router.push(url);
