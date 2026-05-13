@@ -868,6 +868,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   useEffect(() => {
     setHoveredCardIndex(null);
     setHoveredIndex(null);
+    hideTooltip();
     if (rangeHoverTimer.current) clearTimeout(rangeHoverTimer.current);
     clearReRankAnchors();
     clearTapped();
@@ -1081,6 +1082,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           // so its lifecycle is tied to the card. Kept out of the parent
           // AnimatePresence's flatMap because popLayout mode strands such
           // children at opacity:0 forever when their key disappears.
+          const buttonHover = (clientX: number, clientY: number) => {
+            if (!anchorTopic) return;
+            showTooltip({
+              content: buildTooltipLabel(anchorTopic, groupRemaining, anchorColors.text),
+              colors: { text: anchorColors.text, border: anchorColors.border },
+              x: clientX,
+              y: clientY,
+            });
+          };
           const moreEl = showMoreLink && anchorForThisCard ? (
             <div
               style={{
@@ -1106,6 +1116,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   e.stopPropagation();
                   handleShowMore(anchorForThisCard);
                 }}
+                onMouseEnter={(e) => buttonHover(e.clientX, e.clientY)}
+                onMouseLeave={() => hideTooltip()}
+                onPointerEnter={(e) => { if (e.pointerType === 'mouse') buttonHover(e.clientX, e.clientY); }}
+                onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTooltip(); }}
                 style={{ color: anchorColors.text }}
               >
                 {groupRemaining} more <strong style={{ color: anchorColors.text }}>{anchorTopic}</strong>
@@ -1116,6 +1130,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           // Label (between anchor and first claim) — rendered as its own animated row.
           // The chip + × button cap the top of the connector line; the line itself
           // begins just below the chip and bridges into the gap before the first claim.
+          const chipHover = (clientX: number, clientY: number) => {
+            if (!anchorTopic) return;
+            showTooltip({
+              content: buildTooltipLabel(anchorTopic, groupRemaining, anchorColors.text),
+              colors: { text: anchorColors.text, border: anchorColors.border },
+              x: clientX,
+              y: clientY,
+            });
+          };
           const labelEl = isFirstClaim && anchorForThisCard ? (
             <motion.div
               key={`label-${anchorForThisCard}`}
@@ -1140,13 +1163,19 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 background: anchorColors.border,
                 borderRadius: GROUP_LINE_WIDTH,
               }} />
-              <span style={{
-                fontSize: '11px', fontWeight: 600, color: anchorColors.text,
-                background: anchorColors.bg, border: `1px solid ${anchorColors.border}55`,
-                borderRadius: '4px', padding: '1px 6px',
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                maxWidth: '220px',
-              }}>
+              <span
+                onMouseEnter={(e) => chipHover(e.clientX, e.clientY)}
+                onMouseLeave={() => hideTooltip()}
+                onPointerEnter={(e) => { if (e.pointerType === 'mouse') chipHover(e.clientX, e.clientY); }}
+                onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTooltip(); }}
+                style={{
+                  fontSize: '11px', fontWeight: 600, color: anchorColors.text,
+                  background: anchorColors.bg, border: `1px solid ${anchorColors.border}55`,
+                  borderRadius: '4px', padding: '1px 6px',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  maxWidth: '220px',
+                }}
+              >
                 {anchorTopic ?? 'Related'}
               </span>
               <button
