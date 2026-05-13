@@ -169,24 +169,29 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, filterFocusSpan } = useHighlightStore();
   const showCrossHighlight = !!hoveredPostId && !!hoveredRelations;
 
-  // Dwell-triggered mark visibility: true after FOCUS_HOVER_DWELL_MS of continuous hover
-  const [focusHoverShowMarks, setFocusHoverShowMarks] = useState<boolean>(false);
-  const focusHoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Per-mark dwell: index of the mark that has become visible via 1500ms dwell
+  const [dwellOnMarkIndex, setDwellOnMarkIndex] = useState<number | null>(null);
+  const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Cleanup timer on unmount to avoid memory leaks
+  // Cleanup dwell timer on unmount
   useEffect(() => {
     return () => {
-      if (focusHoverTimerRef.current) clearTimeout(focusHoverTimerRef.current);
+      if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
     };
   }, []);
 
-  // Marks are visible when: cross-highlight active, dwell triggered, or a span filter is active
-  const marksVisible = showCrossHighlight || focusHoverShowMarks || filterFocusSpan !== null;
+  // Compute which mark index (if any) should be visible in neutral grey
+  const filterIdx = filterFocusSpan
+    ? focusRelations.findIndex(r => r.focusStart === filterFocusSpan.start && r.focusEnd === filterFocusSpan.end)
+    : -1;
+  const visibleMarkIdx = dwellOnMarkIndex !== null ? dwellOnMarkIndex : (filterIdx >= 0 ? filterIdx : null);
+
+  // Marks are visually active when: cross-highlight, per-mark dwell, or filter active
+  const anyMarkVisuallyActive = showCrossHighlight || dwellOnMarkIndex !== null || (filterFocusSpan !== null && filterIdx >= 0);
 
   const html = useMemo(() => {
-    if (!marksVisible) return displayText;
-    // Prefer cross-highlight relations when active (brightened state).
-    // Otherwise render the post's own relations in a dimmed state.
+    // Always render marks in DOM when focusRelations exist so cursor events fire on them.
+    // CSS overrides control visibility — not DOM presence.
     const relations = showCrossHighlight && hoveredRelations ? hoveredRelations : focusRelations;
     if (!relations || relations.length === 0) return displayText;
     return renderMultiHighlightHtml(
@@ -194,9 +199,9 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       stripHtml(rawText),
       relations,
       showCrossHighlight ? hoveredHighlightRangeIndex : null,
-      /* dimmed */ !showCrossHighlight,
+      /* dimmed */ false,
     );
-  }, [displayText, rawText, marksVisible, showCrossHighlight, hoveredRelations, focusRelations, hoveredHighlightRangeIndex]);
+  }, [displayText, rawText, showCrossHighlight, hoveredRelations, focusRelations, hoveredHighlightRangeIndex]);
 
   const innerRef = useRef<HTMLDivElement | null>(null);
   const setRefs = (el: HTMLDivElement | null) => {
@@ -207,8 +212,6 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
 
   // D1/D2: stable container ID for scoped CSS and event delegation
   const containerIdRef = useRef<string>(`ahc-${Math.random().toString(36).slice(2)}`);
-  // D1: index of the mark currently hovered directly on the focus post
-  const [hoveredFocusMarkIndex, setHoveredFocusMarkIndex] = useState<number | null>(null);
 
   // ── Expand-to-reveal ──────────────────────────────────────────────────────
   // When a mark is below the 5-line clamp, smoothly grow the box downward.
@@ -223,10 +226,10 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // EXPAND: useLayoutEffect fires synchronously when html changes (marks appear).
-  // Triggers on any marksVisible → true transition (cross-highlight OR dwell).
+  // Triggers on any anyMarkVisuallyActive → true transition (cross-highlight OR dwell OR filter).
   useLayoutEffect(() => {
     const el = innerRef.current;
-    if (!el || isTextExpanded || !marksVisible) return;
+    if (!el || isTextExpanded || !anyMarkVisuallyActive) return;
 
     const marks = Array.from(el.querySelectorAll('mark'));
     if (marks.length === 0) return;
@@ -249,13 +252,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       setCollapsing(false);
       setRevealHeight(Math.min(needed, el.scrollHeight));
     }
-  }, [html, isTextExpanded, marksVisible]);
+  }, [html, isTextExpanded, anyMarkVisuallyActive]);
 
   // COLLAPSE: when marks become invisible, start the collapse animation.
   // revealHeight stays set (keeping display:block) while CSS transition plays.
   // After 320ms, clear everything → snap to normal -webkit-box style.
   useEffect(() => {
-    if (!marksVisible && revealHeight !== null) {
+    if (!anyMarkVisuallyActive && revealHeight !== null) {
       setCollapsing(true);
       collapseTimerRef.current = setTimeout(() => {
         setCollapsing(false);
@@ -266,9 +269,9 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     return () => {
       if (collapseTimerRef.current) { clearTimeout(collapseTimerRef.current); collapseTimerRef.current = null; }
     };
-  }, [marksVisible]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [anyMarkVisuallyActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // D1/D2: event delegation on the container div — hover neutral highlight + click span filter
+  // D1/D2: event delegation on the container div — per-mark dwell + click span filter
   useEffect(() => {
     const el = innerRef.current;
     if (!el) return;
@@ -277,15 +280,30 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       const target = (e.target as HTMLElement).closest('mark');
       if (!target) return;
       const rid = target.getAttribute('data-range-id');
-      if (rid !== null) setHoveredFocusMarkIndex(parseInt(rid, 10));
+      if (rid === null) return;
+      const idx = parseInt(rid, 10);
+
+      // Start a fresh dwell timer for this specific mark
+      if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
+      // If we were showing a different mark, hide it immediately
+      setDwellOnMarkIndex(prev => (prev === idx ? prev : null));
+      dwellTimerRef.current = setTimeout(() => {
+        setDwellOnMarkIndex(idx);
+        dwellTimerRef.current = null;
+      }, FOCUS_HOVER_DWELL_MS);
     };
     const handleMouseOut = (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest('mark');
       if (!target) return;
-      // Don't clear if the mouse is moving to a child of the same mark
+      // Allow cursor moving within the same mark (e.g., over a child span)
       const related = e.relatedTarget as HTMLElement | null;
       if (related && target.contains(related)) return;
-      setHoveredFocusMarkIndex(null);
+      // Cancel any pending dwell, hide the shown mark
+      if (dwellTimerRef.current) {
+        clearTimeout(dwellTimerRef.current);
+        dwellTimerRef.current = null;
+      }
+      setDwellOnMarkIndex(null);
     };
     const handleClick = (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest('mark');
@@ -323,9 +341,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       el.removeEventListener('mouseout', handleMouseOut);
       el.removeEventListener('click', handleClick, true);
     };
-  }, [showCrossHighlight, hoveredRelations, focusRelations, filterFocusSpan, rawText, focusHoverShowMarks, marksVisible]);
+  }, [showCrossHighlight, hoveredRelations, focusRelations, filterFocusSpan, rawText]);
 
-  // D1: inject a scoped <style> to apply neutral background to the hovered mark
+  // D1: inject a scoped <style> to control mark visibility
+  // Default: all marks hidden (transparent). Override: dwell/filter mark visible in neutral grey.
+  // Cross-highlight: clear overrides so inline category colors win.
   useEffect(() => {
     const id = containerIdRef.current;
     const styleId = `d1-hover-${id}`;
@@ -335,13 +355,18 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       styleEl.id = styleId;
       document.head.appendChild(styleEl);
     }
-    if (hoveredFocusMarkIndex !== null) {
-      styleEl.textContent = `#${id} mark[data-range-id="${hoveredFocusMarkIndex}"] { background: rgba(100,116,139,0.30) !important; cursor: pointer; }
-#${id} mark { cursor: pointer; }`;
-    } else {
+
+    if (showCrossHighlight) {
+      // Cross-highlight inline styles win — only ensure cursor is set
       styleEl.textContent = `#${id} mark { cursor: pointer; }`;
+    } else {
+      // Default: hide all marks. Show one in neutral grey if dwell or filter active.
+      const visibleRule = visibleMarkIdx !== null
+        ? `#${id} mark[data-range-id="${visibleMarkIdx}"] { background: rgba(100,116,139,0.30) !important; }`
+        : '';
+      styleEl.textContent = `#${id} mark { background: transparent !important; cursor: pointer; transition: background 200ms ease; } ${visibleRule}`;
     }
-  }, [hoveredFocusMarkIndex, showCrossHighlight]);
+  }, [showCrossHighlight, visibleMarkIdx]);
 
   // Cleanup scoped style on unmount
   useEffect(() => {
@@ -393,19 +418,6 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       className={className}
       style={mergedStyle}
       dangerouslySetInnerHTML={{ __html: html }}
-      onMouseEnter={() => {
-        if (focusHoverTimerRef.current) clearTimeout(focusHoverTimerRef.current);
-        focusHoverTimerRef.current = setTimeout(() => {
-          setFocusHoverShowMarks(true);
-        }, FOCUS_HOVER_DWELL_MS);
-      }}
-      onMouseLeave={() => {
-        if (focusHoverTimerRef.current) {
-          clearTimeout(focusHoverTimerRef.current);
-          focusHoverTimerRef.current = null;
-        }
-        setFocusHoverShowMarks(false);
-      }}
     />
   );
 });
