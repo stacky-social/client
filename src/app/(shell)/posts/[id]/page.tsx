@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import { Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
@@ -11,6 +11,7 @@ import ReplySection from "../../../../components/ReplySection";
 import BackButton from "../../../../components/BackButton";
 import ThreadedReplyList from "../../../../components/ThreadedReplyList";
 import { useRelatedStacks } from "../../related-stacks-context";
+import { useUrlSync } from "../../../../utils/useUrlSync";
 
 // -------------------- Types --------------------
 interface Account {
@@ -54,9 +55,20 @@ const mapWithStackFields = <T extends object>(x: T) => ({
 const THREAD_LINE_COLOR = "#ccd1dc";
 const THREAD_LINE_LEFT = 32; // aligns with avatar center (~16px padding + ~19px half-avatar)
 
+/** Strip HTML tags to produce plain text for span-filter hydration */
+function stripHtmlToPlain(html: string): string {
+  if (typeof document !== "undefined") {
+    const el = document.createElement("div");
+    el.innerHTML = html;
+    return el.textContent ?? el.innerText ?? "";
+  }
+  return html.replace(/<[^>]*>/g, "");
+}
+
 // -------------------- Component --------------------
 export default function PostView({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const searchParamsObj = useSearchParams();
   const { id } = params;
   const { setFromPost, activePostId: asideActivePostId, relatedStacks: asideStacks } = useRelatedStacks();
 
@@ -71,6 +83,10 @@ export default function PostView({ params }: { params: { id: string } }) {
   // UI state
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("time");
+
+  // H1: plain-text content of focus post — needed for ?fs= span hydration
+  const plainPostText = post ? stripHtmlToPlain(post.content) : null;
+
   /** Number of top-level reply branches visible in the Time tab. */
   const [visibleTopLevelReplies, setVisibleTopLevelReplies] = useState(5);
   const [recommendedLoading, setRecommendedLoading] = useState(false);
@@ -304,6 +320,33 @@ export default function PostView({ params }: { params: { id: string } }) {
       console.error("Failed to fetch summary:", e);
     }
   }, [id, replyIDs]);
+
+  // -------------------- URL sync (H1/H2/H4/H5) --------------------
+  useUrlSync({
+    activeTab,
+    setActiveTab,
+    plainPostText,
+    onHydratedTab: async (tab) => {
+      const actions: Record<string, (() => Promise<void>) | undefined> = {
+        recommended: fetchRecommended,
+        stacked: fetchRepliesStack,
+        summary: fetchSummary,
+      };
+      const fn = actions[tab];
+      if (fn) await fn();
+    },
+  });
+
+  // H5: seed BackButton sessionStorage from ?from= when opening a shared link
+  useEffect(() => {
+    const fromId = searchParamsObj?.get("from");
+    if (!fromId) return;
+    const key = `previousPath:${window.location.pathname}`;
+    if (!sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, `/posts/${fromId}`);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // -------------------- Effects --------------------
   useEffect(() => {
