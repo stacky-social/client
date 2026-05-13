@@ -314,7 +314,10 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       const rels = showCrossHighlight && hoveredRelations ? hoveredRelations : focusRelations;
       if (!rels || idx >= rels.length) return;
       const rel = rels[idx];
+      // Belt-and-suspenders: stop all further propagation and default browser actions
+      e.preventDefault();
       e.stopPropagation();
+      e.stopImmediatePropagation();
       // Toggle: clicking the same span clears the filter; different span sets it
       if (
         filterFocusSpan !== null &&
@@ -711,11 +714,16 @@ export default function Post({
   };
 
   const handleSingleClick = (e: React.MouseEvent) => {
+    // If the click originated from a highlighted mark, let the mark's own
+    // capture-phase handler deal with it — do not navigate.
+    if ((e.target as HTMLElement).closest('mark')) return;
     e.stopPropagation();
     handleNavigate();
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent) => {
+    // If the mouseup came from a highlighted mark, do not navigate.
+    if ((e.target as HTMLElement).closest('mark')) return;
     const selection = window.getSelection();
     if (selection && selection.toString().length === 0) {
       handleNavigate();
@@ -798,7 +806,7 @@ export default function Post({
 
         <div
           style={{ paddingLeft: '3rem', paddingRight:'3rem', cursor: 'pointer'}}
-          onMouseUp={handleMouseUp}
+          onMouseUp={(e) => handleMouseUp(e)}
         >
           <div>
       {isActive ? (
