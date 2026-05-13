@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Anchor } from '@mantine/core';
-import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconThumbUp, IconThumbDown, IconChevronRight } from '@tabler/icons-react';
+import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconThumbUp, IconThumbDown } from '@tabler/icons-react';
 import { Layers } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import RelatedStackCount from './RelatedStackCount';
@@ -1685,9 +1685,70 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   })()}
                 </div>
 
-                <div style={{ position: 'absolute', top: '12px', right: '10px', zIndex: 10 }}>
-                  <IconChevronRight size={14} color="#94a3b8" />
-                </div>
+                {/* F: Relation indicator — top-right, dominant topic + cluster count */}
+                {(() => {
+                  const rels = stack.topPost.relations ?? [];
+                  if (rels.length === 0) return null;
+                  const dominantRel = rels[0];
+                  const dominantTopic = dominantRel.topic;
+                  if (!dominantTopic) return null;
+                  const uniqueCategories = new Set(rels.map(r => r.category));
+                  const isMultiTypeIndicator = uniqueCategories.size > 1;
+                  const dominantColors = getCategoryColors(dominantRel.category);
+                  const showIndicatorColor = !isMultiTypeIndicator || panelHovered;
+                  const indicatorColor = showIndicatorColor ? dominantColors.text : '#888888';
+                  const clusterCount = topicTotal.get(dominantTopic) ?? 0;
+                  const isCurrentAnchor =
+                    reRankAnchorIds.length > 0 &&
+                    reRankAnchorIds[reRankAnchorIds.length - 1] === stack.topPost.id;
+                  const baseOpacity = showIndicatorColor ? (isCurrentAnchor ? 1 : 0.75) : 0.6;
+                  return (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleAnchor(stack.topPost.id, 0);
+                      }}
+                      aria-label={`Show more posts about ${dominantTopic}`}
+                      aria-pressed={isCurrentAnchor}
+                      style={{
+                        position: 'absolute',
+                        top: '10px',
+                        right: '10px',
+                        zIndex: 10,
+                        background: isCurrentAnchor ? dominantColors.bg : 'transparent',
+                        border: isCurrentAnchor ? `1px solid ${dominantColors.border}55` : 'none',
+                        borderRadius: '4px',
+                        padding: isCurrentAnchor ? '1px 5px' : '1px 4px',
+                        cursor: 'pointer',
+                        color: indicatorColor,
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        lineHeight: 1.3,
+                        maxWidth: '160px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        opacity: baseOpacity,
+                        transition: 'opacity 200ms ease, background 200ms ease, color 200ms ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '2px',
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLButtonElement).style.opacity = '1';
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLButtonElement).style.opacity = String(baseOpacity);
+                      }}
+                    >
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '130px' }}>
+                        {dominantTopic} ({clusterCount})
+                      </span>
+                      <span aria-hidden style={{ flexShrink: 0, fontSize: '10px', marginLeft: '1px' }}>&#x203A;</span>
+                    </button>
+                  );
+                })()}
 
                 <UnstyledButton onClick={() => handleNavigate(stack.topPost.id, stack.stackId)} style={{ width: '100%' }}>
                   <Group style={{ paddingLeft: '1rem' }}>
