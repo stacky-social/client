@@ -3,15 +3,13 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import { Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
+import { Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { AnimatePresence, motion } from "framer-motion";
-
 import Post from "../../../../components/Posts/Post";
-import RelatedStacks from "../../../../components/RelatedStacks";
 import RepliesStack from "../../../../components/RepliesStack";
 import ReplySection from "../../../../components/ReplySection";
 import BackButton from "../../../../components/BackButton";
+import ThreadedReplyList from "../../../../components/ThreadedReplyList";
 import { useRelatedStacks } from "../../related-stacks-context";
 
 // -------------------- Types --------------------
@@ -81,7 +79,6 @@ export default function PostView({ params }: { params: { id: string } }) {
   // UI state
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("time");
-  const [visibleReplies, setVisibleReplies] = useState(15);
   const [recommendedLoading, setRecommendedLoading] = useState(false);
   const [recommendedPosts, setRecommendedPosts] = useState<PostType[]>([]);
   const [loadingRepliesStack, setLoadingRepliesStack] = useState(false);
@@ -108,10 +105,6 @@ export default function PostView({ params }: { params: { id: string } }) {
 
   // -------------------- Derived values --------------------
   const filteredReplies = useMemo(() => replies.filter((r) => r.in_reply_to_id === id), [replies, id]);
-  const repliesByTimeDesc = useMemo(
-    () => filteredReplies.slice().sort((a, b) => b.created_at.localeCompare(a.created_at)),
-    [filteredReplies]
-  );
   const replyIDs = useMemo(() => filteredReplies.map((r) => r.id), [filteredReplies]);
 
   // Allow quick lookup of any post by id (ancestors, replies, recommended, and the focus post)
@@ -403,9 +396,6 @@ export default function PostView({ params }: { params: { id: string } }) {
     }
   };
 
-  const handleShowMoreReplies = () =>
-    setVisibleReplies((v) => Math.min(v + 15, filteredReplies.length));
-
   const handleTabChange = async (value: string | null) => {
     if (!value) return;
     setActiveTab(value);
@@ -510,14 +500,11 @@ export default function PostView({ params }: { params: { id: string } }) {
               </Tabs.List>
 
               <Tabs.Panel value="time">
-                <>
-                  {repliesByTimeDesc.slice(0, visibleReplies).map((p) => renderPost(p))}
-                  {visibleReplies < repliesByTimeDesc.length && (
-                    <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: 10 }}>
-                      More Replies
-                    </Button>
-                  )}
-                </>
+                <ThreadedReplyList
+                  replies={replies}
+                  rootId={id}
+                  renderPost={renderPost}
+                />
               </Tabs.Panel>
 
               <Tabs.Panel value="recommended">

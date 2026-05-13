@@ -61,9 +61,10 @@ function buildChildMap(replies: PostType[]): Map<string, PostType[]> {
     map.get(parentId)!.push(post);
   }
   // Sort each bucket oldest-first so the conversation reads top-to-bottom
-  for (const bucket of map.values()) {
+  // Use Array.from instead of for-of on Map.values() due to es5 target.
+  Array.from(map.values()).forEach((bucket) => {
     bucket.sort((a, b) => a.created_at.localeCompare(b.created_at));
-  }
+  });
   return map;
 }
 
