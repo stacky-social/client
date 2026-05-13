@@ -11,6 +11,7 @@ import InteractionControl from './InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, toggleFilterCategory, useHighlightStore } from '../utils/highlightStore';
 import type { Relation } from '../types/PostType';
+import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -105,6 +106,39 @@ const EYE_CURSOR = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2
 // thread rather than per-card border segments.
 const GROUP_LINE_WIDTH = 2;
 const GROUP_GAP_PX = 12; // matches the parent's `gap: '0.75rem'`
+
+// ─── Missing-topic diagnostic (rate-limited) ─────────────────────────────────
+// Surface data-integrity issues (relations with no `topic`) in study logs
+// without spamming the console. One warning per (stackId, rangeIndex) pair
+// per session; the tooltip and "X more" button are suppressed in that case.
+const warnedMissingTopic = new Set<string>();
+function warnMissingTopic(stackId: string, rangeIndex: number): void {
+  const key = `${stackId}:${rangeIndex}`;
+  if (warnedMissingTopic.has(key)) return;
+  warnedMissingTopic.add(key);
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[stacky] missing topic on relation; tooltip/button suppressed',
+    { stackId, rangeIndex },
+  );
+}
+
+// ─── Tooltip label renderer ───────────────────────────────────────────────────
+// "N more <Topic>" with the topic bolded in the category color. Returns null
+// when topic is absent, so callers can short-circuit without rendering.
+function buildTooltipLabel(
+  topic: string | undefined,
+  otherCount: number | undefined,
+  textColor: string,
+): React.ReactNode | null {
+  if (!topic) return null;
+  const count = otherCount ?? 0;
+  return (
+    <>
+      {count} more <strong style={{ color: textColor }}>{topic}</strong>
+    </>
+  );
+}
 
 // ─── Passive "See more like this" tooltip (no button) ───────────────────────
 
