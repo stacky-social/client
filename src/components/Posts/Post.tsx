@@ -9,7 +9,7 @@ import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
 import { PreviewCardType } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
-import { useHighlightStore } from '../../utils/highlightStore';
+import { useHighlightStore, setFilterFocusSpan, clearFilterFocusSpan } from '../../utils/highlightStore';
 import type { Relation } from '../../types/PostType';
 
 // ─── Focus post cross-highlight helpers ──────────────────────────────────────
@@ -44,12 +44,14 @@ function hexToRgba(hex: string, alpha: number): string {
 
 /** Render multi-range focus highlights into HTML using offset-based Relations.
  *  Each relation's focus range gets its category color.
- *  Level 2: when hoveredRangeIndex is set, non-active highlights dim their BACKGROUND only. */
+ *  Level 2: when hoveredRangeIndex is set, non-active highlights dim their BACKGROUND only.
+ *  When dimmed=true, all marks render at low alpha (always-visible default state). */
 function renderMultiHighlightHtml(
   displayHtml: string,
   focusPlainText: string,
   relations: Relation[],
   hoveredRangeIndex: number | null,
+  dimmed?: boolean,
 ): string {
   if (relations.length === 0) return displayHtml;
 
@@ -58,7 +60,8 @@ function renderMultiHighlightHtml(
     if (!catColors) return null;
 
     const snippet = focusPlainText.slice(r.focusStart, r.focusEnd);
-    const bgAlpha = (hoveredRangeIndex === null || hoveredRangeIndex === i) ? 1 : 0.2;
+    let bgAlpha = (hoveredRangeIndex === null || hoveredRangeIndex === i) ? 1 : 0.2;
+    if (dimmed) bgAlpha = 0.25;
     const bgColor = bgAlpha < 1 ? hexToRgba(catColors.bg, bgAlpha) : catColors.bg;
 
     // focusComment substring to bold — only when this specific highlight is hovered (Level 2)
@@ -91,7 +94,7 @@ function renderMultiHighlightHtml(
           const after = entry.snippet.slice(ci + entry.focusComment.length);
           innerHtml = before + bold + after;
         }
-        const markHtml = `<mark style="background:${entry.bgColor};padding:1px 0;color:inherit;border-radius:3px;transition:background 200ms ease">${innerHtml}</mark>`;
+        const markHtml = `<mark data-range-id="${entry.index}" style="background:${entry.bgColor};padding:1px 0;color:inherit;border-radius:3px;transition:background 200ms ease">${innerHtml}</mark>`;
         result = result.slice(0, match.index) + markHtml + result.slice(match.index + entry.snippet.length);
         break;
       }
@@ -150,6 +153,9 @@ function cleanPostHtml(html: string, card: PreviewCard | null | undefined): Clea
 
 
 
+// Dwell duration (ms) before focus-post marks become visible on hover.
+const FOCUS_HOVER_DWELL_MS = 1500;
+
 // Subscribes to the highlight store — only mounted for the *active* post so
 // inactive posts don't re-render on every sidebar hover.
 const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
@@ -158,18 +164,44 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   style: React.CSSProperties;
   className?: string;
   isTextExpanded: boolean;
-}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded }, ref) {
-  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex } = useHighlightStore();
+  focusRelations?: Relation[];
+}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [] }, ref) {
+  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, filterFocusSpan } = useHighlightStore();
   const showCrossHighlight = !!hoveredPostId && !!hoveredRelations;
+
+  // Per-mark dwell: index of the mark that has become visible via 1500ms dwell
+  const [dwellOnMarkIndex, setDwellOnMarkIndex] = useState<number | null>(null);
+  const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup dwell timer on unmount
+  useEffect(() => {
+    return () => {
+      if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
+    };
+  }, []);
+
+  // Compute which mark index (if any) should be visible in neutral grey
+  const filterIdx = filterFocusSpan
+    ? focusRelations.findIndex(r => r.focusStart === filterFocusSpan.start && r.focusEnd === filterFocusSpan.end)
+    : -1;
+  const visibleMarkIdx = dwellOnMarkIndex !== null ? dwellOnMarkIndex : (filterIdx >= 0 ? filterIdx : null);
+
+  // Marks are visually active when: cross-highlight, per-mark dwell, or filter active
+  const anyMarkVisuallyActive = showCrossHighlight || dwellOnMarkIndex !== null || (filterFocusSpan !== null && filterIdx >= 0);
+
   const html = useMemo(() => {
-    if (!showCrossHighlight || !hoveredRelations) return displayText;
+    // Always render marks in DOM when focusRelations exist so cursor events fire on them.
+    // CSS overrides control visibility — not DOM presence.
+    const relations = showCrossHighlight && hoveredRelations ? hoveredRelations : focusRelations;
+    if (!relations || relations.length === 0) return displayText;
     return renderMultiHighlightHtml(
       displayText,
       stripHtml(rawText),
-      hoveredRelations,
-      hoveredHighlightRangeIndex,
+      relations,
+      showCrossHighlight ? hoveredHighlightRangeIndex : null,
+      /* dimmed */ false,
     );
-  }, [displayText, rawText, showCrossHighlight, hoveredRelations, hoveredHighlightRangeIndex]);
+  }, [displayText, rawText, showCrossHighlight, hoveredRelations, focusRelations, hoveredHighlightRangeIndex]);
 
   const innerRef = useRef<HTMLDivElement | null>(null);
   const setRefs = (el: HTMLDivElement | null) => {
@@ -178,9 +210,12 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
   };
 
+  // D1/D2: stable container ID for scoped CSS and event delegation
+  const containerIdRef = useRef<string>(`ahc-${Math.random().toString(36).slice(2)}`);
+
   // ── Expand-to-reveal ──────────────────────────────────────────────────────
   // When a mark is below the 5-line clamp, smoothly grow the box downward.
-  // Collapses with a matching animation when hover ends.
+  // Collapses with a matching animation when marks become invisible.
   //
   // Phase: 'normal' → 'expanded' → 'collapsing' → 'normal'
   //   expanded:   display:block, maxHeight = revealHeight  (large)
@@ -191,10 +226,10 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // EXPAND: useLayoutEffect fires synchronously when html changes (marks appear).
-  // Only runs when showCrossHighlight is true — does NOT touch state on unhover.
+  // Triggers on any anyMarkVisuallyActive → true transition (cross-highlight OR dwell OR filter).
   useLayoutEffect(() => {
     const el = innerRef.current;
-    if (!el || isTextExpanded || !showCrossHighlight) return;
+    if (!el || isTextExpanded || !anyMarkVisuallyActive) return;
 
     const marks = Array.from(el.querySelectorAll('mark'));
     if (marks.length === 0) return;
@@ -217,13 +252,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       setCollapsing(false);
       setRevealHeight(Math.min(needed, el.scrollHeight));
     }
-  }, [html, isTextExpanded, showCrossHighlight]);
+  }, [html, isTextExpanded, anyMarkVisuallyActive]);
 
-  // COLLAPSE: when hover ends, start the collapse animation.
+  // COLLAPSE: when marks become invisible, start the collapse animation.
   // revealHeight stays set (keeping display:block) while CSS transition plays.
   // After 320ms, clear everything → snap to normal -webkit-box style.
   useEffect(() => {
-    if (!showCrossHighlight && revealHeight !== null) {
+    if (!anyMarkVisuallyActive && revealHeight !== null) {
       setCollapsing(true);
       collapseTimerRef.current = setTimeout(() => {
         setCollapsing(false);
@@ -234,7 +269,116 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     return () => {
       if (collapseTimerRef.current) { clearTimeout(collapseTimerRef.current); collapseTimerRef.current = null; }
     };
-  }, [showCrossHighlight]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [anyMarkVisuallyActive]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // D1/D2: event delegation on the container div — per-mark dwell + click span filter
+  useEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+
+    const handleMouseOver = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement).closest('mark');
+      if (!target) return;
+      const rid = target.getAttribute('data-range-id');
+      if (rid === null) return;
+      const idx = parseInt(rid, 10);
+
+      // Start a fresh dwell timer for this specific mark
+      if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
+      // If we were showing a different mark, hide it immediately
+      setDwellOnMarkIndex(prev => (prev === idx ? prev : null));
+      dwellTimerRef.current = setTimeout(() => {
+        setDwellOnMarkIndex(idx);
+        dwellTimerRef.current = null;
+      }, FOCUS_HOVER_DWELL_MS);
+    };
+    const handleMouseOut = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement).closest('mark');
+      if (!target) return;
+      // Allow cursor moving within the same mark (e.g., over a child span)
+      const related = e.relatedTarget as HTMLElement | null;
+      if (related && target.contains(related)) return;
+      // Cancel any pending dwell, hide the shown mark
+      if (dwellTimerRef.current) {
+        clearTimeout(dwellTimerRef.current);
+        dwellTimerRef.current = null;
+      }
+      setDwellOnMarkIndex(null);
+    };
+    const handleClick = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement).closest('mark');
+      if (!target) return;
+      const rid = target.getAttribute('data-range-id');
+      if (rid === null) return;
+      const idx = parseInt(rid, 10);
+      const rels = showCrossHighlight && hoveredRelations ? hoveredRelations : focusRelations;
+      if (!rels || idx >= rels.length) return;
+      const rel = rels[idx];
+      // Belt-and-suspenders: stop all further propagation and default browser actions
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      // Toggle: clicking the same span clears the filter; different span sets it
+      if (
+        filterFocusSpan !== null &&
+        filterFocusSpan.start === rel.focusStart &&
+        filterFocusSpan.end === rel.focusEnd
+      ) {
+        clearFilterFocusSpan();
+      } else {
+        const plainText = stripHtml(rawText);
+        setFilterFocusSpan({
+          start: rel.focusStart,
+          end: rel.focusEnd,
+          text: plainText.slice(rel.focusStart, rel.focusEnd),
+        });
+      }
+    };
+
+    el.addEventListener('mouseover', handleMouseOver);
+    el.addEventListener('mouseout', handleMouseOut);
+    // Capture phase so our handler fires before the card navigation handler
+    el.addEventListener('click', handleClick, true);
+    return () => {
+      el.removeEventListener('mouseover', handleMouseOver);
+      el.removeEventListener('mouseout', handleMouseOut);
+      el.removeEventListener('click', handleClick, true);
+    };
+  }, [showCrossHighlight, hoveredRelations, focusRelations, filterFocusSpan, rawText]);
+
+  // D1: inject a scoped <style> to control mark visibility
+  // Default: all marks hidden (transparent). Override: dwell/filter mark visible in neutral grey.
+  // Cross-highlight: clear overrides so inline category colors win.
+  useEffect(() => {
+    const id = containerIdRef.current;
+    const styleId = `d1-hover-${id}`;
+    let styleEl = document.getElementById(styleId) as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = styleId;
+      document.head.appendChild(styleEl);
+    }
+
+    if (showCrossHighlight) {
+      // Cross-highlight inline styles win — only ensure cursor is set
+      styleEl.textContent = `#${id} mark { cursor: pointer; }`;
+    } else {
+      // Default: hide all marks. Show one in neutral grey if dwell or filter active.
+      const visibleRule = visibleMarkIdx !== null
+        ? `#${id} mark[data-range-id="${visibleMarkIdx}"] { background: rgba(100,116,139,0.30) !important; }`
+        : '';
+      styleEl.textContent = `#${id} mark { background: transparent !important; cursor: pointer; transition: background 200ms ease; } ${visibleRule}`;
+    }
+  }, [showCrossHighlight, visibleMarkIdx]);
+
+  // Cleanup scoped style on unmount
+  useEffect(() => {
+    const id = containerIdRef.current;
+    return () => {
+      const el = document.getElementById(`d1-hover-${id}`);
+      if (el) el.remove();
+    };
+  }, []);
 
   // Build the merged style
   const TRANSITION = 'max-height 300ms ease';
@@ -270,7 +414,15 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     mergedStyle = style;
   }
 
-  return <div ref={setRefs} className={className} style={mergedStyle} dangerouslySetInnerHTML={{ __html: html }} />;
+  return (
+    <div
+      ref={setRefs}
+      id={containerIdRef.current}
+      className={className}
+      style={mergedStyle}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
 });
 
 interface PostProps {
@@ -295,6 +447,8 @@ interface PostProps {
   initialCard?: PreviewCard | null;
   /** When provided, intercepts post navigation instead of routing to /posts/{id} */
   onNavigate?: (postId: string) => void;
+  /** Relations for the focus post's own text spans — used to render dimmed marks in the default state */
+  focusRelations?: Relation[];
 }
 
 export default function Post({
@@ -315,6 +469,7 @@ export default function Post({
   setActivePostId,
   initialCard,
   onNavigate,
+  focusRelations = [],
 }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
@@ -559,11 +714,16 @@ export default function Post({
   };
 
   const handleSingleClick = (e: React.MouseEvent) => {
+    // If the click originated from a highlighted mark, let the mark's own
+    // capture-phase handler deal with it — do not navigate.
+    if ((e.target as HTMLElement).closest('mark')) return;
     e.stopPropagation();
     handleNavigate();
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent) => {
+    // If the mouseup came from a highlighted mark, do not navigate.
+    if ((e.target as HTMLElement).closest('mark')) return;
     const selection = window.getSelection();
     if (selection && selection.toString().length === 0) {
       handleNavigate();
@@ -646,7 +806,7 @@ export default function Post({
 
         <div
           style={{ paddingLeft: '3rem', paddingRight:'3rem', cursor: 'pointer'}}
-          onMouseUp={handleMouseUp}
+          onMouseUp={(e) => handleMouseUp(e)}
         >
           <div>
       {isActive ? (
@@ -655,6 +815,7 @@ export default function Post({
           displayText={displayText}
           rawText={text}
           isTextExpanded={isTextExpanded}
+          focusRelations={focusRelations}
           className={isTextExpanded ? undefined : 'postClampedText'}
           style={{
             display: isTextExpanded ? 'block' : '-webkit-box',
