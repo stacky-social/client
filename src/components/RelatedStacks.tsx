@@ -1282,8 +1282,19 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             </Text>
             <button
               type="button"
-              onClick={() => clearFilterFocusSpan()}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '14px', lineHeight: 1, padding: '0 2px', marginLeft: 'auto' }}
+              onClick={(e) => { e.stopPropagation(); clearFilterFocusSpan(); }}
+              // A5: 24px minimum hit target. Larger transparent zone around the
+              // glyph so the close button can actually be clicked reliably.
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: '#94a3b8', fontSize: '16px', lineHeight: 1,
+                padding: '6px 8px', marginLeft: 'auto',
+                minWidth: 24, minHeight: 24,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                borderRadius: 4,
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#475569'; (e.currentTarget as HTMLElement).style.background = '#e2e8f0'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#94a3b8'; (e.currentTarget as HTMLElement).style.background = 'none'; }}
               aria-label="Clear span filter"
             >×</button>
           </div>
@@ -1306,12 +1317,25 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 ? topicOf(rel, a!.stackId, rangeIdx ?? 0)
                 : (a?.topPost.account.display_name ?? id);
               return (
-                <span key={id} style={{
-                  background: '#dce4f5', borderRadius: '4px', padding: '1px 6px',
-                  fontSize: '10px', fontWeight: 600, color: '#3b5998', cursor: 'pointer',
-                }} onClick={() => handleToggleAnchor(id)} title="Click to remove this anchor">
-                  {topic} ×
-                </span>
+                <button
+                  type="button"
+                  key={id}
+                  // A5: real <button> with bigger hit area + visible affordance so
+                  // the dismiss target doesn't get missed in study sessions.
+                  style={{
+                    background: '#dce4f5', borderRadius: '4px',
+                    padding: '4px 8px', minHeight: 24,
+                    fontSize: '10px', fontWeight: 600, color: '#3b5998',
+                    cursor: 'pointer', border: 'none',
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                  }}
+                  onClick={(e) => { e.stopPropagation(); handleToggleAnchor(id); }}
+                  aria-label={`Remove ${topic} grouping`}
+                  title="Click to remove this anchor"
+                >
+                  <span>{topic}</span>
+                  <span aria-hidden style={{ fontSize: 14, lineHeight: 1, color: '#5b71a8' }}>×</span>
+                </button>
               );
             })}
           </div>
@@ -1569,10 +1593,18 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   handleToggleAnchor(anchorForThisCard);
                 }}
                 aria-label={`Dismiss ${anchorTopic ?? 'group'}`}
+                // A5: 24px hit target. Background appears on hover so the click
+                // affordance is obvious.
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer',
-                  color: '#94a3b8', fontSize: '14px', lineHeight: 1, padding: '0 2px',
+                  color: '#94a3b8', fontSize: '16px', lineHeight: 1,
+                  padding: '6px 8px',
+                  minWidth: 24, minHeight: 24,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: 4,
                 }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#475569'; (e.currentTarget as HTMLElement).style.background = '#e2e8f0'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#94a3b8'; (e.currentTarget as HTMLElement).style.background = 'none'; }}
               >
                 ×
               </button>
@@ -1645,8 +1677,19 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   setHoveredCardIndex(index);
                   setHoveredSidebarPost(stack.topPost.id, stack.topPost.relations);
                 }}
-                onMouseLeave={() => {
+                onMouseLeave={(e) => {
                   if (isTouch) return;
+                  // A6: ignore Paper-leave events where the mouse went to a
+                  // sibling that is still part of the SAME card container
+                  // (bottom-edge zone, stack-shadow layers). Without this guard
+                  // the cross-highlight/dim breaks every time the cursor brushes
+                  // those zones mid-interaction.
+                  const next = (e.relatedTarget as Node | null);
+                  if (next && (e.currentTarget as HTMLElement)
+                      .closest('[data-related-card]')
+                      ?.contains(next)) {
+                    return;
+                  }
                   setHoveredCardIndex(null); setHoveredSidebarPost(null);
                   setHoveredHighlightRangeIndex(null); setHoveredCategory(null);
                 }}
