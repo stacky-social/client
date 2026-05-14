@@ -327,7 +327,63 @@ export default function ListyInjectionPage() {
   // Direction of the last navigation — drives the slide animation in AnimatePresence.
   const [navDirection, setNavDirection] = useState<'forward' | 'backward'>('forward');
 
+  /** Marker we push onto window.history when entering thread mode so the
+   *  browser back button is captured by the popstate handler below. Without
+   *  this, a browser-back press tears the user off /listy-injection entirely,
+   *  losing their thread context (A4). */
+  const browserBackInstalledRef = useRef(false);
+  // Forward-declared ref so popInPageOnly can re-seed the aside with the first
+  // post's stacks when returning to feed mode. `posts` is declared after this
+  // block; the ref is populated by the effect below once it's available.
+  const postsRef = useRef<ReturnType<typeof toPostData>[]>([]);
+
+  /** Pops the in-page historyStack without triggering window.history.back()
+   *  (used when popstate fires — the browser already did the URL pop). */
+  const popInPageOnly = useCallback(() => {
+    setNavDirection('backward');
+    setHistoryStack(prev => {
+      if (prev.length === 0) return prev;
+      const next = prev.slice(0, -1);
+      const restoreKey = next.length > 0 ? next[next.length - 1] : "__feed__";
+      const restoreId = next.length > 0 ? next[next.length - 1] : null;
+
+      if (restoreId) {
+        const stacks = getRelatedStacks(restoreId);
+        setFromPostRef.current(stacks, restoreId, { force: true });
+        setActivePostId(restoreId);
+        activePostIdRef.current = restoreId;
+      } else {
+        // Returning to feed mode — re-activate the first post so the aside has
+        // something to display instead of going empty.
+        const first = postsRef.current[0];
+        if (first) {
+          setFromPostRef.current(first.relatedStacks, first.postId, { force: true });
+          setActivePostId(first.postId);
+          activePostIdRef.current = first.postId;
+        }
+      }
+
+      if (next.length === 0) browserBackInstalledRef.current = false;
+
+      requestAnimationFrame(() => {
+        const savedY = savedScrollRef.current.get(restoreKey) ?? 0;
+        window.scrollTo(0, savedY);
+      });
+      return next;
+    });
+  }, [getRelatedStacks]);
+
   const navigateToPost = useCallback((postId: string) => {
+    // A1 guard: refuse to navigate to a post we cannot resolve. Without this,
+    // entering thread mode for an unknown ID renders an empty container with
+    // no recovery affordance, which reads as a study-session crash. Logging
+    // makes the data-integrity gap visible without swallowing it silently.
+    if (!postId || !resolveEntry(postId)) {
+      // eslint-disable-next-line no-console
+      console.warn('[listy-injection] navigateToPost: unknown postId, ignoring', { postId });
+      return;
+    }
+
     // Save current scroll
     const key = historyStack.length > 0 ? historyStack[historyStack.length - 1] : "__feed__";
     savedScrollRef.current.set(key, window.scrollY);
@@ -341,32 +397,28 @@ export default function ListyInjectionPage() {
     setActivePostId(postId);
     activePostIdRef.current = postId;
     window.scrollTo(0, 0);
-  }, [historyStack, getRelatedStacks]);
+
+    // A4: Push a marker onto the browser history stack so a browser-back press
+    // is captured by the popstate handler and routed through our in-page back.
+    // We only push the FIRST time we enter thread mode — subsequent forward
+    // navigations stay inside the same browser-history entry.
+    if (typeof window !== 'undefined' && !browserBackInstalledRef.current) {
+      window.history.pushState({ __listyThread: true }, '', window.location.href);
+      browserBackInstalledRef.current = true;
+    }
+  }, [historyStack, getRelatedStacks, resolveEntry]);
 
   const navigateBack = useCallback(() => {
-    setNavDirection('backward');
-    setHistoryStack(prev => {
-      const next = prev.slice(0, -1);
-      const restoreKey = next.length > 0 ? next[next.length - 1] : "__feed__";
-      const restoreId = next.length > 0 ? next[next.length - 1] : null;
-
-      // Update sidebar
-      if (restoreId) {
-        const stacks = getRelatedStacks(restoreId);
-        setFromPostRef.current(stacks, restoreId, { force: true });
-        setActivePostId(restoreId);
-        activePostIdRef.current = restoreId;
-      }
-
-      // Restore scroll after React re-renders
-      requestAnimationFrame(() => {
-        const savedY = savedScrollRef.current.get(restoreKey) ?? 0;
-        window.scrollTo(0, savedY);
-      });
-
-      return next;
-    });
-  }, [getRelatedStacks]);
+    // If the user clicks our Back button while we still own a browser-history
+    // marker, consume it via history.back() so popstate fires and we don't
+    // diverge from the browser stack. The popstate handler will then call
+    // popInPageOnly to update React state.
+    if (browserBackInstalledRef.current && typeof window !== 'undefined') {
+      window.history.back();
+    } else {
+      popInPageOnly();
+    }
+  }, [popInPageOnly]);
 
   // Register the navigate callback so the aside's RelatedStacks can trigger it
   useEffect(() => {
@@ -374,8 +426,29 @@ export default function ListyInjectionPage() {
     return () => registerNavigateCallback(null);
   }, [navigateToPost]);
 
+  // A4: Capture browser back-button presses while in thread mode so the user
+  // doesn't get yanked off /listy-injection mid-study-session.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onPop = () => {
+      // Only intervene if we still have an in-page thread stack to pop. If the
+      // stack is empty the popstate is a normal navigation (e.g. away from the
+      // page) and we let it through.
+      if (historyStack.length === 0) {
+        browserBackInstalledRef.current = false;
+        return;
+      }
+      popInPageOnly();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [historyStack, popInPageOnly]);
+
   // ── Feed mode posts ────────────────────────────────────────────────────────
   const posts = useMemo(() => entries.map(toPostData), []);
+  // Keep postsRef in sync so the popstate-driven back path can re-seed feed
+  // mode without `posts` having to be declared above it.
+  postsRef.current = posts;
 
   // Reset on mount/unmount
   useEffect(() => {
@@ -546,7 +619,7 @@ export default function ListyInjectionPage() {
         })}
 
         {/* Current focus post with connector */}
-        {currentPost && (
+        {currentPost ? (
           <div style={{ position: "relative", marginBottom: "1.5rem" }}>
             {ancestorIds.length > 0 && (
               <div aria-hidden style={{
@@ -558,6 +631,28 @@ export default function ListyInjectionPage() {
               {renderPost(currentPost)}
             </div>
           </div>
+        ) : (
+          // A1 fallback: we entered thread mode for a post that couldn't be
+          // resolved. Show an explicit empty state with a recovery affordance
+          // instead of an invisible page that looks crashed to a study subject.
+          <Paper
+            withBorder
+            role="status"
+            aria-live="polite"
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 8,
+              padding: 20,
+              marginBottom: "1.5rem",
+            }}
+          >
+            <Text size="sm" fw={600} c="#374151" mb={6}>
+              Post unavailable
+            </Text>
+            <Text size="xs" c="dimmed">
+              This post couldn&apos;t be loaded. Press <strong>Back</strong> to return.
+            </Text>
+          </Paper>
         )}
 
         {/* Comment input — right under the focus post, before replies */}
