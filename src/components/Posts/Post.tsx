@@ -3,7 +3,8 @@ import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconLink } from '@tabler/icons-react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns';
+import { formatPostDate } from '../../utils/formatPostDate';
 import StackCount from '../StackCount';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
@@ -799,7 +800,7 @@ export default function Post({
               >
                 {author}
               </Anchor>
-              <Text size="xs" c="dimmed">{formatDistanceToNow(new Date(createdAt))} ago</Text>
+              <Text size="xs" c="dimmed">{formatPostDate(createdAt)}</Text>
             </div>
           </Group>
         </div>

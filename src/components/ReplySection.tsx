@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Avatar, Group, Button, Text, Stack, Paper, Badge, Loader, TextInput } from "@mantine/core";
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
+import { pickAvatarForText } from '../utils/sentimentAvatar';
 
 interface ReplySectionProps {
     postId: string;
@@ -10,17 +11,6 @@ interface ReplySectionProps {
 }
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
-
-const avatars = [
-    '/avatar/stacky_angry.PNG',
-    '/avatar/stacky_cracked.PNG',
-    '/avatar/stacky_default.PNG',
-    '/avatar/stacky_haha.PNG',
-    '/avatar/stacky_love.PNG',
-    '/avatar/stacky_queasy.PNG',
-    '/avatar/stacky_sad.PNG',
-    '/avatar/stacky_sweet.PNG'
-];
 
 const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchPostAndReplies }) => {
     const [replyContent, setReplyContent] = useState<string>('');
@@ -220,7 +210,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                                                 }}
                                             >
                                                 <Group>
-                                                    <Avatar src={avatars[index % avatars.length]} radius="xl" />
+                                                    <Avatar src={pickAvatarForText(reply.content)} radius="xl" />
                                                     <div>
                                                         <Text fw="700" size="sm">Robot {index + 1}</Text>
                                                     </div>
