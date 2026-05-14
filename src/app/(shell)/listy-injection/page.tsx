@@ -113,7 +113,6 @@ function generateSyntheticRelation(newFocusText: string, siblingContent: string,
     focusCommentStart: bestStart, focusCommentEnd: bestEnd,
     contentCommentStart: 0, contentCommentEnd: Math.min(siblingContent.length, 50),
     category,
-    topic: "Related",
   };
 }
 
