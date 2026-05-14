@@ -179,15 +179,16 @@ function topicOf(relation: { topic?: string; category: string }, stackId: string
  *  get a synthetic count here, but the missing-topic guard in the tooltip
  *  rendering path suppresses display whenever r.topic is falsy — so absent
  *  topics are never shown regardless of this count. */
-function getSyntheticTopicCount(topic: string, realCount: number): number {
-  if (realCount > 1) return realCount;
-  return 2 + (hashString(topic) % 6);
+function getSyntheticTopicCount(_topic: string, realCount: number): number {
+  // No-op: synthetic boost removed because tooltip "N more" was promising
+  // posts the load couldn't deliver. Real count is honest.
+  return realCount;
 }
 
 /** Same logic as getSyntheticTopicCount but for relation categories. */
-function getSyntheticCategoryCount(category: string, realCount: number): number {
-  if (realCount > 1) return realCount;
-  return 2 + (hashString(category) % 6);
+function getSyntheticCategoryCount(_category: string, realCount: number): number {
+  // No-op: synthetic boost removed; see getSyntheticTopicCount.
+  return realCount;
 }
 
 // ─── Tooltip label renderer ───────────────────────────────────────────────────
