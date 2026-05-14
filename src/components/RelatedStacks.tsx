@@ -1711,8 +1711,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                                 setHoveredCategory(cat);
                               }
                             } else {
-                              // C4 desktop: clicking a relation tag filters the panel by this category
-                              handleFilterChipClick(cat);
+                              // Desktop: clicking a relation tag anchors this card and clusters
+                              // same-topic posts above/below it — same as a highlight-substring
+                              // click or the F-indicator chip on the top-right.
+                              handleToggleAnchor(stack.topPost.id, indices[0]);
                             }
                           }}
                           style={{
