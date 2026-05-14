@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-13
 **Target branch:** `tarcode2004/enhancement/listy-injection-main-app`
-**Scope:** Make the center and related-posts columns horizontally resizable via draggable borders. Wrap the shell in a centered, max-width container with viewport-edge gutters (Twitter/X style).
+**Scope:** Make the center and related-posts columns horizontally resizable via draggable borders. The center column is anchored to viewport center; nav and related float to its sides.
 
 ## Problem
 
@@ -10,11 +10,13 @@ The current `Shell` layout uses Mantine's `AppShell` with hard-coded `clamp()` w
 
 ## Goals
 
-1. Users can drag two vertical borders to set the **center column** and **related-posts column** widths independently.
-2. Chosen widths persist across sessions (localStorage).
-3. The whole UI sits in a centered max-width container, with the viewport background visible as gutters on either side.
-4. The navbar (left column) width is **not** affected by either drag.
-5. No resize affordance on mobile/narrow screens (matches existing aside mobile-collapse behavior).
+1. Users can drag three vertical borders to set the **center column** and **related-posts column** widths.
+2. The **center column is always centered on the viewport**. Nav floats to its left; related floats to its right. Resizing center moves nav and related accordingly.
+3. Both borders of the center column (left and right edges) symmetrically control `centerWidth`. Dragging either one resizes center; the opposite edge mirrors automatically.
+4. The right (outer) edge of the related column controls `relatedWidth`.
+5. Chosen widths persist across sessions (localStorage).
+6. The navbar width is **not** changed by any drag (its existing `clamp()` + burger-collapse behavior is preserved).
+7. No resize affordance on mobile/narrow screens.
 
 ## Non-goals
 
@@ -22,44 +24,63 @@ The current `Shell` layout uses Mantine's `AppShell` with hard-coded `clamp()` w
 - Vertical resizing.
 - Touch-drag resizing (covered by "no mobile resize").
 - Per-route width overrides (a single global pair persists across all shell routes).
+- Centering the **whole layout** (nav + center + related) on the viewport. Only the center column is centered.
+- Allowing center column to slide off-center (no left-anchored or right-anchored variant).
 
 ## Layout
 
-After the change, the shell renders inside a centered container:
+The center column is pinned to viewport center. Nav and related are positioned relative to it. The "gutters" (visible viewport background) are whatever space remains on either side after nav and related are placed:
 
 ```
 viewport
-┌──────────────────────────────────────────────────────────────┐
-│ gutter ┌──────────────────────────────────────────┐ gutter   │
-│        │ nav (fixed)   │ center   │ related      │           │
-│        │               ║          ║              │           │
-│        │               ║          ║              │           │
-│        └──────────────────────────────────────────┘           │
-└──────────────────────────────────────────────────────────────┘
-                        ↑ container (max-width ~1600px, centered)
-                        ║ = draggable border
+┌────────────────────────────────────────────────────────────────────┐
+│                              viewport.center                       │
+│                                  ↓                                 │
+│  gutter   ┃ nav  ║  center column  ║  related  ┃  gutter           │
+│           ┃      ║                 ║           ┃                   │
+│           ┃ navW ║     centerW     ║  relatedW ┃                   │
+│           ║      ║                 ║           ┃                   │
+│           A      B                 C           D                   │
+│                                                                    │
+│   A = border between gutter and nav (NOT draggable — nav fixed)    │
+│   B = LEFT BORDER of center (draggable → changes centerW symmetric)│
+│   C = RIGHT BORDER of center (draggable → changes centerW symmetric)│
+│   D = RIGHT BORDER of related (draggable → changes relatedW)       │
 ```
 
-- **Container:** width is **the sum of nav + center + related widths**, capped at a max (~1900px = sum of all maxes). `margin: 0 auto` centers it. Background outside the container shows through (page/body background = the gutter color). The container does not have empty space inside it — it fits its content exactly.
-- **Navbar:** unchanged. Existing `clamp(200px, 22vw, 300px)` and burger-collapse behavior preserved. Width is read at runtime (via ref) to compute container width.
-- **Center column:** width is determined by `centerWidth` state. Because the container width = sum of all three columns, and the aside is explicitly sized, AppShell.Main flex-fills to exactly `centerWidth` without needing a direct width assignment.
-- **Related column:** width = `relatedWidth` from state (default: current `clamp(360px, 26vw, 520px)` baseline value, resolved to a number on first render).
+**Position formulas (in viewport coordinates):**
+
+- `center.left   = viewport.center - centerW / 2`
+- `center.right  = viewport.center + centerW / 2`
+- `nav.right     = center.left`            (nav anchored to center.left)
+- `nav.left      = center.left - navW`
+- `related.left  = center.right`           (related anchored to center.right)
+- `related.right = center.right + relatedW`
+
+**Column behavior:**
+
+- **Navbar:** unchanged width (`clamp(200px, 22vw, 300px)` + burger collapse). Position floats with `center.left`. Width is read at runtime via ref so layout calculations have a number.
+- **Center column:** width = `centerWidth` from state. Always horizontally centered on the viewport. Default value (no saved width): `min(900, viewport - 2 * max(navW, relatedW))` on first paint, clamped to the viewport-derived bound (see Edge Cases).
+- **Related column:** width = `relatedWidth` from state. Default: current baseline `clamp(360px, 26vw, 520px)` resolved to a number.
+- **Gutters:** whatever space remains on either side of the layout. Because `navW` and `relatedW` can differ, the overall layout may sit slightly off-center relative to the viewport even though the center column is perfectly centered. This is intentional — "center column centered" is the contract, not "whole layout centered".
 
 ### Bounds
 
-- `centerWidth`: `min 500px`, `max 900px` (tunable). Existing `AppShell.Main miw={500}` is the hard floor.
+- `centerWidth`: `min 500px`, `max 1100px` (tunable). Existing `AppShell.Main miw={500}` is the hard floor.
 - `relatedWidth`: `min 320px`, `max 700px` (tunable).
+- **Viewport-derived upper bound for centerWidth:** because center is centered, `centerW/2 + max(navW, relatedW)` must fit inside viewport/2. So `centerW ≤ viewport - 2 * max(navW, relatedW)`. Enforced live during drag and on viewport resize.
 
-These bounds are enforced during drag — the divider stops at the limit. No collapsing past minimum.
+These bounds are enforced during drag — the border stops at the limit. No collapsing past minimum.
 
 ## Draggable Borders
 
-Two `<ResizableDivider>` instances:
+Three `<ResizableDivider>` instances. Borders B and C share state — they both edit `centerWidth` symmetrically, so dragging one moves the other in real time:
 
-- **Divider 1 (nav ↔ center):** drag changes `centerWidth`. Drag right → center grows; drag left → center shrinks.
-- **Divider 2 (center ↔ related):** drag changes `relatedWidth`. Drag right → related shrinks; drag left → related grows.
+- **Border B (left edge of center):** drag right by Δ → `centerWidth` shrinks by `2Δ`. Drag left by Δ → `centerWidth` grows by `2Δ`. Border B tracks cursor exactly.
+- **Border C (right edge of center):** drag right by Δ → `centerWidth` grows by `2Δ`. Drag left by Δ → `centerWidth` shrinks by `2Δ`. Border C tracks cursor exactly.
+- **Border D (right edge of related):** drag right by Δ → `relatedWidth` grows by Δ. Drag left by Δ → `relatedWidth` shrinks by Δ. Border D tracks cursor exactly.
 
-`centerWidth` and `relatedWidth` are independent values. Moving one divider does not change the other column's width — instead, the container's total width changes (it grows or shrinks to fit), and the gutters on either side absorb the difference (gutters shrink when columns grow, grow when columns shrink).
+`centerWidth` and `relatedWidth` are two independent persisted values; borders B and C are two handles on the same value.
 
 ### Hover / interaction
 
@@ -67,18 +88,18 @@ Two `<ResizableDivider>` instances:
 - Cursor: `col-resize` on hover.
 - Visual cue on hover: the 1px border line thickens to 3px and shifts to a slightly darker tone (~`#D6D2C0` against the `#FCFBF5` shell background).
 - During drag: body cursor locked to `col-resize`; user-select disabled to prevent text selection.
-- **Double-click resets** that column to its default width (`undefined` in state → falls back to default).
+- **Double-click resets** that column to its default width (`undefined` in state → falls back to default). Double-clicking B or C resets `centerWidth`; double-clicking D resets `relatedWidth`.
 
-### Drag geometry (known trade-off)
+### Drag geometry (resolved)
 
-Because the container is **centered** and **fits content** (its width = sum of column widths), when a column grows, the container also grows, and both gutters shrink equally. This means:
+Because the center column is **anchored to viewport center**, both edges move symmetrically when `centerWidth` changes. This means dragging border B by Δ shifts `center.left` by Δ (since `center.left = viewport.center - centerW/2`, so a Δ-pixel cursor move corresponds to a `centerW` change of `2Δ`, which moves `center.left` by exactly Δ). The border tracks the cursor perfectly — no drift.
 
-- Drag divider 1 right by Δ → `centerWidth` grows by Δ → container grows by Δ → left gutter shrinks by Δ/2 → divider 1 (at `containerLeft + navW`) moves right by only Δ/2 in viewport coords.
-- The divider visually lags the cursor at half-speed.
+Border D is on the outer edge of related and only affects `relatedWidth`, so it also tracks cursor 1:1.
 
-This is a known visual quirk of pairing centered layout with content-fit sizing. Implementation uses simple delta-based dragging (`centerWidth += cursorDelta`) and accepts the drift. The end-state position is what the user cares about — they'll release when the column looks right.
-
-Alternative (deferred): pin the container's left edge during drag, snap back to centered on `pointerup`. More complex; only worth implementing if the drift feels bad in practice.
+Side effects of resizing center:
+- When center grows (border B left or border C right), nav slides left and related slides right (they're anchored to center's edges). Their widths don't change.
+- When center shrinks, nav slides right and related slides left.
+- This is the intended behavior — keeps center anchored visually.
 
 ### Responsive behavior
 
@@ -103,7 +124,7 @@ function useResizableColumns(): {
 ```
 
 - On mount: read `stacky:centerWidth` and `stacky:relatedWidth` from `localStorage`. Parse as numbers; if missing or out of bounds, set to `undefined` (default).
-- On `setCenterWidth(n)`: clamp to `[500, 900]`, write to localStorage, update state.
+- On `setCenterWidth(n)`: clamp to `[500, 1100]` AND to viewport-derived max, write to localStorage, update state.
 - On `setRelatedWidth(n)`: clamp to `[320, 700]`, write to localStorage, update state.
 - On `setX(undefined)`: remove the key from localStorage (used by double-click reset).
 - SSR-safe: read inside `useEffect` so the initial render matches server output, then hydrate.
@@ -114,77 +135,99 @@ function useResizableColumns(): {
 
 ```tsx
 type Props = {
-  onResize: (deltaPx: number) => void;
+  onResize: (deltaPx: number) => void;     // called with cursor delta per frame
   onDoubleClick: () => void;
-  style?: React.CSSProperties;
+  style?: React.CSSProperties;             // for absolute positioning
 };
 ```
 
-- Renders a 8px-wide vertical `<div>` with the 1px border line centered.
+- Renders an 8px-wide vertical `<div>` (full viewport height) with the 1px border line centered.
 - `onPointerDown`: capture pointer, record initial clientX, set `body { cursor: col-resize; user-select: none }`.
 - `onPointerMove` (while captured): call `onResize(currentClientX - lastClientX)`; update lastClientX.
 - `onPointerUp`/`onPointerCancel`: release capture, restore body styles.
 - `onDoubleClick`: forward to prop.
-- Below `lg` breakpoint: `display: none` (Mantine `visibleFrom="lg"` or CSS media query).
+- Below `lg` breakpoint: `display: none` (CSS media query).
+
+The caller maps the raw `deltaPx` to a width change. Borders B and C call `setCenterWidth(prev => prev + sign * 2 * delta)` (where `sign` is `-1` for B and `+1` for C). Border D calls `setRelatedWidth(prev => prev + delta)`.
 
 ### Modified: `Shell.tsx`
 
-- Wrap the entire `<AppShell>` (and the burger trigger) in a centered container `<div style={{ width: navW + centerW + relatedW, maxWidth: 1900, margin: '0 auto', position: 'relative', height: '100vh' }}>`. Container width is computed from current widths; max-width caps it at the sum of all maxes.
-- Body/global CSS gets a background color so the gutter outside the container is visible.
-- Use `useResizableColumns()` to read widths.
-- Use a ref on the navbar element to read its current rendered width (since `clamp(200px, 22vw, 300px)` varies with viewport). Update on `ResizeObserver`.
-- Replace `AppShell` `aside.width` with `widths.relatedWidth ?? defaultRelatedWidth`.
-- Do **not** explicitly set Main's width. Because the container is sized exactly to fit all three columns and Aside is explicit, Main flex-fills to exactly `centerWidth`.
-- Render two `<ResizableDivider>` instances as absolutely-positioned overlays at the column boundaries (positioned at `left = navW` and `left = navW + centerW`).
+The center column must be anchored to viewport center, which AppShell's built-in grid layout doesn't support. We restructure Shell.tsx into two branches based on breakpoint:
+
+- **Below `lg`:** existing AppShell behavior is preserved (mobile header, burger drawer). No resize affordance. The mobile/tablet experience does not change.
+- **At `lg` and above:** a custom three-column layout replaces the AppShell internals. The mobile Header and Drawer components (currently inside AppShell) are extracted so they can be rendered alongside the new desktop layout without depending on AppShell.
+
+Desktop layout structure (lg+):
+
+- Outer wrapper element with CSS custom properties for widths: `style={{ '--center-w': centerW + 'px', '--related-w': relatedW + 'px', '--nav-w': navW + 'px' }}`. The `--nav-w` value is read from a `ResizeObserver` on the rendered nav element (since `clamp(200px, 22vw, 300px)` depends on viewport).
+- Three absolutely-positioned column containers, each `top: 0; bottom: 0`:
+  - Nav: `left: calc(50vw - var(--center-w) / 2 - var(--nav-w)); width: var(--nav-w)`
+  - Center: `left: calc(50vw - var(--center-w) / 2); width: var(--center-w)`
+  - Related: `left: calc(50vw + var(--center-w) / 2); width: var(--related-w)`
+- Three `<ResizableDivider>` overlays positioned via `left: calc(...)` with z-index above the columns:
+  - Border B at `calc(50vw - var(--center-w) / 2 - 4px)` (center.left)
+  - Border C at `calc(50vw + var(--center-w) / 2 - 4px)` (center.right)
+  - Border D at `calc(50vw + var(--center-w) / 2 + var(--related-w) - 4px)` (related.right)
+
+React's job is to set CSS variables and render the column content. CSS handles all positioning math. Width changes only re-set vars — no React re-layout, just a smooth CSS update.
+
+The existing burger button + Drawer (for mobile nav) and the navbar collapse logic still apply at lg+ as well (the same nav can be collapsed via burger). When collapsed, `--nav-w` becomes 0 and the nav element is hidden; center stays centered.
 
 ### Modified: `globals.css` (or equivalent root CSS)
 
-- Set body background to gutter color (the existing `#FCFBF5` cream or a slightly different tone — see open question Q1 below).
+- Set body background to gutter color (`#FCFBF5` to match the shell). Add `overflow-x: hidden` to avoid horizontal scroll if columns briefly exceed viewport.
 
 ## Data Flow
 
 ```
-localStorage  ←→  useResizableColumns hook  →  Shell.tsx
-                                                ├─ Container width (= navW + centerW + relatedW)
-                                                ├─ AppShell.Aside width = relatedW
-                                                ├─ AppShell.Main flex-fills → resolves to centerW
-                                                └─ ResizableDivider × 2
-                                                    └─ onResize → setCenterWidth / setRelatedWidth
+localStorage  ←→  useResizableColumns hook  →  Shell.tsx (desktop wrapper)
+                                                ├─ CSS var --center-w
+                                                ├─ CSS var --related-w
+                                                ├─ CSS var --nav-w (from ResizeObserver)
+                                                └─ ResizableDivider × 3
+                                                    ├─ Border B  → setCenterWidth(prev => prev - 2*Δ)
+                                                    ├─ Border C  → setCenterWidth(prev => prev + 2*Δ)
+                                                    └─ Border D  → setRelatedWidth(prev => prev + Δ)
 ```
 
-No new context provider needed — the hook is called once in `Shell.tsx` and the values flow down by props/inline style. Other components don't need to know widths changed.
+No new context provider needed — the hook is called once in `Shell.tsx` and the values flow down by CSS variables and props. Other components don't need to know widths changed.
 
 ## Edge Cases
 
-- **First render before localStorage hydrated:** widths are `undefined`, columns fall back to current defaults. After hydration, widths update; if a saved value differs from the default, columns visibly shift once. This is acceptable for an enhancement of this kind, but to minimize flash, the hook returns defaults during the SSR/initial render and switches on `useEffect`.
-- **Narrowing the viewport below the sum of column widths:** if `navW + centerW + relatedW > viewportWidth`, container overflows the viewport horizontally. Mitigation: the body has `overflow-x: hidden` and the user can resize back, or double-click to reset. We accept this edge case — alternative is to dynamically shrink columns on resize, which complicates the model.
-- **Nav collapsed via burger:** when `navCollapsed === true`, the navbar width is 0. The left divider's position must update accordingly. Solution: divider positions are computed from current navbar width (0 or clamped value).
-- **Below `lg` breakpoint:** dividers hidden; widths still saved but unused. When user resizes back up to `lg+`, saved widths apply.
+- **First render before localStorage hydrated:** widths are `undefined`, columns fall back to defaults. The hook returns defaults on the initial SSR/client render and updates on `useEffect`. If saved values differ from defaults, columns visibly shift once on hydration.
+- **Viewport too narrow for current center + sides:** if `centerW/2 + max(navW, relatedW) > viewport/2`, the wider side (nav or related) would extend past the viewport edge. On viewport resize, the hook clamps `centerWidth` down to the viewport-derived maximum (`viewport - 2 * max(navW, relatedW)`). On the way back up, saved values are restored if they fit.
+- **Nav collapsed via burger:** when `navCollapsed === true`, navW is 0. Center stays centered; only the left gutter grows. Border B sits at `viewport.center - centerW/2` (still the left edge of center).
+- **Asymmetric gutters:** because `navW` and `relatedW` differ, the left gutter (`= center.left - navW`) and right gutter (`= viewport.width - related.right`) are not equal. This is intentional — center is centered, the rest falls where it falls.
+- **Below `lg` breakpoint:** dividers hidden; existing AppShell mobile behavior takes over. Saved widths are not applied. When user resizes back up to `lg+`, saved widths apply.
 
 ## Testing (manual)
 
 No automated test framework is configured. Manual verification checklist:
 
-1. Drag right divider — related column resizes; center stays the same width; widths persist after reload.
-2. Drag left divider — center column resizes; related stays the same width; widths persist.
-3. Double-click each divider — column resets to default; localStorage key removed.
-4. Drag past min/max — divider stops at the bound.
-5. Narrow viewport below `lg` (≈1200px) — dividers disappear; layout reverts to mobile-aware AppShell behavior.
-6. Toggle navbar collapse (burger) — left divider repositions correctly; resizing still works.
-7. Reload — saved widths restored on page load without flash beyond the one-frame hydration shift.
+1. Drag border B (left edge of center) — center column resizes symmetrically; the opposite border (C) mirrors in real time; cursor tracks border B exactly; widths persist after reload.
+2. Drag border C (right edge of center) — same as above, mirrored.
+3. Drag border D (right edge of related) — related column resizes; center is unaffected; cursor tracks border D exactly; persists after reload.
+4. Verify the center column's horizontal midpoint stays at `viewport.center` (use a ruler or DevTools).
+5. Double-click each border — corresponding column resets to default; localStorage key removed.
+6. Drag past min/max — border stops at the bound; cursor can keep moving but border doesn't.
+7. Resize browser to narrow the viewport — center clamps to viewport-derived max if it was wider; widens back when viewport grows.
+8. Narrow viewport below `lg` (~1200px) — borders disappear; layout reverts to existing AppShell mobile behavior.
+9. Toggle navbar collapse (burger) — nav width becomes 0; center stays centered; borders B/C/D reposition without jank.
+10. Reload — saved widths restored on page load with at most one hydration-frame flash.
 
 ## Open questions (to resolve while writing the plan or during implementation)
 
-1. **Gutter color:** keep gutter = `#FCFBF5` (matches the shell), or use a slightly different tone for visual distinction? Recommendation: same color for now; revisit if it looks too flat.
-2. **Container max-width:** ~1900px = sum of max column widths. If tuned, must stay ≥ nav_max + center_max + related_max or the rightmost column will clip.
-3. **Default center width:** since `centerWidth` is derived from container width minus other columns in the steady state, the "default" stored value is `undefined` until the user drags. The initial render needs a default container width — derive from current viewport at first paint (e.g., `min(viewport, 1600)` minus nav minus default related). Implementation plan should specify this exactly.
+1. **Background color:** the body background (which shows as gutters) is `#FCFBF5` today. We keep it. If the gutters end up looking too flat next to the shell content, consider a subtle tone shift later.
+2. **Default `centerWidth`:** when no saved value exists, what's the initial center width? Recommendation: `min(900, viewport - 2 * max(navW, relatedW))` — wide enough to feel intentional, narrow enough to fit common monitors.
+3. **Default `relatedWidth`:** keep the current `clamp(360px, 26vw, 520px)` baseline by resolving it to a px number at first render. Or pick a fixed default like `460px`. To decide during implementation.
+4. **Header visibility on desktop:** the existing AppShell.Header is `hiddenFrom="sm"` (mobile only). The new layout doesn't introduce a desktop header, so this is unchanged. Just confirming.
 
 ## File diff summary
 
-- `src/app/(shell)/Shell.tsx` — wrap in container; integrate hook + dividers; dynamic widths.
-- `src/app/(shell)/useResizableColumns.ts` *(new)* — state + localStorage.
+- `src/app/(shell)/Shell.tsx` — keep AppShell for mobile (header + drawer); add desktop custom-layout overlay with three absolutely-positioned columns and three dividers. Use CSS variables for widths.
+- `src/app/(shell)/useResizableColumns.ts` *(new)* — state, localStorage, viewport-clamped bounds.
 - `src/app/(shell)/ResizableDivider.tsx` *(new)* — drag UI.
-- `src/app/globals.css` (or equivalent) — body background for gutters.
+- `src/app/globals.css` (or equivalent) — body background; `overflow-x: hidden`.
 
 ## Out of scope (deferred)
 
