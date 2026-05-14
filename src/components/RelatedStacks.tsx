@@ -1739,21 +1739,14 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   })()}
                 </div>
 
-                {/* F: Relation indicator — top-right, dominant topic + cluster count.
-                    Only visible when: (a) this card is the active see-more anchor, or
+                {/* F: Relation indicator — top-right. Shows the active grouping topic
+                    (driven by activeAnchorTopic) so the label always matches the
+                    "Grouped by:" pill at the top of the panel. Only visible when:
+                    (a) this card is the active see-more anchor, or
                     (b) this card is part of the active anchor's topic cluster. */}
                 {(() => {
                   const rels = stack.topPost.relations ?? [];
                   if (rels.length === 0) return null;
-                  const dominantRel = rels[0];
-                  // Always resolve a topic via synthetic fallback
-                  const dominantTopic = topicOf(dominantRel, stack.stackId, 0);
-                  const uniqueCategories = new Set(rels.map(r => r.category));
-                  const isMultiTypeIndicator = uniqueCategories.size > 1;
-                  const dominantColors = getCategoryColors(dominantRel.category);
-                  const showIndicatorColor = !isMultiTypeIndicator || panelHovered;
-                  const indicatorColor = showIndicatorColor ? dominantColors.text : '#888888';
-                  const clusterCount = topicTotal.get(dominantTopic) ?? 0;
                   const isCurrentAnchor =
                     reRankAnchorIds.length > 0 &&
                     reRankAnchorIds[reRankAnchorIds.length - 1] === stack.topPost.id;
@@ -1762,23 +1755,38 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                     rels.some((r, ri) => topicOf(r, stack.stackId, ri) === activeAnchorTopic);
                   const showRelationIndicator = isCurrentAnchor || isInActiveCluster;
                   if (!showRelationIndicator) return null;
+                  // Pick the relation on THIS card that matches activeAnchorTopic — that's
+                  // the topic driving this card's place in the cluster. Fall back to rels[0]
+                  // only if no match (shouldn't happen when the gate above passes, but defensive).
+                  const matchIdx = activeAnchorTopic
+                    ? rels.findIndex((r, ri) => topicOf(r, stack.stackId, ri) === activeAnchorTopic)
+                    : -1;
+                  const indicatorRel = matchIdx >= 0 ? rels[matchIdx] : rels[0];
+                  const indicatorRangeIdx = matchIdx >= 0 ? matchIdx : 0;
+                  const indicatorTopic = activeAnchorTopic ?? topicOf(rels[0], stack.stackId, 0);
+                  const uniqueCategories = new Set(rels.map(r => r.category));
+                  const isMultiTypeIndicator = uniqueCategories.size > 1;
+                  const indicatorColors = getCategoryColors(indicatorRel.category);
+                  const showIndicatorColor = !isMultiTypeIndicator || panelHovered;
+                  const indicatorColor = showIndicatorColor ? indicatorColors.text : '#888888';
+                  const clusterCount = topicTotal.get(indicatorTopic) ?? 0;
                   const baseOpacity = showIndicatorColor ? (isCurrentAnchor ? 1 : 0.75) : 0.6;
                   return (
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleToggleAnchor(stack.topPost.id, 0);
+                        handleToggleAnchor(stack.topPost.id, indicatorRangeIdx);
                       }}
-                      aria-label={`Show more posts about ${dominantTopic}`}
+                      aria-label={`Show more posts about ${indicatorTopic}`}
                       aria-pressed={isCurrentAnchor}
                       style={{
                         position: 'absolute',
                         top: '10px',
                         right: '10px',
                         zIndex: 10,
-                        background: isCurrentAnchor ? dominantColors.bg : 'transparent',
-                        border: isCurrentAnchor ? `1px solid ${dominantColors.border}55` : 'none',
+                        background: isCurrentAnchor ? indicatorColors.bg : 'transparent',
+                        border: isCurrentAnchor ? `1px solid ${indicatorColors.border}55` : 'none',
                         borderRadius: '4px',
                         padding: isCurrentAnchor ? '1px 5px' : '1px 4px',
                         cursor: 'pointer',
@@ -1804,7 +1812,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       }}
                     >
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '130px' }}>
-                        {dominantTopic} ({clusterCount})
+                        {indicatorTopic} ({clusterCount})
                       </span>
                       <span aria-hidden style={{ flexShrink: 0, fontSize: '10px', marginLeft: '1px' }}>&#x203A;</span>
                     </button>
