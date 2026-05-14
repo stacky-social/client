@@ -389,52 +389,47 @@ export default function ListyInjectionPage() {
     return () => { resetHighlightStore(); registerNavigateCallback(null); };
   }, []);
 
-  // Auto-activate first post — but skip if:
-  //   - we're restoring from a back-nav (restore effect handles it)
-  //   - the context already remembers an active post (carried over from a
-  //     detail-page visit). Surviving React Strict Mode's double-mount in dev
-  //     depends on this check: by the second mount, sessionStorage has been
-  //     cleared but context still holds the restored post.
+  // Unified mount-time focus + scroll restoration.
+  //
+  // Three cases handled in priority order:
+  //   1. Saved state in sessionStorage (came back from a post detail page via
+  //      browser-back or our UI BackButton — both pop history and remount
+  //      this route). Restore the active feed post + scroll position; aside
+  //      repopulates from setFromPost.
+  //   2. Context already has an active post (typical for React Strict Mode's
+  //      2nd mount in dev, where sessionStorage was cleared by the 1st mount's
+  //      RAF). Sync local state from context so the Post highlight reappears.
+  //   3. Fresh visit with no prior state — auto-activate the first feed post.
+  //
+  // All three end with: local activePostId set, activePostIdRef synced,
+  // and aside populated. The scroll listener's mount-time onScroll() is
+  // suppressed while isRestoringRef is true so it can't override the
+  // restored post with bestIdx=0 before scrollTo lands.
   useEffect(() => {
     if (posts.length === 0 || activePostId) return;
-    const hasRestore =
-      typeof window !== "undefined" &&
-      (sessionStorage.getItem("scrollY:/listy-injection") !== null ||
-        sessionStorage.getItem("activeFeedPost:/listy-injection") !== null);
-    if (hasRestore) return;
-    if (ctxActivePostId) return;
-    const first = posts[0];
-    setActivePostId(first.postId);
-    setFromPost(first.relatedStacks, first.postId, { force: true });
-  }, []);
 
-  // Restore feed state when returning from a post detail page.
-  // `navigateToPost` saved scrollY + the active feed post id; replay both
-  // here so the focus + aside match what the user left, without waiting on
-  // the scroll listener to maybe-fire after scrollTo.
-  useEffect(() => {
-    const savedY = sessionStorage.getItem("scrollY:/listy-injection");
-    const savedActiveId = sessionStorage.getItem("activeFeedPost:/listy-injection");
-    if (!savedY && !savedActiveId) return;
+    const savedY = typeof window !== "undefined"
+      ? sessionStorage.getItem("scrollY:/listy-injection")
+      : null;
+    const savedActiveId = typeof window !== "undefined"
+      ? sessionStorage.getItem("activeFeedPost:/listy-injection")
+      : null;
 
-    isRestoringRef.current = true;
+    // Pick the post to focus, in priority order. Falls back to first feed post.
+    const candidateId = savedActiveId ?? ctxActivePostId ?? posts[0].postId;
+    const target = posts.find((p) => p.postId === candidateId) ?? posts[0];
 
-    // Restore active post + aside immediately (independent of scroll layout).
-    if (savedActiveId) {
-      const target = posts.find((p) => p.postId === savedActiveId);
-      if (target) {
-        setActivePostId(target.postId);
-        activePostIdRef.current = target.postId;
-        setFromPost(target.relatedStacks, target.postId, { force: true });
-      }
-    }
+    // Apply focus + aside synchronously so the Post highlight is in place
+    // before the user sees the page paint.
+    setActivePostId(target.postId);
+    activePostIdRef.current = target.postId;
+    setFromPost(target.relatedStacks, target.postId, { force: true });
 
-    // Restore scroll after two RAFs so feed posts settle at their final heights.
-    // sessionStorage cleanup is deferred until after the RAFs so a React
-    // Strict Mode second-mount re-runs the restore and ends in the same
-    // state instead of falling through to auto-activate.
-    const y = savedY ? parseInt(savedY, 10) : 0;
+    // Schedule scroll restoration if we have a saved position.
+    const y = savedY ? parseInt(savedY, 10) : NaN;
     if (!Number.isNaN(y) && y > 0) {
+      isRestoringRef.current = true;
+      // Two RAFs so feed posts settle to their final laid-out heights.
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           window.scrollTo(0, y);
@@ -444,7 +439,6 @@ export default function ListyInjectionPage() {
         });
       });
     } else {
-      isRestoringRef.current = false;
       sessionStorage.removeItem("scrollY:/listy-injection");
       sessionStorage.removeItem("activeFeedPost:/listy-injection");
     }
