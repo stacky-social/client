@@ -214,6 +214,7 @@ export default function ListyInjectionPage() {
 
   /**
    * Global parent map (childId → parentId) derived from inherent thread hierarchy:
+   *  - `entry.ancestors` is an oldest-first chain; the last element is focusPost's parent.
    *  - Each post in `entry.replies` is a comment to that entry's focusPost
    *  - Any post (focus, related, reply) with an explicit `inReplyToId` overrides
    * Posts with no inherent parent are roots and have no ancestors.
@@ -221,7 +222,18 @@ export default function ListyInjectionPage() {
   const parentMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const e of entries) {
-      // Focus post may declare a parent
+      // entry.ancestors: oldest-first chain. Each consecutive pair is parent → child,
+      // and the last ancestor is the immediate parent of focusPost.
+      const ancestors = e.ancestors ?? [];
+      for (let i = 1; i < ancestors.length; i++) {
+        if (!map.has(ancestors[i].id)) {
+          map.set(ancestors[i].id, ancestors[i - 1].id);
+        }
+      }
+      if (ancestors.length > 0 && !map.has(e.focusPost.id)) {
+        map.set(e.focusPost.id, ancestors[ancestors.length - 1].id);
+      }
+      // Focus post may declare an explicit parent (overrides ancestor-derived link)
       if (e.focusPost.inReplyToId) {
         map.set(e.focusPost.id, e.focusPost.inReplyToId);
       }
@@ -260,6 +272,9 @@ export default function ListyInjectionPage() {
     const map = new Map<string, FocusPostMock>();
     for (const e of entries) {
       map.set(e.focusPost.id, e.focusPost);
+      for (const ancestor of e.ancestors ?? []) {
+        if (!map.has(ancestor.id)) map.set(ancestor.id, ancestor);
+      }
       for (const reply of e.replies ?? []) {
         if (!map.has(reply.id)) map.set(reply.id, reply);
       }
@@ -341,6 +356,13 @@ export default function ListyInjectionPage() {
     setActivePostId(postId);
     activePostIdRef.current = postId;
     window.scrollTo(0, 0);
+
+    // Bug 2: reflect focused post in URL. Native pushState avoids Next.js router
+    // re-rendering (which can interfere with AnimatePresence transitions).
+    const targetSearch = `?focus=${postId}`;
+    if (typeof window !== "undefined" && window.location.search !== targetSearch) {
+      window.history.pushState({ focus: postId }, "", `/listy-injection${targetSearch}`);
+    }
   }, [historyStack, getRelatedStacks]);
 
   const navigateBack = useCallback(() => {
@@ -364,6 +386,16 @@ export default function ListyInjectionPage() {
         window.scrollTo(0, savedY);
       });
 
+      // Bug 2: keep URL in sync with the new top-of-stack focus (or clear ?focus on return to feed)
+      const targetSearch = restoreId ? `?focus=${restoreId}` : "";
+      if (typeof window !== "undefined" && window.location.search !== targetSearch) {
+        window.history.pushState(
+          restoreId ? { focus: restoreId } : null,
+          "",
+          `/listy-injection${targetSearch}`,
+        );
+      }
+
       return next;
     });
   }, [getRelatedStacks]);
@@ -373,6 +405,35 @@ export default function ListyInjectionPage() {
     registerNavigateCallback(navigateToPost);
     return () => registerNavigateCallback(null);
   }, [navigateToPost]);
+
+  // Bug 2: on mount, if URL has ?focus=<postId>, enter thread mode for that post.
+  const hydratedFocusRef = useRef(false);
+  useEffect(() => {
+    if (hydratedFocusRef.current) return;
+    if (typeof window === "undefined") return;
+    const focusId = new URLSearchParams(window.location.search).get("focus");
+    if (!focusId) { hydratedFocusRef.current = true; return; }
+    hydratedFocusRef.current = true;
+    requestAnimationFrame(() => navigateToPost(focusId));
+  }, [navigateToPost]);
+
+  // Bug 2: browser back/forward — re-sync historyStack from URL when popstate fires.
+  useEffect(() => {
+    const onPopState = () => {
+      const focusId = new URLSearchParams(window.location.search).get("focus");
+      if (focusId) {
+        setHistoryStack([focusId]);
+        const stacks = getRelatedStacks(focusId);
+        setFromPostRef.current(stacks, focusId, { force: true });
+        setActivePostId(focusId);
+        activePostIdRef.current = focusId;
+      } else {
+        setHistoryStack([]);
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [getRelatedStacks]);
 
   // ── Feed mode posts ────────────────────────────────────────────────────────
   const posts = useMemo(() => entries.map(toPostData), []);
@@ -652,17 +713,21 @@ export default function ListyInjectionPage() {
   const enterX = navDirection === 'forward' ? 40 : -40;
   const exitX = navDirection === 'forward' ? -40 : 40;
 
+  // NOTE: Previous version wrapped this in <AnimatePresence mode="wait"> with
+  // x-slide enter/exit animations. That blocked the feed→thread mode transition
+  // — the exit animation never released, leaving the page stuck in feed mode
+  // even when historyStack was populated. We render directly here; revisit
+  // animation later if needed (Group's UX polish can re-add it without
+  // mode="wait", e.g. via layout-aware mode="popLayout" or by animating the
+  // whole tree at the layout level).
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={inThreadMode ? threadKey : 'feed'}
-        initial={{ opacity: 0, x: enterX }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: exitX }}
-        transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
-      >
-        {inThreadMode ? threadContent : feedContent}
-      </motion.div>
-    </AnimatePresence>
+    <motion.div
+      key={inThreadMode ? threadKey : 'feed'}
+      initial={{ opacity: 0, x: enterX }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
+    >
+      {inThreadMode ? threadContent : feedContent}
+    </motion.div>
   );
 }
