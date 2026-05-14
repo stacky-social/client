@@ -148,8 +148,10 @@ export function getMockReplies(id: string): MockPostType[] {
  *  post has no entry (synthetic / reply-only ids). */
 export function getMockFocusRelations(id: string): Relation[] {
   const entry = entryByFocusId.get(id);
-  if (!entry) return [];
-  return entry.relatedPosts.flatMap((rp) => rp.relations ?? []);
+  if (entry) return entry.relatedPosts.flatMap((rp) => rp.relations ?? []);
+  // Replies have no own relations (they aren't part of NLP analysis); leave empty
+  // so the reply text renders cleanly without misaligned marks from the parent.
+  return [];
 }
 
 /** Build aside-format related stacks (one per related post) for a given focus id.
@@ -157,9 +159,13 @@ export function getMockFocusRelations(id: string): Relation[] {
 export function getMockRelatedStacks(id: string): any[] {
   const entry = entryByFocusId.get(id);
   if (!entry) {
-    // Synthetic: this id is a related post or reply in some other entry.
-    // Build a synthetic sibling set from its parent entry (same logic as
-    // syntheticEntryFromRelated in /listy-injection/page.tsx, simplified).
+    // Replies inherit the parent entry's related stacks ("discussion context").
+    // This keeps the aside populated when the user navigates into a reply thread.
+    const fromReply = replyById.get(id);
+    if (fromReply) return getMockRelatedStacks(fromReply.parent.focusPost.id);
+    // Synthetic: this id is a related post in another entry. Build a synthetic
+    // sibling set from its parent entry (mirrors syntheticEntryFromRelated in
+    // /listy-injection/page.tsx, simplified).
     const fromRelated = relatedById.get(id);
     if (!fromRelated) return [];
     const { rp, parent } = fromRelated;
