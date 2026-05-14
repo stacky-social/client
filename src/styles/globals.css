@@ -55,3 +55,9 @@ html::-webkit-scrollbar-thumb:hover {
 .avatarHoverDim:hover img {
     filter: brightness(0.95);
 }
+
+/* Resizable shell columns: body background = gutter color; suppress horizontal scroll. */
+body {
+    background-color: #FCFBF5;
+    overflow-x: hidden;
+}

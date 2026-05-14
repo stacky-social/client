@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Text, Paper, Box, Group, Divider, Button } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import Post from "../../../components/Posts/Post";
 import mockData from "../../FakeData/listy-injection.json";
 import type { ListyInjectionData, ListyInjectionEntry, RelatedPostMock, FocusPostMock, Relation, CategoryKey } from "../../../types/PostType";
@@ -192,7 +193,8 @@ function replyToPostData(reply: FocusPostMock) {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function ListyInjectionPage() {
-  const { setFromPost } = useRelatedStacks();
+  const router = useRouter();
+  const { setFromPost, activePostId: ctxActivePostId } = useRelatedStacks();
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const activePostIdRef = useRef<string | null>(null);
   const setFromPostRef = useRef(setFromPost);
@@ -214,6 +216,7 @@ export default function ListyInjectionPage() {
 
   /**
    * Global parent map (childId → parentId) derived from inherent thread hierarchy:
+   *  - `entry.ancestors` is an oldest-first chain; the last element is focusPost's parent.
    *  - Each post in `entry.replies` is a comment to that entry's focusPost
    *  - Any post (focus, related, reply) with an explicit `inReplyToId` overrides
    * Posts with no inherent parent are roots and have no ancestors.
@@ -221,7 +224,18 @@ export default function ListyInjectionPage() {
   const parentMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const e of entries) {
-      // Focus post may declare a parent
+      // entry.ancestors: oldest-first chain. Each consecutive pair is parent → child,
+      // and the last ancestor is the immediate parent of focusPost.
+      const ancestors = e.ancestors ?? [];
+      for (let i = 1; i < ancestors.length; i++) {
+        if (!map.has(ancestors[i].id)) {
+          map.set(ancestors[i].id, ancestors[i - 1].id);
+        }
+      }
+      if (ancestors.length > 0 && !map.has(e.focusPost.id)) {
+        map.set(e.focusPost.id, ancestors[ancestors.length - 1].id);
+      }
+      // Focus post may declare an explicit parent (overrides ancestor-derived link)
       if (e.focusPost.inReplyToId) {
         map.set(e.focusPost.id, e.focusPost.inReplyToId);
       }
@@ -260,6 +274,9 @@ export default function ListyInjectionPage() {
     const map = new Map<string, FocusPostMock>();
     for (const e of entries) {
       map.set(e.focusPost.id, e.focusPost);
+      for (const ancestor of e.ancestors ?? []) {
+        if (!map.has(ancestor.id)) map.set(ancestor.id, ancestor);
+      }
       for (const reply of e.replies ?? []) {
         if (!map.has(reply.id)) map.set(reply.id, reply);
       }
@@ -323,6 +340,10 @@ export default function ListyInjectionPage() {
   // does not artificially make the previously focused post an ancestor.
   const [historyStack, setHistoryStack] = useState<string[]>([]);
   const inThreadMode = historyStack.length > 0;
+  /** True while back-nav restoration is in progress — used to suppress the
+   *  scroll listener's mount-time onScroll() so it doesn't override the
+   *  restored active post before scrollTo lands. Cleared after the RAFs fire. */
+  const isRestoringRef = useRef(false);
   const savedScrollRef = useRef<Map<string, number>>(new Map());
   // Direction of the last navigation — drives the slide animation in AnimatePresence.
   const [navDirection, setNavDirection] = useState<'forward' | 'backward'>('forward');
@@ -374,51 +395,69 @@ export default function ListyInjectionPage() {
   }, [getRelatedStacks]);
 
   const navigateToPost = useCallback((postId: string) => {
-    // A1 guard: refuse to navigate to a post we cannot resolve. Without this,
-    // entering thread mode for an unknown ID renders an empty container with
-    // no recovery affordance, which reads as a study-session crash. Logging
-    // makes the data-integrity gap visible without swallowing it silently.
+    // A1 (Group A robustness): refuse to navigate to a post we cannot resolve.
+    // Without this guard, an empty-data scenario reads as a study-session
+    // crash. The console.warn makes the data-integrity gap visible without
+    // swallowing it silently.
     if (!postId || !resolveEntry(postId)) {
       // eslint-disable-next-line no-console
       console.warn('[listy-injection] navigateToPost: unknown postId, ignoring', { postId });
       return;
     }
-
-    // Save current scroll
-    const key = historyStack.length > 0 ? historyStack[historyStack.length - 1] : "__feed__";
-    savedScrollRef.current.set(key, window.scrollY);
-
-    setNavDirection('forward');
-    setHistoryStack(prev => [...prev, postId]);
-
-    // Update sidebar to show this post's related stacks
-    const stacks = getRelatedStacks(postId);
-    setFromPostRef.current(stacks, postId, { force: true });
-    setActivePostId(postId);
-    activePostIdRef.current = postId;
-    window.scrollTo(0, 0);
-
-    // A4: Push a marker onto the browser history stack so a browser-back press
-    // is captured by the popstate handler and routed through our in-page back.
-    // We only push the FIRST time we enter thread mode — subsequent forward
-    // navigations stay inside the same browser-history entry.
-    if (typeof window !== 'undefined' && !browserBackInstalledRef.current) {
-      window.history.pushState({ __listyThread: true }, '', window.location.href);
-      browserBackInstalledRef.current = true;
-    }
-  }, [historyStack, getRelatedStacks, resolveEntry]);
+    // Save feed state for back-nav restoration: scroll position and the
+    // post the user clicked (which is what should re-focus on return).
+    // Direct feed clicks pass the clicked feed-post id. Aside clicks may
+    // pass a related-post id that isn't a feed entry — the restore effect
+    // handles that by leaving the aside alone if the id isn't found in posts.
+    sessionStorage.setItem(`scrollY:/listy-injection`, String(window.scrollY));
+    sessionStorage.setItem(`activeFeedPost:/listy-injection`, postId);
+    // Seed BackButton's previousPath so the post-detail route shows "Back".
+    sessionStorage.setItem(
+      `previousPath:/listy-injection/posts/${postId}`,
+      "/listy-injection",
+    );
+    // Supersedes the prior in-page thread mode + ?focus= URL approach: we
+    // now route to a dedicated detail page so URLs are true REST resources
+    // rather than query-param state. Group A's A4 (browser-back capture via
+    // pushState marker) is therefore obsolete — router.push gives the
+    // browser-back behavior we want for free.
+    router.push(`/listy-injection/posts/${postId}`);
+  }, [router, resolveEntry]);
 
   const navigateBack = useCallback(() => {
-    // If the user clicks our Back button while we still own a browser-history
-    // marker, consume it via history.back() so popstate fires and we don't
-    // diverge from the browser stack. The popstate handler will then call
-    // popInPageOnly to update React state.
-    if (browserBackInstalledRef.current && typeof window !== 'undefined') {
-      window.history.back();
-    } else {
-      popInPageOnly();
-    }
-  }, [popInPageOnly]);
+    setNavDirection('backward');
+    setHistoryStack(prev => {
+      const next = prev.slice(0, -1);
+      const restoreKey = next.length > 0 ? next[next.length - 1] : "__feed__";
+      const restoreId = next.length > 0 ? next[next.length - 1] : null;
+
+      // Update sidebar
+      if (restoreId) {
+        const stacks = getRelatedStacks(restoreId);
+        setFromPostRef.current(stacks, restoreId, { force: true });
+        setActivePostId(restoreId);
+        activePostIdRef.current = restoreId;
+      }
+
+      // Restore scroll after React re-renders
+      requestAnimationFrame(() => {
+        const savedY = savedScrollRef.current.get(restoreKey) ?? 0;
+        window.scrollTo(0, savedY);
+      });
+
+      // Keep URL in sync with the new top-of-stack focus (or clear ?focus on return to feed)
+      const targetSearch = restoreId ? `?focus=${restoreId}` : "";
+      if (typeof window !== "undefined" && window.location.search !== targetSearch) {
+        window.history.pushState(
+          restoreId ? { focus: restoreId } : null,
+          "",
+          `/listy-injection${targetSearch}`,
+        );
+      }
+
+      return next;
+    });
+  }, [getRelatedStacks]);
 
   // Register the navigate callback so the aside's RelatedStacks can trigger it
   useEffect(() => {
@@ -426,23 +465,38 @@ export default function ListyInjectionPage() {
     return () => registerNavigateCallback(null);
   }, [navigateToPost]);
 
-  // A4: Capture browser back-button presses while in thread mode so the user
-  // doesn't get yanked off /listy-injection mid-study-session.
+  // Legacy ?focus= URL hydration kept as a fallback for any URLs that may
+  // still exist in users' history from the prior in-page thread mode.
+  // Primary navigation is now /listy-injection/posts/[id] (router.push),
+  // so this code path is rarely hit; when it is, it calls navigateToPost
+  // which (with A1 guard) router.push's to the detail route.
+  const hydratedFocusRef = useRef(false);
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const onPop = () => {
-      // Only intervene if we still have an in-page thread stack to pop. If the
-      // stack is empty the popstate is a normal navigation (e.g. away from the
-      // page) and we let it through.
-      if (historyStack.length === 0) {
-        browserBackInstalledRef.current = false;
-        return;
+    if (hydratedFocusRef.current) return;
+    if (typeof window === "undefined") return;
+    const focusId = new URLSearchParams(window.location.search).get("focus");
+    if (!focusId) { hydratedFocusRef.current = true; return; }
+    hydratedFocusRef.current = true;
+    requestAnimationFrame(() => navigateToPost(focusId));
+  }, [navigateToPost]);
+
+  // popstate listener for legacy ?focus= URLs (in-page fallback path only).
+  useEffect(() => {
+    const onPopState = () => {
+      const focusId = new URLSearchParams(window.location.search).get("focus");
+      if (focusId) {
+        setHistoryStack([focusId]);
+        const stacks = getRelatedStacks(focusId);
+        setFromPostRef.current(stacks, focusId, { force: true });
+        setActivePostId(focusId);
+        activePostIdRef.current = focusId;
+      } else {
+        setHistoryStack([]);
       }
-      popInPageOnly();
     };
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, [historyStack, popInPageOnly]);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [getRelatedStacks]);
 
   // ── Feed mode posts ────────────────────────────────────────────────────────
   const posts = useMemo(() => entries.map(toPostData), []);
@@ -456,12 +510,58 @@ export default function ListyInjectionPage() {
     return () => { resetHighlightStore(); registerNavigateCallback(null); };
   }, []);
 
-  // Auto-activate first post
+  // Unified mount-time focus + scroll restoration.
+  //
+  // Three cases handled in priority order:
+  //   1. Saved state in sessionStorage (came back from a post detail page via
+  //      browser-back or our UI BackButton — both pop history and remount
+  //      this route). Restore the active feed post + scroll position; aside
+  //      repopulates from setFromPost.
+  //   2. Context already has an active post (typical for React Strict Mode's
+  //      2nd mount in dev, where sessionStorage was cleared by the 1st mount's
+  //      RAF). Sync local state from context so the Post highlight reappears.
+  //   3. Fresh visit with no prior state — auto-activate the first feed post.
+  //
+  // All three end with: local activePostId set, activePostIdRef synced,
+  // and aside populated. The scroll listener's mount-time onScroll() is
+  // suppressed while isRestoringRef is true so it can't override the
+  // restored post with bestIdx=0 before scrollTo lands.
   useEffect(() => {
-    if (posts.length > 0 && !activePostId) {
-      const first = posts[0];
-      setActivePostId(first.postId);
-      setFromPost(first.relatedStacks, first.postId, { force: true });
+    if (posts.length === 0 || activePostId) return;
+
+    const savedY = typeof window !== "undefined"
+      ? sessionStorage.getItem("scrollY:/listy-injection")
+      : null;
+    const savedActiveId = typeof window !== "undefined"
+      ? sessionStorage.getItem("activeFeedPost:/listy-injection")
+      : null;
+
+    // Pick the post to focus, in priority order. Falls back to first feed post.
+    const candidateId = savedActiveId ?? ctxActivePostId ?? posts[0].postId;
+    const target = posts.find((p) => p.postId === candidateId) ?? posts[0];
+
+    // Apply focus + aside synchronously so the Post highlight is in place
+    // before the user sees the page paint.
+    setActivePostId(target.postId);
+    activePostIdRef.current = target.postId;
+    setFromPost(target.relatedStacks, target.postId, { force: true });
+
+    // Schedule scroll restoration if we have a saved position.
+    const y = savedY ? parseInt(savedY, 10) : NaN;
+    if (!Number.isNaN(y) && y > 0) {
+      isRestoringRef.current = true;
+      // Two RAFs so feed posts settle to their final laid-out heights.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo(0, y);
+          isRestoringRef.current = false;
+          sessionStorage.removeItem("scrollY:/listy-injection");
+          sessionStorage.removeItem("activeFeedPost:/listy-injection");
+        });
+      });
+    } else {
+      sessionStorage.removeItem("scrollY:/listy-injection");
+      sessionStorage.removeItem("activeFeedPost:/listy-injection");
     }
   }, []);
 
@@ -506,7 +606,11 @@ export default function ListyInjectionPage() {
         }
       });
     };
-    onScroll();
+    // Skip the mount-time onScroll() while a back-nav restoration is in
+    // flight — the restore effect has already set the right active post,
+    // and we don't want to clobber it with bestIdx=0 (top of feed) before
+    // scrollTo lands. Subsequent scroll events still fire normally.
+    if (!isRestoringRef.current) onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(rafId); };
   }, [posts, inThreadMode]);
@@ -747,17 +851,21 @@ export default function ListyInjectionPage() {
   const enterX = navDirection === 'forward' ? 40 : -40;
   const exitX = navDirection === 'forward' ? -40 : 40;
 
+  // NOTE: Previous version wrapped this in <AnimatePresence mode="wait"> with
+  // x-slide enter/exit animations. That blocked the feed→thread mode transition
+  // — the exit animation never released, leaving the page stuck in feed mode
+  // even when historyStack was populated. We render directly here; revisit
+  // animation later if needed (Group's UX polish can re-add it without
+  // mode="wait", e.g. via layout-aware mode="popLayout" or by animating the
+  // whole tree at the layout level).
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={inThreadMode ? threadKey : 'feed'}
-        initial={{ opacity: 0, x: enterX }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: exitX }}
-        transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
-      >
-        {inThreadMode ? threadContent : feedContent}
-      </motion.div>
-    </AnimatePresence>
+    <motion.div
+      key={inThreadMode ? threadKey : 'feed'}
+      initial={{ opacity: 0, x: enterX }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
+    >
+      {inThreadMode ? threadContent : feedContent}
+    </motion.div>
   );
 }

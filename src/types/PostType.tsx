@@ -122,6 +122,11 @@ export interface RelatedPostMock {
 export interface ListyInjectionEntry {
   focusPost: FocusPostMock;
   relatedPosts: RelatedPostMock[];
+  /**
+   * Optional oldest-first chain of ancestor posts. `ancestors[ancestors.length - 1]`
+   * is the immediate parent of `focusPost`. See LISTY-INJECTION-SCHEMA.md.
+   */
+  ancestors?: FocusPostMock[];
   replies?: FocusPostMock[];
 }
 
