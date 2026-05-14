@@ -1341,7 +1341,24 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
         }}
       >
         <AnimatePresence initial={false} mode="popLayout">
-        {displayStacks.flatMap((stack, index) => {
+        {(() => {
+          // Compute the active anchor's dominant topic (after synthetic fallback) so
+          // each card can decide whether to show the F indicator.
+          const activeAnchorId = reRankAnchorIds.length > 0
+            ? reRankAnchorIds[reRankAnchorIds.length - 1]
+            : null;
+          const activeAnchorStack = activeAnchorId
+            ? relatedStacks.find(s => s.topPost.id === activeAnchorId)
+            : null;
+          const activeAnchorRangeIdx = activeAnchorId != null
+            ? (anchoredRangeByPost[activeAnchorId] ?? 0)
+            : 0;
+          const activeAnchorRel = activeAnchorStack?.topPost.relations?.[activeAnchorRangeIdx];
+          const activeAnchorTopic: string | null = activeAnchorRel && activeAnchorStack
+            ? topicOf(activeAnchorRel, activeAnchorStack.stackId, activeAnchorRangeIdx)
+            : null;
+
+          return displayStacks.flatMap((stack, index) => {
           const isCardHovered = hoveredCardIndex === index;
           const colors = getCategoryColors(stack.rel);
           const isExpanded = !!expandedCards[stack.stackId];
@@ -1731,7 +1748,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   })()}
                 </div>
 
-                {/* F: Relation indicator — top-right, dominant topic + cluster count */}
+                {/* F: Relation indicator — top-right, dominant topic + cluster count.
+                    Only visible when: (a) this card is the active see-more anchor, or
+                    (b) this card is part of the active anchor's topic cluster. */}
                 {(() => {
                   const rels = stack.topPost.relations ?? [];
                   if (rels.length === 0) return null;
@@ -1747,6 +1766,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   const isCurrentAnchor =
                     reRankAnchorIds.length > 0 &&
                     reRankAnchorIds[reRankAnchorIds.length - 1] === stack.topPost.id;
+                  // Gate: only show when active anchor or in the active anchor's cluster
+                  const isInActiveCluster = activeAnchorTopic !== null &&
+                    rels.some((r, ri) => topicOf(r, stack.stackId, ri) === activeAnchorTopic);
+                  const showRelationIndicator = isCurrentAnchor || isInActiveCluster;
+                  if (!showRelationIndicator) return null;
                   const baseOpacity = showIndicatorColor ? (isCurrentAnchor ? 1 : 0.75) : 0.6;
                   return (
                     <button
@@ -1907,7 +1931,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           );
 
           return [labelEl, cardEl].filter(Boolean);
-        })}
+          }); // end displayStacks.flatMap
+        })()} {/* end activeAnchorTopic IIFE */}
         </AnimatePresence>
       </motion.div>
       </LayoutGroup>
