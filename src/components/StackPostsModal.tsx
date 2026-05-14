@@ -2,7 +2,7 @@ import React, { useEffect,useRef, useState } from 'react';
 import { Modal, ScrollArea, Switch, SimpleGrid, Text, Container, Group, Avatar, Button, Divider, Paper, UnstyledButton, TextInput, rem, LoadingOverlay, Loader } from '@mantine/core';
 import axios from 'axios';
 import { IconBookmark, IconHeart, IconMessageCircle, IconPhoto, IconSettings, IconShare, IconHeartFilled, IconBookmarkFilled, IconSearch } from "@tabler/icons-react";
-import { formatDistanceToNow } from 'date-fns';
+import { formatPostDate } from '../utils/formatPostDate';
 import { Code } from '@mantine/core';
 import { useRouter } from 'next/navigation';
 import classes from './expandModal.module.css';
@@ -78,7 +78,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     setAccessToken(token);
     console.log("api", apiUrl);
     setCurrentUrl(apiUrl);
-  }, [apiUrl]); 
+  }, [apiUrl]);
 
   useEffect(() => {
     if (stackId) {
@@ -168,11 +168,11 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
         style={{
           position: 'relative',
           width: '90%',
-          backgroundColor: '#ffffff',         
-          border: '1px solid #e7e7e7',        
-          borderRadius: '10px',           
+          backgroundColor: '#ffffff',
+          border: '1px solid #e7e7e7',
+          borderRadius: '10px',
           // boxShadow: '0 10px 10px rgba(0,0,0,0.1)',
-          padding: '1rem',             
+          padding: '1rem',
           zIndex: 5,
         }}
       >
@@ -188,17 +188,17 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
             />
             <div>
               <Text size="sm" style={{ color: '#011445', fontWeight:"bold" }}>{stack.topPost.account.display_name}</Text>
-              <Text size="xs" c="dimmed">{formatDistanceToNow(new Date(stack.topPost.created_at))} ago</Text>
+              <Text size="xs" c="dimmed">{formatPostDate(stack.topPost.created_at)}</Text>
             </div>
           </Group>
-          <div ref={textRef} 
-          style={{ 
-            paddingLeft: '54px', 
-            paddingTop: '1rem', 
-            overflow: 'hidden', 
-            textOverflow: "ellipsis", 
-            display: '-webkit-box', 
-            WebkitLineClamp: '3', 
+          <div ref={textRef}
+          style={{
+            paddingLeft: '54px',
+            paddingTop: '1rem',
+            overflow: 'hidden',
+            textOverflow: "ellipsis",
+            display: '-webkit-box',
+            WebkitLineClamp: '3',
             WebkitBoxOrient: 'vertical' }}>
             <Text
               c="#011445"
@@ -308,7 +308,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
         </Tabs.Panel>
       </Tabs>
     </div>
-      
+
     </Modal>
   );
 }

@@ -4,6 +4,7 @@ import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor } from '@ma
 import { notifications } from '@mantine/notifications';
 import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconLink } from '@tabler/icons-react';
 import { format } from 'date-fns';
+import { formatPostDate } from '../../utils/formatPostDate';
 import StackCount from '../StackCount';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
@@ -799,7 +800,7 @@ export default function Post({
               >
                 {author}
               </Anchor>
-              <Text size="xs" c="dimmed">{format(new Date(createdAt), "MMM d, yyyy")}</Text>
+              <Text size="xs" c="dimmed">{formatPostDate(createdAt)}</Text>
             </div>
           </Group>
         </div>

@@ -9,7 +9,7 @@ import {
   IconBookmark,
   IconBookmarkFilled,
 } from "@tabler/icons-react";
-import { format } from "date-fns";
+import { formatPostDate } from "../../utils/formatPostDate";
 import type { FocusPostMock, RelatedPostMock, CategoryKey } from "../../types/PostType";
 import { parseHighlight, buildSegments } from "./highlightUtils";
 import { CATEGORY_COLORS, CATEGORY_LABELS } from "./constants";
@@ -145,7 +145,7 @@ export default function FocusPost({ post, relatedPosts, isAncestor, isActive = f
           </Text>
           <Text size="xs" c="dimmed">
             @{post.account.acct} ·{" "}
-            {format(new Date(post.created_at), "MMM d, yyyy")}
+            {formatPostDate(post.created_at)}
           </Text>
         </div>
         {/* "Focus Post" label — only on the current focus */}

@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 're
 import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Anchor } from '@mantine/core';
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconThumbUp, IconThumbDown } from '@tabler/icons-react';
 import { Layers } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatPostDate } from '../utils/formatPostDate';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
@@ -1818,7 +1818,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                         style={{ color: '#011445', fontWeight: 700, fontSize: 'var(--mantine-font-size-md)' }}>
                         {stack.topPost.account.display_name}
                       </Anchor>
-                      <Text size="xs" c="dimmed">{formatDistanceToNow(new Date(stack.topPost.created_at))} ago</Text>
+                      <Text size="xs" c="dimmed">{formatPostDate(stack.topPost.created_at)}</Text>
                     </div>
                   </Group>
                 </UnstyledButton>
