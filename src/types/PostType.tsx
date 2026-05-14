@@ -66,8 +66,8 @@ export interface Relation {
   contentCommentEnd: number;
   /** Relation type for this specific substring pair */
   category: CategoryKey;
-  /** Short topic label from NLP, e.g. "Trial results" */
-  topic: string;
+  /** Short topic label from NLP, e.g. "Trial results". Optional — synthesized via topicOf() when missing. */
+  topic?: string;
 }
 
 export interface FocusPostMock {
