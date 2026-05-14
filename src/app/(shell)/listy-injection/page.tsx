@@ -348,7 +348,62 @@ export default function ListyInjectionPage() {
   // Direction of the last navigation — drives the slide animation in AnimatePresence.
   const [navDirection, setNavDirection] = useState<'forward' | 'backward'>('forward');
 
+  /** Marker we push onto window.history when entering thread mode so the
+   *  browser back button is captured by the popstate handler below. Without
+   *  this, a browser-back press tears the user off /listy-injection entirely,
+   *  losing their thread context (A4). */
+  const browserBackInstalledRef = useRef(false);
+  // Forward-declared ref so popInPageOnly can re-seed the aside with the first
+  // post's stacks when returning to feed mode. `posts` is declared after this
+  // block; the ref is populated by the effect below once it's available.
+  const postsRef = useRef<ReturnType<typeof toPostData>[]>([]);
+
+  /** Pops the in-page historyStack without triggering window.history.back()
+   *  (used when popstate fires — the browser already did the URL pop). */
+  const popInPageOnly = useCallback(() => {
+    setNavDirection('backward');
+    setHistoryStack(prev => {
+      if (prev.length === 0) return prev;
+      const next = prev.slice(0, -1);
+      const restoreKey = next.length > 0 ? next[next.length - 1] : "__feed__";
+      const restoreId = next.length > 0 ? next[next.length - 1] : null;
+
+      if (restoreId) {
+        const stacks = getRelatedStacks(restoreId);
+        setFromPostRef.current(stacks, restoreId, { force: true });
+        setActivePostId(restoreId);
+        activePostIdRef.current = restoreId;
+      } else {
+        // Returning to feed mode — re-activate the first post so the aside has
+        // something to display instead of going empty.
+        const first = postsRef.current[0];
+        if (first) {
+          setFromPostRef.current(first.relatedStacks, first.postId, { force: true });
+          setActivePostId(first.postId);
+          activePostIdRef.current = first.postId;
+        }
+      }
+
+      if (next.length === 0) browserBackInstalledRef.current = false;
+
+      requestAnimationFrame(() => {
+        const savedY = savedScrollRef.current.get(restoreKey) ?? 0;
+        window.scrollTo(0, savedY);
+      });
+      return next;
+    });
+  }, [getRelatedStacks]);
+
   const navigateToPost = useCallback((postId: string) => {
+    // A1 (Group A robustness): refuse to navigate to a post we cannot resolve.
+    // Without this guard, an empty-data scenario reads as a study-session
+    // crash. The console.warn makes the data-integrity gap visible without
+    // swallowing it silently.
+    if (!postId || !resolveEntry(postId)) {
+      // eslint-disable-next-line no-console
+      console.warn('[listy-injection] navigateToPost: unknown postId, ignoring', { postId });
+      return;
+    }
     // Save feed state for back-nav restoration: scroll position and the
     // post the user clicked (which is what should re-focus on return).
     // Direct feed clicks pass the clicked feed-post id. Aside clicks may
@@ -361,11 +416,13 @@ export default function ListyInjectionPage() {
       `previousPath:/listy-injection/posts/${postId}`,
       "/listy-injection",
     );
-    // Supersedes the prior in-page thread mode + ?focus= URL approach
-    // (origin/listy-injection-main-app): we now route to a dedicated detail
-    // page so URLs are true REST resources rather than query-param state.
+    // Supersedes the prior in-page thread mode + ?focus= URL approach: we
+    // now route to a dedicated detail page so URLs are true REST resources
+    // rather than query-param state. Group A's A4 (browser-back capture via
+    // pushState marker) is therefore obsolete — router.push gives the
+    // browser-back behavior we want for free.
     router.push(`/listy-injection/posts/${postId}`);
-  }, [router]);
+  }, [router, resolveEntry]);
 
   const navigateBack = useCallback(() => {
     setNavDirection('backward');
@@ -388,7 +445,7 @@ export default function ListyInjectionPage() {
         window.scrollTo(0, savedY);
       });
 
-      // Bug 2: keep URL in sync with the new top-of-stack focus (or clear ?focus on return to feed)
+      // Keep URL in sync with the new top-of-stack focus (or clear ?focus on return to feed)
       const targetSearch = restoreId ? `?focus=${restoreId}` : "";
       if (typeof window !== "undefined" && window.location.search !== targetSearch) {
         window.history.pushState(
@@ -408,7 +465,11 @@ export default function ListyInjectionPage() {
     return () => registerNavigateCallback(null);
   }, [navigateToPost]);
 
-  // Bug 2: on mount, if URL has ?focus=<postId>, enter thread mode for that post.
+  // Legacy ?focus= URL hydration kept as a fallback for any URLs that may
+  // still exist in users' history from the prior in-page thread mode.
+  // Primary navigation is now /listy-injection/posts/[id] (router.push),
+  // so this code path is rarely hit; when it is, it calls navigateToPost
+  // which (with A1 guard) router.push's to the detail route.
   const hydratedFocusRef = useRef(false);
   useEffect(() => {
     if (hydratedFocusRef.current) return;
@@ -419,7 +480,7 @@ export default function ListyInjectionPage() {
     requestAnimationFrame(() => navigateToPost(focusId));
   }, [navigateToPost]);
 
-  // Bug 2: browser back/forward — re-sync historyStack from URL when popstate fires.
+  // popstate listener for legacy ?focus= URLs (in-page fallback path only).
   useEffect(() => {
     const onPopState = () => {
       const focusId = new URLSearchParams(window.location.search).get("focus");
@@ -439,6 +500,9 @@ export default function ListyInjectionPage() {
 
   // ── Feed mode posts ────────────────────────────────────────────────────────
   const posts = useMemo(() => entries.map(toPostData), []);
+  // Keep postsRef in sync so the popstate-driven back path can re-seed feed
+  // mode without `posts` having to be declared above it.
+  postsRef.current = posts;
 
   // Reset on mount/unmount
   useEffect(() => {
@@ -659,7 +723,7 @@ export default function ListyInjectionPage() {
         })}
 
         {/* Current focus post with connector */}
-        {currentPost && (
+        {currentPost ? (
           <div style={{ position: "relative", marginBottom: "1.5rem" }}>
             {ancestorIds.length > 0 && (
               <div aria-hidden style={{
@@ -671,6 +735,28 @@ export default function ListyInjectionPage() {
               {renderPost(currentPost)}
             </div>
           </div>
+        ) : (
+          // A1 fallback: we entered thread mode for a post that couldn't be
+          // resolved. Show an explicit empty state with a recovery affordance
+          // instead of an invisible page that looks crashed to a study subject.
+          <Paper
+            withBorder
+            role="status"
+            aria-live="polite"
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 8,
+              padding: 20,
+              marginBottom: "1.5rem",
+            }}
+          >
+            <Text size="sm" fw={600} c="#374151" mb={6}>
+              Post unavailable
+            </Text>
+            <Text size="xs" c="dimmed">
+              This post couldn&apos;t be loaded. Press <strong>Back</strong> to return.
+            </Text>
+          </Paper>
         )}
 
         {/* Comment input — right under the focus post, before replies */}
