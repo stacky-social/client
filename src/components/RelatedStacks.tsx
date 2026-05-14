@@ -1653,7 +1653,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 style={{
                   position: 'relative', width: '100%', backgroundColor: '#ffffff', zIndex: 5,
                   borderRadius: '10px', margin: '0 auto', paddingTop: '40px',
-                  border: `2px solid ${colors.border}`,
+                  border: `2px solid #e2e8f0`,
                   boxShadow: stack.size > 1 ? 'none' : '0 2px 12px rgba(0,0,0,0.06)',
                   transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
                   cursor: 'pointer',
@@ -1911,7 +1911,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       position: 'absolute', inset: 0,
                       transform: `translate(${6 - 3 * idx}px, ${12 - 6 * idx + (isCardHovered ? 20 - (idx * 10) : 0)}px)`,
                       width: '100%', backgroundColor: '#ffffff', borderRadius: '10px',
-                      zIndex: idx + 1, pointerEvents: 'none', border: `2px solid ${colors.border}`,
+                      zIndex: idx + 1, pointerEvents: 'none', border: `2px solid #e2e8f0`,
                       boxShadow: idx === 0 ? '0 12px 24px rgba(0,0,0,0.18), 0 6px 12px rgba(0,0,0,0.12)' : 'none',
                       transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 200ms ease',
                     }} />
