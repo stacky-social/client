@@ -6,7 +6,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navbar } from "../../components/NavBar/Navbar";
 import StackLogo from "../../utils/StackLogo";
 import { HoverTooltip } from "../../components/HoverTooltip";
-import { RelatedStacksProvider } from "./related-stacks-context";
+import { RelatedStacksProvider, useRelatedStacks } from "./related-stacks-context";
 import { ResizableDivider } from "./ResizableDivider";
 import {
     CENTER_MAX,
@@ -71,6 +71,13 @@ function MobileShell({
     navCollapsed: boolean;
     toggleNav: () => void;
 }) {
+    const { activePostId } = useRelatedStacks();
+    const asideRef = useRef<HTMLElement | null>(null);
+
+    useEffect(() => {
+        asideRef.current?.scrollTo({ top: 0 });
+    }, [activePostId]);
+
     return (
         <>
             <AppShell
@@ -106,6 +113,7 @@ function MobileShell({
                     <Navbar />
                 </AppShell.Navbar>
                 <AppShell.Aside
+                    ref={asideRef}
                     p="md"
                     pt="0"
                     withBorder
@@ -169,6 +177,12 @@ function DesktopShell({
     closeDrawer: () => void;
 }) {
     const { widths, setCenterWidth, setRelatedWidth } = useResizableColumns();
+    const { activePostId } = useRelatedStacks();
+
+    const asideRef = useRef<HTMLDivElement | null>(null);
+    useEffect(() => {
+        asideRef.current?.scrollTo({ top: 0 });
+    }, [activePostId]);
 
     const navRef = useRef<HTMLDivElement | null>(null);
     const [navW, setNavW] = useState<number>(260);
@@ -268,6 +282,7 @@ function DesktopShell({
             </div>
 
             <div
+                ref={asideRef}
                 style={{
                     position: "fixed",
                     top: 0,
