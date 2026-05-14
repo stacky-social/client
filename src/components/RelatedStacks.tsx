@@ -1653,7 +1653,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 style={{
                   position: 'relative', width: '100%', backgroundColor: '#ffffff', zIndex: 5,
                   borderRadius: '10px', margin: '0 auto', paddingTop: '40px',
-                  border: `2px solid ${colors.border}`,
+                  border: `2px solid #e2e8f0`,
                   boxShadow: stack.size > 1 ? 'none' : '0 2px 12px rgba(0,0,0,0.06)',
                   transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
                   cursor: 'pointer',
@@ -1680,11 +1680,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       const tc = getCategoryColors(cat);
                       const anyDirected = hri !== null || hcat !== null;
                       const tagBright = !anyDirected || indices.includes(hri ?? -1) || hcat === cat;
-                      const categoryLabel = CATEGORY_LABELS[cat] ?? cat;
-                      const otherCount = Math.max(0, (categoryStackCount.get(cat) ?? 0) - 1);
+                      // Tag tooltip should match the highlight-text tooltip: show the
+                      // TOPIC of the first relation of this category (the same relation
+                      // a click would anchor on), and the count for THAT topic.
+                      const tagRangeIdx = indices[0];
+                      const tagTopic = topicOf(rels[tagRangeIdx], stack.stackId, tagRangeIdx);
+                      const otherCount = Math.max(0, (topicTotal.get(tagTopic) ?? 0) - 1);
                       const tagHover = (clientX: number, clientY: number) => {
                         showTooltip({
-                          content: buildTooltipLabel(categoryLabel, otherCount, tc.text),
+                          content: buildTooltipLabel(tagTopic, otherCount, tc.text),
                           colors: { text: tc.text, border: tc.border },
                           x: clientX,
                           y: clientY,
@@ -1711,8 +1715,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                                 setHoveredCategory(cat);
                               }
                             } else {
-                              // C4 desktop: clicking a relation tag filters the panel by this category
-                              handleFilterChipClick(cat);
+                              // Desktop: clicking a relation tag anchors this card and clusters
+                              // same-topic posts above/below it — same as a highlight-substring
+                              // click or the F-indicator chip on the top-right.
+                              handleToggleAnchor(stack.topPost.id, indices[0]);
                             }
                           }}
                           style={{
@@ -1737,21 +1743,14 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   })()}
                 </div>
 
-                {/* F: Relation indicator — top-right, dominant topic + cluster count.
-                    Only visible when: (a) this card is the active see-more anchor, or
+                {/* F: Relation indicator — top-right. Shows the active grouping topic
+                    (driven by activeAnchorTopic) so the label always matches the
+                    "Grouped by:" pill at the top of the panel. Only visible when:
+                    (a) this card is the active see-more anchor, or
                     (b) this card is part of the active anchor's topic cluster. */}
                 {(() => {
                   const rels = stack.topPost.relations ?? [];
                   if (rels.length === 0) return null;
-                  const dominantRel = rels[0];
-                  // Always resolve a topic via synthetic fallback
-                  const dominantTopic = topicOf(dominantRel, stack.stackId, 0);
-                  const uniqueCategories = new Set(rels.map(r => r.category));
-                  const isMultiTypeIndicator = uniqueCategories.size > 1;
-                  const dominantColors = getCategoryColors(dominantRel.category);
-                  const showIndicatorColor = !isMultiTypeIndicator || panelHovered;
-                  const indicatorColor = showIndicatorColor ? dominantColors.text : '#888888';
-                  const clusterCount = topicTotal.get(dominantTopic) ?? 0;
                   const isCurrentAnchor =
                     reRankAnchorIds.length > 0 &&
                     reRankAnchorIds[reRankAnchorIds.length - 1] === stack.topPost.id;
@@ -1760,23 +1759,38 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                     rels.some((r, ri) => topicOf(r, stack.stackId, ri) === activeAnchorTopic);
                   const showRelationIndicator = isCurrentAnchor || isInActiveCluster;
                   if (!showRelationIndicator) return null;
+                  // Pick the relation on THIS card that matches activeAnchorTopic — that's
+                  // the topic driving this card's place in the cluster. Fall back to rels[0]
+                  // only if no match (shouldn't happen when the gate above passes, but defensive).
+                  const matchIdx = activeAnchorTopic
+                    ? rels.findIndex((r, ri) => topicOf(r, stack.stackId, ri) === activeAnchorTopic)
+                    : -1;
+                  const indicatorRel = matchIdx >= 0 ? rels[matchIdx] : rels[0];
+                  const indicatorRangeIdx = matchIdx >= 0 ? matchIdx : 0;
+                  const indicatorTopic = activeAnchorTopic ?? topicOf(rels[0], stack.stackId, 0);
+                  const uniqueCategories = new Set(rels.map(r => r.category));
+                  const isMultiTypeIndicator = uniqueCategories.size > 1;
+                  const indicatorColors = getCategoryColors(indicatorRel.category);
+                  const showIndicatorColor = !isMultiTypeIndicator || panelHovered;
+                  const indicatorColor = showIndicatorColor ? indicatorColors.text : '#888888';
+                  const clusterCount = topicTotal.get(indicatorTopic) ?? 0;
                   const baseOpacity = showIndicatorColor ? (isCurrentAnchor ? 1 : 0.75) : 0.6;
                   return (
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleToggleAnchor(stack.topPost.id, 0);
+                        handleToggleAnchor(stack.topPost.id, indicatorRangeIdx);
                       }}
-                      aria-label={`Show more posts about ${dominantTopic}`}
+                      aria-label={`Show more posts about ${indicatorTopic}`}
                       aria-pressed={isCurrentAnchor}
                       style={{
                         position: 'absolute',
                         top: '10px',
                         right: '10px',
                         zIndex: 10,
-                        background: isCurrentAnchor ? dominantColors.bg : 'transparent',
-                        border: isCurrentAnchor ? `1px solid ${dominantColors.border}55` : 'none',
+                        background: isCurrentAnchor ? indicatorColors.bg : 'transparent',
+                        border: isCurrentAnchor ? `1px solid ${indicatorColors.border}55` : 'none',
                         borderRadius: '4px',
                         padding: isCurrentAnchor ? '1px 5px' : '1px 4px',
                         cursor: 'pointer',
@@ -1802,7 +1816,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       }}
                     >
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '130px' }}>
-                        {dominantTopic} ({clusterCount})
+                        {indicatorTopic} ({clusterCount})
                       </span>
                       <span aria-hidden style={{ flexShrink: 0, fontSize: '10px', marginLeft: '1px' }}>&#x203A;</span>
                     </button>
@@ -1909,7 +1923,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       position: 'absolute', inset: 0,
                       transform: `translate(${6 - 3 * idx}px, ${12 - 6 * idx + (isCardHovered ? 20 - (idx * 10) : 0)}px)`,
                       width: '100%', backgroundColor: '#ffffff', borderRadius: '10px',
-                      zIndex: idx + 1, pointerEvents: 'none', border: `2px solid ${colors.border}`,
+                      zIndex: idx + 1, pointerEvents: 'none', border: `2px solid #e2e8f0`,
                       boxShadow: idx === 0 ? '0 12px 24px rgba(0,0,0,0.18), 0 6px 12px rgba(0,0,0,0.12)' : 'none',
                       transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 200ms ease',
                     }} />
