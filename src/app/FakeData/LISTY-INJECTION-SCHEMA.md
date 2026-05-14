@@ -10,9 +10,39 @@ type ListyInjectionData = ListyInjectionEntry[];
 interface ListyInjectionEntry {
   focusPost: FocusPost;
   relatedPosts: RelatedPost[];
+  ancestors?: FocusPost[];     // optional ancestor chain (root → immediate parent)
   replies?: FocusPost[];       // optional direct replies
 }
 ```
+
+### Ancestors
+
+`ancestors` is an ordered list of posts that come *above* `focusPost` in the
+conversation tree.
+
+- `ancestors[0]` is the **top-most** ancestor — typically the thread root.
+- `ancestors[ancestors.length - 1]` is the **immediate parent** (the post that
+  `focusPost` is a direct reply to).
+- Each consecutive pair `ancestors[i]` → `ancestors[i+1]` is a direct
+  parent → child relationship.
+- Omitted or an empty array means `focusPost` is a root post with no parent.
+
+Together with `replies`, the entry encodes a full vertical slice of the thread:
+
+```
+ancestors[0]            (root)
+  └─ ancestors[1]
+      └─ …
+          └─ ancestors[N-1]    (immediate parent)
+              └─ focusPost     (the post under analysis)
+                  ├─ replies[0]
+                  ├─ replies[1]
+                  └─ …
+```
+
+Each entry in `ancestors` is a full `FocusPost`, so the UI can render
+collapsed/expanded parent context exactly the same way it renders the focus
+post itself.
 
 ## FocusPost
 
@@ -181,3 +211,4 @@ type CategoryKey =
 5. `focusStart` / `focusEnd` must be valid indices into `focusPost.plainText`
 6. `contentStart` / `contentEnd` must be valid indices into the related post's `content`
 7. The number of relations per related post is typically 1-4
+8. If `ancestors` is present, it must be ordered root-first: `ancestors[0]` is the top-most ancestor and `ancestors[ancestors.length - 1]` is the immediate parent of `focusPost`
