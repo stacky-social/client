@@ -96,17 +96,25 @@ export function clearTapped(): void {
   notify();
 }
 
-/** Toggle a post as an anchor. Optionally records which highlight range triggered it. */
+/**
+ * Toggle a post as an anchor. Optionally records which highlight range triggered it.
+ *
+ * Single-anchor invariant: at most one anchor is active at any time.
+ * - Toggling the same anchor that is already active clears it (empty state).
+ * - Selecting a different anchor while one is active replaces the old one entirely;
+ *   the old anchor and its anchoredRangeByPost entry are removed before the new one
+ *   is added. reRankAnchorIds.length is therefore always 0 or 1.
+ */
 export function toggleReRankAnchor(postId: string, rangeIndex?: number): void {
   const idx = state.reRankAnchorIds.indexOf(postId);
   if (idx >= 0) {
+    // Same anchor toggled again — clear it.
     const { [postId]: _, ...rest } = state.anchoredRangeByPost;
-    state = { ...state, reRankAnchorIds: state.reRankAnchorIds.filter(id => id !== postId), anchoredRangeByPost: rest };
+    state = { ...state, reRankAnchorIds: [], anchoredRangeByPost: rest };
   } else {
-    const newAnchored = rangeIndex !== undefined
-      ? { ...state.anchoredRangeByPost, [postId]: rangeIndex }
-      : state.anchoredRangeByPost;
-    state = { ...state, reRankAnchorIds: [...state.reRankAnchorIds, postId], anchoredRangeByPost: newAnchored };
+    // New anchor selected — replace any existing anchor entirely.
+    const newAnchored = rangeIndex !== undefined ? { [postId]: rangeIndex } : {};
+    state = { ...state, reRankAnchorIds: [postId], anchoredRangeByPost: newAnchored };
   }
   notify();
 }
