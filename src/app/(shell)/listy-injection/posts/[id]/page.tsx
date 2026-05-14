@@ -103,6 +103,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     if (value) setActiveTab(value);
   };
 
+  // Stack icons are hidden on the focused view; related stacks live in the aside.
   const renderPost = (p: MockPostType, isFocusPost: boolean = false) => (
     <Post
       key={p.id}
@@ -113,7 +114,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       avatar={p.account.avatar}
       repliesCount={p.replies_count}
       createdAt={p.created_at}
-      stackCount={p.stackCount}
+      stackCount={-1}
       favouritesCount={p.favourites_count}
       favourited={p.favourited}
       bookmarked={p.bookmarked}
@@ -121,7 +122,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       onStackIconClick={() => {}}
       setIsModalOpen={() => {}}
       setIsExpandModalOpen={() => {}}
-      relatedStacks={p.relatedStacks}
+      relatedStacks={[]}
       setActivePostId={setActivePostId}
       activePostId={activePostId}
       focusRelations={isFocusPost ? focusRelations : []}

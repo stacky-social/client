@@ -67,6 +67,22 @@ const childrenByParent = new Map<string, string[]>();
 for (const e of entries) {
   entryByFocusId.set(e.focusPost.id, e);
   allPostsById.set(e.focusPost.id, e.focusPost);
+
+  // entry.ancestors: oldest-first chain. Each consecutive pair is parent → child,
+  // and the last ancestor is the immediate parent of focusPost.
+  const ancestorChain = e.ancestors ?? [];
+  for (const a of ancestorChain) {
+    if (!allPostsById.has(a.id)) allPostsById.set(a.id, a);
+  }
+  for (let i = 1; i < ancestorChain.length; i++) {
+    if (!parentMap.has(ancestorChain[i].id)) {
+      parentMap.set(ancestorChain[i].id, ancestorChain[i - 1].id);
+    }
+  }
+  if (ancestorChain.length > 0 && !parentMap.has(e.focusPost.id)) {
+    parentMap.set(e.focusPost.id, ancestorChain[ancestorChain.length - 1].id);
+  }
+  // Focus post may declare an explicit parent (overrides ancestor-derived link)
   if (e.focusPost.inReplyToId) parentMap.set(e.focusPost.id, e.focusPost.inReplyToId);
 
   for (const reply of e.replies ?? []) {
