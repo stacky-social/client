@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Anchor } from '@mantine/core';
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser } from '@tabler/icons-react';
 import { Layers } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatPostDate } from '../utils/formatPostDate';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -25,10 +25,10 @@ interface PostType {
     username?: string;
   };
   content_rewritten: string;
-  rewrite: 
-  {content: string; 
+  rewrite:
+  {content: string;
     significant:boolean;
- } 
+ }
 }
 
 interface RepliesStackType {
@@ -126,12 +126,12 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
 
   const itemVariants = (index: number) => ({
     hidden: showupdate ? { opacity: 0, x: -200, y: -200 * (index + 1) } : { opacity: 0, y: 200 },
-    show: { 
-      opacity: 1, 
-      x: 0, 
+    show: {
+      opacity: 1,
+      x: 0,
       y: 0,
       transition: {
-        duration: 0.5 
+        duration: 0.5
       }
     },
   });
@@ -142,13 +142,13 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
 
   return (
     <div
-      
+
       style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center', width: '100%' }}
     >
       {repliesStacks.slice(0, maxStacksToShow).map((stack, index) => (
         <div
           key={stack.stackId}
-     
+
           style={{
             position: 'relative',
             margin: '20px 20px',
@@ -170,7 +170,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
               paddingTop: '20px',
               cursor: 'pointer'
             }}
-     
+
           >
             {stack.topPost.rewrite.significant&&  (
              <div
@@ -210,7 +210,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
                     {stack.topPost.account.display_name}
                   </Anchor>
                   <Text size="xs" c="dimmed">
-                    {formatDistanceToNow(new Date(stack.topPost.created_at))} ago
+                    {formatPostDate(stack.topPost.created_at)}
                   </Text>
                 </div>
               </Group>
@@ -222,7 +222,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
                 paddingRight: '1rem',
                 cursor: 'pointer'
               }}
-                
+
             >
                 {stack.topPost.content_rewritten ? (
                   <Text c="#011445" dangerouslySetInnerHTML={{ __html: stack.topPost.rewrite.content }} />
@@ -271,7 +271,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
             )}
           </Paper>
 
-          {stack.size !== null && stack.size > 1 && 
+          {stack.size !== null && stack.size > 1 &&
             [...Array(3)].map((_, idx) => (
               <div
                 key={idx}

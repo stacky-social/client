@@ -10,7 +10,7 @@ import {
   IconBookmarkFilled,
   IconChevronRight,
 } from "@tabler/icons-react";
-import { format } from "date-fns";
+import { formatPostDate } from "../../utils/formatPostDate";
 import type { RelatedPostMock } from "../../types/PostType";
 import { parseHighlight, buildSegments } from "./highlightUtils";
 import type { HighlightRange } from "./highlightUtils";
@@ -187,7 +187,7 @@ const RankedPostCard = forwardRef<HTMLDivElement, RankedPostCardProps>(
               {post.account.display_name}
             </Text>
             <Text size="xs" c="dimmed" style={{ lineHeight: 1.3 }}>
-              {format(new Date(post.created_at), "MMM d, yyyy")}
+              {formatPostDate(post.created_at)}
             </Text>
           </div>
         </Group>
