@@ -931,8 +931,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     );
 
     // Populate anchorParent for visual connector-line indentation (single anchor: no parent).
-    // If there are older anchors still in reRankAnchorIds (shouldn't happen with single-anchor
-    // semantics, but kept for safety), walk the result to detect nesting.
+    // reRankAnchorIds is always length ≤ 1 by setter invariant, so anchorParent stays empty.
     const anchorIdx = result.findIndex(s => s.topPost.id === anchorId);
     for (let k = anchorIdx - 1; k >= 0; k--) {
       const prevId = result[k].topPost.id;
@@ -1289,7 +1288,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           </div>
         )}
 
-        {/* "More like this" active indicator — shows all anchors */}
+        {/* "More like this" active indicator — single anchor only */}
         {reRankAnchorIds.length > 0 && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px',
@@ -1314,17 +1313,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 </span>
               );
             })}
-            {reRankAnchorIds.length > 1 && (
-              <button
-                onClick={() => clearReRankAnchors()}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: '#94a3b8', fontSize: '11px', fontWeight: 600, padding: '0 2px', marginLeft: 'auto',
-                }}
-              >
-                Clear all
-              </button>
-            )}
           </div>
         )}
       </div>
