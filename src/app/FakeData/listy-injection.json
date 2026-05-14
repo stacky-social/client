@@ -11,7 +11,7 @@
       },
       "created_at": "2024-07-31T08:20:10.368Z",
       "favourites_count": 0,
-      "replies_count": 1,
+      "replies_count": 8,
       "favourited": false,
       "bookmarked": false
     },
@@ -33,7 +33,7 @@
             "contentCommentStart": 430,
             "contentCommentEnd": 486,
             "category": "framing",
-            "topic": "Consumer costs"
+            "topic": "Climate and tradeoffs"
           },
           {
             "focusStart": 1215,
@@ -45,7 +45,7 @@
             "contentCommentStart": 29,
             "contentCommentEnd": 56,
             "category": "framing",
-            "topic": "Industrial strategy"
+            "topic": "Industrial policy"
           }
         ],
         "account": {
@@ -119,7 +119,7 @@
             "contentCommentStart": 669,
             "contentCommentEnd": 737,
             "category": "values",
-            "topic": "Economic readiness"
+            "topic": "Industrial policy"
           },
           {
             "focusStart": 327,
@@ -131,7 +131,7 @@
             "contentCommentStart": 589,
             "contentCommentEnd": 655,
             "category": "values",
-            "topic": "Workers and pricing"
+            "topic": "Manufacturing"
           }
         ],
         "account": {
@@ -162,7 +162,7 @@
             "contentCommentStart": 805,
             "contentCommentEnd": 824,
             "category": "agree",
-            "topic": "Tariffs and consumers"
+            "topic": "Tariffs"
           },
           {
             "focusStart": 679,
@@ -174,7 +174,7 @@
             "contentCommentStart": 112,
             "contentCommentEnd": 157,
             "category": "agree",
-            "topic": "Global EV market"
+            "topic": "Manufacturing"
           }
         ],
         "account": {
@@ -205,7 +205,7 @@
             "contentCommentStart": 586,
             "contentCommentEnd": 622,
             "category": "disagree",
-            "topic": "Blame narrative"
+            "topic": "Consumers"
           },
           {
             "focusStart": 1072,
@@ -217,7 +217,7 @@
             "contentCommentStart": 541,
             "contentCommentEnd": 584,
             "category": "agree",
-            "topic": "Market access"
+            "topic": "Climate and tradeoffs"
           }
         ],
         "account": {
@@ -248,7 +248,7 @@
             "contentCommentStart": 393,
             "contentCommentEnd": 450,
             "category": "predictions",
-            "topic": "Short-term incentives"
+            "topic": "Consumers"
           },
           {
             "focusStart": 327,
@@ -291,7 +291,7 @@
             "contentCommentStart": 668,
             "contentCommentEnd": 712,
             "category": "proposals",
-            "topic": "Trade policy"
+            "topic": "Tariffs"
           },
           {
             "focusStart": 679,
@@ -303,7 +303,7 @@
             "contentCommentStart": 469,
             "contentCommentEnd": 515,
             "category": "proposals",
-            "topic": "Industrial renewal"
+            "topic": "Industrial policy"
           }
         ],
         "account": {
@@ -334,7 +334,7 @@
             "contentCommentStart": 92,
             "contentCommentEnd": 122,
             "category": "questions",
-            "topic": "Supply chains"
+            "topic": "Tariffs"
           },
           {
             "focusStart": 0,
@@ -346,7 +346,7 @@
             "contentCommentStart": 759,
             "contentCommentEnd": 819,
             "category": "questions",
-            "topic": "Blame framing"
+            "topic": "Industrial policy"
           }
         ],
         "account": {
@@ -377,7 +377,7 @@
             "contentCommentStart": 630,
             "contentCommentEnd": 701,
             "category": "evidence_personal",
-            "topic": "Tariffs and competitiveness"
+            "topic": "Tariffs"
           },
           {
             "focusStart": 679,
@@ -389,7 +389,7 @@
             "contentCommentStart": 460,
             "contentCommentEnd": 479,
             "category": "evidence_personal",
-            "topic": "Product quality"
+            "topic": "Manufacturing"
           }
         ],
         "account": {
@@ -420,7 +420,7 @@
             "contentCommentStart": 137,
             "contentCommentEnd": 206,
             "category": "evidence_public",
-            "topic": "Industry competitiveness"
+            "topic": "Manufacturing"
           },
           {
             "focusStart": 0,
@@ -494,7 +494,7 @@
             "contentCommentStart": 234,
             "contentCommentEnd": 265,
             "category": "framing",
-            "topic": "Consumers"
+            "topic": "Industrial policy"
           }
         ],
         "account": {
@@ -627,6 +627,248 @@
         "created_at": "2024-07-31T08:16:29.838Z",
         "favourites_count": 0,
         "replies_count": 108,
+        "favourited": false,
+        "bookmarked": false
+      }
+    ],
+    "replies": [
+      {
+        "id": "bs-001",
+        "inReplyToId": "112880124583497150",
+        "content": "<p>Strong claim, and the manufacturing-inferiority framing is the right starting point. But consumer welfare also matters here — cheap EVs would benefit millions.</p>",
+        "plainText": "Strong claim, and the manufacturing-inferiority framing is the right starting point. But consumer welfare also matters here — cheap EVs would benefit millions.",
+        "account": {
+          "display_name": "Jane Dev",
+          "acct": "jane_dev",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T09:01:00.000Z",
+        "favourites_count": 12,
+        "replies_count": 2,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-002",
+        "inReplyToId": "bs-001",
+        "content": "<p>Agree on welfare, but at what cost to long-term jobs? Short-term gain vs. structural loss.</p>",
+        "plainText": "Agree on welfare, but at what cost to long-term jobs? Short-term gain vs. structural loss.",
+        "account": {
+          "display_name": "Tony P",
+          "acct": "tony_p",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T09:14:00.000Z",
+        "favourites_count": 4,
+        "replies_count": 1,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-002a",
+        "inReplyToId": "bs-002",
+        "content": "<p>Trade adjustment assistance has been historically weak. That is the real failure, not the imports.</p>",
+        "plainText": "Trade adjustment assistance has been historically weak. That is the real failure, not the imports.",
+        "account": {
+          "display_name": "Jane Dev",
+          "acct": "jane_dev",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T09:31:00.000Z",
+        "favourites_count": 3,
+        "replies_count": 1,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-002a1",
+        "inReplyToId": "bs-002a",
+        "content": "<p>Fair. But weak TAA does not justify ignoring the loss column.</p>",
+        "plainText": "Fair. But weak TAA does not justify ignoring the loss column.",
+        "account": {
+          "display_name": "Tony P",
+          "acct": "tony_p",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T09:44:00.000Z",
+        "favourites_count": 1,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-003",
+        "inReplyToId": "bs-001",
+        "content": "<p>There is also the climate side — every BYD sold is a US gas car not sold. Hard to argue against that math.</p>",
+        "plainText": "There is also the climate side — every BYD sold is a US gas car not sold. Hard to argue against that math.",
+        "account": {
+          "display_name": "Jane Dev",
+          "acct": "jane_dev",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T09:18:00.000Z",
+        "favourites_count": 7,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-004",
+        "inReplyToId": "112880124583497150",
+        "content": "<p>Lived through the steel decline. Same playbook? Cheap imports, towns hollowed out, then nobody around to buy the cheap stuff anyway.</p>",
+        "plainText": "Lived through the steel decline. Same playbook? Cheap imports, towns hollowed out, then nobody around to buy the cheap stuff anyway.",
+        "account": {
+          "display_name": "Rural Voice",
+          "acct": "rural_voice",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T10:02:00.000Z",
+        "favourites_count": 18,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-005",
+        "inReplyToId": "112880124583497150",
+        "content": "<p>Two papers worth reading: Autor 2013 on the China shock, and Pierce-Schott 2016 on PNTR. Both nuance the \"manufacturing inferiority\" framing.</p>",
+        "plainText": "Two papers worth reading: Autor 2013 on the China shock, and Pierce-Schott 2016 on PNTR. Both nuance the \"manufacturing inferiority\" framing.",
+        "account": {
+          "display_name": "Econ PhD",
+          "acct": "econ_phd",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T10:15:00.000Z",
+        "favourites_count": 22,
+        "replies_count": 1,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-006",
+        "inReplyToId": "bs-005",
+        "content": "<p>Pierce-Schott focuses on PNTR, which is a specific policy shift. Not quite the same dynamic as BYD undercutting on price.</p>",
+        "plainText": "Pierce-Schott focuses on PNTR, which is a specific policy shift. Not quite the same dynamic as BYD undercutting on price.",
+        "account": {
+          "display_name": "Tony P",
+          "acct": "tony_p",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T10:33:00.000Z",
+        "favourites_count": 5,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-007",
+        "inReplyToId": "112880124583497150",
+        "content": "<p>Climate is the missing axis here. The fastest path to fleet electrification is the cheapest EV, not the patriotic one.</p>",
+        "plainText": "Climate is the missing axis here. The fastest path to fleet electrification is the cheapest EV, not the patriotic one.",
+        "account": {
+          "display_name": "Climate Now",
+          "acct": "climate_now",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T10:48:00.000Z",
+        "favourites_count": 31,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-008",
+        "inReplyToId": "112880124583497150",
+        "content": "<p>From the engineering side: BYD vertical integration is the story. They control the battery cell, the pack, the motor, and the platform. That is not a subsidy, that is a strategy.</p>",
+        "plainText": "From the engineering side: BYD vertical integration is the story. They control the battery cell, the pack, the motor, and the platform. That is not a subsidy, that is a strategy.",
+        "account": {
+          "display_name": "MC Engineer",
+          "acct": "mc_engineer",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T11:01:00.000Z",
+        "favourites_count": 26,
+        "replies_count": 2,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-009",
+        "inReplyToId": "bs-008",
+        "content": "<p>Saw a BYD Atto 3 in person, build quality was a notch above what I expected.</p>",
+        "plainText": "Saw a BYD Atto 3 in person, build quality was a notch above what I expected.",
+        "account": {
+          "display_name": "Newdriver",
+          "acct": "newdriver",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T11:12:00.000Z",
+        "favourites_count": 8,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-010",
+        "inReplyToId": "bs-008",
+        "content": "<p>Cost engineering does not equal corner cutting. Different design philosophy, that is the part US automakers refuse to learn.</p>",
+        "plainText": "Cost engineering does not equal corner cutting. Different design philosophy, that is the part US automakers refuse to learn.",
+        "account": {
+          "display_name": "MC Engineer",
+          "acct": "mc_engineer",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T11:25:00.000Z",
+        "favourites_count": 9,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-011",
+        "inReplyToId": "112880124583497150",
+        "content": "<p>We learned this lesson with shipping containers and consumer electronics. Each time the answer was \"retrain workers\" and each time the retraining money never showed up.</p>",
+        "plainText": "We learned this lesson with shipping containers and consumer electronics. Each time the answer was \"retrain workers\" and each time the retraining money never showed up.",
+        "account": {
+          "display_name": "Union Rep",
+          "acct": "union_rep",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T11:40:00.000Z",
+        "favourites_count": 14,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-012",
+        "inReplyToId": "112880124583497150",
+        "content": "<p>What is the over/under on a US tariff exemption for EV battery components? Hard to imagine the IRA tax credits surviving a full tariff wall.</p>",
+        "plainText": "What is the over/under on a US tariff exemption for EV battery components? Hard to imagine the IRA tax credits surviving a full tariff wall.",
+        "account": {
+          "display_name": "Analyst B",
+          "acct": "analyst_b",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T12:02:00.000Z",
+        "favourites_count": 6,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-013",
+        "inReplyToId": "112880124583497150",
+        "content": "<p>Worth re-reading every quarter.</p>",
+        "plainText": "Worth re-reading every quarter.",
+        "account": {
+          "display_name": "Quietreader",
+          "acct": "quietreader",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T12:15:00.000Z",
+        "favourites_count": 3,
+        "replies_count": 0,
         "favourited": false,
         "bookmarked": false
       }
