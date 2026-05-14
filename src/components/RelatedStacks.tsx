@@ -1680,11 +1680,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       const tc = getCategoryColors(cat);
                       const anyDirected = hri !== null || hcat !== null;
                       const tagBright = !anyDirected || indices.includes(hri ?? -1) || hcat === cat;
-                      const categoryLabel = CATEGORY_LABELS[cat] ?? cat;
-                      const otherCount = Math.max(0, (categoryStackCount.get(cat) ?? 0) - 1);
+                      // Tag tooltip should match the highlight-text tooltip: show the
+                      // TOPIC of the first relation of this category (the same relation
+                      // a click would anchor on), and the count for THAT topic.
+                      const tagRangeIdx = indices[0];
+                      const tagTopic = topicOf(rels[tagRangeIdx], stack.stackId, tagRangeIdx);
+                      const otherCount = Math.max(0, (topicTotal.get(tagTopic) ?? 0) - 1);
                       const tagHover = (clientX: number, clientY: number) => {
                         showTooltip({
-                          content: buildTooltipLabel(categoryLabel, otherCount, tc.text),
+                          content: buildTooltipLabel(tagTopic, otherCount, tc.text),
                           colors: { text: tc.text, border: tc.border },
                           x: clientX,
                           y: clientY,
