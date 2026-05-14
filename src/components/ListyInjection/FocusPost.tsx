@@ -9,7 +9,7 @@ import {
   IconBookmark,
   IconBookmarkFilled,
 } from "@tabler/icons-react";
-import { formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import type { FocusPostMock, RelatedPostMock, CategoryKey } from "../../types/PostType";
 import { parseHighlight, buildSegments } from "./highlightUtils";
 import { CATEGORY_COLORS, CATEGORY_LABELS } from "./constants";
@@ -145,7 +145,7 @@ export default function FocusPost({ post, relatedPosts, isAncestor, isActive = f
           </Text>
           <Text size="xs" c="dimmed">
             @{post.account.acct} ·{" "}
-            {formatDistanceToNow(new Date(post.created_at))} ago
+            {format(new Date(post.created_at), "MMM d, yyyy")}
           </Text>
         </div>
         {/* "Focus Post" label — only on the current focus */}

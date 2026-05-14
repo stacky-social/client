@@ -8,7 +8,7 @@ import {
   IconMessageCircle,
   IconBookmark,
 } from "@tabler/icons-react";
-import { formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import type { ListyInjectionData, ListyInjectionEntry, FocusPostMock, RelatedPostMock } from "../../types/PostType";
 import {
   useListyStore,
@@ -377,7 +377,7 @@ function ReplyCard({ reply }: { reply: FocusPostMock }) {
             {reply.account.display_name}
           </Text>
           <Text size="xs" c="dimmed" style={{ lineHeight: 1.3, fontSize: "10px" }}>
-            @{reply.account.acct} · {formatDistanceToNow(new Date(reply.created_at))} ago
+            @{reply.account.acct} · {format(new Date(reply.created_at), "MMM d, yyyy")}
           </Text>
         </div>
       </Group>

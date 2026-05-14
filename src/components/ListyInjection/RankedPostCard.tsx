@@ -10,7 +10,7 @@ import {
   IconBookmarkFilled,
   IconChevronRight,
 } from "@tabler/icons-react";
-import { formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import type { RelatedPostMock } from "../../types/PostType";
 import { parseHighlight, buildSegments } from "./highlightUtils";
 import type { HighlightRange } from "./highlightUtils";
@@ -187,7 +187,7 @@ const RankedPostCard = forwardRef<HTMLDivElement, RankedPostCardProps>(
               {post.account.display_name}
             </Text>
             <Text size="xs" c="dimmed" style={{ lineHeight: 1.3 }}>
-              {formatDistanceToNow(new Date(post.created_at))} ago
+              {format(new Date(post.created_at), "MMM d, yyyy")}
             </Text>
           </div>
         </Group>
