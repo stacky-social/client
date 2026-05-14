@@ -185,9 +185,12 @@ export default function PostView({ params }: { params: { id: string } }) {
     try {
       const { data } = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}/context`, withAuth());
 
+      const descendants: PostType[] = Array.isArray(data?.descendants) ? data.descendants : [];
+      const ancestorsFromApi: PostType[] = Array.isArray(data?.ancestors) ? data.ancestors : [];
+
       setReplies((prev) => {
         const prevMap = new Map(prev.map((p) => [p.id, p]));
-        return data.descendants.map((desc: PostType) => {
+        return descendants.map((desc) => {
           const existing = prevMap.get(desc.id);
           const base = mapWithStackFields(desc);
           return existing
@@ -198,7 +201,7 @@ export default function PostView({ params }: { params: { id: string } }) {
 
       setAncestors((prev) => {
         const prevMap = new Map(prev.map((p) => [p.id, p]));
-        return data.ancestors.map((ancestor: PostType) => {
+        return ancestorsFromApi.map((ancestor) => {
           const existing = prevMap.get(ancestor.id);
           const base = mapWithStackFields(ancestor);
           return existing
@@ -208,6 +211,11 @@ export default function PostView({ params }: { params: { id: string } }) {
       });
     } catch (e) {
       console.error("Failed to fetch context:", e);
+      notifications.show({
+        color: "red",
+        title: "Failed to load replies and ancestors",
+        message: "Please try again later.",
+      });
     }
   }, []);
 
@@ -449,10 +457,8 @@ export default function PostView({ params }: { params: { id: string } }) {
   };
 
   // -------------------- Render helpers --------------------
-  const renderPost = (
-    p: PostType,
-    overrides?: Partial<Pick<PostType, "stackCount" | "relatedStacks">>
-  ) => (
+  // Stack icons are hidden on the focused view; related stacks live in the aside.
+  const renderPost = (p: PostType) => (
     <Post
       key={p.id}
       id={p.id}
@@ -462,7 +468,7 @@ export default function PostView({ params }: { params: { id: string } }) {
       avatar={p.account.avatar}
       repliesCount={p.replies_count}
       createdAt={p.created_at}
-      stackCount={overrides?.stackCount ?? p.stackCount}
+      stackCount={-1}
       favouritesCount={p.favourites_count}
       favourited={p.favourited}
       bookmarked={p.bookmarked}
@@ -470,7 +476,7 @@ export default function PostView({ params }: { params: { id: string } }) {
       onStackIconClick={handleStackIconClick}
       setIsModalOpen={() => { }}
       setIsExpandModalOpen={() => { }}
-      relatedStacks={overrides?.relatedStacks ?? p.relatedStacks}
+      relatedStacks={[]}
       setActivePostId={setActivePostId}
       activePostId={highlightId}
     />
@@ -532,7 +538,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                 zIndex: 0,
               }} />
             )}
-            {post && renderPost(post, { stackCount: size, relatedStacks: focusRelatedStacks })}
+            {post && renderPost(post)}
           </div>
         </div>
 
