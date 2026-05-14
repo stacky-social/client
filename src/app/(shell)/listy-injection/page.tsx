@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Text, Paper, Box, Group, Divider, Button } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import Post from "../../../components/Posts/Post";
 import mockData from "../../FakeData/listy-injection.json";
 import type { ListyInjectionData, ListyInjectionEntry, RelatedPostMock, FocusPostMock, Relation, CategoryKey } from "../../../types/PostType";
@@ -192,6 +193,7 @@ function replyToPostData(reply: FocusPostMock) {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function ListyInjectionPage() {
+  const router = useRouter();
   const { setFromPost } = useRelatedStacks();
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const activePostIdRef = useRef<string | null>(null);
@@ -328,20 +330,15 @@ export default function ListyInjectionPage() {
   const [navDirection, setNavDirection] = useState<'forward' | 'backward'>('forward');
 
   const navigateToPost = useCallback((postId: string) => {
-    // Save current scroll
-    const key = historyStack.length > 0 ? historyStack[historyStack.length - 1] : "__feed__";
-    savedScrollRef.current.set(key, window.scrollY);
-
-    setNavDirection('forward');
-    setHistoryStack(prev => [...prev, postId]);
-
-    // Update sidebar to show this post's related stacks
-    const stacks = getRelatedStacks(postId);
-    setFromPostRef.current(stacks, postId, { force: true });
-    setActivePostId(postId);
-    activePostIdRef.current = postId;
-    window.scrollTo(0, 0);
-  }, [historyStack, getRelatedStacks]);
+    // Save current feed scroll so a Back navigation can restore it.
+    sessionStorage.setItem(`scrollY:/listy-injection`, String(window.scrollY));
+    // Seed BackButton's previousPath so the post-detail route shows "Back".
+    sessionStorage.setItem(
+      `previousPath:/listy-injection/posts/${postId}`,
+      "/listy-injection",
+    );
+    router.push(`/listy-injection/posts/${postId}`);
+  }, [router]);
 
   const navigateBack = useCallback(() => {
     setNavDirection('backward');
