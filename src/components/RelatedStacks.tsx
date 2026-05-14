@@ -140,6 +140,40 @@ function hashString(s: string): number {
   return Math.abs(h);
 }
 
+// ─── Synthetic topic names (research mode) ───────────────────────────────────
+// The backend often omits relation.topic, causing "related" to appear everywhere.
+// We generate deterministic synthetic topic names drawn from per-category pools
+// so the UI reads meaningfully without changing backend data.
+const SYNTHETIC_TOPIC_POOLS: Record<string, string[]> = {
+  evidence_public:    ["Trial results", "Productivity gains", "Worker outcomes", "Cost savings", "Pilot programs", "Public data"],
+  evidence_personal:  ["Personal experience", "My team's data", "Observed shifts", "Time tracking", "Direct observation"],
+  agree:              ["Worker autonomy", "Trial results", "Productivity gains", "Pilot programs", "Shorter workweek"],
+  disagree:           ["Generalizability", "Cherry-picked data", "Cost concerns", "Industry differences", "Implementation gaps"],
+  framing:            ["Worker autonomy", "Time vs output", "Cultural shift", "Employer expectations", "Productivity metrics"],
+  questions:          ["Generalizability", "Implementation", "Long-term effects", "Industry fit", "Worker preferences"],
+  connections:        ["Worker autonomy", "Cultural shift", "Time vs output", "Industry trends"],
+  proposals:          ["Pilot programs", "Phased rollout", "Industry adoption", "Policy framework"],
+  values:             ["Worker dignity", "Time as resource", "Quality of life", "Sustainability"],
+  predictions:        ["Industry adoption", "Long-term effects", "Workforce changes", "Productivity trends"],
+  humor:              ["Office stories", "Workplace humor", "Friday vibes", "Email culture"],
+};
+
+/** Returns a deterministic synthetic topic from the category's pool, or the
+ *  category label if no pool exists. `seed` should be a stable string like
+ *  `${stackId}-${rangeIndex}` so the same relation always maps to the same name. */
+function getSyntheticTopic(category: string, seed: string): string {
+  const pool = SYNTHETIC_TOPIC_POOLS[category];
+  if (!pool || pool.length === 0) return CATEGORY_LABELS[category] ?? category;
+  const idx = hashString(seed) % pool.length;
+  return pool[idx];
+}
+
+/** Returns the relation's topic if present, otherwise generates a synthetic one.
+ *  `stackId` and `rangeIndex` are used as the deterministic seed. */
+function topicOf(relation: { topic?: string; category: string }, stackId: string, rangeIndex: number): string {
+  return relation.topic ?? getSyntheticTopic(relation.category, `${stackId}-${rangeIndex}`);
+}
+
 /** When realCount ≤ 1, returns a deterministic value in [2, 7]; otherwise
  *  returns the real count unchanged. Topics genuinely absent (count = 0) still
  *  get a synthetic count here, but the missing-topic guard in the tooltip
@@ -386,15 +420,12 @@ function buildMultiHighlightNodes(
         const band = cats[bandIdx];
         opts.onRangeHover(band.rangeIndex);
 
-        if (!band.topic) {
-          warnMissingTopic(opts.stackId, band.rangeIndex);
-          hideTooltip();
-          return;
-        }
-        const count = opts.otherCountByTopic ? opts.otherCountByTopic(band.topic) : undefined;
+        // Always resolve a topic — synthetic fallback ensures one is available
+        const resolvedTopic = band.topic ?? getSyntheticTopic(band.category, `${opts.stackId}-${band.rangeIndex}`);
+        const count = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopic) : undefined;
         const colors: TooltipColors = { text: band.colors.text, border: band.colors.border };
         showTooltip({
-          content: buildTooltipLabel(band.topic, count, band.colors.text),
+          content: buildTooltipLabel(resolvedTopic, count, band.colors.text),
           colors,
           x: clientX,
           y: clientY,
@@ -487,14 +518,11 @@ function buildMultiHighlightNodes(
             tabIndex={-1}
             onMouseEnter={(e) => {
               opts.onRangeHover(c.rangeIndex);
-              if (!c.topic) {
-                warnMissingTopic(opts.stackId, c.rangeIndex);
-                hideTooltip();
-                return;
-              }
-              const count = opts.otherCountByTopic ? opts.otherCountByTopic(c.topic) : undefined;
+              // Always resolve a topic — synthetic fallback ensures one is available
+              const resolvedTopic = c.topic ?? getSyntheticTopic(c.category, `${opts.stackId}-${c.rangeIndex}`);
+              const count = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopic) : undefined;
               showTooltip({
-                content: buildTooltipLabel(c.topic, count, colors.text),
+                content: buildTooltipLabel(resolvedTopic, count, colors.text),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
@@ -504,14 +532,11 @@ function buildMultiHighlightNodes(
             onPointerEnter={(e) => {
               if (e.pointerType !== 'mouse') return;
               opts.onRangeHover(c.rangeIndex);
-              if (!c.topic) {
-                warnMissingTopic(opts.stackId, c.rangeIndex);
-                hideTooltip();
-                return;
-              }
-              const count = opts.otherCountByTopic ? opts.otherCountByTopic(c.topic) : undefined;
+              // Always resolve a topic — synthetic fallback ensures one is available
+              const resolvedTopic = c.topic ?? getSyntheticTopic(c.category, `${opts.stackId}-${c.rangeIndex}`);
+              const count = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopic) : undefined;
               showTooltip({
-                content: buildTooltipLabel(c.topic, count, colors.text),
+                content: buildTooltipLabel(resolvedTopic, count, colors.text),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
@@ -714,13 +739,16 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
   // Topic prevalence — used by tooltip ("7 more Contract reform") and for pagination.
   // Synthetic augmentation is applied for low real counts (see getSyntheticTopicCount).
+  // When relation.topic is absent, a synthetic topic is generated via topicOf().
   const { postTopics, topicTotal } = useMemo(() => {
     const postTopics = new Map<string, Set<string>>();
     const realTopicTotal = new Map<string, number>();
     for (const stack of relatedStacks) {
       const topics = new Set<string>();
-      for (const r of stack.topPost.relations ?? []) {
-        if (r.topic) topics.add(r.topic);
+      for (let ri = 0; ri < (stack.topPost.relations ?? []).length; ri++) {
+        const r = stack.topPost.relations![ri];
+        const t = topicOf(r, stack.stackId, ri);
+        topics.add(t);
       }
       postTopics.set(stack.topPost.id, topics);
       topics.forEach(t => realTopicTotal.set(t, (realTopicTotal.get(t) ?? 0) + 1));
@@ -828,10 +856,17 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     const anchorContent = anchorEntry.topPost.content;
 
     // Topic-based when the anchor was created by clicking a specific highlight.
-    // Falls back to content word-similarity when the anchor has no specific topic.
+    // Falls back to content word-similarity when the anchor has no usable relation.
     const anchorRangeIdx = anchoredRangeByPost[anchorId];
-    const anchorTopic = anchorRangeIdx !== undefined
-      ? anchorEntry.topPost.relations?.[anchorRangeIdx]?.topic
+    // Always resolve a topic via synthetic fallback so matching is consistent
+    // with topicOf() used elsewhere. We only use topic-based matching when the
+    // anchor was activated via a specific range index; otherwise fall back to
+    // content similarity.
+    const anchorRelation = anchorRangeIdx !== undefined
+      ? anchorEntry.topPost.relations?.[anchorRangeIdx]
+      : undefined;
+    const anchorTopic = anchorRelation
+      ? topicOf(anchorRelation, anchorEntry.stackId, anchorRangeIdx!)
       : undefined;
 
     // Build the set of ALL matching post IDs (before pagination).
@@ -839,7 +874,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     if (anchorTopic) {
       for (const s of workingStacks) {
         if (s.topPost.id === anchorId) continue;
-        if (s.topPost.relations?.some(r => r.topic === anchorTopic)) {
+        // Match using topicOf() on each relation so synthetic topics align
+        if ((s.topPost.relations ?? []).some((r, ri) => topicOf(r, s.stackId, ri) === anchorTopic)) {
           allMatchedIds.add(s.topPost.id);
         }
       }
@@ -1265,10 +1301,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             {reRankAnchorIds.map(id => {
               const a = relatedStacks.find(s => s.topPost.id === id);
               const rangeIdx = anchoredRangeByPost[id];
-              const topic = a?.topPost.relations?.[rangeIdx]?.topic
-                ?? a?.topPost.relations?.[0]?.topic
-                ?? a?.topPost.account.display_name
-                ?? id;
+              const rel = a?.topPost.relations?.[rangeIdx] ?? a?.topPost.relations?.[0];
+              const topic = rel
+                ? topicOf(rel, a!.stackId, rangeIdx ?? 0)
+                : (a?.topPost.account.display_name ?? id);
               return (
                 <span key={id} style={{
                   background: '#dce4f5', borderRadius: '4px', padding: '1px 6px',
@@ -1396,10 +1432,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           const anchorRangeIdx = anchorForThisCard
             ? (anchoredRangeByPost[anchorForThisCard] ?? 0)
             : undefined;
-          const anchorTopic =
-            anchorStack?.topPost.relations?.[anchorRangeIdx ?? 0]?.topic
-            ?? anchorStack?.topPost.account.display_name
-            ?? undefined;
+          const anchorTopic: string | undefined = (() => {
+            if (!anchorStack) return undefined;
+            const rel = anchorStack.topPost.relations?.[anchorRangeIdx ?? 0];
+            if (!rel) return anchorStack.topPost.account.display_name ?? undefined;
+            // Always produce a topic: real topic first, then synthetic fallback
+            return topicOf(rel, anchorStack.stackId, anchorRangeIdx ?? 0);
+          })();
           const anchorColors = anchorStack
             ? getCategoryColors(
                 anchorStack.topPost.relations?.[anchorRangeIdx ?? 0]?.category ?? anchorStack.rel
@@ -1697,8 +1736,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   const rels = stack.topPost.relations ?? [];
                   if (rels.length === 0) return null;
                   const dominantRel = rels[0];
-                  const dominantTopic = dominantRel.topic;
-                  if (!dominantTopic) return null;
+                  // Always resolve a topic via synthetic fallback
+                  const dominantTopic = topicOf(dominantRel, stack.stackId, 0);
                   const uniqueCategories = new Set(rels.map(r => r.category));
                   const isMultiTypeIndicator = uniqueCategories.size > 1;
                   const dominantColors = getCategoryColors(dominantRel.category);
