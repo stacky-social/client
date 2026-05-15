@@ -1736,59 +1736,28 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               }}
               onPointerDown={(e) => handleCardTap(e, stack.topPost.id, stack.stackId)}
             >
-              {/* Block connector rail. Claims (above + below) draw a full-height
-                  segment alongside themselves. The ANCHOR card draws only two
-                  short stubs — one in the gap above and one in the gap below —
-                  so the rail enters/exits the anchor at its edges without
-                  running down its side. The visual effect is that the rail
-                  "touches" the anchor at top and bottom rather than skirting
-                  past it. */}
+              {/* Block connector rail. Claim cards (above + below) draw a
+                  full-height segment alongside themselves. The anchor card
+                  draws nothing; instead, the rail from the surrounding
+                  claims (or the header's overhang / footer-overhang inside
+                  the anchor's own cardEl) reaches the anchor at top and
+                  bottom. A claim whose next sibling is the anchor extends
+                  its rail DOWN through the gap so the rail visually enters
+                  the anchor's top edge. */}
               {anchorForThisCard && anchorForThisCard !== stack.topPost.id && (
                 <div aria-hidden style={{
                   position: 'absolute',
                   left: 0,
                   top: -GROUP_GAP_PX,
-                  bottom: 0,
+                  bottom: anchorForNext === anchorForThisCard
+                    && displayStacks[index + 1]?.topPost.id === anchorForThisCard
+                    ? -GROUP_GAP_PX
+                    : 0,
                   width: GROUP_LINE_WIDTH,
                   background: anchorColors.border,
                   borderRadius: GROUP_LINE_WIDTH,
                   zIndex: 0,
                 }} />
-              )}
-              {anchorForThisCard === stack.topPost.id && (
-                <>
-                  {/* Top stub — only when there's an above-claim. Without
-                      above-claims the header's bottom-overhang already fills
-                      the gap, so the stub would just double up at the same x. */}
-                  {anchorForPrev === anchorForThisCard && (
-                    <div aria-hidden style={{
-                      position: 'absolute',
-                      left: 0,
-                      top: -GROUP_GAP_PX,
-                      height: GROUP_GAP_PX,
-                      width: GROUP_LINE_WIDTH,
-                      background: anchorColors.border,
-                      borderRadius: GROUP_LINE_WIDTH,
-                      zIndex: 0,
-                    }} />
-                  )}
-                  {/* Bottom stub — only when there's a below-claim. Without
-                      below-claims the footer (rendered inside this same cardEl)
-                      caps the block, and bottom:-GROUP_GAP_PX would render
-                      below the footer into unrelated territory. */}
-                  {anchorForNext === anchorForThisCard && (
-                    <div aria-hidden style={{
-                      position: 'absolute',
-                      left: 0,
-                      bottom: -GROUP_GAP_PX,
-                      height: GROUP_GAP_PX,
-                      width: GROUP_LINE_WIDTH,
-                      background: anchorColors.border,
-                      borderRadius: GROUP_LINE_WIDTH,
-                      zIndex: 0,
-                    }} />
-                  )}
-                </>
               )}
               <Paper
                 ref={(el) => { paperRefs.current[index] = el; }}
