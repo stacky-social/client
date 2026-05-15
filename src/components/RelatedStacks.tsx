@@ -192,18 +192,22 @@ function getSyntheticCategoryCount(_category: string, realCount: number): number
 }
 
 // ─── Tooltip label renderer ───────────────────────────────────────────────────
-// "N more <Topic>" with the topic bolded in the category color. Returns null
-// when topic is absent, so callers can short-circuit without rendering.
+// "N more <Topic>" with the topic bolded in the category color. When `isShown`
+// the wording becomes "N more <Topic> (shown)" — for hovering a span whose
+// topic is already the active anchor's grouping. Returns null when topic is
+// absent, so callers can short-circuit without rendering.
 function buildTooltipLabel(
   topic: string | undefined,
   otherCount: number | undefined,
   textColor: string,
+  isShown: boolean = false,
 ): React.ReactNode | null {
   if (!topic) return null;
   const count = otherCount ?? 0;
   return (
     <>
       {count} more <strong style={{ color: textColor }}>{topic}</strong>
+      {isShown ? ' (shown)' : null}
     </>
   );
 }
@@ -351,6 +355,12 @@ function buildMultiHighlightNodes(
     hoveredRangeIndex: number | null;
     hoveredCategory: string | null;
     anchoredRangeIndex: number | null;
+    /** Currently-active anchor topic (for in-block dimming + tooltip "shown"
+     *  wording + no-op clicks). Null when no anchor is active. */
+    activeTopic: string | null;
+    /** True when this card is part of the active topic block — drives the
+     *  "dim non-topic spans" behavior. False on cards outside the block. */
+    inActiveBlock: boolean;
     onRangeHover: (index: number | null) => void;
     onRangeClick?: (index: number) => void;
     /** topic → number of OTHER posts (excluding current) that share this topic */
@@ -403,9 +413,16 @@ function buildMultiHighlightNodes(
         opts.isCardHovered ? 1 :
         opts.anyCardHovered ? 0.25 :
         0.7;
+      const bandTopic = (c: { topic?: string; category: string; rangeIndex: number }) =>
+        c.topic ?? getSyntheticTopic(c.category, `${opts.stackId}-${c.rangeIndex}`);
+      const isBandOnActiveTopic = (c: { topic?: string; category: string; rangeIndex: number }) =>
+        opts.activeTopic !== null && bandTopic(c) === opts.activeTopic;
       const gradientStops = cats.map((c, i) => {
         let a = baseAlpha;
         if (anyDirected) a = isBandActive(c) ? 1 : 0.18;
+        // In-block dimming: dim bands whose topic isn't the active one
+        // (unless this very band is hovered).
+        else if (opts.inActiveBlock && !isBandOnActiveTopic(c) && !isBandActive(c)) a = 0.2;
         const pct1 = (i / cats.length) * 100;
         const pct2 = ((i + 1) / cats.length) * 100;
         const rgba = hexToRgba(c.colors.bg, a);
@@ -421,12 +438,12 @@ function buildMultiHighlightNodes(
         const band = cats[bandIdx];
         opts.onRangeHover(band.rangeIndex);
 
-        // Always resolve a topic — synthetic fallback ensures one is available
-        const resolvedTopic = band.topic ?? getSyntheticTopic(band.category, `${opts.stackId}-${band.rangeIndex}`);
+        const resolvedTopic = bandTopic(band);
+        const isShown = opts.activeTopic !== null && resolvedTopic === opts.activeTopic;
         const count = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopic) : undefined;
         const colors: TooltipColors = { text: band.colors.text, border: band.colors.border };
         showTooltip({
-          content: buildTooltipLabel(resolvedTopic, count, band.colors.text),
+          content: buildTooltipLabel(resolvedTopic, count, band.colors.text, isShown),
           colors,
           x: clientX,
           y: clientY,
@@ -450,6 +467,8 @@ function buildMultiHighlightNodes(
               const bandIdx = Math.max(0, Math.min(cats.length - 1, Math.floor(rel * cats.length)));
               e.stopPropagation();
               (e.currentTarget as HTMLElement).blur();
+              // No-op when the clicked band's topic is already grouped.
+              if (isBandOnActiveTopic(cats[bandIdx])) return;
               opts.onRangeClick(cats[bandIdx].rangeIndex);
             }}
             style={{
@@ -476,6 +495,14 @@ function buildMultiHighlightNodes(
         (opts.hoveredCategory !== null && opts.hoveredCategory === c.category);
       const anyDirected = opts.hoveredRangeIndex !== null || opts.hoveredCategory !== null;
 
+      // Resolved topic for this range — used for in-block dimming and the
+      // "(shown)" tooltip wording / no-op click for same-topic spans.
+      const resolvedTopicForRange = c.topic ?? getSyntheticTopic(c.category, `${opts.stackId}-${c.rangeIndex}`);
+      const isOnActiveTopic = opts.activeTopic !== null && resolvedTopicForRange === opts.activeTopic;
+      // In-block dimming: when this card sits inside the active topic block,
+      // non-Topic spans dim out (unless this very span is hovered).
+      const dimByBlock = opts.inActiveBlock && !isOnActiveTopic && !isThisRangeHovered;
+
       // 3-level background alpha — dims highlight background only, text stays readable
       const isAnchored = opts.anchoredRangeIndex === c.rangeIndex;
       let bgAlpha: number;
@@ -485,12 +512,14 @@ function buildMultiHighlightNodes(
         bgAlpha = 0.2; // Another range in this card is anchored — dim this one
       } else if (opts.isCardHovered) {
         if (!anyDirected) {
-          bgAlpha = 1; // Level 1: this card hovered, all its highlights bright
+          bgAlpha = dimByBlock ? 0.2 : 1; // Level 1: this card hovered (dim non-Topic spans in block)
         } else {
           bgAlpha = isThisRangeHovered ? 1 : 0.2; // Level 2: specific range or category hovered
         }
       } else if (opts.anyCardHovered) {
         bgAlpha = 0.25; // Another card is hovered — dim these highlights
+      } else if (dimByBlock) {
+        bgAlpha = 0.2; // Non-Topic span inside the active topic block
       } else {
         bgAlpha = opts.anchoredRangeIndex !== null ? 0.2 : 0.7; // default
       }
@@ -519,11 +548,9 @@ function buildMultiHighlightNodes(
             tabIndex={-1}
             onMouseEnter={(e) => {
               opts.onRangeHover(c.rangeIndex);
-              // Always resolve a topic — synthetic fallback ensures one is available
-              const resolvedTopic = c.topic ?? getSyntheticTopic(c.category, `${opts.stackId}-${c.rangeIndex}`);
-              const count = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopic) : undefined;
+              const count = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopicForRange) : undefined;
               showTooltip({
-                content: buildTooltipLabel(resolvedTopic, count, colors.text),
+                content: buildTooltipLabel(resolvedTopicForRange, count, colors.text, isOnActiveTopic),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
@@ -533,11 +560,9 @@ function buildMultiHighlightNodes(
             onPointerEnter={(e) => {
               if (e.pointerType !== 'mouse') return;
               opts.onRangeHover(c.rangeIndex);
-              // Always resolve a topic — synthetic fallback ensures one is available
-              const resolvedTopic = c.topic ?? getSyntheticTopic(c.category, `${opts.stackId}-${c.rangeIndex}`);
-              const count = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopic) : undefined;
+              const count = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopicForRange) : undefined;
               showTooltip({
-                content: buildTooltipLabel(resolvedTopic, count, colors.text),
+                content: buildTooltipLabel(resolvedTopicForRange, count, colors.text, isOnActiveTopic),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
@@ -548,6 +573,9 @@ function buildMultiHighlightNodes(
               if (!opts.onRangeClick) return;
               e.stopPropagation();
               (e.currentTarget as HTMLElement).blur();
+              // Clicking a span on the topic that's already grouped is a
+              // no-op (the tooltip reads "(shown)" to communicate this).
+              if (isOnActiveTopic) return;
               opts.onRangeClick(c.rangeIndex);
             }}
             style={{
@@ -656,8 +684,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const { filterCategories, filterFocusSpan, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, reRankAnchorIds, anchoredRangeByPost } = useHighlightStore();
   // C2: hover preview state for filter chips
   const [chipHovered, setChipHovered] = useState<string | null>(null);
-  // C3: panel hover state for neutral-until-hover tag coloring
-  const [panelHovered, setPanelHovered] = useState(false);
   // Touch device detection (cached on mount). Touch devices use tap-to-activate behavior.
   const [isTouch, setIsTouch] = useState(false);
   useEffect(() => {
@@ -781,30 +807,64 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     });
   }, [reRankAnchorIds]);
 
-  // E: base order tracking — the post-ID order at the moment the active anchor was created.
+  // Base order = the visible side-pane order at the moment the active anchor
+  // was last toggled. Updated on EVERY anchor transition (activation, switch,
+  // and cancel) so reordering is permanent — cancelling a group leaves posts
+  // in their current positions; a subsequent grouping operates on that order.
   // Using refs (not state) so captures don't trigger extra re-renders.
   const baseOrderRef = useRef<string[]>([]);
   const activeAnchorIdRef = useRef<string | null>(null);
   // E: previous render's displayStacks — updated after each render via useEffect.
-  // Used to capture the "current visible order" when a new anchor replaces the old one.
+  // Used to snapshot the "current visible order" at each anchor transition.
   const prevDisplayStacksRef = useRef<RelatedStackType[]>([]);
 
-  /** E: Single-anchor reordering — above-matched move above target, below-matched move below.
-   *  Re-ranking runs on the base order captured at anchor-creation time so a new anchor
-   *  can layer on top of the previously visible ordering. The active filter is applied
-   *  AFTER re-ranking (same as before) so filtering never breaks group connectivity. */
-  const { displayStacks, claimedBy, anchorSet, anchorParent, groupTotal, groupShown } = useMemo(() => {
+  /** Reorder side-pane stacks around the active anchor (paper §3.1):
+   *  – ALL matched posts above the anchor move down to immediately above it
+   *    (preserving their relative order).
+   *  – The TOP N (default 3) matched posts below the anchor move up to
+   *    immediately below it; the rest are paginated out and revealed by the
+   *    footer "K more Topic" link.
+   *  Reordering is permanent: cancelling the group leaves the posts in their
+   *  new positions, and a subsequent grouping layers on top of that order. */
+  const { displayStacks, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic } = useMemo(() => {
     const anchorSet = new Set(reRankAnchorIds);
     const claimedBy = new Map<string, string>(); // postId -> anchorId
     const anchorParent = new Map<string, string>(); // anchorId -> parent anchorId
-    const groupTotal = new Map<string, number>(); // anchorId -> total similar count
-    const groupShown = new Map<string, number>(); // anchorId -> shown similar count
+    const groupTotal = new Map<string, number>(); // anchorId -> matched posts (excludes anchor itself)
+    const groupShown = new Map<string, number>(); // anchorId -> matched posts currently visible
+    let activeAnchorTopic: string | null = null;
 
-    // No active anchors — revert to server order and clear tracking refs.
-    if (reRankAnchorIds.length === 0) {
-      baseOrderRef.current = [];
-      activeAnchorIdRef.current = null;
-      let result = [...relatedStacks];
+    const anchorId: string | null = reRankAnchorIds.length > 0
+      ? reRankAnchorIds[reRankAnchorIds.length - 1]
+      : null;
+
+    // ── Anchor transition: capture the current visible order as the new base.
+    // Same behavior on activate, switch, and cancel — reordering is permanent.
+    if (anchorId !== activeAnchorIdRef.current) {
+      const prev = prevDisplayStacksRef.current;
+      const visibleIds = (prev.length > 0 ? prev : relatedStacks).map(s => s.topPost.id);
+      baseOrderRef.current = visibleIds;
+      activeAnchorIdRef.current = anchorId;
+    }
+
+    // Reconstruct workingStacks from baseOrderRef, dropping IDs that are no
+    // longer in relatedStacks and appending any new IDs at the end.
+    const stackById = new Map(relatedStacks.map(s => [s.topPost.id, s]));
+    let workingStacks: RelatedStackType[];
+    if (baseOrderRef.current.length > 0) {
+      const ordered = baseOrderRef.current
+        .map(id => stackById.get(id))
+        .filter((s): s is RelatedStackType => s !== undefined);
+      const seen = new Set(ordered.map(s => s.topPost.id));
+      const appended = relatedStacks.filter(s => !seen.has(s.topPost.id));
+      workingStacks = [...ordered, ...appended];
+    } else {
+      workingStacks = [...relatedStacks];
+    }
+
+    // ── No active anchor: display workingStacks directly (filtered). ───────
+    if (anchorId === null) {
+      let result = workingStacks;
       if (filterCategories.size > 0) {
         result = result.filter((s) => {
           const cats = new Set<string>();
@@ -814,31 +874,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           return allPresent;
         });
       }
-      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
+      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic };
     }
-
-    // E: Only the most recently added anchor drives reordering (single-anchor semantics).
-    const anchorId = reRankAnchorIds[reRankAnchorIds.length - 1];
-
-    // Detect anchor transition: new anchor was added or replaced the previous one.
-    if (anchorId !== activeAnchorIdRef.current) {
-      // Capture the order the user currently sees as the new base.
-      // prevDisplayStacksRef holds the displayStacks from the previous render (before this anchor).
-      const prev = prevDisplayStacksRef.current;
-      baseOrderRef.current = (prev.length > 0 ? prev : relatedStacks).map(s => s.topPost.id);
-      activeAnchorIdRef.current = anchorId;
-    }
-
-    // Reconstruct baseStacks from the captured IDs (drop IDs no longer in relatedStacks).
-    const stackById = new Map(relatedStacks.map(s => [s.topPost.id, s]));
-    const baseStacks: RelatedStackType[] = baseOrderRef.current
-      .map(id => stackById.get(id))
-      .filter((s): s is RelatedStackType => s !== undefined);
-    // Fall back to relatedStacks order if base is somehow empty.
-    const workingStacks = baseStacks.length > 0 ? baseStacks : [...relatedStacks];
 
     // Find anchor entry in the working set.
-    const anchorEntry = workingStacks.find(s => s.topPost.id === anchorId);
+    const anchorIdx = workingStacks.findIndex(s => s.topPost.id === anchorId);
+    const anchorEntry = anchorIdx >= 0 ? workingStacks[anchorIdx] : undefined;
     if (!anchorEntry) {
       // Anchor not found — return as-is.
       let result = [...workingStacks];
@@ -851,7 +892,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           return allPresent;
         });
       }
-      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
+      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic };
     }
 
     const anchorContent = anchorEntry.topPost.content;
@@ -859,44 +900,45 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     // Topic-based when the anchor was created by clicking a specific highlight.
     // Falls back to content word-similarity when the anchor has no usable relation.
     const anchorRangeIdx = anchoredRangeByPost[anchorId];
-    // Always resolve a topic via synthetic fallback so matching is consistent
-    // with topicOf() used elsewhere. We only use topic-based matching when the
-    // anchor was activated via a specific range index; otherwise fall back to
-    // content similarity.
     const anchorRelation = anchorRangeIdx !== undefined
       ? anchorEntry.topPost.relations?.[anchorRangeIdx]
       : undefined;
     const anchorTopic = anchorRelation
       ? topicOf(anchorRelation, anchorEntry.stackId, anchorRangeIdx!)
       : undefined;
+    activeAnchorTopic = anchorTopic ?? null;
 
-    // Build the set of ALL matching post IDs (before pagination).
-    const allMatchedIds = new Set<string>();
-    if (anchorTopic) {
-      for (const s of workingStacks) {
-        if (s.topPost.id === anchorId) continue;
-        // Match using topicOf() on each relation so synthetic topics align
-        if ((s.topPost.relations ?? []).some((r, ri) => topicOf(r, s.stackId, ri) === anchorTopic)) {
-          allMatchedIds.add(s.topPost.id);
-        }
-      }
-    } else {
-      // Similarity-based fallback — collect sorted by score.
-      const scored: { id: string; score: number }[] = [];
-      for (const s of workingStacks) {
-        if (s.topPost.id === anchorId) continue;
-        const score = similarityScore(s.topPost.content, anchorContent);
-        if (score > SIMILARITY_THRESHOLD) scored.push({ id: s.topPost.id, score });
-      }
-      // Sort by score descending; then add IDs in that order (Set preserves insertion order).
-      scored.sort((a, b) => b.score - a.score);
-      for (const { id } of scored) allMatchedIds.add(id);
-    }
+    const aboveStacks = workingStacks.slice(0, anchorIdx);
+    const belowStacks = workingStacks.slice(anchorIdx + 1);
 
-    groupTotal.set(anchorId, allMatchedIds.size);
+    const matchesAnchor = anchorTopic
+      ? (s: RelatedStackType) =>
+          (s.topPost.relations ?? []).some((r, ri) => topicOf(r, s.stackId, ri) === anchorTopic)
+      : (s: RelatedStackType) =>
+          similarityScore(s.topPost.content, anchorContent) > SIMILARITY_THRESHOLD;
 
-    if (allMatchedIds.size === 0) {
-      groupShown.set(anchorId, 0);
+    // Above-matched: ALL of them, preserving relative order. They will move
+    // down to immediately above the anchor — never paginated out.
+    const aboveMatched: string[] = [];
+    for (const s of aboveStacks) if (matchesAnchor(s)) aboveMatched.push(s.topPost.id);
+
+    // Below-matched: collect all, then paginate (top N in working order).
+    const belowMatchedAll: string[] = [];
+    for (const s of belowStacks) if (matchesAnchor(s)) belowMatchedAll.push(s.topPost.id);
+
+    const showCountBelow = shownByAnchor[anchorId] ?? SHOWN_INCREMENT;
+    const belowMatchedVisible = belowMatchedAll.slice(0, showCountBelow);
+
+    // groupTotal/groupShown count matched posts (NOT including the anchor) so
+    // the renderer can compute "K more" = total - shown for the footer.
+    groupTotal.set(anchorId, aboveMatched.length + belowMatchedAll.length);
+    groupShown.set(anchorId, aboveMatched.length + belowMatchedVisible.length);
+
+    const visibleMatchedIds = new Set<string>([...aboveMatched, ...belowMatchedVisible]);
+    visibleMatchedIds.forEach(id => claimedBy.set(id, anchorId));
+
+    if (visibleMatchedIds.size === 0) {
+      // No matches to group — return workingStacks (filtered).
       let result = [...workingStacks];
       if (filterCategories.size > 0) {
         result = result.filter((s) => {
@@ -907,24 +949,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           return allPresent;
         });
       }
-      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
+      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic };
     }
 
-    // Pagination: only show the first N matched posts.
-    const shown = shownByAnchor[anchorId] ?? SHOWN_INCREMENT;
-    const allMatchedArray = Array.from(allMatchedIds);
-    const visibleMatchedIds = new Set(allMatchedArray.slice(0, shown));
-    groupShown.set(anchorId, visibleMatchedIds.size);
+    // Paginate out below-matched posts beyond the visible cap.
+    const hiddenBelowIds = new Set(belowMatchedAll.slice(showCountBelow));
+    const paginatedStacks = workingStacks.filter(s => !hiddenBelowIds.has(s.topPost.id));
 
-    allMatchedArray.slice(0, shown).forEach(id => {
-      claimedBy.set(id, anchorId);
-    });
-
-    // Remove non-visible matched posts (they are paginated out).
-    const hiddenMatchedIds = new Set(allMatchedArray.slice(shown));
-    const paginatedStacks = workingStacks.filter(s => !hiddenMatchedIds.has(s.topPost.id));
-
-    // E: Apply above/below split — matched above anchor stay above, matched below stay below.
+    // Bring above-matched down (immediately above anchor) and below-visible
+    // up (immediately below anchor). reorderForAnchor handles both directions.
     let result = reorderForAnchor(
       paginatedStacks,
       anchorId,
@@ -933,8 +966,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
     // Populate anchorParent for visual connector-line indentation (single anchor: no parent).
     // reRankAnchorIds is always length ≤ 1 by setter invariant, so anchorParent stays empty.
-    const anchorIdx = result.findIndex(s => s.topPost.id === anchorId);
-    for (let k = anchorIdx - 1; k >= 0; k--) {
+    const resolvedAnchorIdx = result.findIndex(s => s.topPost.id === anchorId);
+    for (let k = resolvedAnchorIdx - 1; k >= 0; k--) {
       const prevId = result[k].topPost.id;
       if (anchorSet.has(prevId)) { anchorParent.set(anchorId, prevId); break; }
       if (!claimedBy.has(prevId)) break;
@@ -960,7 +993,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       );
     }
 
-    return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
+    return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic };
   }, [relatedStacks, filterCategories, filterFocusSpan, reRankAnchorIds, shownByAnchor, anchoredRangeByPost]);
 
   // E: keep prevDisplayStacksRef up-to-date so the next anchor activation can
@@ -1077,6 +1110,29 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   /** Toggle an anchor. The interacted card stays visually pinned while other
    *  cards animate around it. */
   const handleToggleAnchor = (postId: string, rangeIndex?: number) => {
+    // Re-anchoring a DIFFERENT post on the topic that is already being grouped
+    // is a no-op — it would just shuffle which post owns the block without
+    // changing what's grouped. Covers highlight-span clicks (also guarded
+    // inside buildMultiHighlightNodes for tooltip wording), category-tag
+    // clicks, and the F-indicator chip.
+    if (rangeIndex !== undefined && reRankAnchorIds.length > 0) {
+      const currentAnchorId = reRankAnchorIds[reRankAnchorIds.length - 1];
+      if (currentAnchorId !== postId) {
+        const currentRangeIdx = anchoredRangeByPost[currentAnchorId];
+        if (currentRangeIdx !== undefined) {
+          const currentStack = relatedStacks.find(s => s.topPost.id === currentAnchorId);
+          const newStack = relatedStacks.find(s => s.topPost.id === postId);
+          const currentRel = currentStack?.topPost.relations?.[currentRangeIdx];
+          const newRel = newStack?.topPost.relations?.[rangeIndex];
+          if (currentStack && newStack && currentRel && newRel) {
+            const currentTopic = topicOf(currentRel, currentStack.stackId, currentRangeIdx);
+            const newTopic = topicOf(newRel, newStack.stackId, rangeIndex);
+            if (currentTopic === newTopic) return;
+          }
+        }
+      }
+    }
+
     // Clear hover state — card indices shift after reorder, so old
     // hoveredCardIndex would point at a different card → everything dims.
     setHoveredCardIndex(null);
@@ -1201,6 +1257,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     clearReRankAnchors();
     clearTapped();
     clearFilterFocusSpan(); // D2: clear span filter when focus post changes
+    // Discard saved baseOrder — it refers to post IDs from the previous
+    // dataset and would corrupt the working order if reused.
+    baseOrderRef.current = [];
+    activeAnchorIdRef.current = null;
+    prevDisplayStacksRef.current = [];
   }, [relatedStacks]);
 
   // Touch: tap-outside clears the active state so highlights/sidebar reset.
@@ -1343,8 +1404,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       </div>
 
       {/* Cards — no inner scroll, the aside's own scrollbar handles everything */}
-      {/* C3: panelHovered wrapper — reveals category colors on multi-type cards when mouse enters cards area */}
-      <div onMouseEnter={() => setPanelHovered(true)} onMouseLeave={() => setPanelHovered(false)}>
       <LayoutGroup>
       <motion.div
         variants={containerVariants} initial="hidden" animate="show"
@@ -1415,6 +1474,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             ? { opacity: 0.45, filter: 'grayscale(0.3)' }
             : { opacity: 1, filter: 'none' };
 
+          // Is this card part of the active topic block? Drives in-block
+          // dimming of non-Topic spans and the "(shown)" tooltip wording.
+          const inActiveBlock =
+            claimedBy.has(stack.topPost.id)
+            || (anchorSet.has(stack.topPost.id) && anchorsWithClaims.has(stack.topPost.id));
+
           // Build React content nodes with multi-range + 3-level hover
           const contentNodes = buildMultiHighlightNodes(
             visibleText, adjustedRelations, colors,
@@ -1424,6 +1489,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               hoveredRangeIndex: isCardActive ? (isCardTapped ? tappedRangeIndex : hoveredHighlightRangeIndex) : null,
               hoveredCategory: isCardActive ? hoveredCategory : null,
               anchoredRangeIndex: anchoredRangeByPost[stack.topPost.id] ?? null,
+              activeTopic: activeAnchorTopic,
+              inActiveBlock,
               onRangeHover: debouncedRangeHover,
               onRangeClick: (ri) => handleToggleAnchor(stack.topPost.id, ri),
               otherCountByTopic: (topic: string) => {
@@ -1450,11 +1517,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           const anchorForPrev = index > 0 ? anchorOf(displayStacks[index - 1]) : undefined;
           const anchorForNext = index + 1 < displayStacks.length ? anchorOf(displayStacks[index + 1]) : undefined;
 
-          const isClaim = isReRanked; // this card was pulled in under an anchor
-          // First claim of a group: previous card is the anchor of the same group
-          const isFirstClaim = isClaim && index > 0
-            && displayStacks[index - 1].topPost.id === claimedBy.get(stack.topPost.id);
-          const isLastInGroup = !!anchorForThisCard && anchorForThisCard !== anchorForNext;
+          // Block boundaries: the first card whose anchorOf differs from the
+          // previous (and isn't undefined) is the start of the topic block;
+          // similarly for the last.
+          const isFirstInBlock = !!anchorForThisCard && anchorForThisCard !== anchorForPrev;
+          const isLastInBlock = !!anchorForThisCard && anchorForThisCard !== anchorForNext;
 
           const anchorStack = anchorForThisCard
             ? relatedStacks.find(s => s.topPost.id === anchorForThisCard)
@@ -1475,22 +1542,24 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               )
             : colors;
 
-          // Pagination metadata for "MORE [topic]" link rendered after the last claim of a group
+          // Block decoration metadata. groupTotal/groupShown count MATCHED
+          // posts only (excluding the anchor). Block size = 1 (anchor) +
+          // matched total. Footer "K more" = matched total - matched shown.
           const groupTotalForThis = anchorForThisCard ? (groupTotal.get(anchorForThisCard) ?? 0) : 0;
           const groupShownForThis = anchorForThisCard ? (groupShown.get(anchorForThisCard) ?? 0) : 0;
           const groupRemaining = Math.max(0, groupTotalForThis - groupShownForThis);
-          const canShowMore = isClaim && isLastInGroup && groupRemaining > 0;
-          if (canShowMore && !anchorTopic && anchorForThisCard) {
-            warnMissingTopic(anchorForThisCard, anchorRangeIdx ?? -1);
+          const blockTotalCount = anchorForThisCard ? 1 + groupTotalForThis : 0; // includes anchor
+          const showBlockDecorations = !!anchorForThisCard && groupTotalForThis > 0;
+          if (showBlockDecorations && !anchorTopic) {
+            warnMissingTopic(anchorForThisCard!, anchorRangeIdx ?? -1);
           }
-          const showMoreLink = canShowMore && !!anchorTopic;
 
-          // "MORE [topic]" pagination — caps the bottom of the group connector
-          // line. Rendered inside the last claim's motion.div (below the Paper)
-          // so its lifecycle is tied to the card. Kept out of the parent
-          // AnimatePresence's flatMap because popLayout mode strands such
-          // children at opacity:0 forever when their key disappears.
-          const buttonHover = (clientX: number, clientY: number) => {
+          // Footer: "K more Topic" — clickable to load 3 more when K > 0,
+          // plain "0 more Topic" when K = 0 so the user can see where the
+          // block ends. Rendered inside the cardEl's motion.div so its
+          // lifecycle is tied to the last block card (popLayout would
+          // otherwise strand a separately-keyed footer at opacity:0).
+          const footerHover = (clientX: number, clientY: number) => {
             if (!anchorTopic) return;
             showTooltip({
               content: buildTooltipLabel(anchorTopic, groupRemaining, anchorColors.text),
@@ -1499,7 +1568,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               y: clientY,
             });
           };
-          const moreEl = showMoreLink && anchorForThisCard ? (
+          const renderFooter = showBlockDecorations && isLastInBlock && !!anchorTopic;
+          const footerEl = renderFooter && anchorForThisCard ? (
             <div
               style={{
                 position: 'relative',
@@ -1517,28 +1587,34 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 background: anchorColors.border,
                 borderRadius: GROUP_LINE_WIDTH,
               }} />
-              <button
-                type="button"
-                className="show-more-link"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleShowMore(anchorForThisCard);
-                }}
-                onMouseEnter={(e) => buttonHover(e.clientX, e.clientY)}
-                onMouseLeave={() => hideTooltip()}
-                onPointerEnter={(e) => { if (e.pointerType === 'mouse') buttonHover(e.clientX, e.clientY); }}
-                onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTooltip(); }}
-                style={{ color: anchorColors.text }}
-              >
-                {groupRemaining} more <strong style={{ color: anchorColors.text }}>{anchorTopic}</strong>
-              </button>
+              {groupRemaining > 0 ? (
+                <button
+                  type="button"
+                  className="show-more-link"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleShowMore(anchorForThisCard);
+                  }}
+                  onMouseEnter={(e) => footerHover(e.clientX, e.clientY)}
+                  onMouseLeave={() => hideTooltip()}
+                  onPointerEnter={(e) => { if (e.pointerType === 'mouse') footerHover(e.clientX, e.clientY); }}
+                  onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTooltip(); }}
+                  style={{ color: anchorColors.text }}
+                >
+                  {groupRemaining} more <strong style={{ color: anchorColors.text }}>{anchorTopic}</strong>
+                </button>
+              ) : (
+                <span style={{ color: anchorColors.text, opacity: 0.6, fontSize: 12 }}>
+                  0 more <strong style={{ color: anchorColors.text }}>{anchorTopic}</strong>
+                </span>
+              )}
             </div>
           ) : null;
 
-          // Label (between anchor and first claim) — rendered as its own animated row.
-          // The chip + × button cap the top of the connector line; the line itself
-          // begins just below the chip and bridges into the gap before the first claim.
-          const chipHover = (clientX: number, clientY: number) => {
+          // Header: "Topic (N)" chip + × dismiss button. Rendered as its own
+          // animated row above the first block card (which may be an
+          // above-matched claim or the anchor itself if there are none).
+          const headerHover = (clientX: number, clientY: number) => {
             if (!anchorTopic) return;
             showTooltip({
               content: buildTooltipLabel(anchorTopic, groupRemaining, anchorColors.text),
@@ -1547,9 +1623,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               y: clientY,
             });
           };
-          const labelEl = isFirstClaim && anchorForThisCard ? (
+          const renderHeader = showBlockDecorations && isFirstInBlock && !!anchorTopic;
+          const headerEl = renderHeader && anchorForThisCard ? (
             <motion.div
-              key={`label-${anchorForThisCard}`}
+              key={`header-${anchorForThisCard}`}
               layout
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1572,9 +1649,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 borderRadius: GROUP_LINE_WIDTH,
               }} />
               <span
-                onMouseEnter={(e) => chipHover(e.clientX, e.clientY)}
+                onMouseEnter={(e) => headerHover(e.clientX, e.clientY)}
                 onMouseLeave={() => hideTooltip()}
-                onPointerEnter={(e) => { if (e.pointerType === 'mouse') chipHover(e.clientX, e.clientY); }}
+                onPointerEnter={(e) => { if (e.pointerType === 'mouse') headerHover(e.clientX, e.clientY); }}
                 onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTooltip(); }}
                 style={{
                   fontSize: '11px', fontWeight: 600, color: anchorColors.text,
@@ -1584,7 +1661,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   maxWidth: '220px',
                 }}
               >
-                {anchorTopic ?? 'Related'}
+                {anchorTopic} ({blockTotalCount})
               </span>
               <button
                 type="button"
@@ -1592,8 +1669,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   e.stopPropagation();
                   handleToggleAnchor(anchorForThisCard);
                 }}
-                aria-label={`Dismiss ${anchorTopic ?? 'group'}`}
-                // A5: 24px hit target. Background appears on hover so the click
+                aria-label={`Dismiss ${anchorTopic} block`}
+                // 24px hit target. Background appears on hover so the click
                 // affordance is obvious.
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer',
@@ -1623,11 +1700,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               style={{
                 position: 'relative', width: '100%', borderRadius: '10px',
                 ...cardDimStyle,
-                // Claims sit alongside a continuous group connector line (rendered
-                // as an absolute child below). The padding leaves room for it; the
-                // line itself bridges the flex gap above so the group reads as one
-                // continuous thread rather than per-card border segments.
-                paddingLeft: isClaim ? '8px' : undefined,
+                // Every card in the active topic block sits alongside a continuous
+                // group connector line (rendered as an absolute child below). The
+                // padding leaves room for it; the line itself bridges the flex gap
+                // above so the whole block — including the anchor — reads as one
+                // continuous thread.
+                paddingLeft: anchorForThisCard ? '8px' : undefined,
                 marginLeft: indentPx > 0 ? `${indentPx}px` : undefined,
                 transition: 'filter 200ms ease',
               }}
@@ -1656,7 +1734,14 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               }}
               onPointerDown={(e) => handleCardTap(e, stack.topPost.id, stack.stackId)}
             >
-              {isClaim && (
+              {/* Block connector rail. Claims (above + below) draw a full-height
+                  segment alongside themselves. The ANCHOR card draws only two
+                  short stubs — one in the gap above and one in the gap below —
+                  so the rail enters/exits the anchor at its edges without
+                  running down its side. The visual effect is that the rail
+                  "touches" the anchor at top and bottom rather than skirting
+                  past it. */}
+              {anchorForThisCard && anchorForThisCard !== stack.topPost.id && (
                 <div aria-hidden style={{
                   position: 'absolute',
                   left: 0,
@@ -1667,6 +1752,30 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   borderRadius: GROUP_LINE_WIDTH,
                   zIndex: 0,
                 }} />
+              )}
+              {anchorForThisCard === stack.topPost.id && (
+                <>
+                  <div aria-hidden style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: -GROUP_GAP_PX,
+                    height: GROUP_GAP_PX,
+                    width: GROUP_LINE_WIDTH,
+                    background: anchorColors.border,
+                    borderRadius: GROUP_LINE_WIDTH,
+                    zIndex: 0,
+                  }} />
+                  <div aria-hidden style={{
+                    position: 'absolute',
+                    left: 0,
+                    bottom: -GROUP_GAP_PX,
+                    height: GROUP_GAP_PX,
+                    width: GROUP_LINE_WIDTH,
+                    background: anchorColors.border,
+                    borderRadius: GROUP_LINE_WIDTH,
+                    zIndex: 0,
+                  }} />
+                </>
               )}
               <Paper
                 ref={(el) => { paperRefs.current[index] = el; }}
@@ -1716,9 +1825,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                     }
                     const hri = isCardActive ? (isCardTapped ? tappedRangeIndex : hoveredHighlightRangeIndex) : null;
                     const hcat = isCardActive ? hoveredCategory : null;
-                    // C3: multi-type posts show neutral color until panel is hovered
-                    const isMultiType = tags.length > 1;
-                    const showTagColor = !isMultiType || panelHovered;
                     return tags.map(({ cat, indices }) => {
                       const tc = getCategoryColors(cat);
                       const anyDirected = hri !== null || hcat !== null;
@@ -1765,19 +1871,20 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                             }
                           }}
                           style={{
-                            // C3: neutral colors for multi-type cards until panel is hovered
-                            background: showTagColor ? tc.bg : '#f0f0f0',
-                            color: showTagColor ? tc.text : '#888888',
+                            // Category tags are always color-coded so the highlight↔icon
+                            // mapping is visible without relying on a colored card border.
+                            background: tc.bg,
+                            color: tc.text,
                             borderRadius: '5px',
                             padding: '2px 7px', display: 'flex', alignItems: 'center', gap: '4px',
-                            border: `1px solid ${showTagColor ? tc.border : '#d0d0d0'}`,
+                            border: `1px solid ${tc.border}`,
                             opacity: tagBright ? 1 : 0.3,
-                            transition: 'background 200ms ease, color 200ms ease, border-color 200ms ease, opacity 200ms ease',
+                            transition: 'opacity 200ms ease',
                             cursor: 'pointer',
                           }}
                         >
-                          {React.cloneElement(iconMapping[cat] || iconMapping['default'], { color: showTagColor ? tc.text : '#888888', size: 12 })}
-                          <Text size="xs" c={showTagColor ? tc.text : '#888888'} fw={700} style={{ fontSize: '10px' }}>
+                          {React.cloneElement(iconMapping[cat] || iconMapping['default'], { color: tc.text, size: 12 })}
+                          <Text size="xs" c={tc.text} fw={700} style={{ fontSize: '10px' }}>
                             {CATEGORY_LABELS[cat] ?? cat}
                           </Text>
                         </div>
@@ -1811,13 +1918,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   const indicatorRel = matchIdx >= 0 ? rels[matchIdx] : rels[0];
                   const indicatorRangeIdx = matchIdx >= 0 ? matchIdx : 0;
                   const indicatorTopic = activeAnchorTopic ?? topicOf(rels[0], stack.stackId, 0);
-                  const uniqueCategories = new Set(rels.map(r => r.category));
-                  const isMultiTypeIndicator = uniqueCategories.size > 1;
                   const indicatorColors = getCategoryColors(indicatorRel.category);
-                  const showIndicatorColor = !isMultiTypeIndicator || panelHovered;
-                  const indicatorColor = showIndicatorColor ? indicatorColors.text : '#888888';
+                  // Always show the category color so the chip is recognizable
+                  // as the topic-anchor for that highlight color.
+                  const indicatorColor = indicatorColors.text;
                   const clusterCount = topicTotal.get(indicatorTopic) ?? 0;
-                  const baseOpacity = showIndicatorColor ? (isCurrentAnchor ? 1 : 0.75) : 0.6;
+                  const baseOpacity = isCurrentAnchor ? 1 : 0.75;
                   return (
                     <button
                       type="button"
@@ -1951,7 +2057,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 )}
               </Paper>
 
-              {moreEl}
+              {footerEl}
 
               {/* Bottom-edge hover zone */}
               <div aria-hidden style={{
@@ -1976,13 +2082,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             </motion.div>
           );
 
-          return [labelEl, cardEl].filter(Boolean);
+          return [headerEl, cardEl].filter(Boolean);
           }); // end displayStacks.flatMap
         })()} {/* end activeAnchorTopic IIFE */}
         </AnimatePresence>
       </motion.div>
       </LayoutGroup>
-      </div>{/* end panelHovered wrapper */}
 
       <StackPostsModal
         isOpen={stackPostsModalOpen} onClose={() => setStackPostsModalOpen(false)}
