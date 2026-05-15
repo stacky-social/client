@@ -192,18 +192,22 @@ function getSyntheticCategoryCount(_category: string, realCount: number): number
 }
 
 // ─── Tooltip label renderer ───────────────────────────────────────────────────
-// "N more <Topic>" with the topic bolded in the category color. Returns null
-// when topic is absent, so callers can short-circuit without rendering.
+// "N more <Topic>" with the topic bolded in the category color. When `isShown`
+// the wording becomes "N more <Topic> (shown)" — for hovering a span whose
+// topic is already the active anchor's grouping. Returns null when topic is
+// absent, so callers can short-circuit without rendering.
 function buildTooltipLabel(
   topic: string | undefined,
   otherCount: number | undefined,
   textColor: string,
+  isShown: boolean = false,
 ): React.ReactNode | null {
   if (!topic) return null;
   const count = otherCount ?? 0;
   return (
     <>
       {count} more <strong style={{ color: textColor }}>{topic}</strong>
+      {isShown ? ' (shown)' : null}
     </>
   );
 }
@@ -351,6 +355,12 @@ function buildMultiHighlightNodes(
     hoveredRangeIndex: number | null;
     hoveredCategory: string | null;
     anchoredRangeIndex: number | null;
+    /** Currently-active anchor topic (for in-block dimming + tooltip "shown"
+     *  wording + no-op clicks). Null when no anchor is active. */
+    activeTopic: string | null;
+    /** True when this card is part of the active topic block — drives the
+     *  "dim non-topic spans" behavior. False on cards outside the block. */
+    inActiveBlock: boolean;
     onRangeHover: (index: number | null) => void;
     onRangeClick?: (index: number) => void;
     /** topic → number of OTHER posts (excluding current) that share this topic */
@@ -403,9 +413,16 @@ function buildMultiHighlightNodes(
         opts.isCardHovered ? 1 :
         opts.anyCardHovered ? 0.25 :
         0.7;
+      const bandTopic = (c: { topic?: string; category: string; rangeIndex: number }) =>
+        c.topic ?? getSyntheticTopic(c.category, `${opts.stackId}-${c.rangeIndex}`);
+      const isBandOnActiveTopic = (c: { topic?: string; category: string; rangeIndex: number }) =>
+        opts.activeTopic !== null && bandTopic(c) === opts.activeTopic;
       const gradientStops = cats.map((c, i) => {
         let a = baseAlpha;
         if (anyDirected) a = isBandActive(c) ? 1 : 0.18;
+        // In-block dimming: dim bands whose topic isn't the active one
+        // (unless this very band is hovered).
+        else if (opts.inActiveBlock && !isBandOnActiveTopic(c) && !isBandActive(c)) a = 0.2;
         const pct1 = (i / cats.length) * 100;
         const pct2 = ((i + 1) / cats.length) * 100;
         const rgba = hexToRgba(c.colors.bg, a);
@@ -421,12 +438,12 @@ function buildMultiHighlightNodes(
         const band = cats[bandIdx];
         opts.onRangeHover(band.rangeIndex);
 
-        // Always resolve a topic — synthetic fallback ensures one is available
-        const resolvedTopic = band.topic ?? getSyntheticTopic(band.category, `${opts.stackId}-${band.rangeIndex}`);
+        const resolvedTopic = bandTopic(band);
+        const isShown = opts.activeTopic !== null && resolvedTopic === opts.activeTopic;
         const count = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopic) : undefined;
         const colors: TooltipColors = { text: band.colors.text, border: band.colors.border };
         showTooltip({
-          content: buildTooltipLabel(resolvedTopic, count, band.colors.text),
+          content: buildTooltipLabel(resolvedTopic, count, band.colors.text, isShown),
           colors,
           x: clientX,
           y: clientY,
@@ -450,6 +467,8 @@ function buildMultiHighlightNodes(
               const bandIdx = Math.max(0, Math.min(cats.length - 1, Math.floor(rel * cats.length)));
               e.stopPropagation();
               (e.currentTarget as HTMLElement).blur();
+              // No-op when the clicked band's topic is already grouped.
+              if (isBandOnActiveTopic(cats[bandIdx])) return;
               opts.onRangeClick(cats[bandIdx].rangeIndex);
             }}
             style={{
@@ -476,6 +495,14 @@ function buildMultiHighlightNodes(
         (opts.hoveredCategory !== null && opts.hoveredCategory === c.category);
       const anyDirected = opts.hoveredRangeIndex !== null || opts.hoveredCategory !== null;
 
+      // Resolved topic for this range — used for in-block dimming and the
+      // "(shown)" tooltip wording / no-op click for same-topic spans.
+      const resolvedTopicForRange = c.topic ?? getSyntheticTopic(c.category, `${opts.stackId}-${c.rangeIndex}`);
+      const isOnActiveTopic = opts.activeTopic !== null && resolvedTopicForRange === opts.activeTopic;
+      // In-block dimming: when this card sits inside the active topic block,
+      // non-Topic spans dim out (unless this very span is hovered).
+      const dimByBlock = opts.inActiveBlock && !isOnActiveTopic && !isThisRangeHovered;
+
       // 3-level background alpha — dims highlight background only, text stays readable
       const isAnchored = opts.anchoredRangeIndex === c.rangeIndex;
       let bgAlpha: number;
@@ -485,12 +512,14 @@ function buildMultiHighlightNodes(
         bgAlpha = 0.2; // Another range in this card is anchored — dim this one
       } else if (opts.isCardHovered) {
         if (!anyDirected) {
-          bgAlpha = 1; // Level 1: this card hovered, all its highlights bright
+          bgAlpha = dimByBlock ? 0.2 : 1; // Level 1: this card hovered (dim non-Topic spans in block)
         } else {
           bgAlpha = isThisRangeHovered ? 1 : 0.2; // Level 2: specific range or category hovered
         }
       } else if (opts.anyCardHovered) {
         bgAlpha = 0.25; // Another card is hovered — dim these highlights
+      } else if (dimByBlock) {
+        bgAlpha = 0.2; // Non-Topic span inside the active topic block
       } else {
         bgAlpha = opts.anchoredRangeIndex !== null ? 0.2 : 0.7; // default
       }
@@ -519,11 +548,9 @@ function buildMultiHighlightNodes(
             tabIndex={-1}
             onMouseEnter={(e) => {
               opts.onRangeHover(c.rangeIndex);
-              // Always resolve a topic — synthetic fallback ensures one is available
-              const resolvedTopic = c.topic ?? getSyntheticTopic(c.category, `${opts.stackId}-${c.rangeIndex}`);
-              const count = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopic) : undefined;
+              const count = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopicForRange) : undefined;
               showTooltip({
-                content: buildTooltipLabel(resolvedTopic, count, colors.text),
+                content: buildTooltipLabel(resolvedTopicForRange, count, colors.text, isOnActiveTopic),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
@@ -533,11 +560,9 @@ function buildMultiHighlightNodes(
             onPointerEnter={(e) => {
               if (e.pointerType !== 'mouse') return;
               opts.onRangeHover(c.rangeIndex);
-              // Always resolve a topic — synthetic fallback ensures one is available
-              const resolvedTopic = c.topic ?? getSyntheticTopic(c.category, `${opts.stackId}-${c.rangeIndex}`);
-              const count = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopic) : undefined;
+              const count = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopicForRange) : undefined;
               showTooltip({
-                content: buildTooltipLabel(resolvedTopic, count, colors.text),
+                content: buildTooltipLabel(resolvedTopicForRange, count, colors.text, isOnActiveTopic),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
@@ -548,6 +573,9 @@ function buildMultiHighlightNodes(
               if (!opts.onRangeClick) return;
               e.stopPropagation();
               (e.currentTarget as HTMLElement).blur();
+              // Clicking a span on the topic that's already grouped is a
+              // no-op (the tooltip reads "(shown)" to communicate this).
+              if (isOnActiveTopic) return;
               opts.onRangeClick(c.rangeIndex);
             }}
             style={{
@@ -1427,6 +1455,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             ? { opacity: 0.45, filter: 'grayscale(0.3)' }
             : { opacity: 1, filter: 'none' };
 
+          // Is this card part of the active topic block? Drives in-block
+          // dimming of non-Topic spans and the "(shown)" tooltip wording.
+          const inActiveBlock =
+            claimedBy.has(stack.topPost.id)
+            || (anchorSet.has(stack.topPost.id) && anchorsWithClaims.has(stack.topPost.id));
+
           // Build React content nodes with multi-range + 3-level hover
           const contentNodes = buildMultiHighlightNodes(
             visibleText, adjustedRelations, colors,
@@ -1436,6 +1470,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               hoveredRangeIndex: isCardActive ? (isCardTapped ? tappedRangeIndex : hoveredHighlightRangeIndex) : null,
               hoveredCategory: isCardActive ? hoveredCategory : null,
               anchoredRangeIndex: anchoredRangeByPost[stack.topPost.id] ?? null,
+              activeTopic: activeAnchorTopic,
+              inActiveBlock,
               onRangeHover: debouncedRangeHover,
               onRangeClick: (ri) => handleToggleAnchor(stack.topPost.id, ri),
               otherCountByTopic: (topic: string) => {
@@ -1463,10 +1499,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           const anchorForNext = index + 1 < displayStacks.length ? anchorOf(displayStacks[index + 1]) : undefined;
 
           const isClaim = isReRanked; // this card was pulled in under an anchor
-          // First claim of a group: previous card is the anchor of the same group
-          const isFirstClaim = isClaim && index > 0
-            && displayStacks[index - 1].topPost.id === claimedBy.get(stack.topPost.id);
-          const isLastInGroup = !!anchorForThisCard && anchorForThisCard !== anchorForNext;
+          // Block boundaries: the first card whose anchorOf differs from the
+          // previous (and isn't undefined) is the start of the topic block;
+          // similarly for the last.
+          const isFirstInBlock = !!anchorForThisCard && anchorForThisCard !== anchorForPrev;
+          const isLastInBlock = !!anchorForThisCard && anchorForThisCard !== anchorForNext;
 
           const anchorStack = anchorForThisCard
             ? relatedStacks.find(s => s.topPost.id === anchorForThisCard)
@@ -1487,22 +1524,24 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               )
             : colors;
 
-          // Pagination metadata for "MORE [topic]" link rendered after the last claim of a group
+          // Block decoration metadata. groupTotal/groupShown count MATCHED
+          // posts only (excluding the anchor). Block size = 1 (anchor) +
+          // matched total. Footer "K more" = matched total - matched shown.
           const groupTotalForThis = anchorForThisCard ? (groupTotal.get(anchorForThisCard) ?? 0) : 0;
           const groupShownForThis = anchorForThisCard ? (groupShown.get(anchorForThisCard) ?? 0) : 0;
           const groupRemaining = Math.max(0, groupTotalForThis - groupShownForThis);
-          const canShowMore = isClaim && isLastInGroup && groupRemaining > 0;
-          if (canShowMore && !anchorTopic && anchorForThisCard) {
-            warnMissingTopic(anchorForThisCard, anchorRangeIdx ?? -1);
+          const blockTotalCount = anchorForThisCard ? 1 + groupTotalForThis : 0; // includes anchor
+          const showBlockDecorations = !!anchorForThisCard && groupTotalForThis > 0;
+          if (showBlockDecorations && !anchorTopic) {
+            warnMissingTopic(anchorForThisCard!, anchorRangeIdx ?? -1);
           }
-          const showMoreLink = canShowMore && !!anchorTopic;
 
-          // "MORE [topic]" pagination — caps the bottom of the group connector
-          // line. Rendered inside the last claim's motion.div (below the Paper)
-          // so its lifecycle is tied to the card. Kept out of the parent
-          // AnimatePresence's flatMap because popLayout mode strands such
-          // children at opacity:0 forever when their key disappears.
-          const buttonHover = (clientX: number, clientY: number) => {
+          // Footer: "K more Topic" — clickable to load 3 more when K > 0,
+          // plain "0 more Topic" when K = 0 so the user can see where the
+          // block ends. Rendered inside the cardEl's motion.div so its
+          // lifecycle is tied to the last block card (popLayout would
+          // otherwise strand a separately-keyed footer at opacity:0).
+          const footerHover = (clientX: number, clientY: number) => {
             if (!anchorTopic) return;
             showTooltip({
               content: buildTooltipLabel(anchorTopic, groupRemaining, anchorColors.text),
@@ -1511,7 +1550,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               y: clientY,
             });
           };
-          const moreEl = showMoreLink && anchorForThisCard ? (
+          const renderFooter = showBlockDecorations && isLastInBlock && !!anchorTopic;
+          const footerEl = renderFooter && anchorForThisCard ? (
             <div
               style={{
                 position: 'relative',
@@ -1529,28 +1569,34 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 background: anchorColors.border,
                 borderRadius: GROUP_LINE_WIDTH,
               }} />
-              <button
-                type="button"
-                className="show-more-link"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleShowMore(anchorForThisCard);
-                }}
-                onMouseEnter={(e) => buttonHover(e.clientX, e.clientY)}
-                onMouseLeave={() => hideTooltip()}
-                onPointerEnter={(e) => { if (e.pointerType === 'mouse') buttonHover(e.clientX, e.clientY); }}
-                onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTooltip(); }}
-                style={{ color: anchorColors.text }}
-              >
-                {groupRemaining} more <strong style={{ color: anchorColors.text }}>{anchorTopic}</strong>
-              </button>
+              {groupRemaining > 0 ? (
+                <button
+                  type="button"
+                  className="show-more-link"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleShowMore(anchorForThisCard);
+                  }}
+                  onMouseEnter={(e) => footerHover(e.clientX, e.clientY)}
+                  onMouseLeave={() => hideTooltip()}
+                  onPointerEnter={(e) => { if (e.pointerType === 'mouse') footerHover(e.clientX, e.clientY); }}
+                  onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTooltip(); }}
+                  style={{ color: anchorColors.text }}
+                >
+                  {groupRemaining} more <strong style={{ color: anchorColors.text }}>{anchorTopic}</strong>
+                </button>
+              ) : (
+                <span style={{ color: anchorColors.text, opacity: 0.6, fontSize: 12 }}>
+                  0 more <strong style={{ color: anchorColors.text }}>{anchorTopic}</strong>
+                </span>
+              )}
             </div>
           ) : null;
 
-          // Label (between anchor and first claim) — rendered as its own animated row.
-          // The chip + × button cap the top of the connector line; the line itself
-          // begins just below the chip and bridges into the gap before the first claim.
-          const chipHover = (clientX: number, clientY: number) => {
+          // Header: "Topic (N)" chip + × dismiss button. Rendered as its own
+          // animated row above the first block card (which may be an
+          // above-matched claim or the anchor itself if there are none).
+          const headerHover = (clientX: number, clientY: number) => {
             if (!anchorTopic) return;
             showTooltip({
               content: buildTooltipLabel(anchorTopic, groupRemaining, anchorColors.text),
@@ -1559,9 +1605,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               y: clientY,
             });
           };
-          const labelEl = isFirstClaim && anchorForThisCard ? (
+          const renderHeader = showBlockDecorations && isFirstInBlock && !!anchorTopic;
+          const headerEl = renderHeader && anchorForThisCard ? (
             <motion.div
-              key={`label-${anchorForThisCard}`}
+              key={`header-${anchorForThisCard}`}
               layout
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1584,9 +1631,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 borderRadius: GROUP_LINE_WIDTH,
               }} />
               <span
-                onMouseEnter={(e) => chipHover(e.clientX, e.clientY)}
+                onMouseEnter={(e) => headerHover(e.clientX, e.clientY)}
                 onMouseLeave={() => hideTooltip()}
-                onPointerEnter={(e) => { if (e.pointerType === 'mouse') chipHover(e.clientX, e.clientY); }}
+                onPointerEnter={(e) => { if (e.pointerType === 'mouse') headerHover(e.clientX, e.clientY); }}
                 onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTooltip(); }}
                 style={{
                   fontSize: '11px', fontWeight: 600, color: anchorColors.text,
@@ -1596,7 +1643,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   maxWidth: '220px',
                 }}
               >
-                {anchorTopic ?? 'Related'}
+                {anchorTopic} ({blockTotalCount})
               </span>
               <button
                 type="button"
@@ -1604,8 +1651,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   e.stopPropagation();
                   handleToggleAnchor(anchorForThisCard);
                 }}
-                aria-label={`Dismiss ${anchorTopic ?? 'group'}`}
-                // A5: 24px hit target. Background appears on hover so the click
+                aria-label={`Dismiss ${anchorTopic} block`}
+                // 24px hit target. Background appears on hover so the click
                 // affordance is obvious.
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer',
@@ -1963,7 +2010,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 )}
               </Paper>
 
-              {moreEl}
+              {footerEl}
 
               {/* Bottom-edge hover zone */}
               <div aria-hidden style={{
@@ -1988,7 +2035,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             </motion.div>
           );
 
-          return [labelEl, cardEl].filter(Boolean);
+          return [headerEl, cardEl].filter(Boolean);
           }); // end displayStacks.flatMap
         })()} {/* end activeAnchorTopic IIFE */}
         </AnimatePresence>
