@@ -467,8 +467,9 @@ function buildMultiHighlightNodes(
               const bandIdx = Math.max(0, Math.min(cats.length - 1, Math.floor(rel * cats.length)));
               e.stopPropagation();
               (e.currentTarget as HTMLElement).blur();
-              // No-op when the clicked band's topic is already grouped.
-              if (isBandOnActiveTopic(cats[bandIdx])) return;
+              // Forward to onRangeClick — handleToggleAnchor enforces the
+              // "same-topic on a different post = no-op" rule; clicking the
+              // anchor's own band must pass through to toggle the anchor off.
               opts.onRangeClick(cats[bandIdx].rangeIndex);
             }}
             style={{
@@ -573,9 +574,10 @@ function buildMultiHighlightNodes(
               if (!opts.onRangeClick) return;
               e.stopPropagation();
               (e.currentTarget as HTMLElement).blur();
-              // Clicking a span on the topic that's already grouped is a
-              // no-op (the tooltip reads "(shown)" to communicate this).
-              if (isOnActiveTopic) return;
+              // Forward every click to onRangeClick (handleToggleAnchor) — it
+              // owns the "same-topic on a different post = no-op" rule. The
+              // anchor card's own span must still pass through so re-clicking
+              // it toggles the anchor off.
               opts.onRangeClick(c.rangeIndex);
             }}
             style={{
@@ -1755,26 +1757,37 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               )}
               {anchorForThisCard === stack.topPost.id && (
                 <>
-                  <div aria-hidden style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: -GROUP_GAP_PX,
-                    height: GROUP_GAP_PX,
-                    width: GROUP_LINE_WIDTH,
-                    background: anchorColors.border,
-                    borderRadius: GROUP_LINE_WIDTH,
-                    zIndex: 0,
-                  }} />
-                  <div aria-hidden style={{
-                    position: 'absolute',
-                    left: 0,
-                    bottom: -GROUP_GAP_PX,
-                    height: GROUP_GAP_PX,
-                    width: GROUP_LINE_WIDTH,
-                    background: anchorColors.border,
-                    borderRadius: GROUP_LINE_WIDTH,
-                    zIndex: 0,
-                  }} />
+                  {/* Top stub — only when there's an above-claim. Without
+                      above-claims the header's bottom-overhang already fills
+                      the gap, so the stub would just double up at the same x. */}
+                  {anchorForPrev === anchorForThisCard && (
+                    <div aria-hidden style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: -GROUP_GAP_PX,
+                      height: GROUP_GAP_PX,
+                      width: GROUP_LINE_WIDTH,
+                      background: anchorColors.border,
+                      borderRadius: GROUP_LINE_WIDTH,
+                      zIndex: 0,
+                    }} />
+                  )}
+                  {/* Bottom stub — only when there's a below-claim. Without
+                      below-claims the footer (rendered inside this same cardEl)
+                      caps the block, and bottom:-GROUP_GAP_PX would render
+                      below the footer into unrelated territory. */}
+                  {anchorForNext === anchorForThisCard && (
+                    <div aria-hidden style={{
+                      position: 'absolute',
+                      left: 0,
+                      bottom: -GROUP_GAP_PX,
+                      height: GROUP_GAP_PX,
+                      width: GROUP_LINE_WIDTH,
+                      background: anchorColors.border,
+                      borderRadius: GROUP_LINE_WIDTH,
+                      zIndex: 0,
+                    }} />
+                  )}
                 </>
               )}
               <Paper
