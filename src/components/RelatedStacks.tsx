@@ -1734,7 +1734,14 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               }}
               onPointerDown={(e) => handleCardTap(e, stack.topPost.id, stack.stackId)}
             >
-              {anchorForThisCard && (
+              {/* Block connector rail. Claims (above + below) draw a full-height
+                  segment alongside themselves. The ANCHOR card draws only two
+                  short stubs — one in the gap above and one in the gap below —
+                  so the rail enters/exits the anchor at its edges without
+                  running down its side. The visual effect is that the rail
+                  "touches" the anchor at top and bottom rather than skirting
+                  past it. */}
+              {anchorForThisCard && anchorForThisCard !== stack.topPost.id && (
                 <div aria-hidden style={{
                   position: 'absolute',
                   left: 0,
@@ -1745,6 +1752,30 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   borderRadius: GROUP_LINE_WIDTH,
                   zIndex: 0,
                 }} />
+              )}
+              {anchorForThisCard === stack.topPost.id && (
+                <>
+                  <div aria-hidden style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: -GROUP_GAP_PX,
+                    height: GROUP_GAP_PX,
+                    width: GROUP_LINE_WIDTH,
+                    background: anchorColors.border,
+                    borderRadius: GROUP_LINE_WIDTH,
+                    zIndex: 0,
+                  }} />
+                  <div aria-hidden style={{
+                    position: 'absolute',
+                    left: 0,
+                    bottom: -GROUP_GAP_PX,
+                    height: GROUP_GAP_PX,
+                    width: GROUP_LINE_WIDTH,
+                    background: anchorColors.border,
+                    borderRadius: GROUP_LINE_WIDTH,
+                    zIndex: 0,
+                  }} />
+                </>
               )}
               <Paper
                 ref={(el) => { paperRefs.current[index] = el; }}
