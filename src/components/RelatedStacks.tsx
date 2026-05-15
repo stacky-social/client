@@ -1112,6 +1112,29 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   /** Toggle an anchor. The interacted card stays visually pinned while other
    *  cards animate around it. */
   const handleToggleAnchor = (postId: string, rangeIndex?: number) => {
+    // Re-anchoring a DIFFERENT post on the topic that is already being grouped
+    // is a no-op — it would just shuffle which post owns the block without
+    // changing what's grouped. Covers highlight-span clicks (also guarded
+    // inside buildMultiHighlightNodes for tooltip wording), category-tag
+    // clicks, and the F-indicator chip.
+    if (rangeIndex !== undefined && reRankAnchorIds.length > 0) {
+      const currentAnchorId = reRankAnchorIds[reRankAnchorIds.length - 1];
+      if (currentAnchorId !== postId) {
+        const currentRangeIdx = anchoredRangeByPost[currentAnchorId];
+        if (currentRangeIdx !== undefined) {
+          const currentStack = relatedStacks.find(s => s.topPost.id === currentAnchorId);
+          const newStack = relatedStacks.find(s => s.topPost.id === postId);
+          const currentRel = currentStack?.topPost.relations?.[currentRangeIdx];
+          const newRel = newStack?.topPost.relations?.[rangeIndex];
+          if (currentStack && newStack && currentRel && newRel) {
+            const currentTopic = topicOf(currentRel, currentStack.stackId, currentRangeIdx);
+            const newTopic = topicOf(newRel, newStack.stackId, rangeIndex);
+            if (currentTopic === newTopic) return;
+          }
+        }
+      }
+    }
+
     // Clear hover state — card indices shift after reorder, so old
     // hoveredCardIndex would point at a different card → everything dims.
     setHoveredCardIndex(null);
@@ -1498,7 +1521,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           const anchorForPrev = index > 0 ? anchorOf(displayStacks[index - 1]) : undefined;
           const anchorForNext = index + 1 < displayStacks.length ? anchorOf(displayStacks[index + 1]) : undefined;
 
-          const isClaim = isReRanked; // this card was pulled in under an anchor
           // Block boundaries: the first card whose anchorOf differs from the
           // previous (and isn't undefined) is the start of the topic block;
           // similarly for the last.
@@ -1682,11 +1704,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               style={{
                 position: 'relative', width: '100%', borderRadius: '10px',
                 ...cardDimStyle,
-                // Claims sit alongside a continuous group connector line (rendered
-                // as an absolute child below). The padding leaves room for it; the
-                // line itself bridges the flex gap above so the group reads as one
-                // continuous thread rather than per-card border segments.
-                paddingLeft: isClaim ? '8px' : undefined,
+                // Every card in the active topic block sits alongside a continuous
+                // group connector line (rendered as an absolute child below). The
+                // padding leaves room for it; the line itself bridges the flex gap
+                // above so the whole block — including the anchor — reads as one
+                // continuous thread.
+                paddingLeft: anchorForThisCard ? '8px' : undefined,
                 marginLeft: indentPx > 0 ? `${indentPx}px` : undefined,
                 transition: 'filter 200ms ease',
               }}
@@ -1715,7 +1738,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               }}
               onPointerDown={(e) => handleCardTap(e, stack.topPost.id, stack.stackId)}
             >
-              {isClaim && (
+              {anchorForThisCard && (
                 <div aria-hidden style={{
                   position: 'absolute',
                   left: 0,
