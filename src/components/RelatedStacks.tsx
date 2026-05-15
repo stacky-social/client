@@ -684,8 +684,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const { filterCategories, filterFocusSpan, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, reRankAnchorIds, anchoredRangeByPost } = useHighlightStore();
   // C2: hover preview state for filter chips
   const [chipHovered, setChipHovered] = useState<string | null>(null);
-  // C3: panel hover state for neutral-until-hover tag coloring
-  const [panelHovered, setPanelHovered] = useState(false);
   // Touch device detection (cached on mount). Touch devices use tap-to-activate behavior.
   const [isTouch, setIsTouch] = useState(false);
   useEffect(() => {
@@ -1406,8 +1404,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       </div>
 
       {/* Cards — no inner scroll, the aside's own scrollbar handles everything */}
-      {/* C3: panelHovered wrapper — reveals category colors on multi-type cards when mouse enters cards area */}
-      <div onMouseEnter={() => setPanelHovered(true)} onMouseLeave={() => setPanelHovered(false)}>
       <LayoutGroup>
       <motion.div
         variants={containerVariants} initial="hidden" animate="show"
@@ -1798,9 +1794,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                     }
                     const hri = isCardActive ? (isCardTapped ? tappedRangeIndex : hoveredHighlightRangeIndex) : null;
                     const hcat = isCardActive ? hoveredCategory : null;
-                    // C3: multi-type posts show neutral color until panel is hovered
-                    const isMultiType = tags.length > 1;
-                    const showTagColor = !isMultiType || panelHovered;
                     return tags.map(({ cat, indices }) => {
                       const tc = getCategoryColors(cat);
                       const anyDirected = hri !== null || hcat !== null;
@@ -1847,19 +1840,20 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                             }
                           }}
                           style={{
-                            // C3: neutral colors for multi-type cards until panel is hovered
-                            background: showTagColor ? tc.bg : '#f0f0f0',
-                            color: showTagColor ? tc.text : '#888888',
+                            // Category tags are always color-coded so the highlight↔icon
+                            // mapping is visible without relying on a colored card border.
+                            background: tc.bg,
+                            color: tc.text,
                             borderRadius: '5px',
                             padding: '2px 7px', display: 'flex', alignItems: 'center', gap: '4px',
-                            border: `1px solid ${showTagColor ? tc.border : '#d0d0d0'}`,
+                            border: `1px solid ${tc.border}`,
                             opacity: tagBright ? 1 : 0.3,
-                            transition: 'background 200ms ease, color 200ms ease, border-color 200ms ease, opacity 200ms ease',
+                            transition: 'opacity 200ms ease',
                             cursor: 'pointer',
                           }}
                         >
-                          {React.cloneElement(iconMapping[cat] || iconMapping['default'], { color: showTagColor ? tc.text : '#888888', size: 12 })}
-                          <Text size="xs" c={showTagColor ? tc.text : '#888888'} fw={700} style={{ fontSize: '10px' }}>
+                          {React.cloneElement(iconMapping[cat] || iconMapping['default'], { color: tc.text, size: 12 })}
+                          <Text size="xs" c={tc.text} fw={700} style={{ fontSize: '10px' }}>
                             {CATEGORY_LABELS[cat] ?? cat}
                           </Text>
                         </div>
@@ -1893,13 +1887,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   const indicatorRel = matchIdx >= 0 ? rels[matchIdx] : rels[0];
                   const indicatorRangeIdx = matchIdx >= 0 ? matchIdx : 0;
                   const indicatorTopic = activeAnchorTopic ?? topicOf(rels[0], stack.stackId, 0);
-                  const uniqueCategories = new Set(rels.map(r => r.category));
-                  const isMultiTypeIndicator = uniqueCategories.size > 1;
                   const indicatorColors = getCategoryColors(indicatorRel.category);
-                  const showIndicatorColor = !isMultiTypeIndicator || panelHovered;
-                  const indicatorColor = showIndicatorColor ? indicatorColors.text : '#888888';
+                  // Always show the category color so the chip is recognizable
+                  // as the topic-anchor for that highlight color.
+                  const indicatorColor = indicatorColors.text;
                   const clusterCount = topicTotal.get(indicatorTopic) ?? 0;
-                  const baseOpacity = showIndicatorColor ? (isCurrentAnchor ? 1 : 0.75) : 0.6;
+                  const baseOpacity = isCurrentAnchor ? 1 : 0.75;
                   return (
                     <button
                       type="button"
@@ -2064,7 +2057,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
         </AnimatePresence>
       </motion.div>
       </LayoutGroup>
-      </div>{/* end panelHovered wrapper */}
 
       <StackPostsModal
         isOpen={stackPostsModalOpen} onClose={() => setStackPostsModalOpen(false)}
