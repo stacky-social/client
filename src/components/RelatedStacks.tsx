@@ -781,58 +781,43 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     });
   }, [reRankAnchorIds]);
 
-  // E: base order tracking — the no-grouping order at the current moment.
+  // Base order = the visible side-pane order at the moment the active anchor
+  // was last toggled. Updated on EVERY anchor transition (activation, switch,
+  // and cancel) so reordering is permanent — cancelling a group leaves posts
+  // in their current positions; a subsequent grouping operates on that order.
   // Using refs (not state) so captures don't trigger extra re-renders.
   const baseOrderRef = useRef<string[]>([]);
   const activeAnchorIdRef = useRef<string | null>(null);
-  // Stack of saved orders captured at each grouping activation. On cancel we
-  // pop one — restoring "the state right before this grouping was applied".
-  // Sequential groupings push; sequential cancels pop. Paper §3.1 says cancel
-  // "leaves the posts in their position so that the user does not have to
-  // encounter them again when scrolling downward" — we honor a softer variant:
-  // cancel returns to the state right before that grouping (so the FIRST
-  // cancel restores the original server order, but a cancel after a second
-  // grouping returns to the state-after-first-grouping rather than all the
-  // way back).
-  const orderHistoryRef = useRef<string[][]>([]);
   // E: previous render's displayStacks — updated after each render via useEffect.
-  // Used to snapshot the "current visible order" at anchor activation.
+  // Used to snapshot the "current visible order" at each anchor transition.
   const prevDisplayStacksRef = useRef<RelatedStackType[]>([]);
 
-  /** Reorder side-pane stacks so the next N posts matching the active anchor's
-   *  topic fall immediately below it (paper §3.1). Only matches that originally
-   *  sit BELOW the anchor are pulled up; posts above the anchor are never moved
-   *  so the user does not re-encounter posts they already scrolled past. The
-   *  history stack lets cancel/switch restore the prior grouping state. */
-  const { displayStacks, claimedBy, anchorSet, anchorParent, groupTotal, groupShown } = useMemo(() => {
+  /** Reorder side-pane stacks around the active anchor (paper §3.1):
+   *  – ALL matched posts above the anchor move down to immediately above it
+   *    (preserving their relative order).
+   *  – The TOP N (default 3) matched posts below the anchor move up to
+   *    immediately below it; the rest are paginated out and revealed by the
+   *    footer "K more Topic" link.
+   *  Reordering is permanent: cancelling the group leaves the posts in their
+   *  new positions, and a subsequent grouping layers on top of that order. */
+  const { displayStacks, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic } = useMemo(() => {
     const anchorSet = new Set(reRankAnchorIds);
     const claimedBy = new Map<string, string>(); // postId -> anchorId
     const anchorParent = new Map<string, string>(); // anchorId -> parent anchorId
-    const groupTotal = new Map<string, number>(); // anchorId -> total similar count
-    const groupShown = new Map<string, number>(); // anchorId -> shown similar count
+    const groupTotal = new Map<string, number>(); // anchorId -> matched posts (excludes anchor itself)
+    const groupShown = new Map<string, number>(); // anchorId -> matched posts currently visible
+    let activeAnchorTopic: string | null = null;
 
     const anchorId: string | null = reRankAnchorIds.length > 0
       ? reRankAnchorIds[reRankAnchorIds.length - 1]
       : null;
 
-    // ── Anchor transition: update baseOrder + history stack. ───────────────
+    // ── Anchor transition: capture the current visible order as the new base.
+    // Same behavior on activate, switch, and cancel — reordering is permanent.
     if (anchorId !== activeAnchorIdRef.current) {
-      if (anchorId === null) {
-        // Cancel — pop history to restore the state before this grouping.
-        const popped = orderHistoryRef.current.pop();
-        if (popped && popped.length > 0) {
-          baseOrderRef.current = popped;
-        }
-        // If history was empty (defensive), keep current baseOrder as-is.
-      } else {
-        // Activation (null→X) or switch (X→Y). Snapshot the user's currently
-        // visible order onto history so a later cancel can restore it, then
-        // make that same order the base for the new grouping.
-        const prev = prevDisplayStacksRef.current;
-        const visibleIds = (prev.length > 0 ? prev : relatedStacks).map(s => s.topPost.id);
-        orderHistoryRef.current.push(visibleIds);
-        baseOrderRef.current = visibleIds;
-      }
+      const prev = prevDisplayStacksRef.current;
+      const visibleIds = (prev.length > 0 ? prev : relatedStacks).map(s => s.topPost.id);
+      baseOrderRef.current = visibleIds;
       activeAnchorIdRef.current = anchorId;
     }
 
@@ -863,7 +848,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           return allPresent;
         });
       }
-      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
+      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic };
     }
 
     // Find anchor entry in the working set.
@@ -881,7 +866,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           return allPresent;
         });
       }
-      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
+      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic };
     }
 
     const anchorContent = anchorEntry.topPost.content;
@@ -889,48 +874,45 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     // Topic-based when the anchor was created by clicking a specific highlight.
     // Falls back to content word-similarity when the anchor has no usable relation.
     const anchorRangeIdx = anchoredRangeByPost[anchorId];
-    // Always resolve a topic via synthetic fallback so matching is consistent
-    // with topicOf() used elsewhere. We only use topic-based matching when the
-    // anchor was activated via a specific range index; otherwise fall back to
-    // content similarity.
     const anchorRelation = anchorRangeIdx !== undefined
       ? anchorEntry.topPost.relations?.[anchorRangeIdx]
       : undefined;
     const anchorTopic = anchorRelation
       ? topicOf(anchorRelation, anchorEntry.stackId, anchorRangeIdx!)
       : undefined;
+    activeAnchorTopic = anchorTopic ?? null;
 
-    // Paper §3.1: "raise the ranking of the next 3 ... side posts so that they
-    // fall immediately below B". Only posts that originally sit BELOW the
-    // anchor in the working order are eligible to be pulled up — posts above
-    // the anchor stay in place so the user does not re-encounter posts they
-    // already scrolled past.
-    const belowAnchor = workingStacks.slice(anchorIdx + 1);
+    const aboveStacks = workingStacks.slice(0, anchorIdx);
+    const belowStacks = workingStacks.slice(anchorIdx + 1);
 
-    const allMatchedIds = new Set<string>();
-    if (anchorTopic) {
-      for (const s of belowAnchor) {
-        // Match using topicOf() on each relation so synthetic topics align
-        if ((s.topPost.relations ?? []).some((r, ri) => topicOf(r, s.stackId, ri) === anchorTopic)) {
-          allMatchedIds.add(s.topPost.id);
-        }
-      }
-    } else {
-      // Similarity-based fallback — collect sorted by score (below-anchor only).
-      const scored: { id: string; score: number }[] = [];
-      for (const s of belowAnchor) {
-        const score = similarityScore(s.topPost.content, anchorContent);
-        if (score > SIMILARITY_THRESHOLD) scored.push({ id: s.topPost.id, score });
-      }
-      // Sort by score descending; then add IDs in that order (Set preserves insertion order).
-      scored.sort((a, b) => b.score - a.score);
-      for (const { id } of scored) allMatchedIds.add(id);
-    }
+    const matchesAnchor = anchorTopic
+      ? (s: RelatedStackType) =>
+          (s.topPost.relations ?? []).some((r, ri) => topicOf(r, s.stackId, ri) === anchorTopic)
+      : (s: RelatedStackType) =>
+          similarityScore(s.topPost.content, anchorContent) > SIMILARITY_THRESHOLD;
 
-    groupTotal.set(anchorId, allMatchedIds.size);
+    // Above-matched: ALL of them, preserving relative order. They will move
+    // down to immediately above the anchor — never paginated out.
+    const aboveMatched: string[] = [];
+    for (const s of aboveStacks) if (matchesAnchor(s)) aboveMatched.push(s.topPost.id);
 
-    if (allMatchedIds.size === 0) {
-      groupShown.set(anchorId, 0);
+    // Below-matched: collect all, then paginate (top N in working order).
+    const belowMatchedAll: string[] = [];
+    for (const s of belowStacks) if (matchesAnchor(s)) belowMatchedAll.push(s.topPost.id);
+
+    const showCountBelow = shownByAnchor[anchorId] ?? SHOWN_INCREMENT;
+    const belowMatchedVisible = belowMatchedAll.slice(0, showCountBelow);
+
+    // groupTotal/groupShown count matched posts (NOT including the anchor) so
+    // the renderer can compute "K more" = total - shown for the footer.
+    groupTotal.set(anchorId, aboveMatched.length + belowMatchedAll.length);
+    groupShown.set(anchorId, aboveMatched.length + belowMatchedVisible.length);
+
+    const visibleMatchedIds = new Set<string>([...aboveMatched, ...belowMatchedVisible]);
+    visibleMatchedIds.forEach(id => claimedBy.set(id, anchorId));
+
+    if (visibleMatchedIds.size === 0) {
+      // No matches to group — return workingStacks (filtered).
       let result = [...workingStacks];
       if (filterCategories.size > 0) {
         result = result.filter((s) => {
@@ -941,27 +923,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           return allPresent;
         });
       }
-      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
+      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic };
     }
 
-    // Pagination: only show the first N matched posts.
-    const shown = shownByAnchor[anchorId] ?? SHOWN_INCREMENT;
-    const allMatchedArray = Array.from(allMatchedIds);
-    const visibleMatchedIds = new Set(allMatchedArray.slice(0, shown));
-    groupShown.set(anchorId, visibleMatchedIds.size);
+    // Paginate out below-matched posts beyond the visible cap.
+    const hiddenBelowIds = new Set(belowMatchedAll.slice(showCountBelow));
+    const paginatedStacks = workingStacks.filter(s => !hiddenBelowIds.has(s.topPost.id));
 
-    allMatchedArray.slice(0, shown).forEach(id => {
-      claimedBy.set(id, anchorId);
-    });
-
-    // Remove non-visible matched posts (they are paginated out).
-    const hiddenMatchedIds = new Set(allMatchedArray.slice(shown));
-    const paginatedStacks = workingStacks.filter(s => !hiddenMatchedIds.has(s.topPost.id));
-
-    // Pull the visible (below-anchor) matches up so they fall immediately
-    // below B. visibleMatchedIds is built from belowAnchor only, so
-    // reorderForAnchor's above-matched branch is unused here — only the
-    // below-matched cluster forms.
+    // Bring above-matched down (immediately above anchor) and below-visible
+    // up (immediately below anchor). reorderForAnchor handles both directions.
     let result = reorderForAnchor(
       paginatedStacks,
       anchorId,
@@ -997,7 +967,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       );
     }
 
-    return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown };
+    return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic };
   }, [relatedStacks, filterCategories, filterFocusSpan, reRankAnchorIds, shownByAnchor, anchoredRangeByPost]);
 
   // E: keep prevDisplayStacksRef up-to-date so the next anchor activation can
@@ -1238,10 +1208,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     clearReRankAnchors();
     clearTapped();
     clearFilterFocusSpan(); // D2: clear span filter when focus post changes
-    // Discard saved orderings — they refer to post IDs from the previous
-    // dataset and would corrupt the working order when popped.
+    // Discard saved baseOrder — it refers to post IDs from the previous
+    // dataset and would corrupt the working order if reused.
     baseOrderRef.current = [];
-    orderHistoryRef.current = [];
     activeAnchorIdRef.current = null;
     prevDisplayStacksRef.current = [];
   }, [relatedStacks]);
