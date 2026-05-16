@@ -24,11 +24,9 @@ import type { Relation } from "../../../../../types/PostType";
 
 // Thread connector line style — mirrors /posts/[id]
 const THREAD_LINE_COLOR = "#ccd1dc";
-const THREAD_LINE_LEFT = 32;
-// Vertical position of the avatar center in the Post component, measured
-// from the Paper top. paddingTop (1rem = 16px) + half-avatar (~19px) ≈ 35px.
-// The line starts here on the first ancestor and ends here on the focus post.
-const THREAD_LINE_AVATAR_Y = 32;
+// Avatar center x = Paper.border (2) + paddingLeft (16) + half-avatar (19) = 37.
+// Subtract 1 (half line width) so the 2px line is centered on the avatar.
+const THREAD_LINE_LEFT = 36;
 
 function stripHtmlToPlain(html: string): string {
   if (typeof document !== "undefined") {
@@ -154,39 +152,36 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       <BackButton />
       <div>
         <div style={{ position: "relative" }}>
-          {/* Ancestors with thread line.
-              The line starts at the avatar's vertical center on the FIRST
-              ancestor (THREAD_LINE_AVATAR_Y), runs down through every
-              ancestor's body, and bridges the marginBottom gap between
-              posts. paddingBottom on the wrapper holds the Post's
-              marginBottom inside the wrapper so the absolute line can
-              extend through the gap without being clipped by margin-collapse. */}
+          {/* Ancestors — thread connector line runs at the avatar column,
+              BEHIND the Post's Paper (zIndex 0 < Paper's zIndex 5). The line
+              is hidden inside each card and visible only in the gap between
+              cards, matching the Twitter-style thread look (line connects
+              cards without cutting across post bodies).
+
+              paddingBottom on each wrapper holds the Post's marginBottom
+              inside so the absolute line can span through to the next post;
+              negative marginBottom cancels the extra height for layout. */}
           {ancestors.length > 0 && (
             <div style={{ position: "relative" }}>
-              {ancestors.map((a, index) => (
+              {ancestors.map((a) => (
                 <div
                   key={a.id}
                   style={{
                     position: "relative",
-                    // Keep the Post's marginBottom inside this wrapper so the
-                    // line spans the gap, then offset back with negative margin
-                    // so the visible spacing stays unchanged.
                     paddingBottom: "3rem",
                     marginBottom: "-3rem",
                   }}
                 >
                   <div
+                    aria-hidden
                     style={{
                       position: "absolute",
                       left: THREAD_LINE_LEFT,
-                      top: index === 0 ? THREAD_LINE_AVATAR_Y : 0,
+                      top: 0,
                       bottom: 0,
                       width: 2,
                       backgroundColor: THREAD_LINE_COLOR,
-                      // Above the Post's Paper (zIndex: 5, white bg) so the
-                      // line is visible across each post body and through
-                      // the gap. The line passes through the avatar circle.
-                      zIndex: 6,
+                      zIndex: 0,
                     }}
                   />
                   {renderPost(a)}
@@ -195,21 +190,8 @@ export default function MockPostView({ params }: { params: { id: string } }) {
             </div>
           )}
 
-          {/* Focus post — line continues from the top down to the focus avatar. */}
+          {/* Focus post */}
           <div style={{ position: "relative" }}>
-            {ancestors.length > 0 && (
-              <div
-                style={{
-                  position: "absolute",
-                  left: THREAD_LINE_LEFT,
-                  top: 0,
-                  height: THREAD_LINE_AVATAR_Y,
-                  width: 2,
-                  backgroundColor: THREAD_LINE_COLOR,
-                  zIndex: 6,
-                }}
-              />
-            )}
             {renderPost(post, /* isFocusPost */ true)}
           </div>
         </div>
