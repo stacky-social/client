@@ -332,7 +332,7 @@ function DesktopShell({
                     position: "fixed",
                     left: navCollapsed
                         ? 16
-                        : "calc(50vw - var(--center-w) / 2 - var(--nav-w) + 16px)",
+                        : "calc(50vw - var(--center-w) / 2 - 42px)",
                     top: 16,
                     zIndex: 300,
                     transition: "left 200ms ease",
