@@ -26,6 +26,8 @@ import InteractionControl from "../InteractionControl";
 
 const THREAD_LINE_COLOR = "#ccd1dc";
 const THREAD_LINE_LEFT = 32;
+// Vertical avatar-center offset inside FocusPost — used as line endpoints.
+const THREAD_LINE_AVATAR_Y = 24;
 
 /** Convert a RelatedPostMock into a synthetic ListyInjectionEntry */
 function syntheticEntry(
@@ -203,9 +205,9 @@ export default function ListyInjectionShell({ entries }: ListyInjectionShellProp
         </button>
 
         {/* Ancestor chain with thread lines.
-            zIndex: 2 puts the line above the FocusPost wrap (zIndex: 1, which
-            contains FocusPost's white background). The line passes through
-            the avatar circle but stays visible across the post body. */}
+            Line starts at avatar y on the first ancestor and runs through
+            each post body + gap below. zIndex: 2 puts it above the FocusPost
+            wrap (zIndex: 1, which contains FocusPost's white background). */}
         {ancestorEntries.map((entry, index) => (
           <div
             key={entry.focusPost.id}
@@ -216,8 +218,8 @@ export default function ListyInjectionShell({ entries }: ListyInjectionShellProp
               style={{
                 position: "absolute",
                 left: THREAD_LINE_LEFT,
-                top: index === 0 ? "50%" : 0,
-                bottom: "-0.5rem",
+                top: index === 0 ? THREAD_LINE_AVATAR_Y : 0,
+                bottom: 0,
                 width: 2,
                 backgroundColor: THREAD_LINE_COLOR,
                 zIndex: 2,
@@ -250,7 +252,7 @@ export default function ListyInjectionShell({ entries }: ListyInjectionShellProp
                 position: "absolute",
                 left: THREAD_LINE_LEFT,
                 top: 0,
-                height: "50%",
+                height: THREAD_LINE_AVATAR_Y,
                 width: 2,
                 backgroundColor: THREAD_LINE_COLOR,
                 zIndex: 2,

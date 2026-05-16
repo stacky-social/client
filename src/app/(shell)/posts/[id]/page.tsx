@@ -54,6 +54,10 @@ const mapWithStackFields = <T extends object>(x: T) => ({
 // Thread connector line style shared by ancestor + reply connectors
 const THREAD_LINE_COLOR = "#ccd1dc";
 const THREAD_LINE_LEFT = 32; // aligns with avatar center (~16px padding + ~19px half-avatar)
+// Vertical position of the avatar center in the Post component, measured
+// from the Paper top. The line starts here on the first ancestor and ends
+// here on the focus post.
+const THREAD_LINE_AVATAR_Y = 32;
 
 /** Strip HTML tags to produce plain text for span-filter hydration */
 function stripHtmlToPlain(html: string): string {
@@ -503,21 +507,28 @@ export default function PostView({ params }: { params: { id: string } }) {
       <BackButton />
       <div>
         <div style={{ position: "relative" }}>
-          {/* Ancestors with thread line */}
+          {/* Ancestors with thread line.
+              The line starts at the avatar's vertical center on the FIRST
+              ancestor, runs through every ancestor's body, and bridges the
+              marginBottom gap between posts. paddingBottom on the wrapper
+              holds the Post's marginBottom inside so the absolute line can
+              span the gap without being clipped by margin-collapse. */}
           {ancestors.length > 0 && (
             <div style={{ position: "relative" }}>
               {ancestors.map((a, index) => (
-                <div key={a.id} style={{ position: "relative" }}>
-                  {/* Vertical line connecting this ancestor to the next post below.
-                      zIndex: 6 puts it above the Post's Paper (zIndex: 5, white bg)
-                      so the line is visible across the post body. bottom: -3rem
-                      extends it past the Post wrapper's marginBottom so the line
-                      bridges the visible gap between posts. */}
+                <div
+                  key={a.id}
+                  style={{
+                    position: "relative",
+                    paddingBottom: "3rem",
+                    marginBottom: "-3rem",
+                  }}
+                >
                   <div style={{
                     position: "absolute",
                     left: THREAD_LINE_LEFT,
-                    top: index === 0 ? "50%" : 0,
-                    bottom: "-3rem",
+                    top: index === 0 ? THREAD_LINE_AVATAR_Y : 0,
+                    bottom: 0,
                     width: 2,
                     backgroundColor: THREAD_LINE_COLOR,
                     zIndex: 6,
@@ -528,15 +539,14 @@ export default function PostView({ params }: { params: { id: string } }) {
             </div>
           )}
 
-          {/* Current Post */}
+          {/* Current Post — line continues from top down to focus avatar. */}
           <div ref={currentPostRef} style={{ position: "relative" }}>
-            {/* Connector from last ancestor into focal post */}
             {ancestors.length > 0 && (
               <div style={{
                 position: "absolute",
                 left: THREAD_LINE_LEFT,
                 top: 0,
-                height: "50%",
+                height: THREAD_LINE_AVATAR_Y,
                 width: 2,
                 backgroundColor: THREAD_LINE_COLOR,
                 zIndex: 6,
