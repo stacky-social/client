@@ -254,14 +254,15 @@ function DesktopShell({
                     position: "fixed",
                     top: 0,
                     bottom: 0,
-                    left: "calc(50vw - var(--center-w) / 2 - var(--nav-w))",
+                    left: `calc(50vw - var(--center-w) / 2 - ${navW}px)`,
                     width: "clamp(200px, 22vw, 300px)",
                     backgroundColor: "#FCFBF5",
                     padding: 16,
                     overflow: "hidden",
                     opacity: navCollapsed ? 0 : 1,
+                    transform: navCollapsed ? "translateX(-16px)" : "translateX(0)",
                     pointerEvents: navCollapsed ? "none" : "auto",
-                    transition: "opacity 200ms ease",
+                    transition: "opacity 200ms ease, transform 200ms ease",
                     zIndex: 100,
                 }}
             >
