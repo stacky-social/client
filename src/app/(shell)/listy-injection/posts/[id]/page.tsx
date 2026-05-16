@@ -25,6 +25,10 @@ import type { Relation } from "../../../../../types/PostType";
 // Thread connector line style — mirrors /posts/[id]
 const THREAD_LINE_COLOR = "#ccd1dc";
 const THREAD_LINE_LEFT = 32;
+// Vertical position of the avatar center in the Post component, measured
+// from the Paper top. paddingTop (1rem = 16px) + half-avatar (~19px) ≈ 35px.
+// The line starts here on the first ancestor and ends here on the focus post.
+const THREAD_LINE_AVATAR_Y = 32;
 
 function stripHtmlToPlain(html: string): string {
   if (typeof document !== "undefined") {
@@ -150,24 +154,38 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       <BackButton />
       <div>
         <div style={{ position: "relative" }}>
-          {/* Ancestors */}
+          {/* Ancestors with thread line.
+              The line starts at the avatar's vertical center on the FIRST
+              ancestor (THREAD_LINE_AVATAR_Y), runs down through every
+              ancestor's body, and bridges the marginBottom gap between
+              posts. paddingBottom on the wrapper holds the Post's
+              marginBottom inside the wrapper so the absolute line can
+              extend through the gap without being clipped by margin-collapse. */}
           {ancestors.length > 0 && (
             <div style={{ position: "relative" }}>
               {ancestors.map((a, index) => (
-                <div key={a.id} style={{ position: "relative" }}>
+                <div
+                  key={a.id}
+                  style={{
+                    position: "relative",
+                    // Keep the Post's marginBottom inside this wrapper so the
+                    // line spans the gap, then offset back with negative margin
+                    // so the visible spacing stays unchanged.
+                    paddingBottom: "3rem",
+                    marginBottom: "-3rem",
+                  }}
+                >
                   <div
                     style={{
                       position: "absolute",
                       left: THREAD_LINE_LEFT,
-                      top: index === 0 ? "50%" : 0,
-                      // Extend past the Post wrapper's marginBottom: 3rem so
-                      // the line bridges the visible gap to the next post.
-                      bottom: "-3rem",
+                      top: index === 0 ? THREAD_LINE_AVATAR_Y : 0,
+                      bottom: 0,
                       width: 2,
                       backgroundColor: THREAD_LINE_COLOR,
                       // Above the Post's Paper (zIndex: 5, white bg) so the
-                      // line is visible across the post body and through the
-                      // gap. The line passes through the avatar circle.
+                      // line is visible across each post body and through
+                      // the gap. The line passes through the avatar circle.
                       zIndex: 6,
                     }}
                   />
@@ -177,7 +195,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
             </div>
           )}
 
-          {/* Focus post */}
+          {/* Focus post — line continues from the top down to the focus avatar. */}
           <div style={{ position: "relative" }}>
             {ancestors.length > 0 && (
               <div
@@ -185,7 +203,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
                   position: "absolute",
                   left: THREAD_LINE_LEFT,
                   top: 0,
-                  height: "50%",
+                  height: THREAD_LINE_AVATAR_Y,
                   width: 2,
                   backgroundColor: THREAD_LINE_COLOR,
                   zIndex: 6,
