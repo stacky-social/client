@@ -160,10 +160,15 @@ export default function MockPostView({ params }: { params: { id: string } }) {
                       position: "absolute",
                       left: THREAD_LINE_LEFT,
                       top: index === 0 ? "50%" : 0,
-                      bottom: 0,
+                      // Extend past the Post wrapper's marginBottom: 3rem so
+                      // the line bridges the visible gap to the next post.
+                      bottom: "-3rem",
                       width: 2,
                       backgroundColor: THREAD_LINE_COLOR,
-                      zIndex: 0,
+                      // Above the Post's Paper (zIndex: 5, white bg) so the
+                      // line is visible across the post body and through the
+                      // gap. The line passes through the avatar circle.
+                      zIndex: 6,
                     }}
                   />
                   {renderPost(a)}
@@ -183,7 +188,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
                   height: "50%",
                   width: 2,
                   backgroundColor: THREAD_LINE_COLOR,
-                  zIndex: 0,
+                  zIndex: 6,
                 }}
               />
             )}

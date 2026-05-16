@@ -202,7 +202,10 @@ export default function ListyInjectionShell({ entries }: ListyInjectionShellProp
           Back
         </button>
 
-        {/* Ancestor chain with thread lines */}
+        {/* Ancestor chain with thread lines.
+            zIndex: 2 puts the line above the FocusPost wrap (zIndex: 1, which
+            contains FocusPost's white background). The line passes through
+            the avatar circle but stays visible across the post body. */}
         {ancestorEntries.map((entry, index) => (
           <div
             key={entry.focusPost.id}
@@ -214,10 +217,10 @@ export default function ListyInjectionShell({ entries }: ListyInjectionShellProp
                 position: "absolute",
                 left: THREAD_LINE_LEFT,
                 top: index === 0 ? "50%" : 0,
-                bottom: 0,
+                bottom: "-0.5rem",
                 width: 2,
                 backgroundColor: THREAD_LINE_COLOR,
-                zIndex: 0,
+                zIndex: 2,
               }}
             />
             <div style={{ position: "relative", zIndex: 1 }}>
@@ -250,7 +253,7 @@ export default function ListyInjectionShell({ entries }: ListyInjectionShellProp
                 height: "50%",
                 width: 2,
                 backgroundColor: THREAD_LINE_COLOR,
-                zIndex: 0,
+                zIndex: 2,
               }}
             />
           )}
