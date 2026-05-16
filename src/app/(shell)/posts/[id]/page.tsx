@@ -53,11 +53,9 @@ const mapWithStackFields = <T extends object>(x: T) => ({
 
 // Thread connector line style shared by ancestor + reply connectors
 const THREAD_LINE_COLOR = "#ccd1dc";
-const THREAD_LINE_LEFT = 32; // aligns with avatar center (~16px padding + ~19px half-avatar)
-// Vertical position of the avatar center in the Post component, measured
-// from the Paper top. The line starts here on the first ancestor and ends
-// here on the focus post.
-const THREAD_LINE_AVATAR_Y = 32;
+// Avatar center x = Paper.border (2) + paddingLeft (16) + half-avatar (19) = 37.
+// Subtract 1 (half line width) so the 2px line is centered on the avatar.
+const THREAD_LINE_LEFT = 36;
 
 /** Strip HTML tags to produce plain text for span-filter hydration */
 function stripHtmlToPlain(html: string): string {
@@ -507,15 +505,15 @@ export default function PostView({ params }: { params: { id: string } }) {
       <BackButton />
       <div>
         <div style={{ position: "relative" }}>
-          {/* Ancestors with thread line.
-              The line starts at the avatar's vertical center on the FIRST
-              ancestor, runs through every ancestor's body, and bridges the
-              marginBottom gap between posts. paddingBottom on the wrapper
-              holds the Post's marginBottom inside so the absolute line can
-              span the gap without being clipped by margin-collapse. */}
+          {/* Ancestors — thread connector line runs at the avatar column,
+              BEHIND the Post's Paper (zIndex 0 < Paper's zIndex 5). Visible
+              only in the gap between cards, matching the Twitter-style thread
+              look. paddingBottom holds the Post's marginBottom inside the
+              wrapper so the absolute line spans through to the next post;
+              negative marginBottom cancels the extra height for layout. */}
           {ancestors.length > 0 && (
             <div style={{ position: "relative" }}>
-              {ancestors.map((a, index) => (
+              {ancestors.map((a) => (
                 <div
                   key={a.id}
                   style={{
@@ -524,14 +522,14 @@ export default function PostView({ params }: { params: { id: string } }) {
                     marginBottom: "-3rem",
                   }}
                 >
-                  <div style={{
+                  <div aria-hidden style={{
                     position: "absolute",
                     left: THREAD_LINE_LEFT,
-                    top: index === 0 ? THREAD_LINE_AVATAR_Y : 0,
+                    top: 0,
                     bottom: 0,
                     width: 2,
                     backgroundColor: THREAD_LINE_COLOR,
-                    zIndex: 6,
+                    zIndex: 0,
                   }} />
                   {renderPost(a)}
                 </div>
@@ -539,19 +537,8 @@ export default function PostView({ params }: { params: { id: string } }) {
             </div>
           )}
 
-          {/* Current Post — line continues from top down to focus avatar. */}
+          {/* Current Post */}
           <div ref={currentPostRef} style={{ position: "relative" }}>
-            {ancestors.length > 0 && (
-              <div style={{
-                position: "absolute",
-                left: THREAD_LINE_LEFT,
-                top: 0,
-                height: THREAD_LINE_AVATAR_Y,
-                width: 2,
-                backgroundColor: THREAD_LINE_COLOR,
-                zIndex: 6,
-              }} />
-            )}
             {post && renderPost(post)}
           </div>
         </div>

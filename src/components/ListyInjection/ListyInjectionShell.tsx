@@ -25,9 +25,9 @@ import InteractionControl from "../InteractionControl";
 // ── Thread line constants (matches posts/[id]/page.tsx) ─────────────────────
 
 const THREAD_LINE_COLOR = "#ccd1dc";
-const THREAD_LINE_LEFT = 32;
-// Vertical avatar-center offset inside FocusPost — used as line endpoints.
-const THREAD_LINE_AVATAR_Y = 24;
+// Avatar center x for FocusPost — padding 1rem (16) + half-avatar (16) ≈ 32,
+// minus 1 (half line width) so the 2px line is centered on the avatar.
+const THREAD_LINE_LEFT = 31;
 
 /** Convert a RelatedPostMock into a synthetic ListyInjectionEntry */
 function syntheticEntry(
@@ -204,11 +204,10 @@ export default function ListyInjectionShell({ entries }: ListyInjectionShellProp
           Back
         </button>
 
-        {/* Ancestor chain with thread lines.
-            Line starts at avatar y on the first ancestor and runs through
-            each post body + gap below. zIndex: 2 puts it above the FocusPost
-            wrap (zIndex: 1, which contains FocusPost's white background). */}
-        {ancestorEntries.map((entry, index) => (
+        {/* Ancestor chain — thread connector line BEHIND each FocusPost
+            (zIndex 0 < FocusPost wrap zIndex 1) so it's only visible in
+            the gap between posts, like Twitter. */}
+        {ancestorEntries.map((entry) => (
           <div
             key={entry.focusPost.id}
             style={{ position: "relative", paddingBottom: "0.5rem" }}
@@ -218,11 +217,11 @@ export default function ListyInjectionShell({ entries }: ListyInjectionShellProp
               style={{
                 position: "absolute",
                 left: THREAD_LINE_LEFT,
-                top: index === 0 ? THREAD_LINE_AVATAR_Y : 0,
+                top: 0,
                 bottom: 0,
                 width: 2,
                 backgroundColor: THREAD_LINE_COLOR,
-                zIndex: 2,
+                zIndex: 0,
               }}
             />
             <div style={{ position: "relative", zIndex: 1 }}>
@@ -243,22 +242,9 @@ export default function ListyInjectionShell({ entries }: ListyInjectionShellProp
           </div>
         ))}
 
-        {/* Current focus post with connector from ancestors */}
+        {/* Current focus post */}
         <div style={{ position: "relative", marginBottom: "1.5rem" }}>
-          {ancestorEntries.length > 0 && (
-            <div
-              aria-hidden
-              style={{
-                position: "absolute",
-                left: THREAD_LINE_LEFT,
-                top: 0,
-                height: THREAD_LINE_AVATAR_Y,
-                width: 2,
-                backgroundColor: THREAD_LINE_COLOR,
-                zIndex: 2,
-              }}
-            />
-          )}
+
           <div style={{ position: "relative", zIndex: 1 }}>
             <FocusPost
               post={currentEntry.focusPost}
