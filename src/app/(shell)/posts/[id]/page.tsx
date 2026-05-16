@@ -508,15 +508,19 @@ export default function PostView({ params }: { params: { id: string } }) {
             <div style={{ position: "relative" }}>
               {ancestors.map((a, index) => (
                 <div key={a.id} style={{ position: "relative" }}>
-                  {/* Vertical line connecting this ancestor to the next post below */}
+                  {/* Vertical line connecting this ancestor to the next post below.
+                      zIndex: 6 puts it above the Post's Paper (zIndex: 5, white bg)
+                      so the line is visible across the post body. bottom: -3rem
+                      extends it past the Post wrapper's marginBottom so the line
+                      bridges the visible gap between posts. */}
                   <div style={{
                     position: "absolute",
                     left: THREAD_LINE_LEFT,
                     top: index === 0 ? "50%" : 0,
-                    bottom: 0,
+                    bottom: "-3rem",
                     width: 2,
                     backgroundColor: THREAD_LINE_COLOR,
-                    zIndex: 0,
+                    zIndex: 6,
                   }} />
                   {renderPost(a)}
                 </div>
@@ -535,7 +539,7 @@ export default function PostView({ params }: { params: { id: string } }) {
                 height: "50%",
                 width: 2,
                 backgroundColor: THREAD_LINE_COLOR,
-                zIndex: 0,
+                zIndex: 6,
               }} />
             )}
             {post && renderPost(post)}
