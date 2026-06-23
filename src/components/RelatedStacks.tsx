@@ -686,11 +686,41 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const { filterCategories, filterFocusSpan, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, reRankAnchorIds, anchoredRangeByPost } = useHighlightStore();
   // C2: hover preview state for filter chips
   const [chipHovered, setChipHovered] = useState<string | null>(null);
-  // Touch device detection (cached on mount). Touch devices use tap-to-activate behavior.
+  // Interaction mode: hover (mouse/pen) vs tap (touch). Adaptive — the most
+  // recent real pointer input decides, so hybrid devices (e.g. a touchscreen
+  // laptop) get hover with the trackpad/mouse and tap with a finger.
+  //
+  // NOTE: do NOT key this off touch *capability* (`navigator.maxTouchPoints` /
+  // `ontouchstart`). Those are nonzero on touch-capable-but-mouse-driven
+  // machines (common on Linux/Windows laptops), which wrongly disabled hover
+  // and broke cross-highlighting on those devices.
   const [isTouch, setIsTouch] = useState(false);
+  const isTouchRef = useRef(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    setIsTouch(('ontouchstart' in window) || navigator.maxTouchPoints > 0);
+    const set = (touch: boolean) => {
+      if (isTouchRef.current === touch) return; // dedupe the constant pointermove stream
+      isTouchRef.current = touch;
+      setIsTouch(touch);
+    };
+    // Initial guess: only treat as touch-only when nothing can hover and there
+    // is no fine pointer. A touchscreen laptop reports a hover-capable
+    // trackpad, so it correctly starts in hover mode.
+    const canHover =
+      window.matchMedia('(any-hover: hover)').matches ||
+      window.matchMedia('(any-pointer: fine)').matches;
+    set(!canHover);
+    // Then follow whichever pointer the user actually uses.
+    const onPointer = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') set(true);
+      else if (e.pointerType === 'mouse' || e.pointerType === 'pen') set(false);
+    };
+    window.addEventListener('pointerdown', onPointer, { capture: true });
+    window.addEventListener('pointermove', onPointer, { capture: true });
+    return () => {
+      window.removeEventListener('pointerdown', onPointer, { capture: true } as any);
+      window.removeEventListener('pointermove', onPointer, { capture: true } as any);
+    };
   }, []);
   // Per-card expanded state, keyed by stackId
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
