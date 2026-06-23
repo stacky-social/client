@@ -174,23 +174,6 @@ function topicOf(relation: { topic?: string; category: string }, stackId: string
   return relation.topic ?? getSyntheticTopic(relation.category, `${stackId}-${rangeIndex}`);
 }
 
-/** When realCount ≤ 1, returns a deterministic value in [2, 7]; otherwise
- *  returns the real count unchanged. Topics genuinely absent (count = 0) still
- *  get a synthetic count here, but the missing-topic guard in the tooltip
- *  rendering path suppresses display whenever r.topic is falsy — so absent
- *  topics are never shown regardless of this count. */
-function getSyntheticTopicCount(_topic: string, realCount: number): number {
-  // No-op: synthetic boost removed because tooltip "N more" was promising
-  // posts the load couldn't deliver. Real count is honest.
-  return realCount;
-}
-
-/** Same logic as getSyntheticTopicCount but for relation categories. */
-function getSyntheticCategoryCount(_category: string, realCount: number): number {
-  // No-op: synthetic boost removed; see getSyntheticTopicCount.
-  return realCount;
-}
-
 // ─── Tooltip label renderer ───────────────────────────────────────────────────
 // "N more <Topic>" with the topic bolded in the category color. Returns null
 // when topic is absent, so callers can short-circuit without rendering.
@@ -753,7 +736,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   // Category prevalence — counts stacks that contain ANY relation with the given
   // category (one stack contributes at most 1 per category, even if it has
   // multiple relations of the same category). Used for tag-hover tooltips.
-  // Synthetic augmentation is applied for low real counts (see getSyntheticCategoryCount).
   const categoryStackCount = useMemo(() => {
     const real = new Map<string, number>();
     for (const stack of relatedStacks) {
@@ -763,19 +745,14 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       }
       seen.forEach(c => real.set(c, (real.get(c) ?? 0) + 1));
     }
-    const augmented = new Map<string, number>();
-    real.forEach((count, category) => {
-      augmented.set(category, getSyntheticCategoryCount(category, count));
-    });
-    return augmented;
+    return real;
   }, [relatedStacks]);
 
   // Topic prevalence — used by tooltip ("7 more Contract reform") and for pagination.
-  // Synthetic augmentation is applied for low real counts (see getSyntheticTopicCount).
   // When relation.topic is absent, a synthetic topic is generated via topicOf().
   const { postTopics, topicTotal } = useMemo(() => {
     const postTopics = new Map<string, Set<string>>();
-    const realTopicTotal = new Map<string, number>();
+    const topicTotal = new Map<string, number>();
     for (const stack of relatedStacks) {
       const topics = new Set<string>();
       for (let ri = 0; ri < (stack.topPost.relations ?? []).length; ri++) {
@@ -784,12 +761,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
         topics.add(t);
       }
       postTopics.set(stack.topPost.id, topics);
-      topics.forEach(t => realTopicTotal.set(t, (realTopicTotal.get(t) ?? 0) + 1));
+      topics.forEach(t => topicTotal.set(t, (topicTotal.get(t) ?? 0) + 1));
     }
-    const topicTotal = new Map<string, number>();
-    realTopicTotal.forEach((count, topic) => {
-      topicTotal.set(topic, getSyntheticTopicCount(topic, count));
-    });
     return { postTopics, topicTotal };
   }, [relatedStacks]);
 

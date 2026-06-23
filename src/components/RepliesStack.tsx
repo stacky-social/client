@@ -5,7 +5,6 @@ import { Layers } from 'lucide-react';
 import { formatPostDate } from '../utils/formatPostDate';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
 import './RelatedStacks.css';
 import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import InteractionControl from './InteractionControl';
@@ -113,28 +112,6 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
     const profileHandle = account.acct || account.username || account.display_name;
     router.push(`/user/${profileHandle}`);
   };
-
-  const containerVariants = {
-    hidden: { opacity: 1 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.2,
-      },
-    },
-  };
-
-  const itemVariants = (index: number) => ({
-    hidden: showupdate ? { opacity: 0, x: -200, y: -200 * (index + 1) } : { opacity: 0, y: 200 },
-    show: {
-      opacity: 1,
-      x: 0,
-      y: 0,
-      transition: {
-        duration: 0.5
-      }
-    },
-  });
 
   const handleClick = (postId: string, stackId: string) => {
     handleNavigate(postId, stackId);

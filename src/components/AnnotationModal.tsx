@@ -18,9 +18,6 @@ interface AnnotationModalProps {
   stackId: string | null;
 }
 
-//fake data
-const questions: Question[] = [];
-
 const AnnotationModal: React.FC<AnnotationModalProps> = ({ isOpen, onClose, stackId }) => {
   const [answers, setAnswers] = useState<{ [questionId: string]: string }>({});
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -93,7 +90,7 @@ const AnnotationModal: React.FC<AnnotationModalProps> = ({ isOpen, onClose, stac
       console.log('answers submitted successfully');
       setAnswers({});
       onClose();
-    } catch (error) { 
+    } catch (error) {
       console.error('error happens:', error);
     }
   };
