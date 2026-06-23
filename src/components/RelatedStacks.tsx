@@ -659,7 +659,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const set = (touch: boolean) => {
-      if (isTouchRef.current === touch) return; // dedupe the constant pointermove stream
+      if (isTouchRef.current === touch) return; // dedupe redundant updates
       isTouchRef.current = touch;
       setIsTouch(touch);
     };
@@ -670,16 +670,19 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       window.matchMedia('(any-hover: hover)').matches ||
       window.matchMedia('(any-pointer: fine)').matches;
     set(!canHover);
-    // Then follow whichever pointer the user actually uses.
+    // Then follow whichever pointer the user actually uses. We detect on
+    // `pointerdown` only — one discrete event per interaction — instead of the
+    // high-frequency `pointermove` stream that fired on every cursor move. The
+    // initial matchMedia guess already puts hover-capable devices in hover mode,
+    // and the first touch/click confirms or corrects it, so isTouch resolves to
+    // the same value without a per-move handler.
     const onPointer = (e: PointerEvent) => {
       if (e.pointerType === 'touch') set(true);
       else if (e.pointerType === 'mouse' || e.pointerType === 'pen') set(false);
     };
     window.addEventListener('pointerdown', onPointer, { capture: true });
-    window.addEventListener('pointermove', onPointer, { capture: true });
     return () => {
       window.removeEventListener('pointerdown', onPointer, { capture: true } as any);
-      window.removeEventListener('pointermove', onPointer, { capture: true } as any);
     };
   }, []);
   // Per-card expanded state, keyed by stackId

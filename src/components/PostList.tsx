@@ -100,6 +100,49 @@ const PostList: React.FC<PostListProps> = ({
     const fetchKeyRef = useRef<string | null>(null);
     const restoredScrollRef = useRef(false);
 
+    // Currently-viewport-intersecting post nodes, keyed by data-post-id. Kept up
+    // to date by an IntersectionObserver so the active-post computation only has
+    // to read rects for the handful of visible nodes instead of querying and
+    // measuring every rendered [data-post-id] in the document on each scroll stop.
+    const visiblePostElsRef = useRef<Map<string, Element>>(new Map());
+    // Every currently-observed post node, keyed by id, so unmount can unobserve
+    // precisely (the visible map only holds the intersecting subset).
+    const observedPostElsRef = useRef<Map<string, Element>>(new Map());
+    const postObserverRef = useRef<IntersectionObserver | null>(null);
+    // Lazily create the observer so the post ref-callbacks (which run during the
+    // first commit, before effects) have something to register with.
+    const getPostObserver = (): IntersectionObserver | null => {
+        if (typeof IntersectionObserver === 'undefined') return null;
+        if (!postObserverRef.current) {
+            postObserverRef.current = new IntersectionObserver((entries) => {
+                for (const entry of entries) {
+                    const id = entry.target.getAttribute('data-post-id');
+                    if (!id) continue;
+                    // isIntersecting mirrors the old visibility test
+                    // (rect.bottom > 0 && rect.top < window.innerHeight).
+                    if (entry.isIntersecting) visiblePostElsRef.current.set(id, entry.target);
+                    else visiblePostElsRef.current.delete(id);
+                }
+            });
+        }
+        return postObserverRef.current;
+    };
+    // Stable ref-callback attached to each rendered post wrapper. Observes the
+    // node on mount and unobserves + forgets it on unmount, so the visible set
+    // tracks Virtuoso's dynamic mounting/unmounting without a full-DOM query.
+    const registerPostNodeRef = useRef((node: HTMLDivElement | null, postId: string) => {
+        const observer = getPostObserver();
+        if (node) {
+            observedPostElsRef.current.set(postId, node);
+            observer?.observe(node);
+        } else {
+            const prev = observedPostElsRef.current.get(postId);
+            if (prev) observer?.unobserve(prev);
+            observedPostElsRef.current.delete(postId);
+            visiblePostElsRef.current.delete(postId);
+        }
+    });
+
     // Mirror reactive values into refs so the scroll listener can attach ONCE
     // (stable deps) and still read the latest posts/activePostId/callbacks. This
     // avoids re-subscribing the window scroll listener on every posts update.
@@ -306,6 +349,15 @@ const PostList: React.FC<PostListProps> = ({
     // Reads the DOM ([data-post-id]) rather than a refs array so it works with
     // virtualization (only the mounted/visible posts exist in the DOM).
     useEffect(() => {
+        // Ensure the observer exists and is watching every currently-mounted post
+        // node. Ref-callbacks register nodes during commit, but on a Strict-Mode
+        // re-mount (cleanup nulled the observer) the nodes persist without their
+        // ref-callbacks re-firing, so we (re)observe the tracked set here.
+        const observer = getPostObserver();
+        if (observer) {
+            observedPostElsRef.current.forEach((node) => observer.observe(node));
+        }
+
         const evaluateActiveByCenter = () => {
             const currentPosts = postsRef.current;
 
@@ -324,17 +376,21 @@ const PostList: React.FC<PostListProps> = ({
             let bestRect: DOMRect | null = null;
             let bestDistance = Number.POSITIVE_INFINITY;
 
-            // Plain for-loop (not forEach) so TS control-flow analysis tracks the
-            // bestId/bestRect assignments for correct narrowing below.
-            const els = document.querySelectorAll('[data-post-id]');
-            for (let i = 0; i < els.length; i++) {
-                const rect = els[i].getBoundingClientRect();
+            // Only the currently-intersecting nodes (maintained by the
+            // IntersectionObserver) are candidates, so we read rects for a
+            // handful of visible nodes instead of every rendered [data-post-id].
+            // The same visibility guard is kept so the chosen "active" post is
+            // identical to the old full-document scan even if an observer entry
+            // is momentarily stale. Plain for-of (not forEach) so TS control-flow
+            // analysis tracks the bestId/bestRect assignments for narrowing below.
+            for (const [id, el] of Array.from(visiblePostElsRef.current.entries())) {
+                const rect = el.getBoundingClientRect();
                 if (rect.bottom <= 0 || rect.top >= window.innerHeight) continue; // not visible
                 const center = rect.top + rect.height / 2;
                 const distance = Math.abs(center - viewportCenter);
                 if (distance < bestDistance) {
                     bestDistance = distance;
-                    bestId = els[i].getAttribute('data-post-id');
+                    bestId = id;
                     bestRect = rect;
                 }
             }
@@ -359,11 +415,22 @@ const PostList: React.FC<PostListProps> = ({
             }, 40);
         };
 
-        evaluateActiveByCenter();
+        // The IntersectionObserver delivers its first entries asynchronously, so
+        // the visible set may be empty on this synchronous mount tick. Defer the
+        // initial evaluation one frame so it runs against a populated set
+        // (preserving the old on-mount auto-selection by viewport center).
+        const initialRaf = requestAnimationFrame(() => evaluateActiveByCenter());
         window.addEventListener('scroll', handleScroll, { passive: true } as AddEventListenerOptions);
         return () => {
             window.removeEventListener('scroll', handleScroll as EventListener);
             if (scrollStopTimeoutRef.current) clearTimeout(scrollStopTimeoutRef.current);
+            cancelAnimationFrame(initialRaf);
+            postObserverRef.current?.disconnect();
+            postObserverRef.current = null;
+            // Clear the visible (intersecting) set — the observer that fed it is
+            // gone. Keep observedPostElsRef: it tracks which nodes are mounted so
+            // a Strict-Mode re-mount can re-observe them via getPostObserver().
+            visiblePostElsRef.current.clear();
         };
     }, []); // attach once — reads latest values via refs
 
@@ -451,7 +518,10 @@ const PostList: React.FC<PostListProps> = ({
     }, [posts, loading, apiUrl, maxId, accessToken]);
 
     const renderPost = (_index: number, post: PostType) => (
-        <div data-post-id={post.postId}>
+        <div
+            data-post-id={post.postId}
+            ref={(node) => registerPostNodeRef.current(node, post.postId)}
+        >
             <Post
                 id={post.postId}
                 text={post.text}
