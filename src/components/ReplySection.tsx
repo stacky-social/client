@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Avatar, Group, Button, Text, Stack, Paper, Badge, Loader, TextInput } from "@mantine/core";
 import axios from 'axios';
@@ -195,7 +197,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                             {simulatedReplies.length > 0 && (
                                 <Stack>
                                     {simulatedReplies.map((reply, index) => (
-                                        <div key={index} style={{ position: 'relative' }}>
+                                        <div key={reply.id ?? reply.content} style={{ position: 'relative' }}>
                                             <Paper
                                                 style={{
                                                     position: 'relative',

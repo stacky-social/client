@@ -128,6 +128,11 @@ export function useUrlSync({
     }
 
     const [start, end] = parts;
+    if (!Number.isInteger(start) || !Number.isInteger(end)) {
+      // Reject non-integer offsets like "10.5-20.5"
+      fsHydratedRef.current = true;
+      return;
+    }
     if (start < 0 || end <= start || start >= plainPostText.length) {
       // Offsets out of range — silently skip; post content may have changed
       fsHydratedRef.current = true;
@@ -144,6 +149,13 @@ export function useUrlSync({
   // Uses router.replace (not push) so filter toggles don't pollute history.
   // Preserves ?stackId and ?from (set by other parts of the app).
   useEffect(() => {
+    // Clear any pending debounce up front so a stale router.replace can't fire
+    // against an out-of-date path, even if this effect early-returns below.
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+
     // Don't write until we've finished hydrating — would immediately overwrite the
     // URL params we just read.
     if (!hydratedRef.current) return;
@@ -173,14 +185,16 @@ export function useUrlSync({
     const currentSearch = searchParams.toString();
     if (newSearch === currentSearch) return; // already up to date
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       const newUrl = pathname + (newSearch ? "?" + newSearch : "");
       router.replace(newUrl);
     }, 300);
 
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
     };
-  }, [activeTab, filterCategories, filterFocusSpan, pathname]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab, filterCategories, filterFocusSpan, pathname, searchParams, router]);
 }

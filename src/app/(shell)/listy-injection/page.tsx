@@ -40,12 +40,20 @@ function toPostData(entry: ListyInjectionEntry) {
   const flatStacks = entry.relatedPosts.map((rp) => ({
     stackId: `stack-${rp.id}`, rel: rp.category, size: 1, topPost: toTopPost(rp),
   }));
-  const categoryMap = new Map<string, { count: number; topPost: ReturnType<typeof toTopPost> }>();
+  const categoryMap = new Map<string, { count: number; rank: number; topPost: ReturnType<typeof toTopPost> }>();
   for (const rp of entry.relatedPosts) {
     const existing = categoryMap.get(rp.category);
-    if (!existing || rp.rank < (existing as any).rank) {
-      categoryMap.set(rp.category, { count: (existing?.count ?? 0) + 1, topPost: toTopPost(rp) });
-    } else { existing.count++; }
+    if (!existing) {
+      categoryMap.set(rp.category, { count: 1, rank: rp.rank, topPost: toTopPost(rp) });
+    } else {
+      // Count this item exactly once, then promote the top post only if this
+      // one ranks higher (lower rank number = better).
+      existing.count++;
+      if (rp.rank < existing.rank) {
+        existing.rank = rp.rank;
+        existing.topPost = toTopPost(rp);
+      }
+    }
   }
   const aggregatedStacks = Array.from(categoryMap.entries()).map(([cat, { count, topPost }]) => ({
     stackId: `agg-${entry.focusPost.id}-${cat}`, rel: cat, size: count, topPost,

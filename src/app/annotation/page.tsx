@@ -45,7 +45,7 @@ interface TaskType {
     TaskID: string;
     candidate_related_posts: RelatedPostType[];
     focus_postID: string;
-    itemIndex: number;  
+    itemIndex: number;
     viewed:boolean;
 }
 
@@ -191,8 +191,8 @@ export default function Annotation() {
     const [taskList, setTaskList] = useState<TaskType[]>([]);
     const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
     const [taskChanges, setTaskChanges] = useState<Record<string, Record<number, RelatedPostType[]>>>({});
-    const [avatar, setAvatar] = useState(avatars[0]); 
-    
+    const [avatar, setAvatar] = useState(avatars[0]);
+
 
     const fetchPostAndReplies = async (postId: string) => {
         const accessToken = localStorage.getItem('accessToken');
@@ -228,25 +228,33 @@ export default function Annotation() {
     const fetchTaskList = async () => {
         setLoading(true);
         const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        const userID = currentUser.id; 
+        const userID = currentUser.id;
         try {
-     
+
             setTaskList([]);
             setCurrentTaskIndex(0);
             setRelatedPosts([]);
-            
+
             const response = await axios.get('https://beta.stacky.social:3002/annotation/task', {
                 params: { user_id: userID },
-            }); 
+            });
             const data: TaskType[] = response.data;
             const dataWithIndex = data.map((task, index) => ({
                 ...task,
                 itemIndex: index,
                 viewed: false
             }));
-            
+
             setTaskList(dataWithIndex);
-            loadTask(dataWithIndex[0]);
+            if (dataWithIndex.length > 0) {
+                loadTask(dataWithIndex[0]);
+            } else {
+                // No tasks assigned: clear the focus post / related posts so the
+                // UI shows an empty (loaded) state instead of crashing on
+                // dataWithIndex[0].TaskID.
+                setTaskID(null);
+                setRelatedPosts([]);
+            }
         } catch (error) {
             console.error('Failed to fetch task list:', error);
         } finally {
@@ -254,7 +262,7 @@ export default function Annotation() {
         }
         refreshAvatar();
     };
-    
+
 
     const loadTask = (task: TaskType) => {
         console.log('Loading task:', task);
@@ -279,12 +287,17 @@ export default function Annotation() {
     };
 
     const saveCurrentTaskChanges = () => {
-        if (taskID !== null) {
+        // Key by the current task's itemIndex (not currentTaskIndex) so reads in
+        // loadTask and handleSubmit — which use task.itemIndex — line up even if
+        // the list is ever reordered relative to itemIndex.
+        const currentTask = taskList[currentTaskIndex];
+        if (taskID !== null && currentTask) {
+            const itemIndex = currentTask.itemIndex;
             setTaskChanges(prev => ({
                 ...prev,
                 [taskID]: {
                     ...prev[taskID],
-                    [currentTaskIndex]: relatedPosts
+                    [itemIndex]: relatedPosts
                 }
             }));
         }
@@ -319,7 +332,7 @@ export default function Annotation() {
     const handleSubmit = async () => {
         saveCurrentTaskChanges();
         const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        const userID = currentUser.id; 
+        const userID = currentUser.id;
 
         if (!userID) {
             console.error('User ID is missing.');
@@ -345,7 +358,7 @@ export default function Annotation() {
                 taskID: task.TaskID,
                 userID,
                 ordered_related_posts: orderedRelatedPosts,
-                itemIndex: task.itemIndex 
+                itemIndex: task.itemIndex
             };
         });
 
@@ -368,7 +381,7 @@ export default function Annotation() {
 
     return (
         <Container fluid>
-            <div style={{ 
+            <div style={{
                 marginTop: rem(20),
                 marginBottom: rem(20) }}>
                 <Button style={{ marginRight: rem(20) }} onClick={fetchTaskList}>GET NEW TASK LIST</Button>
@@ -376,18 +389,18 @@ export default function Annotation() {
                 <Button style={{ marginRight: rem(20) }} onClick={handleNextTask}>NEXT</Button>
                 <Button style={{ marginRight: rem(20) }} onClick={handleSubmit}>SUBMIT</Button>
             </div>
-            
+
             <div style={{ display: 'flex', alignItems: 'center', width: '80%'  }}>
                 <div style={{width:'10%'}}>
                     <AvatarDisplay avatar={avatar} />
                 </div>
-           
+
                 <div style={{width:'50%'}}>
                     <ProgressCard currentTaskIndex={currentTaskIndex} totalTasks={taskList.length} />
                 </div>
-          
+
             </div>
-               
+
             <div style={{ display: 'flex', width: '100%' }}>
                 <div style={{ width: '35%', paddingRight: rem(10) }}>
                     {loading && <LoadingOverlay visible={loading} />}

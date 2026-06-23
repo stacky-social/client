@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Text, Avatar, Group, Paper, Divider, Button } from '@mantine/core';
 import axios from 'axios';
-import Posts from '../../../../components/Posts/Posts'; 
+import Posts from '../../../../components/Posts/Posts';
+import { useAccessToken } from '../../../../utils/useAccessToken';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
@@ -13,7 +14,7 @@ export default function UserPage() {
   const [userData, setUserData] = useState<any>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(false);
-  const accessToken = localStorage.getItem('accessToken');
+  const { token: accessToken } = useAccessToken();
 
   useEffect(() => {
     if (userName) {
@@ -23,7 +24,7 @@ export default function UserPage() {
 
   const fetchUserData = async (username: string) => {
     try {
-      const userResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/accounts/lookup?acct=${username}`);
+      const userResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/accounts/lookup?acct=${encodeURIComponent(username)}`);
       setUserData(userResponse.data);
       fetchRelationship(userResponse.data.id);
     } catch (error) {
@@ -141,7 +142,7 @@ export default function UserPage() {
       </Paper>
       <div style={{ marginTop: '20px' }}>
       <Posts apiUrl={`${MastodonInstanceUrl}/api/v1/accounts/${userData.id}/statuses`}  loadStackInfo={true} showSubmitAndSearch={false} />
-       
+
       </div>
     </div>
   );

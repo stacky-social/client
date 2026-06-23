@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor } from '@mantine/core';
@@ -511,7 +513,7 @@ interface PostProps {
   clampLines?: number;
 }
 
-export default function Post({
+function Post({
   id,
   text,
   author,
@@ -559,6 +561,13 @@ export default function Post({
 
   const [isOverflowing, setIsOverflowing] = useState(false);
   const textRef = useRef<HTMLDivElement>(null);
+  // Guards against setState after unmount: under feed virtualization a post can
+  // unmount while a post-action refetch is still in flight.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     const element = textRef.current;
@@ -630,6 +639,9 @@ export default function Post({
           Authorization: `Bearer ${accessToken}`,
         },
       });
+      // Bail if the post unmounted while the request was in flight, so we don't
+      // setState on an unmounted component.
+      if (!mountedRef.current) return;
       const data = response.data;
       const mediaAttachments = data.media_attachments.map((attachment: any) => attachment.url);
       setLikeCount(data.favourites_count);
@@ -930,7 +942,7 @@ export default function Post({
           {mediaAttachments.length > 0 && (
             <div style={{ paddingLeft: '3rem', paddingRight: '4rem', paddingTop: '1rem' }}>
               {mediaAttachments.map((url, index) => (
-                <img key={index} src={url} alt={`Attachment ${index + 1}`} style={{ width: '100%', marginBottom: '10px' }} />
+                <img key={index} src={url} alt={`Attachment ${index + 1}`} loading="lazy" decoding="async" style={{ width: '100%', marginBottom: '10px' }} />
               ))}
             </div>
           )}
@@ -949,6 +961,8 @@ export default function Post({
                 <img
                   src={card.image}
                   alt={card.title}
+                  loading="lazy"
+                  decoding="async"
                   style={{ width: '100%', borderRadius: '8px', display: 'block' }}
                 />
               </a>
@@ -1004,3 +1018,21 @@ export default function Post({
     </div>
   );
 }
+
+// Skip re-rendering a post when only `activePostId` changed but THIS post's own
+// active state didn't flip (Post uses activePostId solely to derive isActive).
+// Any other prop change still re-renders via shallow compare, so no stale UI.
+// On the feed this stops every mounted post re-rendering on each scroll-focus
+// change — only the two posts whose active state actually flips re-render.
+function postPropsEqual(prev: PostProps, next: PostProps): boolean {
+  if ((prev.activePostId === prev.id) !== (next.activePostId === next.id)) return false;
+  const keys = Object.keys(next) as (keyof PostProps)[];
+  if (keys.length !== Object.keys(prev).length) return false;
+  for (const k of keys) {
+    if (k === "activePostId") continue;
+    if (prev[k] !== next[k]) return false;
+  }
+  return true;
+}
+
+export default React.memo(Post, postPropsEqual);

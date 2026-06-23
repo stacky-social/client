@@ -1,4 +1,4 @@
-import React, { useEffect,useRef, useState } from 'react';
+import React, { useEffect,useRef, useState, useMemo } from 'react';
 import { Modal, ScrollArea, Switch, SimpleGrid, Text, Container, Group, Avatar, Button, Divider, Paper, UnstyledButton, TextInput, rem, LoadingOverlay, Loader } from '@mantine/core';
 import axios from 'axios';
 import { IconBookmark, IconHeart, IconMessageCircle, IconPhoto, IconSettings, IconShare, IconHeartFilled, IconBookmarkFilled, IconSearch } from "@tabler/icons-react";
@@ -41,8 +41,20 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
-  const [substacks, setSubstacks] = useState<Substack[]>([]);
+  // Master list of all substacks for the current stack. The rendered list is a
+  // derived, filtered view (`substacks`) — we never overwrite this source array,
+  // so clearing the search term restores the full list.
+  const [allSubstacks, setAllSubstacks] = useState<Substack[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  // Term actually applied to the list (committed on Enter via handleSearch).
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
+  const substacks = useMemo(() => {
+    const term = appliedSearchTerm.trim().toLowerCase();
+    if (!term) return allSubstacks;
+    return allSubstacks.filter(substack =>
+      substack.topPost.content.toLowerCase().includes(term)
+    );
+  }, [allSubstacks, appliedSearchTerm]);
   const router = useRouter();
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>('stacked');
@@ -82,7 +94,9 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
 
   useEffect(() => {
     if (stackId) {
-      setSubstacks([]);
+      setAllSubstacks([]);
+      setSearchTerm('');
+      setAppliedSearchTerm('');
       setLoadingSubstacks(true);
       fetchSubstacks(stackId);
     }
@@ -116,7 +130,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
           },
         },
       }));
-      setSubstacks(substacksData);
+      setAllSubstacks(substacksData);
     } catch (error) {
       console.error("Failed to fetch substacks:", error);
     } finally {
@@ -126,10 +140,9 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
 
   const handleSearch = async (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
-      const filteredSubstacks = substacks.filter(substack =>
-        substack.topPost.content.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setSubstacks(filteredSubstacks);
+      // Commit the term; the rendered list is derived from the master list, so
+      // an empty term restores everything and the source array is never lost.
+      setAppliedSearchTerm(searchTerm);
     }
   };
 
@@ -146,7 +159,9 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
     console.log(topPostId);
     const newUrl = `https://beta.stacky.social:3002/stacks/${substackID}/posts`;
     setCurrentUrl(newUrl);
-    setSubstacks([]);
+    setAllSubstacks([]);
+    setSearchTerm('');
+    setAppliedSearchTerm('');
     setLoadingSubstacks(true);
     fetchSubstacks(substackID);
   };

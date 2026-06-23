@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Anchor } from '@mantine/core';
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconThumbUp, IconThumbDown } from '@tabler/icons-react';
@@ -1207,7 +1209,14 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     }
   }).current;
 
-  // Reset stale hover + anchors when stacks change (new focus post)
+  // Identity of the focus post these stacks belong to. Revalidation produces a
+  // new `relatedStacks` array reference for the *same* logical post, so we key
+  // the reset on this stable id rather than the array reference — otherwise a
+  // background refresh would wipe the user's active filter/anchor mid-interaction.
+  // Prefer an explicit sourcePostId; fall back to the first stack's post id.
+  const focusPostIdentity = sourcePostId ?? relatedStacks[0]?.topPost.id ?? null;
+
+  // Reset stale hover + anchors when the focus post actually changes.
   useEffect(() => {
     setHoveredCardIndex(null);
     setHoveredIndex(null);
@@ -1216,7 +1225,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     clearReRankAnchors();
     clearTapped();
     clearFilterFocusSpan(); // D2: clear span filter when focus post changes
-  }, [relatedStacks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusPostIdentity]);
 
   // Touch: tap-outside clears the active state so highlights/sidebar reset.
   useEffect(() => {

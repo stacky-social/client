@@ -20,16 +20,38 @@ const postListCacheMap = new Map<string, PostListCache>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_ENTRIES = 20;
 
-/** Evict expired entries and cap total size */
+/** Evict expired entries and cap total size (LRU — see cacheGet/cacheSet which refresh recency) */
 function pruneCache<V extends { timestamp: number }>(cache: Map<string, V>, max: number) {
     const now = Date.now();
     cache.forEach((value, key) => {
         if (now - value.timestamp > CACHE_TTL) cache.delete(key);
     });
     while (cache.size > max) {
+        // Map preserves insertion order; the least-recently used key is first
+        // because cacheGet/cacheSet re-insert touched keys at the end.
         const oldest = cache.keys().next().value;
         if (oldest !== undefined) cache.delete(oldest);
     }
+}
+
+/** Cache key includes the bearer token so a different user can't read another user's cached posts */
+function cacheKeyFor(apiUrl: string, accessToken: string | null): string {
+    return `${accessToken ?? 'anon'}::${apiUrl}`;
+}
+
+/** Read an entry and refresh its recency (re-insert at end) so eviction is LRU, not FIFO */
+function cacheGet(key: string): PostListCache | null {
+    const value = postListCacheMap.get(key);
+    if (value === undefined) return null;
+    postListCacheMap.delete(key);
+    postListCacheMap.set(key, value);
+    return value;
+}
+
+/** Write an entry and refresh its recency (re-insert at end) so eviction is LRU, not FIFO */
+function cacheSet(key: string, value: PostListCache) {
+    postListCacheMap.delete(key);
+    postListCacheMap.set(key, value);
 }
 
 interface PostListProps {
@@ -60,8 +82,7 @@ const PostList: React.FC<PostListProps> = ({
     // Check cache synchronously during initialization to avoid a loading flash.
     // Stored in a ref so subsequent renders don't re-evaluate the cache check.
     const initialCacheRef = useRef(() => {
-        const cached = postListCacheMap.get(apiUrl);
-        return cached ?? null;
+        return cacheGet(cacheKeyFor(apiUrl, accessToken));
     });
     const cachedSnapshot = useRef(initialCacheRef.current());
     const hasCachedData = !!cachedSnapshot.current;
@@ -114,7 +135,7 @@ const PostList: React.FC<PostListProps> = ({
             return;
         }
 
-        postListCacheMap.delete(apiUrl);
+        postListCacheMap.delete(cacheKeyFor(apiUrl, accessToken));
         fetchPosts();
     }, [apiUrl, accessToken, loadStackInfo, ready]);
 
@@ -263,7 +284,7 @@ const PostList: React.FC<PostListProps> = ({
             }
 
             // Update fetchedAt in cache
-            const cached = postListCacheMap.get(apiUrl);
+            const cached = cacheGet(cacheKeyFor(apiUrl, accessToken));
             if (cached) {
                 cached.fetchedAt = Date.now();
             }
@@ -420,14 +441,14 @@ const PostList: React.FC<PostListProps> = ({
     // Save to in-memory cache whenever posts update (even partially loaded stacks)
     useEffect(() => {
         if (loading || posts.length === 0) return;
-        postListCacheMap.set(apiUrl, {
+        cacheSet(cacheKeyFor(apiUrl, accessToken), {
             posts,
             maxId,
             timestamp: Date.now(),
             fetchedAt: Date.now(),
         });
         pruneCache(postListCacheMap, MAX_CACHE_ENTRIES);
-    }, [posts, loading, apiUrl, maxId]);
+    }, [posts, loading, apiUrl, maxId, accessToken]);
 
     const renderPost = (_index: number, post: PostType) => (
         <div data-post-id={post.postId}>
