@@ -79,3 +79,11 @@ body {
 @container (max-width: 280px) {
     .related-topic-label { display: none !important; }
 }
+
+/* Related-responses filter chips: on a narrow panel collapse each chip to just
+   its icon + count (drop the category word) so the filter bar stays one or two
+   rows instead of sprawling. Full chips (icon + word + count) return on wide
+   panels — the aside's container-query context tracks the real panel width. */
+@container (max-width: 440px) {
+    .related-chip-text { display: none; }
+}
