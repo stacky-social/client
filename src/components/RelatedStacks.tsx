@@ -1066,6 +1066,16 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     router.push(url);
   };
 
+  // Hover-prefetch: warm the live post route (its RSC payload enters Next's
+  // prefetch cache) so clicking a related card navigates instantly. Skipped in
+  // mock mode (onPostNavigate), where the data is already in memory.
+  const prefetchedRef = useRef<Set<string>>(new Set());
+  const prefetchPost = (postId: string) => {
+    if (onPostNavigate || prefetchedRef.current.has(postId)) return;
+    prefetchedRef.current.add(postId);
+    try { router.prefetch(`/posts/${postId}`); } catch { /* prefetch is best-effort */ }
+  };
+
   const handleNavigateToUser = (e: React.MouseEvent, account: { acct?: string; username?: string; display_name: string }) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1712,6 +1722,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   setHoveredIndex(null);
                   setHoveredCardIndex(index);
                   setHoveredSidebarPost(stack.topPost.id, stack.topPost.relations);
+                  prefetchPost(stack.topPost.id);
                 }}
                 onMouseLeave={(e) => {
                   if (isTouch) return;
