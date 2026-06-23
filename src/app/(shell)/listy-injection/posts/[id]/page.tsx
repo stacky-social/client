@@ -129,7 +129,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       favouritesCount={p.favourites_count}
       favourited={p.favourited}
       bookmarked={p.bookmarked}
-      mediaAttachments={[]}
+      mediaAttachments={(p.media_attachments || []).map((m: any) => m.url)}
       onStackIconClick={() => {}}
       setIsModalOpen={() => {}}
       setIsExpandModalOpen={() => {}}

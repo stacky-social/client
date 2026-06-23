@@ -132,7 +132,7 @@ const PostList: React.FC<PostListProps> = ({
             favouritesCount: post.favourites_count,
             favourited: post.favourited,
             bookmarked: post.bookmarked,
-            mediaAttachments: post.media_attachments,
+            mediaAttachments: (post.media_attachments || []).map((m: any) => m.url),
             relatedStacks: [],
             previewCard: post.card ? {
                 title: post.card.title,

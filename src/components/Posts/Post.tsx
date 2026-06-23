@@ -523,6 +523,7 @@ export default function Post({
   favouritesCount,
   favourited,
   bookmarked,
+  mediaAttachments: initialMedia = [],
   onStackIconClick,
   relatedStacks,
   activePostId,
@@ -543,7 +544,7 @@ export default function Post({
   const [likeCount, setLikeCount] = useState(favouritesCount);
   const [replyCount, setReplyCount] = useState(repliesCount);
   const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
-  const [mediaAttachments, setMediaAttachments] = useState<string[]>([]);
+  const [mediaAttachments, setMediaAttachments] = useState<string[]>(initialMedia);
   const isActive = activePostId === id;
   const [isExpanded, setIsExpanded] = useState(isActive);
   const [isTextExpanded, setIsTextExpanded] = useState(false);
@@ -586,9 +587,10 @@ export default function Post({
     }
   }, [text, mediaAttachments, previewCards]);
 
-  useEffect(() => {
-    fetchPostData();
-  }, []);
+  // Counts, flags, card and media all arrive via props (from the parent's list/
+  // thread fetch), so we no longer refetch each post's full status on mount —
+  // that fired one /api/v1/statuses/{id} per mounted post and stormed the server
+  // on long feeds/threads. fetchPostData remains for refreshing after an action.
 
   useEffect(() => {
     // Sync isExpanded with isActive state
