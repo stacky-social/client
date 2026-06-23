@@ -5,6 +5,7 @@ import { Group, Avatar, Button, ActionIcon, Textarea, TextInput } from '@mantine
 import { IconPhoto, IconChartBar, IconAlertTriangle, IconMoodSmile,  } from '@tabler/icons-react';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { notifications } from '@mantine/notifications';
+import { getCurrentUser } from '../../utils/getCurrentUser';
 import classes from './SubmitPost.module.css';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
@@ -28,9 +29,9 @@ export function SubmitPost() {
     const token = localStorage.getItem('accessToken');
     setAccessToken(token);
 
-    const user = localStorage.getItem('currentUser');
+    const user = getCurrentUser();
     if (user) {
-      setCurrentUser(JSON.parse(user));
+      setCurrentUser(user);
     }
   }, []);
 
@@ -175,7 +176,7 @@ export function SubmitPost() {
         />
         <div className={classes.ButtonArea} style={{ marginTop: '20px' }}>
             <Group className="iconlist">
-              <ActionIcon 
+              <ActionIcon
               className={classes.actionIcon}
               style={iconStyle} onClick={() => fileInputRef.current?.click()}>
                 <IconPhoto size={20} />
@@ -186,17 +187,17 @@ export function SubmitPost() {
                 style={{ display: 'none' }}
                 accept="image/*"
               />
-              <ActionIcon 
+              <ActionIcon
               className={classes.actionIcon}
               style={iconStyle}>
                 <IconChartBar size={20} />
               </ActionIcon>
-              <ActionIcon 
+              <ActionIcon
               className={classes.actionIcon}
               style={iconStyle}>
                 <IconAlertTriangle size={20} />
               </ActionIcon>
-              <ActionIcon 
+              <ActionIcon
               className={classes.actionIcon}
               style={iconStyle} onClick={toggleEmojiPicker}>
                 <IconMoodSmile size={20} />

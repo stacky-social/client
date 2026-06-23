@@ -21,6 +21,7 @@ import {
   type MockPostType,
 } from "../../../../../utils/mockPostResolver";
 import type { Relation } from "../../../../../types/PostType";
+import { getCurrentUser } from "../../../../../utils/getCurrentUser";
 
 // Thread connector line style — mirrors /posts/[id]
 const THREAD_LINE_COLOR = "#ccd1dc";
@@ -77,10 +78,8 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       setActivePostId(id);
     }
     // Read currentUser from localStorage if present (ReplySection wants it; mock allows null).
-    try {
-      const raw = localStorage.getItem("currentUser");
-      if (raw) setCurrentUser(JSON.parse(raw));
-    } catch {}
+    const user = getCurrentUser();
+    if (user) setCurrentUser(user);
   }, [id]);
 
   // Defer the reply thread to the next task so the focus post + ancestors

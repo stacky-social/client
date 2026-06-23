@@ -5,6 +5,7 @@ import { IconHeart, IconBookmark, IconMessageCircle, IconHeartFilled, IconBookma
 import { rem } from '@mantine/core';
 import axios from 'axios';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { getCurrentUser } from '../../utils/getCurrentUser';
 
 const MastodonInstanceUrl = "https://beta.stacky.social";
 
@@ -227,8 +228,8 @@ export default function Annotation() {
 
     const fetchTaskList = async () => {
         setLoading(true);
-        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        const userID = currentUser.id;
+        const currentUser = getCurrentUser();
+        const userID = currentUser?.id;
         try {
 
             setTaskList([]);
@@ -331,8 +332,8 @@ export default function Annotation() {
 
     const handleSubmit = async () => {
         saveCurrentTaskChanges();
-        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        const userID = currentUser.id;
+        const currentUser = getCurrentUser();
+        const userID = currentUser?.id;
 
         if (!userID) {
             console.error('User ID is missing.');

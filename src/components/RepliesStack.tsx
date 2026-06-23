@@ -7,6 +7,7 @@ import { Layers } from 'lucide-react';
 import { formatPostDate } from '../utils/formatPostDate';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
+import { notifications } from '@mantine/notifications';
 import './RelatedStacks.css';
 import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import InteractionControl from './InteractionControl';
@@ -76,18 +77,44 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
     favouritesCountOverride[postId] !== undefined ? favouritesCountOverride[postId] : initial;
 
   const handleToggleFavourite = async (postId: string, current: boolean, initialCount: number) => {
-    const next = await toggleFavourite(postId, current);
-    setFavouritedOverride(prev => ({ ...prev, [postId]: next }));
+    // Optimistically reflect the toggle, then confirm/revert with the server result.
+    const optimistic = !current;
+    setFavouritedOverride(prev => ({ ...prev, [postId]: optimistic }));
     setFavouritesCountOverride(prev => {
       const effectivePrev = prev[postId] !== undefined ? prev[postId] : initialCount;
-      const newCount = next ? effectivePrev + (current ? 0 : 1) : effectivePrev - (current ? 1 : 0);
+      const newCount = optimistic ? effectivePrev + 1 : effectivePrev - 1;
       return { ...prev, [postId]: Math.max(0, newCount) };
     });
+
+    const result = await toggleFavourite(postId, current);
+    if (!result.ok) {
+      // Revert optimistic UI on failure.
+      setFavouritedOverride(prev => ({ ...prev, [postId]: current }));
+      setFavouritesCountOverride(prev => {
+        const effectivePrev = prev[postId] !== undefined ? prev[postId] : initialCount;
+        const reverted = optimistic ? effectivePrev - 1 : effectivePrev + 1;
+        return { ...prev, [postId]: Math.max(0, reverted) };
+      });
+      notifications.show({
+        title: 'Error',
+        message: 'Could not update like. Please try again.',
+        color: 'red',
+      });
+    }
   };
 
   const handleToggleBookmark = async (postId: string, current: boolean) => {
-    const next = await toggleBookmark(postId, current);
-    setBookmarkedOverride(prev => ({ ...prev, [postId]: next }));
+    // Optimistically reflect the toggle, then confirm/revert with the server result.
+    setBookmarkedOverride(prev => ({ ...prev, [postId]: !current }));
+    const result = await toggleBookmark(postId, current);
+    if (!result.ok) {
+      setBookmarkedOverride(prev => ({ ...prev, [postId]: current }));
+      notifications.show({
+        title: 'Error',
+        message: 'Could not update bookmark. Please try again.',
+        color: 'red',
+      });
+    }
   };
   const [cardHeights, setCardHeights] = useState<number[]>([]);
   const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -241,7 +268,21 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
                 ariaLabel="Share"
                 onClick={() => {
                   const url = `${window.location.origin}/posts/${stack.topPost.id}?stackId=${stack.stackId}`;
-                  navigator.clipboard.writeText(url).catch(() => {});
+                  navigator.clipboard.writeText(url)
+                    .then(() => {
+                      notifications.show({
+                        title: 'Link copied',
+                        message: 'The link was copied to your clipboard',
+                        color: 'green',
+                      });
+                    })
+                    .catch(() => {
+                      notifications.show({
+                        title: 'Copy failed',
+                        message: 'Could not copy the link',
+                        color: 'red',
+                      });
+                    });
                 }}
               />
             </Group>

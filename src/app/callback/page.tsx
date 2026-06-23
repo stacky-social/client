@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { notifications } from '@mantine/notifications';
-import { Center, Loader } from '@mantine/core';
+import { Anchor, Center, Loader, Stack, Text } from '@mantine/core';
 import { Suspense } from 'react';
 import {BASE_URL} from "../../utils/DevMode";
 
@@ -16,6 +16,7 @@ function CallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const hasProcessedRef = useRef(false);
+  const [error, setError] = useState(false);
 
 
   useEffect(() => {
@@ -65,6 +66,7 @@ function CallbackPage() {
               message: 'Failed to fetch user info.',
               color: 'red',
             });
+            setError(true);
           }
         } else {
           console.error('Error response from token endpoint:', data);
@@ -77,6 +79,7 @@ function CallbackPage() {
           color: 'red',
         });
         console.error('Error during token exchange:', error);
+        setError(true);
       }
     };
 
@@ -84,7 +87,10 @@ function CallbackPage() {
     const state = searchParams.get('state');
     const instance = `https://${state}`;
     console.log('Authorization code:', code);
-    if (!code || !state) return;
+    if (!code || !state) {
+      setError(true);
+      return;
+    }
     if (localStorage.getItem('accessToken')) {
       router.push('/home');
       return;
@@ -92,6 +98,27 @@ function CallbackPage() {
     localStorage.setItem('authCode', code);
     fetchAccessToken(code, instance);
   }, [searchParams, router]);
+
+  // On failure, send the user back to the login page after a short delay so
+  // they aren't stranded on a stalled spinner. The "Back to login" link below
+  // lets them leave immediately.
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => router.push('/'), 4000);
+    return () => clearTimeout(t);
+  }, [error, router]);
+
+  if (error) {
+    return (
+      <Center my={45}>
+        <Stack align="center" gap="xs">
+          <Text fw={500}>Login failed.</Text>
+          <Text size="sm" c="dimmed">Redirecting you to the login page…</Text>
+          <Anchor href="/">Back to login</Anchor>
+        </Stack>
+      </Center>
+    );
+  }
 
   return (
     <Center>

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Textarea, Button, Box } from '@mantine/core';
 import axios from 'axios';
+import { getCurrentUser } from '../utils/getCurrentUser';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social:3002';
 
@@ -43,9 +44,8 @@ const AnnotationModal: React.FC<AnnotationModalProps> = ({ isOpen, onClose, stac
   }, [stackId]);
 
   useEffect(() => {
-    const user = localStorage.getItem('currentUser');
-    if (user) {
-      const parsedUser = JSON.parse(user);
+    const parsedUser = getCurrentUser();
+    if (parsedUser) {
       setUserId(parsedUser.id);
     }
   }, []);

@@ -678,23 +678,32 @@ function Post({
     const accessToken = getAccessToken();
     if (!accessToken) return;
 
+    // Optimistic update so the heart reflects the tap instantly.
+    const wasLiked = liked;
+    setLiked(!wasLiked);
+    setLikeCount((c) => Math.max(0, c + (wasLiked ? -1 : 1)));
+
     try {
-      if (liked) {
-        await axios.post(`${MastodonInstanceUrl}/api/v1/statuses/${id}/unfavourite`, {}, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-      } else {
-        await axios.post(`${MastodonInstanceUrl}/api/v1/statuses/${id}/favourite`, {}, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-      }
+      const endpoint = wasLiked
+        ? `${MastodonInstanceUrl}/api/v1/statuses/${id}/unfavourite`
+        : `${MastodonInstanceUrl}/api/v1/statuses/${id}/favourite`;
+      await axios.post(endpoint, {}, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 10000,
+      });
       await fetchPostData();
     } catch (error) {
       console.error('Error liking post:', error);
+      // Revert optimistic UI on failure.
+      if (mountedRef.current) {
+        setLiked(wasLiked);
+        setLikeCount((c) => Math.max(0, c + (wasLiked ? 1 : -1)));
+      }
+      notifications.show({
+        title: 'Error',
+        message: 'Could not update like. Please try again.',
+        color: 'red',
+      });
     }
   };
 
@@ -702,23 +711,28 @@ function Post({
     const accessToken = getAccessToken();
     if (!accessToken) return;
 
+    // Optimistic update so the bookmark icon reflects the tap instantly.
+    const wasBookmarked = bookmarkedState;
+    setBookmarkedState(!wasBookmarked);
+
     try {
-      if (bookmarkedState) {
-        await axios.post(`${MastodonInstanceUrl}/api/v1/statuses/${id}/unbookmark`, {}, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-      } else {
-        await axios.post(`${MastodonInstanceUrl}/api/v1/statuses/${id}/bookmark`, {}, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-      }
+      const endpoint = wasBookmarked
+        ? `${MastodonInstanceUrl}/api/v1/statuses/${id}/unbookmark`
+        : `${MastodonInstanceUrl}/api/v1/statuses/${id}/bookmark`;
+      await axios.post(endpoint, {}, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 10000,
+      });
       await fetchPostData();
     } catch (error) {
       console.error('Error bookmarking post:', error);
+      // Revert optimistic UI on failure.
+      if (mountedRef.current) setBookmarkedState(wasBookmarked);
+      notifications.show({
+        title: 'Error',
+        message: 'Could not update bookmark. Please try again.',
+        color: 'red',
+      });
     }
   };
 
