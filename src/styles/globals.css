@@ -61,3 +61,21 @@ body {
     background-color: #FCFBF5;
     overflow-x: hidden;
 }
+
+/* Related-card header: keep the category tags clear of the topic ("grouped by")
+   label so they never overlap on a narrow related panel. The aside establishes a
+   container-query context (container-type: inline-size), so this responds to the
+   panel's actual width — which depends on the resize slider ratio, not just the
+   viewport width. */
+/* Related-card header: tags stay on ONE line (flex-wrap:nowrap, set inline) so
+   they never spill onto the username row. When the panel gets cramped, drop the
+   tag WORD (icon-only) BEFORE two word-tags would wrap; on very narrow panels
+   also hide the topic ("grouped by") label. The aside is a container-query
+   context, so this tracks the panel's real width (which depends on the resize
+   slider, not just the viewport). */
+@container (max-width: 440px) {
+    .related-tag-text { display: none; }
+}
+@container (max-width: 280px) {
+    .related-topic-label { display: none !important; }
+}

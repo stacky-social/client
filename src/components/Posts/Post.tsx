@@ -5,13 +5,13 @@ import { notifications } from '@mantine/notifications';
 import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconLink } from '@tabler/icons-react';
 import { format } from 'date-fns';
 import { formatPostDate } from '../../utils/formatPostDate';
-import StackCount from '../StackCount';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
 import { PreviewCardType } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
 import { useHighlightStore, setFilterFocusSpan, clearFilterFocusSpan } from '../../utils/highlightStore';
 import type { Relation } from '../../types/PostType';
+import { showTooltip, hideTooltip } from '../HoverTooltip';
 
 // ─── Focus post cross-highlight helpers ──────────────────────────────────────
 
@@ -173,11 +173,27 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // Per-mark dwell: index of the mark that has become visible via 1500ms dwell
   const [dwellOnMarkIndex, setDwellOnMarkIndex] = useState<number | null>(null);
   const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks whether *this instance* is currently the one showing the global hover tooltip,
+  // so unmount/cleanup only hides our own tooltip, not someone else's.
+  const tooltipShownByMeRef = useRef(false);
+
+  // Refs mirror reactive state so the deferred dwell-timer callback always reads
+  // the latest values (otherwise its closure would freeze at timer setup time).
+  const filterFocusSpanRef = useRef(filterFocusSpan);
+  filterFocusSpanRef.current = filterFocusSpan;
+  const focusRelationsRef = useRef(focusRelations);
+  focusRelationsRef.current = focusRelations;
+  const showCrossHighlightRef = useRef(showCrossHighlight);
+  showCrossHighlightRef.current = showCrossHighlight;
 
   // Cleanup dwell timer on unmount
   useEffect(() => {
     return () => {
       if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
+      if (tooltipShownByMeRef.current) {
+        hideTooltip();
+        tooltipShownByMeRef.current = false;
+      }
     };
   }, []);
 
@@ -277,12 +293,19 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     const el = innerRef.current;
     if (!el) return;
 
+    // Latest cursor position over the currently-hovered mark, so the affordance
+    // tooltip appears at the right spot when the 1500ms dwell timer fires.
+    let latestX = 0;
+    let latestY = 0;
+
     const handleMouseOver = (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest('mark');
       if (!target) return;
       const rid = target.getAttribute('data-range-id');
       if (rid === null) return;
       const idx = parseInt(rid, 10);
+      latestX = e.clientX;
+      latestY = e.clientY;
 
       // Start a fresh dwell timer for this specific mark
       if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
@@ -291,7 +314,34 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       dwellTimerRef.current = setTimeout(() => {
         setDwellOnMarkIndex(idx);
         dwellTimerRef.current = null;
+
+        // Affordance tooltip: appears with the gray highlight so users know what
+        // clicking will do. Suppressed in cross-highlight mode where the sidebar
+        // already drives its own per-segment tooltips.
+        if (showCrossHighlightRef.current) return;
+        const rel = focusRelationsRef.current?.[idx];
+        if (!rel) return;
+        const ff = filterFocusSpanRef.current;
+        const isThisFiltered =
+          ff !== null && ff.start === rel.focusStart && ff.end === rel.focusEnd;
+        showTooltip({
+          content: isThisFiltered ? (
+            <>Click to <strong>clear filter</strong></>
+          ) : (
+            <>Click to <strong>filter related stacks</strong></>
+          ),
+          colors: { text: '#334155', border: '#cbd5e1' },
+          x: latestX,
+          y: latestY,
+        });
+        tooltipShownByMeRef.current = true;
       }, FOCUS_HOVER_DWELL_MS);
+    };
+    const handleMouseMove = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement).closest('mark');
+      if (!target) return;
+      latestX = e.clientX;
+      latestY = e.clientY;
     };
     const handleMouseOut = (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest('mark');
@@ -305,6 +355,10 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         dwellTimerRef.current = null;
       }
       setDwellOnMarkIndex(null);
+      if (tooltipShownByMeRef.current) {
+        hideTooltip();
+        tooltipShownByMeRef.current = false;
+      }
     };
     const handleClick = (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest('mark');
@@ -337,11 +391,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     };
 
     el.addEventListener('mouseover', handleMouseOver);
+    el.addEventListener('mousemove', handleMouseMove);
     el.addEventListener('mouseout', handleMouseOut);
     // Capture phase so our handler fires before the card navigation handler
     el.addEventListener('click', handleClick, true);
     return () => {
       el.removeEventListener('mouseover', handleMouseOver);
+      el.removeEventListener('mousemove', handleMouseMove);
       el.removeEventListener('mouseout', handleMouseOut);
       el.removeEventListener('click', handleClick, true);
     };
@@ -419,6 +475,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     <div
       ref={setRefs}
       id={containerIdRef.current}
+      data-testid="focus-reveal"
       className={className}
       style={mergedStyle}
       dangerouslySetInnerHTML={{ __html: html }}
@@ -450,6 +507,8 @@ interface PostProps {
   onNavigate?: (postId: string) => void;
   /** Relations for the focus post's own text spans — used to render dimmed marks in the default state */
   focusRelations?: Relation[];
+  /** Collapsed line-clamp before "Read more" (feed uses 5; the full-post view passes more, e.g. 10). */
+  clampLines?: number;
 }
 
 export default function Post({
@@ -471,6 +530,7 @@ export default function Post({
   initialCard,
   onNavigate,
   focusRelations = [],
+  clampLines = 5,
 }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
@@ -735,6 +795,8 @@ export default function Post({
     <div style={{ position: 'relative', marginBottom: '3rem'}}>
       <Paper
         ref={paperRef}
+        data-testid="post"
+        data-active={isActive ? 'true' : 'false'}
         style={{
           position: 'relative',
           width: "100%",
@@ -744,7 +806,10 @@ export default function Post({
           border: isActive ? '2px solid rgb(156, 184, 255)' : '2px solid #e7e7e7',
           boxShadow: isActive ? 'rgba(0, 0, 0, 0.18) 0px 12px 24px, rgba(0, 0, 0, 0.12) 0px 6px 12px' : 'none',
           transform: isActive ? 'translateY(-2px)' : 'none',
-          transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
+          // Border switches instantly (not transitioned) so the active outline
+          // can't be caught mid-fade showing the inactive colour during scroll
+          // re-renders (R-FEED-5). Elevation/lift still animate.
+          transition: 'box-shadow 150ms ease, transform 150ms ease',
           paddingLeft: '1rem',
           paddingRight: '1rem',
           paddingTop: '1rem',
@@ -753,24 +818,10 @@ export default function Post({
         onMouseEnter={() => { setHovered(true); }}
         onMouseLeave={() => { setHovered(false); }}
       >
-{stackCount !== 0 && (
-  <UnstyledButton
-    onClick={(event) => {
-      event.stopPropagation();
-      handleStackCountClick();
-    }}
-    data-stack-count
-  >
-    <StackCount
-      count={stackCount}
-      onClick={handleStackCountClick}
-      onStackClick={handleStackClick}
-      relatedStacks={tempRelatedStacks}
-      expanded={isExpanded}
-      cardHeight={cardHeight}
-    />
-  </UnstyledButton>
-)}
+{/* The stack / category-count icon column on the focus post is permanently
+    removed (RG-1 / R-NOSTACK-1). Related stacks live in the aside panel, not in a
+    per-post icon column. Do NOT reinstate this — it has regressed via merges
+    before (it reappeared on the detail route via `stackCount={p.stackCount}`). */}
 
         <div
           onClick={handleSingleClick}
@@ -821,10 +872,10 @@ export default function Post({
           style={{
             display: isTextExpanded ? 'block' : '-webkit-box',
             WebkitBoxOrient: 'vertical',
-            WebkitLineClamp: isTextExpanded ? undefined : 5,
+            WebkitLineClamp: isTextExpanded ? undefined : clampLines,
             overflow: isTextExpanded ? 'visible' : 'hidden',
             textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
-            maxHeight: isTextExpanded ? undefined : 'calc(1.5em * 5)',
+            maxHeight: isTextExpanded ? undefined : `calc(1.5em * ${clampLines})`,
             marginTop: '0px',
             lineHeight: '1.5',
             color: '#011445',
@@ -837,10 +888,10 @@ export default function Post({
           style={{
             display: isTextExpanded ? 'block' : '-webkit-box',
             WebkitBoxOrient: 'vertical',
-            WebkitLineClamp: isTextExpanded ? undefined : 5,
+            WebkitLineClamp: isTextExpanded ? undefined : clampLines,
             overflow: isTextExpanded ? 'visible' : 'hidden',
             textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
-            maxHeight: isTextExpanded ? undefined : 'calc(1.5em * 5)',
+            maxHeight: isTextExpanded ? undefined : `calc(1.5em * ${clampLines})`,
             marginTop: '0px',
             lineHeight: '1.5',
             color: '#011445'

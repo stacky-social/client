@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { LoadingOverlay, Button, Box } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
+import { Virtuoso } from 'react-virtuoso';
 import { PostType } from '../types/PostType';
 import Post from './Posts/Post';
 import axios from 'axios';
@@ -68,7 +69,6 @@ const PostList: React.FC<PostListProps> = ({
     const [posts, setPosts] = useState<PostType[]>(() => cachedSnapshot.current?.posts ?? []);
     const [loading, setLoading] = useState(() => !hasCachedData);
     const [loadingMore, setLoadingMore] = useState(false);
-    const postRefs = useRef<Array<HTMLDivElement | null>>([]);
     const [maxId, setMaxId] = useState<string | null>(() => cachedSnapshot.current?.maxId ?? null);
     const hasAutoHighlightedFirstPostRef = useRef(false);
     const hasPublishedFirstPostStacksRef = useRef(false);
@@ -79,7 +79,17 @@ const PostList: React.FC<PostListProps> = ({
     const fetchKeyRef = useRef<string | null>(null);
     const restoredScrollRef = useRef(false);
 
-    // Restore scroll position after first paint when using cached data
+    // Mirror reactive values into refs so the scroll listener can attach ONCE
+    // (stable deps) and still read the latest posts/activePostId/callbacks. This
+    // avoids re-subscribing the window scroll listener on every posts update.
+    const postsRef = useRef(posts); postsRef.current = posts;
+    const activePostIdRef = useRef(activePostId); activePostIdRef.current = activePostId;
+    const handleStackIconClickRef = useRef(handleStackIconClick); handleStackIconClickRef.current = handleStackIconClick;
+    const setActivePostIdRef = useRef(setActivePostId); setActivePostIdRef.current = setActivePostId;
+
+    // Restore scroll position after first paint when using cached data.
+    // Virtuoso runs in useWindowScroll mode, so the window scroll position is
+    // the source of truth and restoring it renders the right window of items.
     useEffect(() => {
         if (!hasCachedData || restoredScrollRef.current) return;
         restoredScrollRef.current = true;
@@ -175,6 +185,7 @@ const PostList: React.FC<PostListProps> = ({
     };
 
     const handleLoadMore = () => {
+        if (loadingMore || loading) return;
         fetchPosts(true);
     };
 
@@ -270,52 +281,49 @@ const PostList: React.FC<PostListProps> = ({
         }
     };
 
+    // Auto-select the post whose center is nearest the viewport center.
+    // Reads the DOM ([data-post-id]) rather than a refs array so it works with
+    // virtualization (only the mounted/visible posts exist in the DOM).
     useEffect(() => {
         const evaluateActiveByCenter = () => {
+            const currentPosts = postsRef.current;
+
             // Respect manual selection while the selected post is still visible
             if (manualLockRef.current && manualActiveIdRef.current) {
-                const idxManual = posts.findIndex((p) => p.postId === manualActiveIdRef.current);
-                if (idxManual !== -1) {
-                    const ref = postRefs.current[idxManual];
-                    if (ref) {
-                        const rect = ref.getBoundingClientRect();
-                        const visible = rect.bottom > 0 && rect.top < window.innerHeight;
-                        if (visible) return; // keep the manual selection
-                    }
+                const el = document.querySelector(`[data-post-id="${CSS.escape(manualActiveIdRef.current)}"]`);
+                if (el) {
+                    const rect = el.getBoundingClientRect();
+                    if (rect.bottom > 0 && rect.top < window.innerHeight) return; // keep manual selection
                 }
-                manualLockRef.current = false; // manual selected post no longer visible; allow auto-selection again
+                manualLockRef.current = false; // no longer visible; allow auto-selection again
             }
 
             const viewportCenter = window.innerHeight / 2;
-
-            let bestIndex: number | null = null;
+            let bestId: string | null = null;
+            let bestRect: DOMRect | null = null;
             let bestDistance = Number.POSITIVE_INFINITY;
 
-            for (let i = 0; i < postRefs.current.length; i++) {
-                const ref = postRefs.current[i];
-                if (!ref) continue;
-                const rect = ref.getBoundingClientRect();
-
-                // Consider any item that intersects viewport
-                const isVisible = rect.bottom > 0 && rect.top < window.innerHeight;
-                if (!isVisible) continue;
-
+            // Plain for-loop (not forEach) so TS control-flow analysis tracks the
+            // bestId/bestRect assignments for correct narrowing below.
+            const els = document.querySelectorAll('[data-post-id]');
+            for (let i = 0; i < els.length; i++) {
+                const rect = els[i].getBoundingClientRect();
+                if (rect.bottom <= 0 || rect.top >= window.innerHeight) continue; // not visible
                 const center = rect.top + rect.height / 2;
                 const distance = Math.abs(center - viewportCenter);
                 if (distance < bestDistance) {
                     bestDistance = distance;
-                    bestIndex = i;
+                    bestId = els[i].getAttribute('data-post-id');
+                    bestRect = rect;
                 }
             }
 
-            if (bestIndex !== null) {
-                const post = posts[bestIndex];
-                if (post && post.postId !== activePostId) {
-                    setActivePostId(post.postId);
-                    const ref = postRefs.current[bestIndex]!;
-                    const position = ref.getBoundingClientRect();
-                    const adjustedPosition = { top: position.top + window.scrollY, height: position.height };
-                    handleStackIconClick(post.relatedStacks, post.postId, adjustedPosition);
+            if (bestId && bestRect && bestId !== activePostIdRef.current) {
+                const post = currentPosts.find((p) => p.postId === bestId);
+                if (post) {
+                    setActivePostIdRef.current(post.postId);
+                    const adjustedPosition = { top: bestRect.top + window.scrollY, height: bestRect.height };
+                    handleStackIconClickRef.current(post.relatedStacks, post.postId, adjustedPosition);
                 }
             }
         };
@@ -325,21 +333,18 @@ const PostList: React.FC<PostListProps> = ({
                 clearTimeout(scrollStopTimeoutRef.current);
             }
             scrollStopTimeoutRef.current = setTimeout(() => {
-                // If a user has just manually activated a post, skip this auto-evaluation
                 if (Date.now() - lastUserActivateRef.current < 400) return;
                 evaluateActiveByCenter();
             }, 40);
         };
 
-        // Initial evaluation in case the page loads with content already in view
         evaluateActiveByCenter();
-
         window.addEventListener('scroll', handleScroll, { passive: true } as AddEventListenerOptions);
         return () => {
             window.removeEventListener('scroll', handleScroll as EventListener);
             if (scrollStopTimeoutRef.current) clearTimeout(scrollStopTimeoutRef.current);
         };
-    }, [posts, activePostId, handleStackIconClick, setActivePostId]);
+    }, []); // attach once — reads latest values via refs
 
     // When the parent clears the active post (e.g., toggling a stackcount off),
     // release the manual lock so scrolling can auto-highlight the next post
@@ -361,8 +366,8 @@ const PostList: React.FC<PostListProps> = ({
             first.relatedStacks.length > 0 &&
             !hasPublishedFirstPostStacksRef.current
         ) {
-            const ref = postRefs.current[0];
-            const rect = ref ? ref.getBoundingClientRect() : ({ top: 0, height: 0 } as { top: number; height: number });
+            const el = document.querySelector(`[data-post-id="${CSS.escape(first.postId)}"]`);
+            const rect = el ? el.getBoundingClientRect() : ({ top: 0, height: 0 } as { top: number; height: number });
             const adjustedPosition = { top: rect.top + window.scrollY, height: rect.height };
             handleStackIconClick(first.relatedStacks, first.postId, adjustedPosition);
             hasPublishedFirstPostStacksRef.current = true;
@@ -376,14 +381,11 @@ const PostList: React.FC<PostListProps> = ({
 
         const firstPost = posts[0];
         if (loadStackInfo) {
-            // When loading stack info, wait until the first post's stackCount is resolved (null -> number)
             if (firstPost.stackCount === null) return;
         }
 
-        const firstRef = postRefs.current[0];
-        const rect = firstRef
-            ? firstRef.getBoundingClientRect()
-            : ({ top: 0, height: 0 } as { top: number; height: number });
+        const el = document.querySelector(`[data-post-id="${CSS.escape(firstPost.postId)}"]`);
+        const rect = el ? el.getBoundingClientRect() : ({ top: 0, height: 0 } as { top: number; height: number });
         const adjustedPosition = { top: rect.top + window.scrollY, height: rect.height };
 
         setActivePostId(firstPost.postId);
@@ -396,7 +398,6 @@ const PostList: React.FC<PostListProps> = ({
             const batch = posts.slice(i, i + batchSize);
             await Promise.all(batch.map(async (post) => {
                 try {
-                    console.log('Fetching stack data for post:', post.postId);
                     const headers: Record<string, string> = {};
                     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
                     const response = await axios.get(`${MastodonInstanceUrl}/stacks/${post.postId}/related`, { headers });
@@ -411,11 +412,6 @@ const PostList: React.FC<PostListProps> = ({
                     );
                 } catch (error) {
                     console.error(`Error fetching stack data for post ${post.postId}:`, error);
-                    // notifications.show({
-                    //     color: 'red',
-                    //     title: 'Failed to load stacks',
-                    //     message: `Post ${post.postId}: please try again later.`,
-                    // });
                 }
             }));
         }
@@ -433,14 +429,8 @@ const PostList: React.FC<PostListProps> = ({
         pruneCache(postListCacheMap, MAX_CACHE_ENTRIES);
     }, [posts, loading, apiUrl, maxId]);
 
-    const postElements = posts.map((post: PostType, index) => (
-        <div
-            key={post.postId}
-            data-post-id={post.postId}
-            ref={(el) => {
-                postRefs.current[index] = el;
-            }}
-        >
+    const renderPost = (_index: number, post: PostType) => (
+        <div data-post-id={post.postId}>
             <Post
                 id={post.postId}
                 text={post.text}
@@ -468,21 +458,35 @@ const PostList: React.FC<PostListProps> = ({
                 initialCard={post.previewCard || null}
             />
         </div>
-    ));
+    );
+
+    const Footer = () => {
+        if (!showLoadMore || loading) return null;
+        return (
+            <div style={{ textAlign: 'center', margin: '20px 0' }}>
+                <Button onClick={handleLoadMore} disabled={loadingMore}
+                    style={{ backgroundColor: '#324e93', color: '#fff' }}>
+                    {loadingMore ? 'Loading' : 'Load more'}
+                </Button>
+            </div>
+        );
+    };
 
     return (
         <Box style={{ width: '100%', position: 'relative', minHeight: 80 }}>
             <LoadingOverlay visible={loading} overlayProps={{ radius: "sm", blur: 2 }} />
-            {!loading && postElements}
-
-
-            {showLoadMore && !loading && (
-                <div style={{ textAlign: 'center', marginTop: '20px' }}>
-                    <Button onClick={handleLoadMore} disabled={loadingMore}
-                        style={{ backgroundColor: '#324e93', color: '#fff' }}>
-                        {loadingMore ? 'Loading' : 'Load more'}
-                    </Button>
-                </div>
+            {!loading && (
+                <Virtuoso
+                    useWindowScroll
+                    data={posts}
+                    itemContent={renderPost}
+                    computeItemKey={(_index: number, post: PostType) => post.postId}
+                    // Auto-load the next page when the user nears the end (in
+                    // addition to the explicit Load more button in the footer).
+                    endReached={showLoadMore ? () => handleLoadMore() : undefined}
+                    increaseViewportBy={600}
+                    components={{ Footer }}
+                />
             )}
         </Box>
     );

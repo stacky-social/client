@@ -119,6 +119,7 @@ export function HoverTooltip(): JSX.Element | null {
   return createPortal(
     <div
       ref={nodeRef}
+      data-testid="hover-tooltip"
       style={{
         position: "fixed",
         top: 0,

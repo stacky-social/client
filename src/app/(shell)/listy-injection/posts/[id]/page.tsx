@@ -125,6 +125,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       setActivePostId={setActivePostId}
       activePostId={activePostId}
       focusRelations={isFocusPost ? focusRelations : []}
+      clampLines={10}
     />
   );
 

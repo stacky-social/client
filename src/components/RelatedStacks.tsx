@@ -228,6 +228,8 @@ function FilterChip({ category, count, active, previewActive, previewDim, onClic
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      data-testid="filter-chip"
+      data-category={category}
       aria-label={`${active ? "Remove" : "Show"} ${label} filter`}
       aria-pressed={active}
       style={{
@@ -658,11 +660,41 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const [chipHovered, setChipHovered] = useState<string | null>(null);
   // C3: panel hover state for neutral-until-hover tag coloring
   const [panelHovered, setPanelHovered] = useState(false);
-  // Touch device detection (cached on mount). Touch devices use tap-to-activate behavior.
+  // Interaction mode: hover (mouse/pen) vs tap (touch). Adaptive — the most
+  // recent real pointer input decides, so hybrid devices (e.g. a touchscreen
+  // laptop) get hover with the trackpad/mouse and tap with a finger.
+  //
+  // NOTE: do NOT key this off touch *capability* (`navigator.maxTouchPoints` /
+  // `ontouchstart`). Those are nonzero on touch-capable-but-mouse-driven
+  // machines (common on Linux/Windows laptops), which wrongly disabled hover
+  // and broke cross-highlighting on those devices.
   const [isTouch, setIsTouch] = useState(false);
+  const isTouchRef = useRef(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    setIsTouch(('ontouchstart' in window) || navigator.maxTouchPoints > 0);
+    const set = (touch: boolean) => {
+      if (isTouchRef.current === touch) return; // dedupe the constant pointermove stream
+      isTouchRef.current = touch;
+      setIsTouch(touch);
+    };
+    // Initial guess: only treat as touch-only when nothing can hover and there
+    // is no fine pointer. A touchscreen laptop reports a hover-capable
+    // trackpad, so it correctly starts in hover mode.
+    const canHover =
+      window.matchMedia('(any-hover: hover)').matches ||
+      window.matchMedia('(any-pointer: fine)').matches;
+    set(!canHover);
+    // Then follow whichever pointer the user actually uses.
+    const onPointer = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') set(true);
+      else if (e.pointerType === 'mouse' || e.pointerType === 'pen') set(false);
+    };
+    window.addEventListener('pointerdown', onPointer, { capture: true });
+    window.addEventListener('pointermove', onPointer, { capture: true });
+    return () => {
+      window.removeEventListener('pointerdown', onPointer, { capture: true } as any);
+      window.removeEventListener('pointermove', onPointer, { capture: true } as any);
+    };
   }, []);
   // Per-card expanded state, keyed by stackId
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
@@ -1226,7 +1258,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       {/* Sticky header: title + filter chips + count — stays visible while scrolling */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 10,
-        background: '#FCFBF5', paddingBottom: '0.5rem',
+        // paddingTop gives a stable gap under the top bar that is part of the
+        // header's own (opaque) painted area, so it does not collapse when the
+        // panel scrolls and never lets scrolled cards show through above it.
+        background: '#FCFBF5', paddingTop: '0.6rem', paddingBottom: '0.5rem',
       }}>
         <Text size="sm" fw={700} c="#374151" mb={6}>Related responses</Text>
         <Text size="xs" c="dimmed" mb="xs">Hover a post to highlight the relevant parts</Text>
@@ -1253,7 +1288,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           </div>
         )}
 
-        <Text size="xs" c="dimmed" mb={4}>
+        <Text size="xs" c="dimmed" mb={4} data-testid="related-count">
           {filterCategories.size > 0 && filterFocusSpan !== null
             ? `${displayStacks.length} post${displayStacks.length !== 1 ? 's' : ''} matching category + span`
             : filterFocusSpan !== null
@@ -1265,7 +1300,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
         {/* D2: span filter active indicator */}
         {filterFocusSpan !== null && (
-          <div style={{
+          <div data-testid="span-filter-pill" style={{
             display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px',
             background: '#f1f5f9', borderRadius: '6px', marginBottom: '0.5rem',
             border: '1px solid #cbd5e1', flexWrap: 'wrap',
@@ -1302,7 +1337,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
         {/* "More like this" active indicator — single anchor only */}
         {reRankAnchorIds.length > 0 && (
-          <div style={{
+          <div data-testid="grouped-by-pill" style={{
             display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px',
             background: '#f0f4ff', borderRadius: '6px', marginBottom: '0.5rem', flexWrap: 'wrap',
           }}>
@@ -1520,6 +1555,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               <button
                 type="button"
                 className="show-more-link"
+                data-testid="more-like-this"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleShowMore(anchorForThisCard);
@@ -1684,8 +1720,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   // (bottom-edge zone, stack-shadow layers). Without this guard
                   // the cross-highlight/dim breaks every time the cursor brushes
                   // those zones mid-interaction.
-                  const next = (e.relatedTarget as Node | null);
-                  if (next && (e.currentTarget as HTMLElement)
+                  // relatedTarget can be null OR a non-Node EventTarget (e.g. the
+                  // window when the cursor leaves the viewport) — guard before
+                  // calling Node.contains, which throws on a non-Node argument.
+                  const next = e.relatedTarget;
+                  if (next instanceof Node && (e.currentTarget as HTMLElement)
                       .closest('[data-related-card]')
                       ?.contains(next)) {
                     return;
@@ -1703,7 +1742,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 }}
               >
                 {/* Category tags — one per unique relation category, dims/brightens with highlight hover */}
-                <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '4px', alignItems: 'center', zIndex: 10, flexWrap: 'wrap' }}>
+                <div className="related-tag-row" style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '4px', alignItems: 'center', zIndex: 10, flexWrap: 'nowrap', maxWidth: 'calc(100% - 16px)', overflow: 'hidden' }}>
                   {(() => {
                     // Dedupe categories from relations, preserving order
                     const rels = stack.topPost.relations ?? [];
@@ -1740,6 +1779,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       return (
                         <div
                           key={cat}
+                          data-testid="card-category-tag"
+                          data-category={cat}
                           onMouseEnter={(e) => { if (!isTouch) setHoveredCategory(cat); tagHover(e.clientX, e.clientY); }}
                           onMouseLeave={() => { if (!isTouch) setHoveredCategory(null); hideTooltip(); }}
                           onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; tagHover(e.clientX, e.clientY); }}
@@ -1777,7 +1818,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                           }}
                         >
                           {React.cloneElement(iconMapping[cat] || iconMapping['default'], { color: showTagColor ? tc.text : '#888888', size: 12 })}
-                          <Text size="xs" c={showTagColor ? tc.text : '#888888'} fw={700} style={{ fontSize: '10px' }}>
+                          <Text className="related-tag-text" size="xs" c={showTagColor ? tc.text : '#888888'} fw={700} style={{ fontSize: '10px' }}>
                             {CATEGORY_LABELS[cat] ?? cat}
                           </Text>
                         </div>
@@ -1821,6 +1862,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   return (
                     <button
                       type="button"
+                      className="related-topic-label"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleToggleAnchor(stack.topPost.id, indicatorRangeIdx);

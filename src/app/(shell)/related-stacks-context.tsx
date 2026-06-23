@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 
 type RelatedStacksArray = any[];
 
@@ -10,6 +10,7 @@ type RelatedStacksContextValue = {
   previousPostId: string | null;
   setFromPost: (stacks: RelatedStacksArray, postId: string, options?: { force?: boolean }) => void;
   showUpdate: boolean;
+  clear: () => void;
 };
 
 const RelatedStacksContext = createContext<RelatedStacksContextValue | null>(null);
@@ -18,6 +19,11 @@ export function RelatedStacksProvider({ children }: { children: React.ReactNode 
   const [relatedStacks, setRelatedStacks] = useState<RelatedStacksArray>([]);
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const previousPostIdRef = useRef<string | null>(null);
+
+  const clear = useCallback(() => {
+    setActivePostId(prev => { previousPostIdRef.current = prev; return null; });
+    setRelatedStacks([]);
+  }, []);
 
   const setFromPost = (stacks: RelatedStacksArray, postId: string, options?: { force?: boolean }) => {
     if (options?.force) {
@@ -48,8 +54,9 @@ export function RelatedStacksProvider({ children }: { children: React.ReactNode 
       previousPostId: previousPostIdRef.current,
       setFromPost,
       showUpdate: activePostId !== previousPostIdRef.current,
+      clear,
     }),
-    [relatedStacks, activePostId]
+    [relatedStacks, activePostId, clear]
   );
 
   return <RelatedStacksContext.Provider value={value}>{children}</RelatedStacksContext.Provider>;

@@ -596,6 +596,17 @@ export default function ListyInjectionPage() {
             if (rect.bottom > 0 && rect.top < window.innerHeight) { bestIdx = i; break; }
           }
         }
+        // Bottom-of-feed guard (R-FEED-3): on a tall viewport the last post's
+        // top can sit below the 30% active line even at max scroll, leaving
+        // nothing active. When scrolled to the bottom, the last rendered post
+        // is what's in view.
+        const atBottom =
+          window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+        if (atBottom) {
+          for (let i = postRefs.current.length - 1; i >= 0; i--) {
+            if (postRefs.current[i]) { bestIdx = i; break; }
+          }
+        }
         if (bestIdx >= 0) {
           const post = posts[bestIdx];
           if (post && post.postId !== activePostIdRef.current) {
