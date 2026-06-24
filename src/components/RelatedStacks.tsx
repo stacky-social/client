@@ -291,6 +291,35 @@ function decideFilterMode(
   return found ? 'ADD' : 'SWITCH';
 }
 
+/**
+ * Group × category interaction. When a grouping (anchor) is active and the user
+ * clicks/hovers a category chip, decide whether it STACKS onto the group or
+ * REPLACES it:
+ * - 'STACK'  → some post in the group also has every (current filters + candidate)
+ *              category, so we keep the grouping and add the category constraint.
+ * - 'SWITCH' → no group member matches, so clicking would abandon the grouping
+ *              and just filter by the category instead.
+ * Mirrors decideFilterMode (ADD/SWITCH) but scoped to the current group.
+ */
+function decideGroupFilterMode(
+  groupMemberIds: Set<string>,
+  stacks: RelatedStackType[],
+  currentFilters: Set<string>,
+  candidate: string,
+): 'STACK' | 'SWITCH' {
+  const need = new Set(currentFilters);
+  need.add(candidate);
+  for (const stack of stacks) {
+    if (!groupMemberIds.has(stack.topPost.id)) continue;
+    const cats = new Set<string>();
+    for (const r of stack.topPost.relations ?? []) cats.add(r.category);
+    let allPresent = true;
+    need.forEach(c => { if (!cats.has(c)) allPresent = false; });
+    if (allPresent) return 'STACK';
+  }
+  return 'SWITCH';
+}
+
 // ─── Filter hover-preview logic ──────────────────────────────────────────────
 
 /**
@@ -794,11 +823,29 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const handleFilterChipClick = (category: string) => {
     const active = filterCategories;
     if (active.has(category)) {
-      // Deselect this chip
+      // Deselect this chip (always allowed; keeps any grouping).
       const next = new Set(active);
       next.delete(category);
       setFilterCategories(next);
-    } else if (active.size === 0) {
+      return;
+    }
+
+    // Group × category: when a grouping is active, decide whether the category
+    // stacks onto the group (drill in) or replaces it.
+    if (reRankAnchorIds.length > 0) {
+      const mode = decideGroupFilterMode(groupMemberIds, relatedStacks, active, category);
+      if (mode === 'STACK') {
+        // Keep the grouping; add the category as an intersection constraint.
+        setFilterCategories(new Set(Array.from(active).concat([category])));
+      } else {
+        // No group member matches → abandon the grouping and filter fresh.
+        clearReRankAnchors();
+        setFilterCategories(new Set([category]));
+      }
+      return;
+    }
+
+    if (active.size === 0) {
       // First selection — always ADD
       setFilterCategories(new Set([category]));
     } else {
@@ -899,13 +946,16 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
    *    footer "K more Topic" link.
    *  Reordering is permanent: cancelling the group leaves the posts in their
    *  new positions, and a subsequent grouping layers on top of that order. */
-  const { displayStacks, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic } = useMemo(() => {
+  const { displayStacks, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic, groupMemberIds } = useMemo(() => {
     const anchorSet = new Set(reRankAnchorIds);
     const claimedBy = new Map<string, string>(); // postId -> anchorId
     const anchorParent = new Map<string, string>(); // anchorId -> parent anchorId
     const groupTotal = new Map<string, number>(); // anchorId -> matched posts (excludes anchor itself)
     const groupShown = new Map<string, number>(); // anchorId -> matched posts currently visible
     let activeAnchorTopic: string | null = null;
+    // All posts that belong to the active group (anchor + every topic match,
+    // BEFORE pagination). Drives decideGroupFilterMode (stack vs switch).
+    let groupMemberIds = new Set<string>();
 
     const anchorId: string | null = reRankAnchorIds.length > 0
       ? reRankAnchorIds[reRankAnchorIds.length - 1]
@@ -947,7 +997,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           return allPresent;
         });
       }
-      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic };
+      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic, groupMemberIds };
     }
 
     // Find anchor entry in the working set.
@@ -965,7 +1015,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           return allPresent;
         });
       }
-      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic };
+      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic, groupMemberIds };
     }
 
     const anchorContent = anchorEntry.topPost.content;
@@ -999,6 +1049,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     const belowMatchedAll: string[] = [];
     for (const s of belowStacks) if (matchesAnchor(s)) belowMatchedAll.push(s.topPost.id);
 
+    // Every group member (anchor + all topic matches, pre-pagination) — used by
+    // decideGroupFilterMode to decide whether a category stacks or switches.
+    groupMemberIds = new Set<string>([anchorId, ...aboveMatched, ...belowMatchedAll]);
+
     const showCountBelow = shownByAnchor[anchorId] ?? SHOWN_INCREMENT;
     const belowMatchedVisible = belowMatchedAll.slice(0, showCountBelow);
 
@@ -1022,7 +1076,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           return allPresent;
         });
       }
-      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic };
+      return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic, groupMemberIds };
     }
 
     // Paginate out below-matched posts beyond the visible cap.
@@ -1046,9 +1100,16 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       if (!claimedBy.has(prevId)) break;
     }
 
-    // C1: multi-category filter with AND semantics across relations array
+    // C1 + group×category stacking: with a grouping active, a category filter
+    // STACKS as an intersection — keep the anchor (it defines the group) plus
+    // group members that also match every selected category. Posts outside the
+    // group are hidden so the panel shows the drill-down rather than unrelated
+    // category matches. (The switch case — a category with no group overlap —
+    // drops the grouping in handleFilterChipClick before we ever get here.)
     if (filterCategories.size > 0) {
       result = result.filter((s) => {
+        if (s.topPost.id === anchorId) return true; // anchor always visible while grouped
+        if (!groupMemberIds.has(s.topPost.id)) return false; // intersection: group members only
         const cats = new Set<string>();
         for (const r of s.topPost.relations ?? []) cats.add(r.category);
         let allPresent = true;
@@ -1066,7 +1127,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       );
     }
 
-    return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic };
+    return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic, groupMemberIds };
   }, [relatedStacks, filterCategories, filterFocusSpan, reRankAnchorIds, shownByAnchor, anchoredRangeByPost]);
 
   // E: keep prevDisplayStacksRef up-to-date so the next anchor activation can
@@ -1366,6 +1427,17 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     return () => document.removeEventListener('pointerdown', handler, { capture: true } as any);
   }, [isTouch, tappedCardPostId]);
 
+  // Group × category preview: while a grouping is active, hovering a category
+  // chip previews whether clicking will STACK onto the group or DROP it. When it
+  // would drop, we dim the "Grouped by" pill (and the active chips) so the user
+  // sees the consequence before clicking — same idea as the category switch
+  // preview, extended to the grouping.
+  const grouped = reRankAnchorIds.length > 0;
+  const hoveredWouldDropGroup =
+    grouped && chipHovered !== null && !filterCategories.has(chipHovered)
+      ? decideGroupFilterMode(groupMemberIds, relatedStacks, filterCategories, chipHovered) === 'SWITCH'
+      : false;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       {/* Sticky header: title + filter chips + count — stays visible while scrolling */}
@@ -1387,8 +1459,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   category={category}
                   count={count}
                   active={filterCategories.has(category)}
-                  previewActive={previewMode !== 'none' && category === chipHovered}
-                  previewDim={previewMode === 'switch' && filterCategories.has(category)}
+                  previewActive={(previewMode !== 'none' || grouped) && category === chipHovered}
+                  previewDim={(previewMode === 'switch' || hoveredWouldDropGroup) && filterCategories.has(category)}
                   onClick={() => handleFilterChipClick(category)}
                   onMouseEnter={() => setChipHovered(category)}
                   onMouseLeave={() => setChipHovered(null)}
@@ -1445,14 +1517,19 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           </div>
         )}
 
-        {/* "More like this" active indicator — single anchor only */}
+        {/* "More like this" active indicator — single anchor only. Dims + turns
+            red while hovering a category chip that would drop the grouping, so
+            the consequence is visible before the click. */}
         {reRankAnchorIds.length > 0 && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px',
-            background: '#f0f4ff', borderRadius: '6px', marginBottom: '0.5rem', flexWrap: 'wrap',
+            background: hoveredWouldDropGroup ? '#fdecea' : '#f0f4ff',
+            borderRadius: '6px', marginBottom: '0.5rem', flexWrap: 'wrap',
+            opacity: hoveredWouldDropGroup ? 0.6 : 1,
+            transition: 'opacity 120ms ease, background 120ms ease',
           }}>
-            <Text size="xs" c="#5a71a8" fw={600} style={{ fontSize: '11px' }}>
-              Grouped by:
+            <Text size="xs" c={hoveredWouldDropGroup ? '#c0392b' : '#5a71a8'} fw={600} style={{ fontSize: '11px' }}>
+              {hoveredWouldDropGroup ? 'Will replace grouping:' : 'Grouped by:'}
             </Text>
             {reRankAnchorIds.map(id => {
               const a = relatedStacks.find(s => s.topPost.id === id);
