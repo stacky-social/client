@@ -650,16 +650,6 @@ function windowContent(plain: string, relations: Relation[] | undefined, expande
 // affected by CSS transforms (e.g. framer-motion FLIP animations), so it
 // always returns the element's true resting DOM position.
 
-function absoluteOffsetTop(el: HTMLElement): number {
-  let top = 0;
-  let cur: HTMLElement | null = el;
-  while (cur) {
-    top += cur.offsetTop;
-    cur = cur.offsetParent as HTMLElement | null;
-  }
-  return top;
-}
-
 // ─── "More like this" word overlap scoring ──────────────────────────────────
 
 const STOP_WORDS = new Set(["the","a","an","is","are","was","were","be","been","being","have","has","had","do","does","did","will","would","could","should","may","might","shall","can","need","to","of","in","for","on","with","at","by","from","as","into","through","during","before","after","above","below","between","out","off","over","under","again","further","then","once","that","this","these","those","it","its","and","but","or","nor","not","so","very","just","about","also","than","too","only","same","both","each","all","any","few","more","most","other","some","such","no","up","if","we","they","i","you","he","she","who","which","what","when","where","how","why"]);
@@ -1224,10 +1214,16 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     setHoveredCategory(null);
     clearTapped();
 
-    // Capture position BEFORE the reorder
+    // Capture the anchor's viewport position BEFORE the reorder. Using
+    // getBoundingClientRect (not offsetTop) is deliberate: the first time you
+    // group, the "Grouped by …" bar appears in the sticky header and grows it
+    // by ~40px, pushing every card — including the one you clicked — down. A
+    // viewport-relative measure captures that header growth as well as the
+    // reorder, so the post-reorder scroll compensation can keep the clicked
+    // card exactly where it was.
     const cardEl = document.querySelector(`[data-post-id="${postId}"]`) as HTMLElement | null;
     pinnedPostIdRef.current = postId;
-    pinnedPrevTopRef.current = cardEl ? absoluteOffsetTop(cardEl) : null;
+    pinnedPrevTopRef.current = cardEl ? cardEl.getBoundingClientRect().top : null;
 
     toggleReRankAnchor(postId, rangeIndex);
   };
@@ -1245,13 +1241,14 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
     const cardEl = document.querySelector(`[data-post-id="${postId}"]`) as HTMLElement | null;
     if (!cardEl) return;
-    const newTop = absoluteOffsetTop(cardEl);
+    // Viewport-relative again (matches the capture above). delta is how far the
+    // clicked card moved on screen due to the header growth + reorder; scrolling
+    // the aside by that amount puts it back exactly where the user clicked.
+    const newTop = cardEl.getBoundingClientRect().top;
     const delta = newTop - prevTop;
-    if (Math.abs(delta) > 1) {
-      // The redesigned shell no longer uses Mantine AppShell; the aside scroll
-      // container is the custom column exposed as [data-testid="col-aside"]
-      // (Shell.tsx, ref={asideRef}, overflowY:auto). Retargeting it keeps the
-      // clicked card pinned in place across a rerank.
+    if (Math.abs(delta) > 0.5) {
+      // The aside scroll container is the custom column exposed as
+      // [data-testid="col-aside"] (Shell.tsx, ref={asideRef}, overflowY:auto).
       const aside = document.querySelector('[data-testid="col-aside"]');
       if (aside) aside.scrollTop += delta;
     }
