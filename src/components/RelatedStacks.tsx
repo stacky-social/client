@@ -1786,7 +1786,14 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               exit="exit"
               data-related-card
               style={{
-                position: 'relative', width: '100%', borderRadius: '10px',
+                position: 'relative',
+                // Indented cards carry a left margin; subtracting it from the width
+                // keeps margin + border-box width === 100% so the card never spills
+                // past the panel's right edge (that overflow was the source of the
+                // unwanted horizontal scroll). paddingLeft is inside border-box, so
+                // it doesn't need subtracting.
+                width: indentPx > 0 ? `calc(100% - ${indentPx}px)` : '100%',
+                borderRadius: '10px',
                 ...cardDimStyle,
                 // Every card in the active topic block sits alongside a continuous
                 // group connector line (rendered as an absolute child below). The

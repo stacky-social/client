@@ -124,6 +124,11 @@ export default function Shell({
                         top: TOP_NAV_HEIGHT,
                         height: `calc(100vh - ${TOP_NAV_HEIGHT}px)`,
                         overflowY: "auto",
+                        // The related panel must never scroll horizontally — any
+                        // sideways overflow just shifts text out of view. Clip it so
+                        // a stray wide child (deep group indent, long URL) can't add a
+                        // horizontal scrollbar.
+                        overflowX: "hidden",
                         overscrollBehavior: "contain",
                         scrollbarWidth: "none",
                         // No paddingTop: the RelatedStacks header is `position:sticky;
