@@ -1,6 +1,24 @@
 import React from "react";
-import { Text, Paper, Loader, Group, Stack } from "@mantine/core";
+import { Text, Paper, Loader, Group, Stack, ThemeIcon } from "@mantine/core";
+import { IconMoodSmile, IconMoodConfuzed, IconMoodSad, IconMoodNeutral } from "@tabler/icons-react";
 import type { ComposerFeedbackData } from "../../app/(shell)/related-stacks-context";
+
+/**
+ * Pick a stacky emotion face for a simulated reply from light sentiment cues —
+ * gives the "how people might reply" list a bit of emotional variety.
+ */
+type Mood = { Icon: typeof IconMoodSmile; color: string; label: string };
+function pickMood(text: string): Mood {
+  const raw = text || "";
+  const t = raw.toLowerCase();
+  if (/\?/.test(raw) || /\b(how|why|what|would|could|wonder|curious)\b/.test(t))
+    return { Icon: IconMoodConfuzed, color: "blue", label: "Curious" };
+  if (/\b(but|however|wrong|disagree|concern|problem|doubt|risk|fails?|bad|skeptical|not)\b|n't/.test(t))
+    return { Icon: IconMoodSad, color: "red", label: "Skeptical" };
+  if (/!/.test(raw) || /\b(great|interesting|agree|good|love|nice|excellent|smart|fair|yes|valid)\b/.test(t))
+    return { Icon: IconMoodSmile, color: "green", label: "Positive" };
+  return { Icon: IconMoodNeutral, color: "gray", label: "Neutral" };
+}
 
 /**
  * Aside panel that shows live writing feedback for the post being drafted in the
@@ -44,11 +62,19 @@ export function ComposerFeedback({ feedback }: { feedback: ComposerFeedbackData 
             How people might reply
           </Text>
           <Stack gap={6}>
-            {simulatedReplies.map((r, i) => (
-              <Paper key={r.id ?? i} withBorder p="sm" radius="md" style={{ background: "#fff" }}>
-                <Text size="xs" c="#374151">{r.content}</Text>
-              </Paper>
-            ))}
+            {simulatedReplies.map((r, i) => {
+              const mood = pickMood(r.content);
+              return (
+                <Paper key={r.id ?? i} withBorder p="sm" radius="md" style={{ background: "#fff" }}>
+                  <Group gap={8} align="flex-start" wrap="nowrap">
+                    <ThemeIcon size={26} radius="xl" variant="light" color={mood.color} title={mood.label}>
+                      <mood.Icon size={16} />
+                    </ThemeIcon>
+                    <Text size="xs" c="#374151" style={{ flex: 1 }}>{r.content}</Text>
+                  </Group>
+                </Paper>
+              );
+            })}
           </Stack>
         </>
       )}
