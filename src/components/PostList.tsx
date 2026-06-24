@@ -699,6 +699,10 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                         bookmarked={post.bookmarked}
                         mediaAttachments={post.mediaAttachments}
                         onStackIconClick={handleStackIconClick}
+                        // Clicking a store-feed post shows its related panel in the
+                        // aside (stay on the page) instead of routing to the REST
+                        // /posts/{id}; handleStackIconClick resolves the mock stacks.
+                        onNavigate={(postId: string) => handleStackIconClick([], postId, { top: 0, height: 0 })}
                         setIsModalOpen={setIsModalOpen}
                         setIsExpandModalOpen={setIsExpandModalOpen}
                         relatedStacks={post.relatedStacks}

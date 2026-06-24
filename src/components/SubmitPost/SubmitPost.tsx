@@ -5,11 +5,15 @@ import { IconPhoto, IconChartBar, IconAlertTriangle, IconMoodSmile,  } from '@ta
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { notifications } from '@mantine/notifications';
 import { getMe, createPost, useLocalStore } from '../../utils/localStore';
+import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
+import axios from 'axios';
 import classes from './SubmitPost.module.css';
 
 export function SubmitPost() {
   // Local current user — reactive so the avatar reflects store identity.
   const currentUser = useLocalStore(() => getMe());
+  // Publish live writing-feedback to the aside (rendered by the feed @aside slot).
+  const { setComposerFeedback } = useRelatedStacks();
   const [postText, setPostText] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -17,12 +21,49 @@ export function SubmitPost() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const draftIdRef = useRef(`draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const feedbackReqIdRef = useRef(0);
 
   const iconStyle = { width: 20, height: 20};
 
   useEffect(() => {
     adjustTextareaHeight();
   }, [postText]);
+
+  // Live writing feedback: debounce the draft, ask the same backend that powers
+  // comment-draft feedback, and surface the result in the aside via context.
+  // Real remote call (POST /posts/feedback) — fails gracefully when offline.
+  useEffect(() => {
+    const text = postText.trim();
+    if (text.length < 10) {
+      setComposerFeedback(null);
+      return;
+    }
+    const t = setTimeout(async () => {
+      const myReqId = ++feedbackReqIdRef.current;
+      setComposerFeedback({ loading: true });
+      try {
+        const res = await axios.post('https://beta.stacky.social:3002/posts/feedback', {
+          draftID: draftIdRef.current,
+          parentPostID: null,
+          draftText: text,
+        });
+        if (myReqId !== feedbackReqIdRef.current) return;
+        const { advice, praise, simulatedReplies } = res.data || {};
+        setComposerFeedback({ loading: false, advice, praise, simulatedReplies });
+      } catch {
+        if (myReqId !== feedbackReqIdRef.current) return;
+        setComposerFeedback(null);
+      }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [postText, setComposerFeedback]);
+
+  // Clear feedback from the aside when the composer unmounts.
+  useEffect(() => () => {
+    feedbackReqIdRef.current++;
+    setComposerFeedback(null);
+  }, [setComposerFeedback]);
 
 
   useEffect(() => {
@@ -72,6 +113,10 @@ export function SubmitPost() {
       setPostText(''); // Clear the composer after posting.
       if (fileInputRef.current) fileInputRef.current.value = '';
       setShowEmojiPicker(false);
+      // Clear the aside feedback and start a fresh draft id for the next post.
+      feedbackReqIdRef.current++;
+      setComposerFeedback(null);
+      draftIdRef.current = `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     } catch (error) {
       console.error('Error creating post:', error);
       notifications.show({

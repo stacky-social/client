@@ -3,6 +3,6 @@ import Posts from '../../../components/Posts/Posts';
 
 export default function Liked() {
     return (
-        <Posts source="liked" loadStackInfo={false} showSubmitAndSearch={false} />
+        <Posts source="liked" loadStackInfo showSubmitAndSearch showLoadMore={false} />
     );
 }

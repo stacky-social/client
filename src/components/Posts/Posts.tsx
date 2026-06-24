@@ -7,6 +7,7 @@ import RelatedStacks from '../RelatedStacks';
 import PostList from '../PostList';
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { useAccessToken } from '../../utils/useAccessToken';
+import { getMockRelatedStacks } from '../../utils/mockPostResolver';
 
 export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, showLoadMore = false, source, }: { apiUrl?: string, loadStackInfo: boolean, showSubmitAndSearch: boolean, showLoadMore?: boolean; source?: "home" | "bookmarks" | "liked"; }) {
     const { token: accessToken, ready } = useAccessToken();
@@ -19,7 +20,12 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, show
 
     const handleStackIconClick = (incomingRelatedStacks: any[], postId: string, _position: { top: number, height: number }) => {
         const togglingOff = postId === asideActivePostId && Array.isArray(asideStacks) && asideStacks.length > 0;
-        const stacksToPublish = Array.isArray(incomingRelatedStacks) ? incomingRelatedStacks : [];
+        // Store-feed posts (home/bookmarks/liked) carry no inline related stacks;
+        // fall back to the mock dataset so the related panel still populates.
+        const stacksToPublish =
+            Array.isArray(incomingRelatedStacks) && incomingRelatedStacks.length > 0
+                ? incomingRelatedStacks
+                : (getMockRelatedStacks(postId) || []);
         setFromPost(stacksToPublish, postId);
         setPreviousPostId(activePostId);
         setActivePostId(togglingOff ? null : postId);

@@ -4,6 +4,14 @@ import React, { createContext, useCallback, useContext, useMemo, useRef, useStat
 
 type RelatedStacksArray = any[];
 
+/** Real-time writing feedback for the post composer (POST /posts/feedback). */
+export type ComposerFeedbackData = {
+  loading: boolean;
+  advice?: string;
+  praise?: string;
+  simulatedReplies?: { id?: string; content: string }[];
+};
+
 type RelatedStacksContextValue = {
   relatedStacks: RelatedStacksArray;
   activePostId: string | null;
@@ -11,6 +19,9 @@ type RelatedStacksContextValue = {
   setFromPost: (stacks: RelatedStacksArray, postId: string, options?: { force?: boolean }) => void;
   showUpdate: boolean;
   clear: () => void;
+  /** Composer writing-feedback shown in the aside while drafting a post (null = none). */
+  composerFeedback: ComposerFeedbackData | null;
+  setComposerFeedback: (feedback: ComposerFeedbackData | null) => void;
 };
 
 const RelatedStacksContext = createContext<RelatedStacksContextValue | null>(null);
@@ -19,6 +30,7 @@ export function RelatedStacksProvider({ children }: { children: React.ReactNode 
   const [relatedStacks, setRelatedStacks] = useState<RelatedStacksArray>([]);
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [previousPostId, setPreviousPostId] = useState<string | null>(null);
+  const [composerFeedback, setComposerFeedback] = useState<ComposerFeedbackData | null>(null);
 
   // Mirrors of committed state, updated synchronously in every update path below.
   // They let setFromPost make a joint toggle decision across both atoms from
@@ -70,8 +82,10 @@ export function RelatedStacksProvider({ children }: { children: React.ReactNode 
       setFromPost,
       showUpdate: activePostId !== previousPostId,
       clear,
+      composerFeedback,
+      setComposerFeedback,
     }),
-    [relatedStacks, activePostId, previousPostId, setFromPost, clear]
+    [relatedStacks, activePostId, previousPostId, setFromPost, clear, composerFeedback]
   );
 
   return <RelatedStacksContext.Provider value={value}>{children}</RelatedStacksContext.Provider>;

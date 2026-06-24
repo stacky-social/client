@@ -748,6 +748,35 @@ export function getMe(): Account {
   return state.me;
 }
 
+/**
+ * Search accounts by display name / username / handle (case-insensitive).
+ * REST: GET /api/v2/search?type=accounts&q=…
+ */
+export function searchAccounts(query: string): Account[] {
+  ensureHydrated();
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  return Object.values(state.accounts).filter(
+    (a) =>
+      a.display_name.toLowerCase().includes(q) ||
+      a.username.toLowerCase().includes(q) ||
+      a.acct.toLowerCase().includes(q),
+  );
+}
+
+/**
+ * Search posts by their (tag-stripped) text content, newest first.
+ * REST: GET /api/v2/search?type=statuses&q=…
+ */
+export function searchPosts(query: string): Post[] {
+  ensureHydrated();
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  return Object.values(state.posts)
+    .filter((p) => p.content.replace(/<[^>]*>/g, " ").toLowerCase().includes(q))
+    .sort(byNewest);
+}
+
 // ─── Misc ────────────────────────────────────────────────────────────────────
 
 /** Minimal HTML escaping for user-entered post/comment text. */
