@@ -11,6 +11,7 @@ import InteractionControl from './InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import { notifications } from '@mantine/notifications';
 import { copyLink } from '../utils/share';
+import { useRelatedStacks } from '../app/(shell)/related-stacks-context';
 import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, clearFilterFocusSpan, useHighlightStore } from '../utils/highlightStore';
 import { reorderForAnchor } from '../utils/reorderForAnchor';
 import type { Relation } from '../types/PostType';
@@ -683,6 +684,12 @@ function similarityScore(textA: string, textB: string): number {
 
 const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth = "100%", onStackClick, showupdate, onOpenModalWithStackId, onPostNavigate, sourcePostId, highlightPostId }) => {
   const router = useRouter();
+  // Single source of truth for the focus post: the related cards are, by
+  // definition, related TO the active post. Using the context here means the
+  // share-a-pairing link always anchors on the focus post even if a given aside
+  // forgot to thread the sourcePostId prop (which is what produced the "share
+  // opens the related post instead of the pairing" bug).
+  const { activePostId: ctxActivePostId } = useRelatedStacks();
   const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
   // Shared-pairing highlight: scroll the emphasised card into view when arriving
   // via a …?related={id} link (or when the highlight target changes).
@@ -2114,13 +2121,17 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                     <InteractionControl icon={<IconShare size={20} />} ariaLabel="Share pairing"
                       onClick={() => {
                         // Share this related response *paired with* its focus post.
-                        // Opening the link lands on the focus post and emphasises
-                        // this card (see the ?related= handler on the focus page).
+                        // Same base post id as the focus-post share button — the
+                        // related one just adds ?related=. Opening the link lands on
+                        // the focus post and emphasises this card (see the ?related=
+                        // handler on the focus page). Base is the focus post: the
+                        // sourcePostId prop if given, else the context's active post.
                         const origin = window.location.origin;
-                        const url = sourcePostId
-                          ? `${origin}/ChineseEVs/posts/${sourcePostId}?related=${stack.topPost.id}`
+                        const focusId = sourcePostId ?? ctxActivePostId;
+                        const url = focusId
+                          ? `${origin}/ChineseEVs/posts/${focusId}?related=${stack.topPost.id}`
                           : `${origin}/ChineseEVs/posts/${stack.topPost.id}`;
-                        copyLink(url, sourcePostId ? "Pairing link copied" : "Post link copied");
+                        copyLink(url, focusId ? "Pairing link copied" : "Post link copied");
                       }} />
                   </Group>
                 </div>
