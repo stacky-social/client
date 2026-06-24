@@ -9,7 +9,7 @@ import {
     IconLogout,
 } from "@tabler/icons-react";
 import { useRouter, usePathname } from "next/navigation";
-import StackLogo from "../../utils/StackLogo";
+import CrossweaveLogo from "./CrossweaveLogo";
 
 const MastodonInstanceUrl = "https://beta.stacky.social";
 const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
@@ -88,7 +88,7 @@ export function TopNav() {
                     padding: 0,
                 }}
             >
-                <StackLogo size={28} />
+                <CrossweaveLogo height={28} />
             </button>
 
             <Group gap={4} style={{ marginLeft: "auto" }}>

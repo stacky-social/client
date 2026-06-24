@@ -81,10 +81,15 @@ export default function Shell({
                 <div
                     data-testid="feed"
                     style={{
-                        flexGrow: hasAside ? ratio : 1,
-                        flexBasis: 0,
-                        minWidth: 0,
                         paddingTop: 16,
+                        // With an aside, take the slider-controlled share of the row.
+                        // Without one (home / liked / bookmarks / search), render a
+                        // single centered reading column instead of a too-wide
+                        // full-bleed feed — keeps the composer and posts aligned and
+                        // consistent with the feed width when the aside is present.
+                        ...(hasAside
+                            ? { flexGrow: ratio, flexBasis: 0, minWidth: 0 }
+                            : { width: "100%", maxWidth: 760, margin: "0 auto" }),
                     }}
                 >
                     {children}
