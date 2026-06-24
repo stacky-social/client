@@ -26,12 +26,12 @@ export function CrossweaveLogo({ height = 28 }: { height?: number }) {
         aria-label="crossweave logo"
         style={{ display: "block", flexShrink: 0 }}
       >
-        {/* ↘ diagonal: navy (top-left) + amber (bottom-right) */}
-        <rect x="20" y="10" width="26" height="46" rx="13" fill={NAVY} transform="rotate(45 33 33)" />
-        <rect x="54" y="44" width="26" height="46" rx="13" fill={AMBER} transform="rotate(45 67 67)" />
-        {/* ↙ diagonal: teal (top-right) + coral (bottom-left) */}
-        <rect x="54" y="10" width="26" height="46" rx="13" fill={TEAL} transform="rotate(-45 67 33)" />
-        <rect x="20" y="44" width="26" height="46" rx="13" fill={CORAL} transform="rotate(-45 33 67)" />
+        {/* "\" diagonal (NW↔SE): navy top-left + amber bottom-right */}
+        <rect x="20" y="10" width="26" height="46" rx="13" fill={NAVY} transform="rotate(-45 33 33)" />
+        <rect x="54" y="44" width="26" height="46" rx="13" fill={AMBER} transform="rotate(-45 67 67)" />
+        {/* "/" diagonal (NE↔SW): teal top-right + coral bottom-left */}
+        <rect x="54" y="10" width="26" height="46" rx="13" fill={TEAL} transform="rotate(45 67 33)" />
+        <rect x="20" y="44" width="26" height="46" rx="13" fill={CORAL} transform="rotate(45 33 67)" />
       </svg>
       <span
         style={{
