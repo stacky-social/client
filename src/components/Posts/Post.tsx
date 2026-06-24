@@ -545,7 +545,7 @@ function Post({
 
   // Initialize interaction state from the local store so persisted likes/bookmarks
   // survive reload and show consistently across routes (e.g. a post liked on
-  // /listy-injection shows as liked there, on /liked, and after a refresh). When
+  // /ChineseEVs shows as liked there, on /liked, and after a refresh). When
   // the post is not yet in the store, fall back to the props from the parent.
   // Initialize from the PARENT PROPS only so the first render matches the server
   // HTML. The store reads localStorage (invisible to the server), so reading it

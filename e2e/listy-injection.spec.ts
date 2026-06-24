@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 import mockData from '../src/app/FakeData/listy-injection.json';
 
-// The research feed at /listy-injection is rendered entirely from local mock
-// JSON — no backend needed. Its detail route /listy-injection/posts/[id]
+// The research feed at /ChineseEVs is rendered entirely from local mock
+// JSON — no backend needed. Its detail route /ChineseEVs/posts/[id]
 // mirrors a single post.
 
 // First focus-post id from the mock data, used by the detail-view test.
@@ -10,7 +10,7 @@ const firstFocusId = (mockData as any)[0].focusPost.id as string;
 
 test.describe('Listy-injection feed', () => {
   test('renders the hashtag header, stats, post cards and interactions', async ({ page }) => {
-    await page.goto('/listy-injection');
+    await page.goto('/ChineseEVs');
 
     // Hashtag header + stat labels.
     await expect(page.getByText('#ChineseEVs')).toBeVisible();
@@ -32,7 +32,7 @@ test.describe('Listy-injection feed', () => {
   });
 
   test('opens a post detail view without an error boundary', async ({ page }) => {
-    await page.goto(`/listy-injection/posts/${firstFocusId}`);
+    await page.goto(`/ChineseEVs/posts/${firstFocusId}`);
 
     // No error boundary / not-found state.
     await expect(page.getByText(/Application error/i)).toHaveCount(0);

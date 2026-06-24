@@ -18,8 +18,8 @@ export default function MockPostAside() {
     const params = new URLSearchParams();
     if (focusPostId) params.set("from", focusPostId);
     const search = params.toString();
-    const url = `/listy-injection/posts/${postId}${search ? "?" + search : ""}`;
-    sessionStorage.setItem(`previousPath:/listy-injection/posts/${postId}`, window.location.pathname + window.location.search);
+    const url = `/ChineseEVs/posts/${postId}${search ? "?" + search : ""}`;
+    sessionStorage.setItem(`previousPath:/ChineseEVs/posts/${postId}`, window.location.pathname + window.location.search);
     sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
     router.push(url);
   };

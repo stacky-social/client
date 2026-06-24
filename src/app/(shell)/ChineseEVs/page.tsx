@@ -358,7 +358,7 @@ export default function ListyInjectionPage() {
 
   /** Marker we push onto window.history when entering thread mode so the
    *  browser back button is captured by the popstate handler below. Without
-   *  this, a browser-back press tears the user off /listy-injection entirely,
+   *  this, a browser-back press tears the user off /ChineseEVs entirely,
    *  losing their thread context (A4). */
   const browserBackInstalledRef = useRef(false);
   // Forward-declared ref so popInPageOnly can re-seed the aside with the first
@@ -417,19 +417,19 @@ export default function ListyInjectionPage() {
     // Direct feed clicks pass the clicked feed-post id. Aside clicks may
     // pass a related-post id that isn't a feed entry — the restore effect
     // handles that by leaving the aside alone if the id isn't found in posts.
-    sessionStorage.setItem(`scrollY:/listy-injection`, String(window.scrollY));
-    sessionStorage.setItem(`activeFeedPost:/listy-injection`, postId);
+    sessionStorage.setItem(`scrollY:/ChineseEVs`, String(window.scrollY));
+    sessionStorage.setItem(`activeFeedPost:/ChineseEVs`, postId);
     // Seed BackButton's previousPath so the post-detail route shows "Back".
     sessionStorage.setItem(
-      `previousPath:/listy-injection/posts/${postId}`,
-      "/listy-injection",
+      `previousPath:/ChineseEVs/posts/${postId}`,
+      "/ChineseEVs",
     );
     // Supersedes the prior in-page thread mode + ?focus= URL approach: we
     // now route to a dedicated detail page so URLs are true REST resources
     // rather than query-param state. Group A's A4 (browser-back capture via
     // pushState marker) is therefore obsolete — router.push gives the
     // browser-back behavior we want for free.
-    router.push(`/listy-injection/posts/${postId}`);
+    router.push(`/ChineseEVs/posts/${postId}`);
   }, [router, resolveEntry]);
 
   const navigateBack = useCallback(() => {
@@ -459,7 +459,7 @@ export default function ListyInjectionPage() {
         window.history.pushState(
           restoreId ? { focus: restoreId } : null,
           "",
-          `/listy-injection${targetSearch}`,
+          `/ChineseEVs${targetSearch}`,
         );
       }
 
@@ -475,7 +475,7 @@ export default function ListyInjectionPage() {
 
   // Legacy ?focus= URL hydration kept as a fallback for any URLs that may
   // still exist in users' history from the prior in-page thread mode.
-  // Primary navigation is now /listy-injection/posts/[id] (router.push),
+  // Primary navigation is now /ChineseEVs/posts/[id] (router.push),
   // so this code path is rarely hit; when it is, it calls navigateToPost
   // which (with A1 guard) router.push's to the detail route.
   const hydratedFocusRef = useRef(false);
@@ -538,10 +538,10 @@ export default function ListyInjectionPage() {
     if (posts.length === 0 || activePostId) return;
 
     const savedY = typeof window !== "undefined"
-      ? sessionStorage.getItem("scrollY:/listy-injection")
+      ? sessionStorage.getItem("scrollY:/ChineseEVs")
       : null;
     const savedActiveId = typeof window !== "undefined"
-      ? sessionStorage.getItem("activeFeedPost:/listy-injection")
+      ? sessionStorage.getItem("activeFeedPost:/ChineseEVs")
       : null;
 
     // Pick the post to focus, in priority order. Falls back to first feed post.
@@ -563,13 +563,13 @@ export default function ListyInjectionPage() {
         requestAnimationFrame(() => {
           window.scrollTo(0, y);
           isRestoringRef.current = false;
-          sessionStorage.removeItem("scrollY:/listy-injection");
-          sessionStorage.removeItem("activeFeedPost:/listy-injection");
+          sessionStorage.removeItem("scrollY:/ChineseEVs");
+          sessionStorage.removeItem("activeFeedPost:/ChineseEVs");
         });
       });
     } else {
-      sessionStorage.removeItem("scrollY:/listy-injection");
-      sessionStorage.removeItem("activeFeedPost:/listy-injection");
+      sessionStorage.removeItem("scrollY:/ChineseEVs");
+      sessionStorage.removeItem("activeFeedPost:/ChineseEVs");
     }
   }, []);
 

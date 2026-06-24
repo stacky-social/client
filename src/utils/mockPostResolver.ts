@@ -160,7 +160,7 @@ export function getMockReplies(id: string): MockPostType[] {
 
 /** Build the focusRelations array for a given focus id — used by the Post
  *  component to render dimmed marks on the focus post (research-only signal).
- *  Mirrors /listy-injection/page.tsx line 53. Returns empty array when the
+ *  Mirrors /ChineseEVs/page.tsx line 53. Returns empty array when the
  *  post has no entry (synthetic / reply-only ids). */
 export function getMockFocusRelations(id: string): Relation[] {
   const entry = entryByFocusId.get(id);
@@ -171,7 +171,7 @@ export function getMockFocusRelations(id: string): Relation[] {
 }
 
 /** Build aside-format related stacks (one per related post) for a given focus id.
- *  Mirrors the logic in /listy-injection/page.tsx::toPostData (flat stacks). */
+ *  Mirrors the logic in /ChineseEVs/page.tsx::toPostData (flat stacks). */
 export function getMockRelatedStacks(id: string): any[] {
   const entry = entryByFocusId.get(id);
   if (!entry) {
@@ -181,7 +181,7 @@ export function getMockRelatedStacks(id: string): any[] {
     if (fromReply) return getMockRelatedStacks(fromReply.parent.focusPost.id);
     // Synthetic: this id is a related post in another entry. Build a synthetic
     // sibling set from its parent entry (mirrors syntheticEntryFromRelated in
-    // /listy-injection/page.tsx, simplified).
+    // /ChineseEVs/page.tsx, simplified).
     const fromRelated = relatedById.get(id);
     if (!fromRelated) return [];
     const { rp, parent } = fromRelated;

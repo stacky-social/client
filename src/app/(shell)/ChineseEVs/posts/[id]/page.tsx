@@ -130,7 +130,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     if (!fromId) return;
     const key = `previousPath:${window.location.pathname}`;
     if (!sessionStorage.getItem(key)) {
-      sessionStorage.setItem(key, `/listy-injection/posts/${fromId}`);
+      sessionStorage.setItem(key, `/ChineseEVs/posts/${fromId}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

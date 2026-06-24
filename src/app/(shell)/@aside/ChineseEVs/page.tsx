@@ -10,12 +10,12 @@ export default function ListyInjectionAside() {
   const { relatedStacks, activePostId, showUpdate } = useRelatedStacks();
 
   // Parallel-route slots are RETAINED across soft navigation: when you go from
-  // /listy-injection to a focus-less route (home, search, …), Next.js keeps this
+  // /ChineseEVs to a focus-less route (home, search, …), Next.js keeps this
   // slot mounted instead of swapping in @aside/default (which clears). Guard on
   // the live pathname so the aside only renders on listy routes and never leaks a
   // previous post's related responses onto another page. The shared context is
   // left intact (the post-detail route renders related inline from it).
-  if (!pathname || !pathname.startsWith("/listy-injection")) return null;
+  if (!pathname || !pathname.startsWith("/ChineseEVs")) return null;
 
   // No focus post selected — aside has nothing to anchor against.
   if (!activePostId) return null;

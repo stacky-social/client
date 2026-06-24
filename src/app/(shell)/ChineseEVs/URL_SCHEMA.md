@@ -1,13 +1,13 @@
 # Baby Stacky — URL schema
 
-The `/listy-injection/*` routes are the research prototype ("baby stacky") for the future production Stacky system. This doc defines the URL contract so studies, deep-links, and the eventual production routes stay consistent.
+The `/ChineseEVs/*` routes are the research prototype ("baby stacky") for the future production Stacky system. This doc defines the URL contract so studies, deep-links, and the eventual production routes stay consistent.
 
 ## Routes
 
 | Path | Purpose | Data source |
 |---|---|---|
-| `/listy-injection` | Feed view (hashtag stream + per-post in-page thread) | `src/app/FakeData/listy-injection.json` |
-| `/listy-injection/posts/[id]` | Post-detail with threaded replies + related-post aside | Same JSON, resolver in `src/utils/mockPostResolver.ts` |
+| `/ChineseEVs` | Feed view (hashtag stream + per-post in-page thread) | `src/app/FakeData/listy-injection.json` |
+| `/ChineseEVs/posts/[id]` | Post-detail with threaded replies + related-post aside | Same JSON, resolver in `src/utils/mockPostResolver.ts` |
 
 The post-detail route mirrors the future `/posts/[id]` route. The same React components are shared (`Post`, `ThreadedReplyList`, `RelatedStacks`, `BackButton`, `ReplySection`) and the same URL-sync hook (`useUrlSync`) is reused, so the URL contract carries over verbatim.
 
@@ -46,7 +46,7 @@ If/when these land, follow the same patterns as `fc` and `fs`: hydrate once per 
 A URL like:
 
 ```
-/listy-injection/posts/112880124583497150?fc=connections,framing&fs=12-89&tab=recommended&from=112854373877034288
+/ChineseEVs/posts/112880124583497150?fc=connections,framing&fs=12-89&tab=recommended&from=112854373877034288
 ```
 
 reconstructs:
