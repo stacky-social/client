@@ -86,16 +86,16 @@ export function useUrlSync({
       }
     }
 
-    // fc (filter categories — CSV)
+    // fc (filter categories — CSV). A ?fc link overrides the restored panel
+    // filters; with no ?fc we leave the per-focus-post state alone — setPanelFocus
+    // (in RelatedStacks) has already restored or cleared it. Wiping here would
+    // undo that restore on every back-navigation.
     const fcParam = searchParams.get("fc");
     if (fcParam) {
       const cats = new Set(fcParam.split(",").map((c) => c.trim()).filter(Boolean));
       if (cats.size > 0) {
         setFilterCategories(cats);
       }
-    } else {
-      // Navigating to a URL with no ?fc — clear any stale store state
-      setFilterCategories(new Set());
     }
 
     // fs (filter focus span) — text reconstruction deferred to the effect below

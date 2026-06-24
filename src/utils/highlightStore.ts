@@ -156,6 +156,63 @@ export function resetHighlightStore(): void {
   notify();
 }
 
+// ─── Per-focus-post panel persistence ───────────────────────────────────────
+// Grouping + category/span filters are scoped to the focus post they were made
+// on. Snapshotting them per focus id lets navigation (back button, a feed post →
+// its full view, scrolling between focus posts) restore the work the user did in
+// the related panel instead of clearing it. In-memory, so it survives SPA
+// navigation within the session (a hard refresh starts fresh).
+
+interface PanelSnapshot {
+  filterCategories: string[];
+  reRankAnchorIds: string[];
+  anchoredRangeByPost: Record<string, number>;
+  filterFocusSpan: { start: number; end: number; text: string } | null;
+}
+
+const panelStateByFocus = new Map<string, PanelSnapshot>();
+let currentPanelFocusId: string | null = null;
+
+function snapshotPanel(): PanelSnapshot {
+  return {
+    filterCategories: Array.from(state.filterCategories),
+    reRankAnchorIds: [...state.reRankAnchorIds],
+    anchoredRangeByPost: { ...state.anchoredRangeByPost },
+    filterFocusSpan: state.filterFocusSpan,
+  };
+}
+
+/**
+ * Tell the store which focus post the related panel is showing. Saves the
+ * outgoing post's grouping/filters and restores the incoming post's (or resets
+ * to a clean panel if it has none). No-op when the focus id is unchanged, so it
+ * is safe to call on every render/effect. Transient hover/tap state always
+ * resets on a real switch.
+ */
+export function setPanelFocus(focusId: string | null): void {
+  if (focusId === currentPanelFocusId) return;
+  if (currentPanelFocusId) {
+    panelStateByFocus.set(currentPanelFocusId, snapshotPanel());
+  }
+  currentPanelFocusId = focusId;
+  const saved = focusId ? panelStateByFocus.get(focusId) : undefined;
+  state = {
+    ...state,
+    filterCategories: saved ? new Set(saved.filterCategories) : new Set(),
+    reRankAnchorIds: saved ? [...saved.reRankAnchorIds] : [],
+    anchoredRangeByPost: saved ? { ...saved.anchoredRangeByPost } : {},
+    filterFocusSpan: saved ? saved.filterFocusSpan : null,
+    // transient view state never persists across a focus switch
+    hoveredPostId: null,
+    hoveredRelations: null,
+    hoveredHighlightRangeIndex: null,
+    hoveredCategory: null,
+    tappedCardPostId: null,
+    tappedRangeIndex: null,
+  };
+  notify();
+}
+
 /** D2: Set the span filter from a clicked focus-post mark. */
 export function setFilterFocusSpan(span: { start: number; end: number; text: string }): void {
   state = { ...state, filterFocusSpan: span };

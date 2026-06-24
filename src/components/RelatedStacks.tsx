@@ -12,7 +12,7 @@ import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import { notifications } from '@mantine/notifications';
 import { copyLink } from '../utils/share';
 import { useRelatedStacks } from '../app/(shell)/related-stacks-context';
-import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, clearFilterFocusSpan, useHighlightStore } from '../utils/highlightStore';
+import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, clearFilterFocusSpan, setPanelFocus, useHighlightStore } from '../utils/highlightStore';
 import { reorderForAnchor } from '../utils/reorderForAnchor';
 import type { Relation } from '../types/PostType';
 import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
@@ -1393,21 +1393,26 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     }
   }).current;
 
-  // Reset stale hover + anchors when stacks change (new focus post)
-  useEffect(() => {
+  // On a focus-post change: restore that post's saved grouping/filters (or reset
+  // to a clean panel if it has none) and clear transient view state. Persisting
+  // per focus post is what makes the panel survive back-navigation, a feed post →
+  // its full view, and scrolling between focus posts. useLayoutEffect so the
+  // restore runs before useUrlSync's passive ?fc/?fs handling — a shared filter
+  // link still wins, while ordinary navigation restores the saved panel.
+  useLayoutEffect(() => {
+    const focusId = sourcePostId ?? ctxActivePostId ?? null;
+    setPanelFocus(focusId);
     setHoveredCardIndex(null);
     setHoveredIndex(null);
     hideTooltip();
     if (rangeHoverTimer.current) clearTimeout(rangeHoverTimer.current);
-    clearReRankAnchors();
     clearTapped();
-    clearFilterFocusSpan(); // D2: clear span filter when focus post changes
     // Discard saved baseOrder — it refers to post IDs from the previous
     // dataset and would corrupt the working order if reused.
     baseOrderRef.current = [];
     activeAnchorIdRef.current = null;
     prevDisplayStacksRef.current = [];
-  }, [relatedStacks]);
+  }, [relatedStacks, sourcePostId, ctxActivePostId]);
 
   // Touch: tap-outside clears the active state so highlights/sidebar reset.
   useEffect(() => {

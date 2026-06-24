@@ -9,7 +9,7 @@ import Post from "../../../components/Posts/Post";
 import mockData from "../../FakeData/listy-injection.json";
 import type { ListyInjectionData, ListyInjectionEntry, RelatedPostMock, FocusPostMock, Relation, CategoryKey } from "../../../types/PostType";
 import { useRelatedStacks } from "../related-stacks-context";
-import { resetHighlightStore, registerNavigateCallback } from "../../../utils/highlightStore";
+import { registerNavigateCallback } from "../../../utils/highlightStore";
 import ReplySection from "../../../components/ReplySection";
 import { useLocalStore, useHydrated, getHashtagAuthors, followAll, unfollowAll, areAllFollowing } from "../../../utils/localStore";
 
@@ -419,7 +419,11 @@ export default function ListyInjectionPage() {
     // pass a related-post id that isn't a feed entry — the restore effect
     // handles that by leaving the aside alone if the id isn't found in posts.
     sessionStorage.setItem(`scrollY:/ChineseEVs`, String(window.scrollY));
-    sessionStorage.setItem(`activeFeedPost:/ChineseEVs`, postId);
+    // Restore the FOCUSED feed post (whose related panel — grouping/filters — the
+    // user was working in), not the post being opened. Opening a related post and
+    // coming back should land you back on your grouped/filtered panel. Falls back
+    // to the opened post if nothing is focused yet.
+    sessionStorage.setItem(`activeFeedPost:/ChineseEVs`, activePostIdRef.current ?? postId);
     // Seed BackButton's previousPath so the post-detail route shows "Back".
     sessionStorage.setItem(
       `previousPath:/ChineseEVs/posts/${postId}`,
@@ -513,10 +517,11 @@ export default function ListyInjectionPage() {
   // mode without `posts` having to be declared above it.
   postsRef.current = posts;
 
-  // Reset on mount/unmount
+  // Clean up the shared navigate callback on unmount. Grouping/filters are NOT
+  // reset here anymore — they persist per focus post (setPanelFocus), so the
+  // related panel survives navigating into a post and back to the feed.
   useEffect(() => {
-    resetHighlightStore();
-    return () => { resetHighlightStore(); registerNavigateCallback(null); };
+    return () => { registerNavigateCallback(null); };
   }, []);
 
   // Unified mount-time focus + scroll restoration.
