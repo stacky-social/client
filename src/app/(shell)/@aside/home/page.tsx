@@ -5,10 +5,11 @@ import RelatedStacks from "../../../../components/RelatedStacks";
 import { ComposerFeedback } from "../../../../components/SubmitPost/ComposerFeedback";
 import { useRelatedStacks } from "../../related-stacks-context";
 import { triggerNavigate } from "../../../../utils/highlightStore";
+import { FocusPostHeader } from "../FocusPostHeader";
 
 export default function HomeAside() {
   const pathname = usePathname();
-  const { relatedStacks, activePostId, showUpdate, composerFeedback } =
+  const { relatedStacks, activePostId, showUpdate, composerFeedback, clear } =
     useRelatedStacks();
 
   // Parallel-route slots are RETAINED across soft navigation: Next.js keeps this
@@ -30,6 +31,7 @@ export default function HomeAside() {
   if (activePostId && relatedStacks && relatedStacks.length > 0) {
     return (
       <div style={{ width: "100%" }}>
+        <FocusPostHeader postId={activePostId} onClear={clear} />
         <RelatedStacks
           relatedStacks={relatedStacks}
           cardWidth="100%"

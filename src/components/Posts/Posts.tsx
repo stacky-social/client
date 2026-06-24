@@ -16,7 +16,11 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, show
     const [isExpandModalOpen, setIsExpandModalOpen] = useState(false);
     const [previousPostId, setPreviousPostId] = useState<string | null>(null);
 
-    const { setFromPost, activePostId: asideActivePostId, relatedStacks: asideStacks } = useRelatedStacks();
+    const { setFromPost, activePostId: asideActivePostId, relatedStacks: asideStacks, clear } = useRelatedStacks();
+
+    // Start each feed visit with a clean aside — clears any related panel left
+    // over from a previous focus so it never shows orphaned (no highlighted post).
+    useEffect(() => { clear(); }, [clear]);
 
     const handleStackIconClick = (incomingRelatedStacks: any[], postId: string, _position: { top: number, height: number }) => {
         const togglingOff = postId === asideActivePostId && Array.isArray(asideStacks) && asideStacks.length > 0;
