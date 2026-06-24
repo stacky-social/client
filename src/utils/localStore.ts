@@ -678,6 +678,47 @@ export function toggleFollow(acct: string): { following: boolean } {
   return { following: isNowFollowing };
 }
 
+/**
+ * Distinct authors of the hashtag's posts — everyone whose post is in the feed,
+ * excluding the local user. Backs the "Follow hashtag" action, which surfaces the
+ * whole conversation on Home by following all of them.
+ */
+export function getHashtagAuthors(): string[] {
+  return memoized("hashtagAuthors", () => {
+    const set = new Set<string>();
+    for (const p of Object.values(state.posts)) {
+      if (p.account.acct !== state.me.acct) set.add(p.account.acct);
+    }
+    return Array.from(set);
+  });
+}
+
+/** Follow every account in `accts` (idempotent). REST: bulk POST /accounts/{id}/follow. */
+export function followAll(accts: string[]): void {
+  ensureHydrated();
+  mutate((draft) => {
+    for (const acct of accts) {
+      if (!draft.following.includes(acct)) draft.following.push(acct);
+      if (!draft.accounts[acct]) draft.accounts[acct] = defaultAccountFor(acct);
+    }
+  });
+}
+
+/** Unfollow every account in `accts`. */
+export function unfollowAll(accts: string[]): void {
+  ensureHydrated();
+  const remove = new Set(accts);
+  mutate((draft) => {
+    draft.following = draft.following.filter((a) => !remove.has(a));
+  });
+}
+
+/** True when every acct in `accts` is followed (and the list is non-empty). */
+export function areAllFollowing(accts: string[]): boolean {
+  ensureHydrated();
+  return accts.length > 0 && accts.every((a) => state.following.includes(a));
+}
+
 /** Whether a post is currently liked. */
 export function isLiked(id: string): boolean {
   ensureHydrated();

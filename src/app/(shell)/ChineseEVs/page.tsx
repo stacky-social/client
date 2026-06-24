@@ -11,6 +11,7 @@ import type { ListyInjectionData, ListyInjectionEntry, RelatedPostMock, FocusPos
 import { useRelatedStacks } from "../related-stacks-context";
 import { resetHighlightStore, registerNavigateCallback } from "../../../utils/highlightStore";
 import ReplySection from "../../../components/ReplySection";
+import { useLocalStore, useHydrated, getHashtagAuthors, followAll, unfollowAll, areAllFollowing } from "../../../utils/localStore";
 
 const entries = mockData as unknown as ListyInjectionData;
 
@@ -818,6 +819,16 @@ export default function ListyInjectionPage() {
   const totalRelated = posts.reduce((sum, p) => sum + p.relatedStacks.length, 0);
   const uniqueAuthors = new Set(posts.flatMap(p => p.relatedStacks.map(s => s.topPost.account.display_name)));
 
+  // "Follow hashtag" follows every participant so the whole conversation lands on
+  // Home. Gated on mount (the follow state lives in localStorage) to match SSR.
+  const hydrated = useHydrated();
+  const hashtagFollowed = useLocalStore(() => areAllFollowing(getHashtagAuthors()));
+  const handleFollowHashtag = () => {
+    const authors = getHashtagAuthors();
+    if (areAllFollowing(authors)) unfollowAll(authors);
+    else followAll(authors);
+  };
+
   const feedContent = (
     <div>
       <Paper
@@ -829,7 +840,14 @@ export default function ListyInjectionPage() {
       >
         <Group style={{ justifyContent: "space-between" }}>
           <Text size="xl" fw={700}>#ChineseEVs</Text>
-          <Button color="blue" variant="outline" size="sm">Follow hashtag</Button>
+          <Button
+            color="blue"
+            variant={hydrated && hashtagFollowed ? "filled" : "outline"}
+            size="sm"
+            onClick={handleFollowHashtag}
+          >
+            {hydrated && hashtagFollowed ? "Following hashtag" : "Follow hashtag"}
+          </Button>
         </Group>
         <Divider my="md" />
         <Group style={{ justifyContent: "center", gap: "2rem" }}>
