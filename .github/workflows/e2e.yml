@@ -1,0 +1,56 @@
+name: E2E
+
+# Playwright end-to-end suite. Gates the `dev` integration branch: runs on every
+# PR targeting dev and on pushes to dev. `workflow_dispatch` allows manual runs on
+# any branch (e.g. to validate a feature branch before opening the PR).
+on:
+  pull_request:
+    branches: [dev]
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright (chromium + OS deps)
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: pnpm test:e2e
+        env:
+          # No real OAuth/backend — the suite runs against local mock data.
+          # Dummy values let the app boot and build the OAuth authorize URL.
+          NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID: ci-dummy-client-id
+          NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_SECRET: ci-dummy-client-secret
+          NEXT_PUBLIC_MODE: development
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
