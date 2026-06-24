@@ -1,9 +1,11 @@
 # `/listy-injection` — Interaction Requirements & Heuristic Evaluation
 
-**Status:** Draft for review · **Date:** 2026-06-16 *(layout redesign added 2026-06-22 — see §2.2 and §5 R-RESIZE)* · **Scope:** interaction behavior only
+**Status:** Revised 2026-06-23 — statuses re-verified against branch `listy-injection-main-app` (most `SPEC > CURRENT` items now fixed; see the update note below) · **Date:** 2026-06-16, rev. 2026-06-23 · **Scope:** interaction behavior only
 **Purpose:** The behavioral oracle for an agentic test workflow (TestSprite → Playwright). Every normative requirement is written to be turned into an automated assertion; the risk register lists hypotheses for exploratory characterization.
 
 This document is grounded in (a) a full read of the route, the shared `Post` component, `RelatedStacks`, the resizable shell, the highlight store, the mock resolver, and the supporting components, and (b) **live observation of the running app** (`pnpm dev`, unauthenticated, desktop viewport). Live measurements are quoted as evidence in §10.
+
+> **Update — 2026-06-23 (re-verified against branch `tarcode2004/enhancement/listy-injection-main-app`, HEAD `00fbc4c`).** A large batch of fixes has landed since the original draft. Statuses below were re-checked against the **current code** (not commit messages). What's now done: the **shell redesign** (top nav + centered group + ratio slider, R-RESIZE-1..7), the **focus invariant** (R-FEED-3/5), **dead-code removal** (§3.1), **honest counts & dates** (RG-C1/C2), **error-handling hardening** (heuristic #9), **scroll/render perf** (RK-3/5/7), the full **grouping/reorder** mechanics incl. header/footer/dimming (R-REORDER-*), and a **Playwright E2E suite** (so the CLAUDE.md "no test framework" note is stale). Still open: **R-EXPAND-2** (bounded reveal), **R-A11Y-1** (an avatar/name button-in-button remains), **R-ROBUST-9** (off-by-3 highlight, unverified), and several `UNVERIFIED` filter/nav/highlight families. *(R-GROUP-2 / RK-6 scroll-pin was fixed in `65a7edd`.)* **Ratified decisions (2026-06-23):** category tags + F-indicator are **always colored at rest** (supersedes RG-C3 / R-COLOR-1), and **`prefers-reduced-motion` support is intentionally dropped** (R-MOTION-1 / R-EXPAND-5). See §13 for the remaining set.
 
 ---
 
@@ -51,11 +53,11 @@ Each requirement is tagged:
 
 ### 3.1 What actually renders (and what is dead code)
 - The feed route [`page.tsx`](../src/app/(shell)/listy-injection/page.tsx) renders the **production `Post` component** ([`Post.tsx`](../src/components/Posts/Post.tsx)) for each feed entry, plus a thread-mode branch that is **legacy fallback** (driven by the `?focus=` query param + an in-page `historyStack`). Primary navigation is real routing: `router.push('/listy-injection/posts/[id]')`.
-- **`ListyInjectionShell.tsx`, `FocusPost.tsx`, `RankedPostCard.tsx`, `RankedPostList.tsx`, `listyStore.ts`, `CategorySidebar.tsx`, `HANDOFF.md` are DEAD CODE** — a March prototype the live route no longer imports. The handoff doc is stale (it claims 3 entries and an in-page thread machine; reality is 6 entries and route-based navigation). **Tests must target `Post.tsx` + `RelatedStacks.tsx` + the route pages, never the `ListyInjection/` components.**
+- ✅ **DELETED (commit `3b98786`, this branch):** the March prototype `ListyInjection/*` (`ListyInjectionShell.tsx`, `FocusPost.tsx`, `RankedPostCard.tsx`, `RankedPostList.tsx`, `listyStore.ts`, `CategorySidebar.tsx`, `constants.tsx`, `highlightUtils.ts`, `HANDOFF.md`) is gone, as are other dead components (`StackCount.tsx`, `Sidebar.tsx`, `asideView.tsx`, `LinkPreviewCard.tsx`, `NavBar/Navbar.tsx`), `utils/emojiMapping.ts`, `useResizableColumns.ts`, the empty root `test`/`test.p` files, unused FakeData, and the `mastodon-api` / `@faker-js/faker` deps. **Tests target `Post.tsx` + `RelatedStacks.tsx` + the route pages.** *(`ResizableDivider.tsx` is retained — it's now the single ratio slider.)*
 - Cross-panel state lives in two places:
   - **`RelatedStacksContext`** ([`related-stacks-context.tsx`](../src/app/(shell)/related-stacks-context.tsx)) — `activePostId` + `relatedStacks` for the **aside**.
   - **`highlightStore`** ([`highlightStore.ts`](../src/utils/highlightStore.ts)) — a module-level `useSyncExternalStore` for hover/highlight/filter/anchor state, shared between the center `Post` and the aside `RelatedStacks`.
-  - The feed page *also* keeps a **page-local `activePostId`** that drives the in-feed active border/highlight. **This local state and the context `activePostId` can diverge** (see R-FOCUS / §10.3).
+  - The feed page *also* keeps a **page-local `activePostId`** that drives the in-feed active border/highlight. This local state and the context `activePostId` could previously diverge (stale aside, §10.3); ✅ `bdbd7bf` reworked `related-stacks-context` to read **committed state** (real `state` + ref mirrors instead of a `previousPostId` ref), fixing the `showUpdate` desync and rapid-toggle races (R-FEED-3 / RK-1).
 
 ### 3.2 Data (mock fixture)
 [`FakeData/listy-injection.json`](../src/app/FakeData/listy-injection.json): **6 entries.** Per entry: `focusPost`, `relatedPosts`, `ancestors` (1 each), `replies` (entry 0 has 15; others 0). Related counts: 15, 13, 12, 10, 5, 5.
@@ -88,20 +90,19 @@ Each requirement is tagged:
 | `button[aria-label="Go back"]` / Back text | thread/detail | back control |
 | `aria-pressed`, `aria-label` on filter chips & indicators | aside | filter / anchor state |
 
-**`data-testid` hooks — ADDED to the build (verified present):**
+**`data-testid` hooks that EXIST today (verified present in code, this branch):**
 - `[data-testid="post"]` on every post Paper, with `[data-active="true|false"]`; the focus post is `[data-testid="post"][data-active="true"]` (R-FEED-2/3/5; for RG-1 assert no `[data-stack-count]` inside it).
-- `[data-testid="focus-reveal"]` on the active post's `ActiveHighlightedContent` box (R-EXPAND bounded reveal / scroll).
-- `[data-testid="hover-tooltip"]` on the `HoverTooltip` portal — mounts only while a tooltip is visible; assert ≤1 at any time (R-TIP).
-- `[data-testid="top-nav"]` on the sticky top nav bar; `[data-testid="nav-overflow-toggle"]` on its overflow menu / avatar dropdown trigger (R-RESIZE-1).
-- `[data-testid="content-group"]` on the centered feed+related wrapper (assert centered; width = min(100% available, MAX≈1280px); R-RESIZE-2/6).
-- `[data-testid="feed"]` (replaces `col-center`) and `[data-testid="col-aside"]` on the two panels (assert side-by-side at all widths; feed:related ≈ saved `feedRatio`; R-RESIZE-3/5).
-- *(Removed by the redesign: `col-nav`, `col-center`, `nav-collapse-toggle` — tests referencing these must migrate.)*
-- `[data-testid="filter-chip"][data-category]` on each category chip (R-FILTER-4/7/8).
-- `[data-testid="related-count"]` on the aside count text (R-FILTER-5).
-- `[data-testid="card-category-tag"][data-category]` on each card's category tag (R-HL-4, R-ROBUST-1, R-COLOR).
-- `[data-testid="span-filter-pill"]`, `[data-testid="grouped-by-pill"]`, `[data-testid="more-like-this"]` — span-filter indicator, "Grouped by" pill, and "N more" link (render conditionally) (R-FILTER, R-GROUP).
+- `[data-testid="focus-reveal"]` on the active post's reveal box (R-EXPAND).
+- `[data-testid="hover-tooltip"]` on the single shared `HoverTooltip` portal (`HoverTooltip.tsx`) — mounts only while a tooltip is visible; assert ≤1 at any time (R-TIP).
+- `[data-testid="top-nav"]` on the sticky top nav bar (`TopNav.tsx`); `[data-testid="nav-overflow-toggle"]` on its overflow menu / avatar dropdown trigger (R-RESIZE-1).
+- `[data-testid="content-group"]` on the centered feed+related wrapper (`Shell.tsx`; `MAX_CONTENT_WIDTH = 1280`); R-RESIZE-2/6.
+- `[data-testid="feed"]` and `[data-testid="col-aside"]` on the two panels (`Shell.tsx`); R-RESIZE-3/5.
 
-⚠️ **Note for the tester:** `[role="separator"]` also matches every Mantine `<Divider>` in posts. Always filter resize dividers by the `aria-label^="Resize"` prefix.
+⚠️ **`data-testid` hooks that DO NOT yet exist (must be added before R-FILTER/R-GROUP/R-HL tests can use them):** `RelatedStacks.tsx` currently contains **zero** `data-testid` attributes. `filter-chip`, `related-count`, `card-category-tag`, `span-filter-pill`, `grouped-by-pill`, `more-like-this` are all **absent** — earlier drafts listed these as "verified present," which was wrong. Until they're added, tests must target these via ARIA/role/text (e.g. filter chips by `aria-pressed`; the "Grouped by" pill by text).
+
+> Resize separator: there is exactly **one** `[role="separator"][aria-label="Resize feed and related panels"]` (`ResizableDivider.tsx`), rendered only when an aside is present (`Shell.tsx`). The pre-redesign `col-nav` / `col-center` / `nav-collapse-toggle` hooks no longer exist.
+
+⚠️ **Note for the tester:** `[role="separator"]` also matches every Mantine `<Divider>` in posts. Always filter the resize slider by the `aria-label^="Resize"` prefix.
 
 ---
 
@@ -111,10 +112,10 @@ Each requirement is tagged:
 | ID | Precondition → Action → Expected | Pri | Status | Signal |
 |---|---|---|---|---|
 | R-FEED-1 | Load `/listy-injection` → feed shows the hashtag header (`#ChineseEVs`), correct counts (6 Posts / 36 Participants / 60 Responses), and 6 posts. | P1 | MATCHES | text content; `div[data-post-id]` count = 6 |
-| R-FEED-2 | On load → exactly one post is **visibly** focused (blue border `rgb(156,184,255)`, elevation shadow, `translateY(-2px)`) and the aside shows that post's related stacks. | P0 | UNVERIFIED | computed `borderColor`/`boxShadow`/`transform` on the active Paper; aside header count |
-| R-FEED-3 (**D-FOCUS**) | At **every** scroll position — top, mid, bottom spacer — exactly one post is focused and the aside matches that post. No empty aside, no "all-grey" no-focus window, no stale aside (aside post ≠ post in view). | P0 | **SPEC > CURRENT** | see §10.3: at the bottom, in-view post = entry 5 but aside showed entry 0's 15 cards and no post had the active border |
-| R-FEED-4 | Scrolling changes the focused post as a new post crosses the active line; the change is monotonic and flicker-free (no rapid toggling of the active border). | P1 | UNVERIFIED | sample active id while scrolling; assert no oscillation |
-| R-FEED-5 | The active post's affordance is stable — once focused it stays visibly focused until another post takes over (no transient revert to the inactive style during scroll re-renders). | P1 | **SPEC > CURRENT** | §10.4: computed style reverted to inactive values in some post-scroll snapshots while inline style was active (flicker) |
+| R-FEED-2 | On load → exactly one post is **visibly** focused (blue border `rgb(156,184,255)`, elevation shadow, `translateY(-2px)`) and the aside shows that post's related stacks. | P0 | ✅ MATCHES *(was UNVERIFIED)* | first post auto-focused on mount (`listy-injection/page.tsx`, `PostList.tsx`); single `activePostId` ⇒ one active border |
+| R-FEED-3 (**D-FOCUS**) | At **every** scroll position — top, mid, bottom spacer — exactly one post is focused and the aside matches that post. No empty aside, no "all-grey" no-focus window, no stale aside. | P0 | ✅ MATCHES *(was SPEC>CURRENT)* | bottom-of-feed pins the last post (`listy-injection/page.tsx` `atBottom`); focus is never cleared on scroll; `@aside/default.tsx` renders null + `clear()` on focus-less routes |
+| R-FEED-4 | Scrolling changes the focused post as a new post crosses the active line; the change is monotonic and flicker-free (no rapid toggling of the active border). | P1 | ✅ MATCHES *(was UNVERIFIED)* | active = center-most visible post; `f02e871` removed the per-scroll all-node scan. *(home feed uses an `IntersectionObserver`; the 6-post listy feed still uses a rAF-throttled `getBoundingClientRect` scan over its nodes — correct at that scale.)* |
+| R-FEED-5 | The active post's affordance is stable — once focused it stays visibly focused until another post takes over (no transient revert during scroll re-renders). | P1 | ✅ MATCHES *(was SPEC>CURRENT)* | active `border` applied instantly (only box-shadow/transform transition, `Post.tsx`); `React.memo` re-renders only the two posts whose active state flips |
 
 ### R-HOVER — cross-highlight & sibling dim
 | ID | Precondition → Action → Expected | Pri | Status | Signal |
@@ -131,27 +132,27 @@ Each requirement is tagged:
 | R-HL-1 | With a card hovered, hover a specific highlight → after a ~200ms debounce that range stays bright, sibling ranges in the focus post and card dim (~0.2 alpha). | P0 | UNVERIFIED | per-mark computed bg alpha |
 | R-HL-2 | While a specific range is hovered, its "comment" substring is bolded (text-shadow) in both the card and the focus post. | P1 | UNVERIFIED | the `focusComment`/`contentComment` span |
 | R-HL-3 | Overlapping ranges render as stacked vertical gradient bands; moving the cursor vertically within the mark selects the band under the cursor (and updates the tooltip). | P1 | UNVERIFIED | `mark[data-overlap-bands]`, cursor-Y math |
-| R-HL-4 | Hovering a category **tag** (top-left of a card) behaves like hovering all ranges of that category (bright that category, dim others). | P1 | UNVERIFIED | `hoveredCategory` store + tag opacity |
+| R-HL-4 | Hovering a category **tag** (top-left of a card) behaves like hovering all ranges of that category (bright that category, dim others). | P1 | ✅ MATCHES *(was UNVERIFIED)* | tag `onMouseEnter` sets `hoveredCategory`; `buildMultiHighlightNodes` brightens that category to alpha 1, dims others to ~0.2 (`RelatedStacks.tsx`) |
 
 ### R-TIP — hover tooltip (the "tool top")
-> Two surfaces match "tool top." Primary: the global **hover tooltip** portal (R-TIP). Secondary: the right-side **stack/category-icon column** on the focus post (`StackCount`) — but that column is itself a **regression** (it was deliberately removed from the focus post; see R-NOSTACK-1 and §5A), not an intended feature. Confirm which you meant.
+> "Tool top" = the global **hover tooltip** portal (R-TIP). *(The other candidate — the focus post's right-side stack/category-icon column, `StackCount` — has now been **removed entirely**: the component is deleted. See R-NOSTACK-1 / RG-1.)*
 
 | ID | Precondition → Action → Expected | Pri | Status | Signal |
 |---|---|---|---|---|
 | R-TIP-1 | Hover a highlight/tag/"N more"/Grouped-by pill → one floating tooltip appears reading `"N more <Topic>"` (topic bolded in category color), positioned near the cursor and **following the mouse** while visible. | P1 | MATCHES | single portal node; transform tracks mouse |
 | R-TIP-2 | Exactly one tooltip exists at a time; leaving the trigger hides it; it is `pointer-events:none` and never blocks clicks. | P1 | MATCHES | one portal; `pointerEvents:none` |
-| R-TIP-3 | The tooltip is dismissed when the underlying element is removed (e.g., during a reorder) — it must never strand on screen. | P1 | **UNVERIFIED / RISK** | trigger a reorder mid-hover; assert no orphan tooltip (see RK-7) |
-| R-TIP-4 | "0 more <Topic>" should not be shown as a useful affordance — singleton topics (common, §3.2) make "0 more" frequent and misleading. | P2 | **SPEC > CURRENT** | many topics have count 1 → "0 more" |
-| R-NOSTACK-1 (**regression guard**) | The focus post must **not** display the stack/category-count icon column on **either** route — it was deliberately removed. The feed suppresses it (`stackCount={-1}`), but the **detail route does not** (`stackCount={p.stackCount}`), so it reappears there. Assert the column is absent on both. | P1 | **SPEC > CURRENT** | §10.10: `[data-stack-count]` present in the detail center column (text "14" + per-category counts); absent on feed |
+| R-TIP-3 | The tooltip is dismissed when the underlying element is removed (e.g., during a reorder) — it must never strand on screen. | P1 | ✅ MATCHES *(was RISK)* | single shared portal; `hideTooltip` on mark-leave and a `useEffect` on `[relatedStacks]` hides it on dataset change (`RelatedStacks.tsx`); RK-7 mitigated |
+| R-TIP-4 | "0 more <Topic>" should not be shown as a useful affordance — singleton topics (common, §3.2) make "0 more" frequent and misleading. | P2 | ✅ MATCHES *(was SPEC>CURRENT)* | clicking a singleton forms **no** block (no header/footer); synthetic count boost is a no-op. Hover on a singleton span shows an honest "0 more Topic"; the greyed "0 more Topic" footer appears only as a block-end sentinel inside an existing block |
+| R-NOSTACK-1 (**RG-1**) | The focus post must **not** display the stack/category-count icon column on **either** route. | P1 | ✅ MATCHES *(was SPEC>CURRENT)* | `StackCount.tsx` deleted; **no** `[data-stack-count]` rendered anywhere; routes pass `stackCount={-1}`. *(Feed `PostList` still passes the real count but `Post` renders no icon for any value — harmless.)* |
 
 ### R-EXPAND — focus-post reveal (**D-EXPAND**)
 | ID | Precondition → Action → Expected | Pri | Status | Signal |
 |---|---|---|---|---|
 | R-EXPAND-1 | The focus post is clamped to 5 lines by default; a "Read more" control appears when it overflows. | P0 | MATCHES | clamp; "Read more" present |
-| R-EXPAND-2 (**D-EXPAND**) | Hover a card whose highlight is below the clamp → the focus box grows **at most to the cap (~12 lines / ~40vh)**. If the span is still beyond the cap, the box **scrolls internally to the span**. The post must **not** grow to full height, and the feed/aside below must not be shoved down. | P0 | **SPEC > CURRENT** | §10.5: a deep highlight (focusStart≈1072) currently expands the post to ~full height |
+| R-EXPAND-2 (**D-EXPAND**) | Hover a card whose highlight is below the clamp → the focus box grows **at most to the cap (~12 lines / ~40vh)**. If the span is still beyond the cap, the box **scrolls internally to the span**. The post must **not** grow to full height, and the feed/aside below must not be shoved down. | P0 | **SPEC > CURRENT** *(not in the verified fix set)* | a configurable line-clamp landed (`80b19c2`, 10 lines on the full-post view) but the hover **bounded-reveal + scroll-to-span** was not confirmed — re-verify. §10.5 evidence is pre-fix |
 | R-EXPAND-3 | When the highlight clears, the box collapses back to the 5-line clamp with a matching animation (no layout jump). | P1 | MATCHES (current grow/collapse) | reveal→collapse transition |
 | R-EXPAND-4 | "Read more" (manual) fully un-clamps; "Read less" re-clamps. This is independent of the hover reveal. | P1 | MATCHES | toggle |
-| R-EXPAND-5 | Reduced-motion: marks/reveal appear without transitions when `prefers-reduced-motion: reduce`. | P2 | MATCHES | media-query branch |
+| R-EXPAND-5 | ~~Reduced-motion: marks/reveal appear without transitions when `prefers-reduced-motion: reduce`.~~ | P2 | 🚫 **DROPPED — by decision (2026-06-23)** | reduced-motion support is intentionally not implemented; folded into R-MOTION-1 |
 
 ### R-FILTER — span filter & category chips
 | ID | Precondition → Action → Expected | Pri | Status | Signal |
@@ -166,12 +167,12 @@ Each requirement is tagged:
 ### R-GROUP — "more like this" anchor / clustering
 | ID | Precondition → Action → Expected | Pri | Status | Signal |
 |---|---|---|---|---|
-| R-GROUP-1 | Click a highlight (or category tag, or the top-right F-indicator) → that card becomes the anchor; same-topic cards cluster adjacent to it with a colored connector line + a topic chip; a "Grouped by: <topic>" pill appears. | P1 | UNVERIFIED | `reRankAnchorIds`; connector; pill |
-| R-GROUP-2 | The clicked card stays **visually pinned** (no scroll jump) while other cards animate around it. | P1 | UNVERIFIED | §7; `absoluteOffsetTop` scroll comp |
-| R-GROUP-3 | Single-anchor invariant: selecting a new anchor replaces the old; clicking the active anchor (or its × pill) clears it. `reRankAnchorIds.length ∈ {0,1}`. | P1 | MATCHES (by setter design) | store length |
-| R-GROUP-4 | Above/below ordering invariant: matched cards above the anchor stay above; matched below stay below (don't re-expose already-passed cards across the anchor). | P1 | UNVERIFIED | `reorderForAnchor` (§7) |
-| R-GROUP-5 | Pagination: only the first 3 matches show; a "N more <Topic>" link adds 3 more per click; the link caps the connector line. | P2 | UNVERIFIED | `shownByAnchor`; group line |
-| R-GROUP-6 | When a topic has no other matches (singletons, common here) clicking it must give honest feedback — it should **not** silently appear to "group" one item or show "0 more". | P1 | **SPEC > CURRENT** | §3.2, §7 |
+| R-GROUP-1 | Click a highlight (or category tag, or the top-right F-indicator) → that card becomes the anchor; same-topic cards cluster adjacent to it with a colored connector line + a topic chip; a "Grouped by: <topic>" pill appears. | P1 | ✅ MATCHES *(was UNVERIFIED)* | `handleToggleAnchor` fires from span/tag/F-indicator; `reorderForAnchor` clusters; connector rail + "Topic (N)" header + "Grouped by:" pill all render (`RelatedStacks.tsx`) |
+| R-GROUP-2 | The clicked card stays **visually pinned** (no scroll jump) while other cards animate around it. | P1 | ✅ MATCHES *(fixed in `65a7edd`)* | the scroll-pin compensation now targets `[data-testid="col-aside"]` (the `overflowY:auto` aside container, `Shell.tsx`); `useLayoutEffect` adds `scrollTop += delta` before paint so the card holds (RK-6 resolved) |
+| R-GROUP-3 | Single-anchor invariant: selecting a new anchor replaces the old; clicking the active anchor (or its × pill) clears it. `reRankAnchorIds.length ∈ {0,1}`. | P1 | ✅ MATCHES | `toggleReRankAnchor` (`highlightStore.ts`): same id → `[]`, different id → `[postId]` |
+| R-GROUP-4 | Above/below ordering invariant: matched cards above the anchor stay above; matched below stay below. | P1 | ✅ MATCHES *(was UNVERIFIED)* | `reorderForAnchor` returns `[…aboveUnmatched, …aboveMatched, target, …belowMatched, …belowUnmatched]` |
+| R-GROUP-5 | Pagination: only the first 3 (below) matches show; a "N more <Topic>" link adds 3 more per click. | P2 | ✅ MATCHES *(was UNVERIFIED)* | below-set capped at `shownByAnchor ?? 3`; footer "K more Topic" adds `SHOWN_INCREMENT` (3) per click |
+| R-GROUP-6 | When a topic has no other matches (singletons, common here) clicking it must give honest feedback — not silently "group" one item or show "0 more". | P1 | ✅ MATCHES *(was SPEC>CURRENT)* | `groupTotalForThis === 0` ⇒ `showBlockDecorations === false` (no block, no header/footer); counts honest |
 
 ### R-NAV — navigation, restoration, back parity
 | ID | Precondition → Action → Expected | Pri | Status | Signal |
@@ -183,29 +184,29 @@ Each requirement is tagged:
 | R-NAV-5 | Deep-link entry (`/listy-injection/posts/<id>?from=<y>` with no prior history) → Back still lands somewhere sensible and does not strand the user / leave the SPA unexpectedly. | P1 | **RISK** | `router.back()` with no history depth (RK-2) |
 | R-NAV-6 | Navigating into a **related** post (synthetic entry) resolves a coherent focus post + aside; replies/ancestors may be empty but the page is never blank/"Post unavailable" for an id that exists in the fixture. | P1 | UNVERIFIED | §10.7: aside count shifted 15→29→28 — verify intended |
 | R-NAV-7 | Rapidly clicking into many posts in succession never crashes, never shows the Next error overlay, and always lands on a coherent page. | P1 | MATCHES (3-hop live, no crash) | §10.7; no error overlay |
-| R-NAV-8 | URL state on detail round-trips: `?tab`, `?fc`, `?fs`, `?from`, `?stackId` hydrate on load (with `?fs` deferred until post text loads) and write back debounced via `router.replace`. | P1 | UNVERIFIED | see `useUrlSync` (§8) |
+| R-NAV-8 | URL state on detail round-trips: `?tab`, `?fc`, `?fs`, `?from`, `?stackId` hydrate on load (with `?fs` deferred until post text loads) and write back debounced via `router.replace`. | P1 | ✅ MATCHES *(hardened; round-trip parity still worth a test)* | `bdbd7bf`: write-effect deps include `searchParams`/`router`; debounce cleared unconditionally; non-integer `?fs` rejected (`useUrlSync`) |
 
 ### R-RESIZE — app-wide layout: top nav + centered feed/related group + ratio slider (**D-NAV / D-LAYOUT / D-RESIZE / D-RESPONSIVE**, revised 2026-06-22)
-> Supersedes the old center-anchored 3-column shell. All rows are **intended** behavior; the current build still ships the old model, so they are `SPEC > CURRENT` until the redesign lands.
+> Supersedes the old center-anchored 3-column shell. ✅ **The redesign has LANDED on this branch** (`80b19c2`): a sticky top nav (`TopNav.tsx`), a centered `content-group` (`MAX_CONTENT_WIDTH = 1280`, `Shell.tsx`), and a single ratio slider (`stacky:feedRatio`, default 0.65). All rows below now **MATCH** — they are regression guards.
 
 | ID | Precondition → Action → Expected | Pri | Status | Signal |
 |---|---|---|---|---|
-| R-RESIZE-1 (**D-NAV**) | App chrome shows a **horizontal sticky top nav bar** (logo + condensed primary items; secondary items behind an overflow menu / avatar dropdown). There is **no left nav column** and **no nav-collapse burger** on any route. | P0 | **SPEC > CURRENT** | `[data-testid="top-nav"]` present and at top; `col-nav` / `nav-collapse-toggle` absent |
-| R-RESIZE-2 (**D-LAYOUT**) | The **feed + related** render as one **horizontally-centered group**. Group width = `min(100% of available width, MAX≈1280px)`. Wider than the max → capped and centered with **equal left/right gutters**; at/below the max → fills **100%** of available width. | P0 | **SPEC > CURRENT** | `content-group` computed width ≤ 1280px and ≤ 100%; equal gutters when capped |
-| R-RESIZE-3 (**D-RESIZE**) | Exactly **one** vertical slider sits between feed and related; dragging it changes the **ratio** of group width between them. Default split = **65% feed / 35% related**. | P0 | **SPEC > CURRENT** | one `[role="separator"][aria-label^="Resize"]`; feed:related ≈ 65:35 by default |
-| R-RESIZE-4 (**persistence**) | The split persists as a **ratio** in `localStorage` `stacky:feedRatio` (default `0.65`), restored across sessions; **double-click** the slider resets to 65/35. The old `stacky:centerWidth` / `stacky:relatedWidth` keys are gone. | P1 | **SPEC > CURRENT** | `stacky:feedRatio` set; reload preserves ratio; dbl-click → 0.65 |
-| R-RESIZE-5 (**D-RESPONSIVE**) | Feed and related stay **side-by-side at every viewport size** — the 65/35 ratio scales down to fit 100% width even on phones. **No** collapse, drawer, or vertical stacking. | P1 | **SPEC > CURRENT** | both panels visible & side-by-side at 1440 / 1200 / 768 / 375px; ratio preserved |
-| R-RESIZE-6 (**max-width rationale**) | The group never exceeds **MAX≈1280px (~13in)** on wide screens — sized for comfortable eyes-only reading without head rotation (~30° horizontal scan @ ~60cm; HCI). | P1 | **SPEC > CURRENT** | at 1920px viewport, `content-group` width ≈ 1280px, centered |
-| R-RESIZE-7 (**no overflow**) | At **any** viewport and **any** saved ratio, nothing overflows horizontally: the group and both panels fit; no horizontal scrollbar; the slider is always reachable on-screen. | P0 | **SPEC > CURRENT** | `scrollingElement.scrollWidth ≤ clientWidth`; slider within viewport |
+| R-RESIZE-1 (**D-NAV**) | App chrome shows a **horizontal sticky top nav bar** (logo + condensed primary items; secondary items behind an overflow menu / avatar dropdown). There is **no left nav column** and **no nav-collapse burger** on any route. | P0 | ✅ MATCHES *(was SPEC>CURRENT)* | `data-testid="top-nav"` sticky bar + `nav-overflow-toggle` (`TopNav.tsx`); no left nav, no burger |
+| R-RESIZE-2 (**D-LAYOUT**) | The **feed + related** render as one **horizontally-centered group**. Group width = `min(100% of available width, MAX≈1280px)`. Wider than the max → capped and centered with **equal gutters**; at/below the max → fills **100%**. | P0 | ✅ MATCHES *(was SPEC>CURRENT)* | `content-group`: `maxWidth: MAX_CONTENT_WIDTH (1280)`, `width:100%`, `margin:0 auto` (`Shell.tsx`) |
+| R-RESIZE-3 (**D-RESIZE**) | Exactly **one** vertical slider sits between feed and related; dragging it changes the **ratio** of group width between them. Default split = **65% feed / 35% related**. | P0 | ✅ MATCHES *(was SPEC>CURRENT)* | one `[role="separator"][aria-label="Resize feed and related panels"]`; `feed`/`col-aside` `flexGrow: ratio / 1-ratio`; default 0.65 |
+| R-RESIZE-4 (**persistence**) | The split persists as a **ratio** in `localStorage` `stacky:feedRatio` (default `0.65`), restored across sessions; **double-click** the slider resets to 65/35. The old `stacky:centerWidth` / `stacky:relatedWidth` keys are gone. | P1 | ✅ MATCHES *(was SPEC>CURRENT)* | `useFeedRatio` LS key `stacky:feedRatio`; `onDoubleClick` → reset to 0.65; old keys unused |
+| R-RESIZE-5 (**D-RESPONSIVE**) | Feed and related stay **side-by-side at every viewport size** — the 65/35 ratio scales down to fit 100% width even on phones. **No** collapse, drawer, or vertical stacking. | P1 | ✅ MATCHES *(was SPEC>CURRENT)* | flex row, `flexBasis:0`, `minWidth:0`, no `@media`/column-stack; container-query collapse keeps tags compact (`globals.css`). *(Aside is `display:none` only when no post is focused — deliberate, not a viewport stack.)* |
+| R-RESIZE-6 (**max-width rationale**) | The group never exceeds **MAX≈1280px (~13in)** on wide screens — sized for comfortable eyes-only reading without head rotation (~30° horizontal scan @ ~60cm; HCI). | P1 | ✅ MATCHES *(was SPEC>CURRENT)* | `maxWidth: 1280` caps the group at 1920px+ |
+| R-RESIZE-7 (**no overflow**) | At **any** viewport and **any** saved ratio, nothing overflows horizontally: the group and both panels fit; no horizontal scrollbar; the slider is always reachable on-screen. | P0 | ✅ MATCHES *(was SPEC>CURRENT)* | `body { overflow-x:hidden }`, both children `minWidth:0`, group `box-sizing:border-box` (`Shell.tsx`/`globals.css`) |
 
 ### R-A11Y / R-MOTION — accessibility & secondary controls
 | ID | Precondition → Action → Expected | Pri | Status | Signal |
 |---|---|---|---|---|
-| R-A11Y-1 | No invalid interactive nesting: a card must not place a `<button>`/`Anchor component="button"` inside another button. | P1 | **SPEC > CURRENT** | §10.8: button-in-button **hydration error ×10** from `RelatedStacks` |
-| R-A11Y-2 | Interactive controls expose roles/labels: filter chips `aria-pressed`; back `aria-label`; highlight close buttons ≥24px hit target. | P1 | PARTIAL | `RelatedStackCount` lacks `aria-label`; reply input lacks one |
-| R-A11Y-3 | Keyboard: feed post is reachable (`role=button`, `tabIndex=0`, Enter/Space navigate); `InteractionControl` supports Enter/Space; visible focus outline exists. | P1 | PARTIAL | `InteractionControl` has no `:focus-visible` outline |
-| R-A11Y-4 | Threaded replies convey nesting to assistive tech (currently only a visual `threadLine`, `aria-hidden`). | P2 | **SPEC > CURRENT** | no `role=tree`/region |
-| R-MOTION-1 | All highlight/reveal/reorder animations respect `prefers-reduced-motion`. | P2 | PARTIAL | focus-post reveal honors it; card reorder (framer-motion) may not |
+| R-A11Y-1 | No invalid interactive nesting: a card must not place a `<button>`/`Anchor component="button"` inside another button. | P1 | **SPEC > CURRENT** *(partially fixed)* | the outer card is now a `motion.div` (not a button), but an **avatar/display-name `UnstyledButton` nested inside another `UnstyledButton`** remains in `RelatedStacks.tsx` — still invalid `<button>`-in-`<button>` |
+| R-A11Y-2 | Interactive controls expose roles/labels: filter chips `aria-pressed`; back `aria-label`; highlight close buttons ≥24px hit target. | P1 | PARTIAL *(improved)* | ✅ filter chips now have `aria-label`+`aria-pressed`; ✅ close/dismiss targets ≥24px. Remaining: `RelatedStackCount` + reply `TextInput` lack `aria-label`; `BackButton` has no explicit `aria-label` (relies on visible text) |
+| R-A11Y-3 | Keyboard: feed post is reachable (`role=button`, `tabIndex=0`, Enter/Space navigate); `InteractionControl` supports Enter/Space; visible focus outline exists. | P1 | PARTIAL *(improved)* | ✅ feed post + `InteractionControl` are both `role=button`/`tabIndex=0` with Enter+Space. Remaining: `InteractionControl` still has **no `:focus-visible` outline** |
+| R-A11Y-4 | Threaded replies convey nesting to assistive tech (currently only a visual `threadLine`, `aria-hidden`). | P2 | **SPEC > CURRENT** | still no `role=tree`/`list`/`region`; only the visual `aria-hidden` connector |
+| R-MOTION-1 | ~~All highlight/reveal/reorder animations respect `prefers-reduced-motion`.~~ | P2 | 🚫 **DROPPED — by decision (2026-06-23)** | reduced-motion support intentionally not implemented (no `prefers-reduced-motion` in `src`). *(Known WCAG 2.3.3 / vestibular gap — revisit if the audience needs it.)* |
 
 ---
 
@@ -217,19 +218,19 @@ Each row below is a deliberate UI/UX decision that has silently reverted, or cou
 
 | ID | The intended state | What's wrong now | Refs |
 |---|---|---|---|
-| RG-1 = R-NOSTACK-1 | The **focus post shows no stack/category-icon column** (removed). | Feed hides it (`stackCount={-1}`), but the **detail route** still passes `stackCount={p.stackCount}` → the icon column is back on detail. | §10.10 |
+| RG-1 = R-NOSTACK-1 | ✅ **FIXED.** The focus post shows no stack/category-icon column on any route. | `StackCount.tsx` deleted; all routes pass `stackCount={-1}`; no `[data-stack-count]` rendered anywhere. **Keep the guard test.** | §10.10 (pre-fix) |
 | RG-2 *(obsolete after redesign)* | ~~burger at the right edge of the left panel, clear of the logo~~ | **Superseded by D-NAV:** the redesign removes the left nav and the burger entirely, so this guard no longer applies. Drop the test once the top nav ships. | §10.9 |
 
 **Candidate guards inferred from recent branches/commits — please CONFIRM or correct (these are the most likely "did our deliberate change survive?" items):**
 
 | ID | Suspected intended decision | Where it lives / how to assert | Source signal |
 |---|---|---|---|
-| RG-C1 | **Honest counts** — no synthetic inflation of "N more"; displayed counts equal real counts. | `getSyntheticTopicCount`/`getSyntheticCategoryCount` are no-ops returning the real count; tooltips/links must not overstate. | current branch `…/dates-and-count-honesty`; ties to R-TIP-4, R-GROUP-6 |
-| RG-C2 | **Honest dates** — relative/absolute date formatting reflects real timestamps (no "just now"-style inflation). | `formatPostDate` output on cards/posts. | same branch name |
-| RG-C3 | **Neutral card tags until panel hover** — multi-category cards show grey tags/indicator until the aside is hovered, then reveal category color. | `panelHovered` gate in `RelatedStacks` (C3). | merge `…/neutral-card-border` |
-| RG-C4 | **F-indicator topic matches the "Grouped by" pill** (no stale/mismatched topic label). | `activeAnchorTopic` drives both. | merge `…/fix-f-indicator-topic` |
-| RG-C5 | **Route-based navigation supersedes the old `?focus=` in-page thread mode** — clicking a post creates a real `/posts/[id]` route; no `?focus=` state machine. | `router.push` in `navigateToPost`; `?focus=` path is legacy fallback only. | merge `…keep router.push for nav, supersede ?focus=` |
-| RG-C6 | **A1 guard** — navigating to an unresolvable post id is refused with a console warning, never a blank/crashed page. | `navigateToPost` guard + "Post unavailable" fallback. | merge `…/bug/group-a-robustness` |
+| RG-C1 ✅ **landed** | **Honest counts** — no synthetic inflation of "N more"; displayed counts equal real counts. | `getSyntheticTopicCount`/`getSyntheticCategoryCount` are now **no-ops returning the real count** (`RelatedStacks.tsx`). Keep the guard. | ties to R-TIP-4, R-GROUP-6 |
+| RG-C2 ✅ **landed** | **Honest dates** — date formatting reflects real timestamps (no "in ~3 hours ago"). | `formatPostDate` clamps future/clock-skew → "just now" and uses `addSuffix` (`bdbd7bf`). Keep the guard. | — |
+| RG-C3 🔄 **REVERSED — ratified 2026-06-23** | ~~Neutral card tags until panel hover~~ → decision changed: multi-category cards show their **category color at rest**. | `panelHovered` was **removed** (`bbbfd95`) so the icon↔highlight color legend is always visible. **New guard:** assert tags + F-indicator are **always colored at rest** (see R-COLOR-1). | merge `…/neutral-card-border` (superseded) |
+| RG-C4 ✅ **landed** | **F-indicator topic matches the "Grouped by" pill** (no stale/mismatched label). | both resolve from `activeAnchorTopic` (`RelatedStacks.tsx`). Keep the guard. | merge `…/fix-f-indicator-topic` |
+| RG-C5 *(holds; not re-verified)* | **Route-based navigation supersedes the old `?focus=` in-page thread mode.** | `router.push` is primary; the `?focus=` path remains a legacy fallback (§3.1). | merge `…supersede ?focus=` |
+| RG-C6 *(holds; not re-verified)* | **A1 guard** — an unresolvable post id never yields a blank/crashed page. | `mockPostResolver` → "Post unavailable" fallback. | merge `…/bug/group-a-robustness` |
 
 > **Action for author:** confirm whether RG-C1…C6 belong here, correct their "intended state," and **add any other deliberate removals, repositionings, or suppressions you've made.** Those are exactly the changes an automated suite would otherwise let silently revert — this table is the safety net against merge-clobbering.
 
@@ -242,16 +243,16 @@ Each row below is a deliberate UI/UX decision that has silently reverted, or cou
 ### 5B.1 Reordering / grouping — agreed mechanics (authoritative; supersedes §7 inference & R-GROUP)
 The trigger and mechanics are the same for **both** candidate presentations (5B.2):
 
-- **R-REORDER-1** `[P0 · UNVERIFIED]` — Grouping is triggered by clicking the **"N more <Topic>"** affordance (in the tooltip or block footer) — **not** a generic "see more".
-- **R-REORDER-2** `[P0 · UNVERIFIED]` — **Posts above the target:** every matching post above the clicked target moves down to sit **immediately above** it, keeping their relative order. *(Supersedes the vague "above the current set." `reorderForAnchor` currently leaves matched-above posts where they are — verify it actually pulls them adjacent.)*
-- **R-REORDER-3** `[P0 · UNVERIFIED]` — **Posts below the target:** matching posts below the target move up to sit **immediately below** it — but only the **highest 3**.
-- **R-REORDER-4** `[P1 · UNVERIFIED]` — The target and its matches form a single **contiguous block** in reading order.
-- **R-REORDER-5** `[P0 · SPEC>CURRENT?]` — **Permanence:** reordering is **permanent** — it does **not** revert when the group is unselected or cleared. The browser Back button is the only undo. *(Supersedes any "revert on unselect" wording; verify that clearing the block keeps the new order.)*
-- **R-REORDER-6** `[P1 · UNVERIFIED]` — **Prevalence count:** the block shows the **total** number of posts on that Topic (e.g. "Topic (10)"), even when not all of them are displayed.
-- **R-REORDER-7** `[P1 · UNVERIFIED]` — **Pagination:** each click of the footer affordance reveals **3 more** posts at the **bottom of the block**, growing toward the prevalence count.
-- **R-REORDER-8** `[P1 · UNVERIFIED]` — **Switching group-by:** picking a **different** Topic while already grouped **abandons** the prior grouping (groupings never compound). The current visible order becomes the new baseline, and the next reorder layers on top of it. *(Matches the current base-order capture, D-ALG-6.)*
-- **R-REORDER-9** `[P2 · SPEC>CURRENT]` — **Re-picking the same group-by:** picking the **same** Topic while grouped makes the affordance read **"N more Topic (shown)"**, and clicking it is a **no-op** (for now).
-- **R-REORDER-10** `[P1 · SPEC>CURRENT]` — **Intra-block span dimming:** within the block, spans unrelated to the Topic are **dimmed** (unless hovered) so the Topic-related spans are easy to find.
+- **R-REORDER-1** `[P0 · ✅ MATCHES]` — Grouping is triggered by clicking the **"N more <Topic>"** affordance (tooltip / block footer / span / category tag / F-indicator) — **not** a generic "see more".
+- **R-REORDER-2** `[P0 · ✅ MATCHES]` — **Posts above the target:** *all* matching posts above the target move down to sit **immediately above** it, preserving relative order (no cap on the above-set). *(Confirmed: `reorderForAnchor` emits `…aboveMatched, target`.)*
+- **R-REORDER-3** `[P0 · ✅ MATCHES]` — **Posts below the target:** matching posts below move up to sit **immediately below** it — only the **top 3** (paginated).
+- **R-REORDER-4** `[P1 · ✅ MATCHES]` — The target and its matches form a single **contiguous block** in reading order.
+- **R-REORDER-5** `[P0 · ✅ MATCHES]` — **Permanence:** reordering is **permanent** — clearing the group does **not** restore the pre-group order; the browser Back button is the only undo. *(Confirmed: `baseOrderRef` re-captured at every transition; no order-history stack.)*
+- **R-REORDER-6** `[P1 · ✅ MATCHES]` — **Prevalence count (ratified 2026-06-23):** the "Topic (N)" header shows the **topic total** — anchor + *all* matching posts in the panel (`blockTotalCount = 1 + groupTotal`), including paginated-out below-matches. N stays fixed; the footer "K more Topic" counts the not-yet-shown remainder down to "0 more". *(Not the on-screen block size.)*
+- **R-REORDER-7** `[P1 · ✅ MATCHES]` — **Pagination:** each click of the footer "K more Topic" reveals **3 more** posts at the bottom of the block.
+- **R-REORDER-8** `[P1 · ✅ MATCHES]` — **Switching group-by:** picking a **different** Topic abandons the prior grouping (never compounds); the current visible order becomes the new baseline. *(D-ALG-6.)*
+- **R-REORDER-9** `[P2 · ✅ MATCHES]` — **Re-picking the same group-by:** the affordance reads **"N more Topic (shown)"** and clicking is a **no-op**; the guard fires at every entry point (span / tag / F-indicator), while toggling-off the active anchor still works.
+- **R-REORDER-10** `[P1 · ✅ MATCHES]` — **Intra-block span dimming:** within the block, spans whose topic ≠ the active one drop to ~0.2 opacity; hovering a span un-dims it.
 - *Assumption / goal:* users read top-to-bottom, so the design minimizes re-exposing posts they've already scrolled past.
 
 ### 5B.2 Grouping presentation — RESOLVED (D-DESIGN-1): keep the current implementation
@@ -275,22 +276,22 @@ Tests should assert **this** behavior — it's a regression-guard oracle, not a 
 - The clicked post and its new neighbors get a **corner label "Topic (N)"** (upper-right) as a prevalence indicator; the label **disappears on the next click**.
 - Clicking a corner label pulls in **2–3 more** posts to join the block.
 
-> **Resolved to "current."** Note that this **diverges from the meeting notes** ("switch to the 3rd option" = Option C) and from Jason's lean toward C — reconcile with the team before final sign-off. The Jason-spec decorations not yet in the build — the "Topic (N)" header, an unclickable "0 more" footer sentinel, the same-topic "(shown)" affordance, and intra-block span dimming (R-REORDER-6/9/10) — become **optional enhancements** rather than blockers, since the current presentation is accepted.
+> **Resolved to "current."** Note that this **diverges from the meeting notes** ("switch to the 3rd option" = Option C) and from Jason's lean toward C — reconcile with the team before final sign-off. ✅ **The decorations once listed as "not yet built" have now landed** (`bc9bcc5`): the "Topic (N)" header (with an × that dismisses the block), the greyed "0 more Topic" footer sentinel, the same-topic "(shown)" no-op, and intra-block span dimming (R-REORDER-6/9/10). *(One nuance: the header × clears the anchor entirely rather than only the decorations — the order still persists, since reordering is permanent.)*
 
 ### 5B.3 Tooltips
-- **R-TIP-5** `[P1 · SPEC>CURRENT]` — **Double-tooltip bug:** hovering a tag shows the "N more Topic" tooltip **twice** — once near the tag, once on the highlighted text. It must be a **single, cursor-following instance** for both text-hover and tag-hover.
+- **R-TIP-5** `[P1 · ✅ MATCHES]` — **Double-tooltip fixed:** one shared `HoverTooltip` portal (mounted once; `mountCount>1` warns); tag-hover and text-hover both call the same `showTooltip` (last-writer-wins) → a single cursor-following instance.
 - **R-TIP-6** = **D-LABEL-1** (OPEN) — "Topic" label format is undecided: **quotes** — `N more "Topic"` (meeting notes) — vs **boldface** — `N more `**`Topic`** (Jason leans this way, since it matches the block header). Apply whichever form is chosen consistently across the tooltip, header, footer, and corner label.
 
 ### 5B.4 Related-panel robustness (bug list — mostly SPEC>CURRENT)
-- **R-ROBUST-1** `[P1 · SPEC>CURRENT]` — Clicking a contribution-type tag (e.g. "7 more evidence") **must reorder** — it's currently a no-op.
-- **R-ROBUST-2** `[P0 · UNVERIFIED]` — **No crash** when clicking a related post. *(A crash was reported but not reproduced in the 3-hop test, §10.7 — needs a concrete repro, likely a specific id or synthetic entry.)*
-- **R-ROBUST-3** `[P1 · SPEC>CURRENT]` — The block's **"x"/close control always works** and has a hit target of ≥24px. *(Reported as sometimes unresponsive or too small.)*
-- **R-ROBUST-4** `[P1 · SPEC>CURRENT]` — **Hover-dim persists** for the entire interaction; it must not switch off partway through. *(= R-HOVER-5; the A6 guard targets this.)*
-- **R-ROBUST-5** `[P0 · SPEC>CURRENT]` — **Back** must never land in a "no post focused, but the panel is still showing related-for-nothing" state. *(Confirmed live, §10.3; = D-FOCUS.)*
-- **R-ROBUST-6** `[P0 · SPEC>CURRENT]` — A "no related posts" / "post not found" result must still **focus the post and render an *empty* related panel** — it must never break the view. *(Repro today: clicking a comment on a post triggers this error.)*
-- **R-ROBUST-7** `[P0 · SPEC>CURRENT]` — **"No post focused" must never occur** — the related panel must not render in that state. *(= D-FOCUS / R-FEED-3.)*
-- **R-ROBUST-8** `[P0 · UNVERIFIED]` — **Cross-browser (Linux Chrome):** highlighting and hover are broken on Linux Chrome, even with extensions disabled. The pointer + mouse dual handlers in `RelatedStacks` were an attempt to fix this — verify and fix specifically on Linux Chrome.
-- **R-ROBUST-9** `[P1 · SPEC>CURRENT]` — **Highlight alignment must be exact.** Fei reports side-pane highlights are intermittently **off by ~3 chars**. Cause: offsets are computed against plaintext but applied to content that is **sometimes `<p>`-wrapped HTML** (the resolver wraps related content as `` `<p>${content}</p>` ``) and sometimes plaintext, producing a 3-char ("`<p>`") shift. Fix: normalize so offsets and rendered text always use the same representation. *(Makes RK-4 concrete.)*
+- **R-ROBUST-1** `[P1 · ✅ MATCHES]` — Clicking a per-card category/contribution-type tag now **reorders** (anchors the card) — `tag onClick → handleToggleAnchor` (`RelatedStacks.tsx`).
+- **R-ROBUST-2** `[P0 · ✅ MATCHES]` — **No crash** when interacting with a related card: the `onMouseLeave` guard tolerates a non-`Node` `relatedTarget` (`RelatedStacks.tsx`); feed virtualization also prevents the heavy-session crash.
+- **R-ROBUST-3** `[P1 · ✅ MATCHES]` — The block's **"x"/close control works** and meets a ≥24px hit target (`minWidth/minHeight: 24` on the clear/dismiss controls).
+- **R-ROBUST-4** `[P1 · UNVERIFIED]` — **Hover-dim persists** for the whole interaction. *(The crash/`relatedTarget` guard is in place; persistence-across-zones not separately verified — = R-HOVER-5.)*
+- **R-ROBUST-5** `[P0 · ✅ MATCHES]` — **Back / focus-less routes** never show "related-for-nothing": `@aside/default.tsx` renders null + `clear()`; `home/@aside` returns null when no active post. *(= D-FOCUS.)*
+- **R-ROBUST-6** `[P0 · ✅ MATCHES — re-test the comment repro]` — A post with no related stacks now renders a "No related posts found" panel (view never breaks); `fetchContext` coerces ancestors/descendants to arrays so a bad shape can't throw. *(Re-test the original "click a comment" repro to confirm closed.)*
+- **R-ROBUST-7** `[P0 · ✅ MATCHES]` — **"No post focused" never renders the panel** — the aside is gated on `activePostId` (`@aside/default.tsx`, `home/@aside`). *(= D-FOCUS / R-FEED-3.)*
+- **R-ROBUST-8** `[P0 · ✅ MATCHES — root cause fixed]` — `isTouch` was derived from touch *capability* (nonzero on touch-capable-but-mouse Linux/Windows laptops), which made every hover handler early-return. `f34ee42` makes it **adaptive** (init from `any-hover`/`any-pointer`, follow the most recent real pointer); `f02e871` moved touch detection to `pointerdown`. *(Can't run Linux Chrome in CI, but the root cause is addressed.)*
+- **R-ROBUST-9** `[P1 · SPEC>CURRENT — not re-verified]` — **Highlight alignment off by ~3 chars.** Offsets computed against plaintext but applied to `<p>`-wrapped HTML (resolver wraps content as `` `<p>${content}</p>` ``). The `<p>`-wrap normalization was **not** part of the verified fix set — treat as still-open and re-verify against `renderMultiHighlightHtml` / `mockPostResolver`. *(Makes RK-4 concrete.)*
 
 ### 5B.5 Filtering — default behavior (refines R-FILTER-4)
 - **R-FILTER-7** `[P1 · UNVERIFIED]` — Clicking a related-type at the **top of the side pane**: if combining it with the current selection still leaves a **non-empty** list, **ADD** it as a filter; otherwise **SWITCH** to it.
@@ -298,10 +299,10 @@ Tests should assert **this** behavior — it's a regression-guard oracle, not a 
 - **R-FILTER-9** `[P1 · UNVERIFIED]` — **Highlight → filter:** hovering a focus-post span shows a **neutral** highlight; **clicking** it **filters** the related panel to posts related to that span. The side panel then shows the **shortest common related text**, truncated with "…" if there is only one related span or it is too long. *(D2 / D3.)*
 
 ### 5B.6 Related-type indicator color (= confirmed RG-C3 / R-HL-4)
-- **R-COLOR-1** `[P1 · MATCHES?]` — A single related type shows **its own color**; multiple types stay **neutral until the user hovers into the related panel**, then reveal their colors. *(Verify against the `panelHovered` C3 gate.)*
+- **R-COLOR-1** `[P1 · ✅ MATCHES — spec ratified 2026-06-23]` — Category tags and the F-indicator are **always shown in their category color at rest** (single *and* multiple types). The earlier "neutral until panel hover" rule (`panelHovered`) was **removed** (`bbbfd95`) so the icon↔highlight color legend is always visible — **confirmed as the intended behavior.** *(Supersedes RG-C3.)*
 
 ### 5B.7 Reply threading
-- **R-THREAD-1** `[P2 · PARTIAL]` — Replies are **indented with a connecting line, Twitter-style**, on the detail/thread view. *(The thread line exists; ensure consistent nesting, and see R-A11Y-4 for screen-reader semantics.)*
+- **R-THREAD-1** `[P2 · PARTIAL]` — A stable Twitter-style connector line now renders on **ancestor chains** (behind the cards, centered on the avatar column; `posts/[id]` + `listy-injection/posts/[id]`). *Gaps:* the **reply tree** gets no connector, and there's no assistive-tech nesting (see R-A11Y-4).*
 
 ### 5B.8 Share / bookmark persistence
 - **R-SHARE-1** `[P1 · UNVERIFIED]` — Sharing or bookmarking a **filtered** related panel **preserves the list order**.
@@ -335,19 +336,19 @@ Hover drives previews (R-FILTER-8), tooltips (R-TIP), the neutral highlight (R-F
 
 | # Heuristic | Finding | Severity | Refs |
 |---|---|---|---|
-| **1. Visibility of system status** | The focused post is the anchor for the whole aside, yet (a) at the feed bottom *no* post showed the active border while the aside stayed on entry 0, and (b) the active border/elevation reverted to the inactive look in post-scroll snapshots. The user often can't tell which post the aside is about. | **High** | R-FEED-3/5, §10.3-4 |
-| **1. Visibility** | "N more <Topic>" frequently shows **"0 more"** because most topics are singletons — status that promises depth the data lacks. | Med | R-TIP-4, R-GROUP-6, §3.2 |
-| **2. Match to real world** | Latent: `SYNTHETIC_TOPIC_POOLS` is themed for *4-day work week* while the corpus is *Chinese EVs*. If backend data ever omits `topic`, the fallback prints off-domain topics. | Low (latent) | §7, code `RelatedStacks.tsx` |
-| **3. User control & freedom** | Resize: a saved center width is silently overridden when the related column is wide (R-RESIZE-3); the user's choice doesn't stick. Back from a deep link may strand (R-NAV-5). | High / Med | §10.1, RK-2 |
-| **4. Consistency & standards** | Two parallel "active post" notions (page-local vs context) can disagree (stale aside). Symmetric center-resize is non-standard vs. typical pane resizers (one edge moves). | High / Low | R-FEED-3, RK-9 |
-| **5. Error prevention** | Aside/columns overflow the viewport out-of-the-box at the documented 1200px breakpoint — the layout can clip its own resize handle off-screen. Button-in-button is an HTML validity error. | High | R-RESIZE-2, R-A11Y-1, §10.1/10.8 |
-| **6. Recognition over recall** | Hovering reveals the relevant focus-span — good. But the bounded-reveal/scroll behavior (D-EXPAND) is needed so the user sees the span *in context* rather than the post ballooning. | Med | R-EXPAND-2 |
-| **7. Flexibility & efficiency** | Touch parity exists (tap-to-activate, tap-again-to-rerank) but is a separate code path — verify it doesn't diverge from mouse semantics. | Med | RK-8 |
-| **8. Aesthetic & minimalist** | The deep-highlight full-expansion (current) dumps a wall of text and pushes the feed down — the opposite of minimalist focus. | Med | R-EXPAND-2, §10.5 |
-| **9. Help users recover from errors** | Empty/uncertain states are mostly handled (aside "No related posts…", detail "Post unavailable", A1 navigate guard) — good. But silent failures elsewhere (StackPostsModal/ReplySection fetches) give no feedback when authenticated. | Med | §8, RK-5 |
-| **10. Help & documentation** | The aside header ("Hover a post to highlight the relevant parts") is a nice inline hint. The eye-cursor on highlights signals "see more like this" — verify discoverability. | Low | — |
+| **1. Visibility of system status** | ✅ **RESOLVED.** Bottom-of-feed now pins the last post; the active border is instant and stable; the aside always matches the focused post. | ~~High~~ → fixed | R-FEED-3/5 |
+| **1. Visibility** | ✅ **RESOLVED.** Singletons no longer form a fake block and counts are honest, so "0 more" is no longer surfaced as a useful affordance. | ~~Med~~ → fixed | R-TIP-4, R-GROUP-6 |
+| **2. Match to real world** | ⚠️ **Partly addressed (latent).** Synthetic *counts* are neutralized (RG-C1), but `SYNTHETIC_TOPIC_POOLS` still fabricates off-domain ("4-day work week") topic *labels* when a relation lacks `topic`. Latent on this corpus (every relation has a topic) — **consider removing the pool before release.** | Low (latent) | §7, `RelatedStacks.tsx` |
+| **3. User control & freedom** | ✅ **Resize resolved** by the redesign (one intuitive ratio slider; saved-width-override + overflow gone). ⚠️ Back-from-deep-link strand still open. | ~~High~~/Med → mostly fixed | R-RESIZE, RK-2 |
+| **4. Consistency & standards** | ✅ **RESOLVED.** The two-active-post desync is fixed (context reads committed state); the non-standard symmetric resize is gone (single one-edge slider). | ~~High~~/Low → fixed | R-FEED-3, R-RESIZE |
+| **5. Error prevention** | ✅ Viewport overflow fixed (no-overflow invariant). ⚠️ Button-in-button only **partly** fixed — outer card no longer a button, but an avatar/name nested button remains. | ~~High~~ → mostly fixed | R-RESIZE-7, R-A11Y-1 |
+| **6. Recognition over recall** | ⏳ **Still needed.** Bounded-reveal / scroll-to-span (D-EXPAND) not confirmed; without it the post can still balloon. | Med | R-EXPAND-2 |
+| **7. Flexibility & efficiency** | ✅ Touch detection reworked to be adaptive (hover-capable-but-touch machines hover correctly; RK-8 mitigated). Still a separate path — watch parity. | Med → improved | RK-8, R-ROBUST-8 |
+| **8. Aesthetic & minimalist** | ⏳ **Still open.** Deep-highlight full-expansion persists until R-EXPAND-2 lands. | Med | R-EXPAND-2, §10.5 |
+| **9. Help users recover from errors** | ✅ **Largely resolved.** mastoActions time out (10s) and surface failures; like/save/bookmark revert + notify; the callback page shows a failure state + Back-to-login link instead of an infinite spinner. ⚠️ Residual: `ReplySection` feedback POST and one share-copy path still fail silently on the mock. | ~~Med~~ → mostly fixed | §8 |
+| **10. Help & documentation** | Unchanged — the aside hint + eye-cursor are nice; verify discoverability. | Low | — |
 
-> **Layout-redesign note (2026-06-22):** the resize-related findings above (row 3 "saved width silently overridden", row 4 "symmetric resize is non-standard", row 5 "columns overflow the viewport") are **addressed by D-LAYOUT / D-RESIZE** — a single intuitive ratio slider, a centered max-width group, and a no-overflow invariant (R-RESIZE-2/3/7) replace the symmetric 3-divider model. Re-evaluate these heuristics against the new layout once it ships.
+> **Status (2026-06-23):** the High-severity findings (rows 1, 4, 5) are resolved or mostly resolved on the `listy-injection-main-app` branch; the layout-redesign (D-LAYOUT/D-RESIZE) shipped. The remaining real items are **R-EXPAND-2** (bounded reveal, rows 6 & 8), the residual **button-in-button** (row 5 / R-A11Y-1), the latent **synthetic topic labels** (row 2), and back-strand (row 3 / RK-2).
 
 ---
 
@@ -365,9 +366,9 @@ The "more like this" feature (`RelatedStacks` §E + [`reorderForAnchor.ts`](../s
 
 **D-ALG-3 — "Above stays above, below stays below"** (`reorderForAnchor`). Matched cards above the anchor are moved to *just above* it; matched below to *just below*; non-matched keep relative order. *Stated intent:* don't re-expose already-scrolled-past items by yanking them below the anchor. *Implication / tension:* matched-above cards are pulled **down toward the anchor**, so if the anchor is near the top of the viewport, previously-passed cards can re-enter view right above it. The invariant preserves *order*, not *off-screen-ness*. Test: with the anchor mid-list, assert relative above/below partition; with the anchor near top, characterize whether above-matched cards visibly jump into view.
 
-**D-ALG-4 — Visual pinning of the clicked card.** On anchor toggle, the clicked card's `layout` animation is disabled and `scrollTop` is compensated in `useLayoutEffect` (via `absoluteOffsetTop`, transform-immune) so it doesn't move; others animate. *Implication:* correctness depends on `absoluteOffsetTop` and the aside scroll container (`.mantine-AppShell-aside` on mobile vs the fixed desktop column — **two different scroll parents**; the compensation targets `.mantine-AppShell-aside` which only exists on the mobile branch). **Verify pinning works on the desktop custom shell**, where the scroll container is the fixed aside `div`, not `.mantine-AppShell-aside`. (Likely RK candidate.)
+**D-ALG-4 — Visual pinning of the clicked card.** On anchor toggle, the clicked card's `layout` animation is disabled and `scrollTop` is compensated in `useLayoutEffect` (via `absoluteOffsetTop`) so it doesn't move; others animate. ✅ **FIXED (RK-6, `65a7edd`).** The compensation now targets `[data-testid="col-aside"]` — the redesigned shell's `overflowY:auto` aside container (`Shell.tsx`, `ref={asideRef}`) — so `scrollTop += delta` runs before paint and the clicked card stays pinned across a rerank.
 
-**D-ALG-5 — Pagination (3 + "N more").** Only 3 matches show initially. *Implication with singletons (§3.2):* most anchors yield 0 matches → no cluster, no "N more", and a "Grouped by: <topic>" pill that grouped nothing. R-GROUP-6 requires honest behavior here.
+**D-ALG-5 — Pagination (3 + "N more").** Only 3 below-matches show initially. ✅ **Now honest (R-GROUP-6 MATCHES):** a singleton anchor (0 other matches) yields `showBlockDecorations === false` — no block, no header/footer, no "0 more" affordance — so a topic that groups nothing no longer shows a misleading "Grouped by" cluster.
 
 **D-ALG-6 — Base-order capture.** When a new anchor activates, the *currently visible* order is captured as the new base (`baseOrderRef`) so re-ranking layers on what the user sees, and filters apply *after* re-ranking so filtering never breaks group connectivity. Test: anchor → filter → clear filter returns to the anchored order, not the server order.
 
@@ -375,13 +376,15 @@ The "more like this" feature (`RelatedStacks` §E + [`reorderForAnchor.ts`](../s
 
 ## 8. Supporting components (behavior the tester must account for)
 
-- **`fetchPostData` (every `Post`)** early-returns without an `accessToken`, so **unauthenticated mock sessions make no API calls** (confirmed: zero 404s in §10.8). When **authenticated**, every mounted `Post` hits `GET beta.stacky.social/api/v1/statuses/<mockId>` → 404s. **The test harness should run unauthenticated, or stub these**, and assert no functional dependence on them.
-- **`ReplySection`** (rendered under the focus post on both routes) debounce-POSTs `…:3002/posts/feedback` and POSTs `…/api/v1/statuses` on submit — both fail silently on the mock route; the feedback panel simply never appears. Submit has weak double-submit protection (countdown only when advice exists).
-- **`StackPostsModal`** (opened from a stack of size>1) fetches `…/stacks/<id>/substacks` and `/summary` — 404 on mock; no focus trap; in-place search can't reset; renders `dangerouslySetInnerHTML`.
-- **`AnnotationModal`** (note icon) has its question-fetch commented out → always "No questions available"; submit needs auth.
-- **`useUrlSync`** hydrates `?tab/fc/fs` once per pathname (guarded by refs), writes back debounced 300ms via `router.replace`; `?fs` (span) is **deferred until `plainPostText` loads** and validated/clamped against it; `?from`/`?stackId` pass through. Hand-edited `?fs` offsets that don't match the post are silently skipped.
-- **`BackButton`** renders only if `previousPath:<pathname>` exists in sessionStorage and calls `router.back()` (a true history pop → feed remount → restoration effect reads `scrollY`/`activeFeedPost`). Because both UI-back and browser-back remount the feed and run the same restoration, parity is *plausible* — R-NAV-4 must confirm it, including the deep-link-no-history edge (RK-2).
-- **`mockPostResolver`** resolves any id to a focus post: real entry → its data; reply → inherits parent's stacks; related post → synthetic siblings of its parent entry. Ids absent from the fixture → "Post unavailable".
+- **`fetchPostData` (every `Post`)** ✅ no longer refetches each post's full status on mount — `Post` reads `mediaAttachments`/counts/flags from **props** (`ac45c0b`), so the authenticated "404 flood / latency" problem (RK-5) is gone. `fetchPostData` now runs **only after an interaction** (like/save) and is guarded against post-unmount `setState`.
+- **`mastoActions`** ✅ favourite/bookmark now take a 10s timeout and return a `ToggleResult`; callers (`RepliesStack`, `RelatedStacks`, `Post`) revert optimistic UI and notify on failure. *(There is no `toggleBoost` helper — only favourite + bookmark.)*
+- **`getCurrentUser()`** ✅ new SSR-safe helper replacing unguarded `JSON.parse(localStorage.currentUser)` in annotation / `AnnotationModal` / `SubmitPost` / listy detail. *(One raw parse remains in `listy-injection/page.tsx`, but inside a try/catch.)*
+- **`ReplySection`** ✅ uses a stable key for simulated replies. ⚠️ Still debounce-POSTs `…/posts/feedback`; on the mock route this **fails silently** (console-only, no user notification) — the main remaining silent-failure path.
+- **`StackPostsModal`** ✅ now keeps a master substack list with a derived filtered view (in-place search resets correctly) and uses a Mantine `<Modal>` (focus trap by default). ⚠️ Still renders `dangerouslySetInnerHTML`; still 404s on the mock backend.
+- **`AnnotationModal`** ✅ the shadowed module-level `questions` const was removed. ⚠️ The question-fetch is **still commented out** → always "No questions available"; submit needs auth.
+- **`useUrlSync`** ✅ hardened (`bdbd7bf`): write-effect deps include `searchParams`/`router`; the debounce timer is cleared unconditionally; non-integer `?fs` offsets are rejected (`Number.isInteger`). Still hydrates once per pathname; `?fs` deferred until post text loads and clamped against it.
+- **`BackButton`** renders only if `previousPath:<pathname>` exists in sessionStorage and calls `router.back()` (history pop → feed remount → restoration reads `scrollY`/`activeFeedPost`). UI-back and browser-back share the restoration path, so parity is *plausible* — **R-NAV-4 still needs the explicit comparison**, incl. the deep-link-no-history edge (RK-2).
+- **`mockPostResolver`** ✅ now also wires each entry's `ancestors` array (not just `inReplyToId`), so mock ancestors render on the focused view. Resolves any fixture id → focus post; reply → inherits parent stacks; related post → synthetic siblings; absent id → "Post unavailable".
 
 ---
 
@@ -389,22 +392,24 @@ The "more like this" feature (`RelatedStacks` §E + [`reorderForAnchor.ts`](../s
 
 | ID | Hypothesis to probe | Seed evidence |
 |---|---|---|
-| RK-1 | Focus/aside desync: scroll heuristic leaves a stale or empty focus at extremes or under fast scroll/jumps. | §10.3 (confirmed at bottom) |
-| RK-2 | Back from a deep link (`?from=` seeded, no real history) strands the user — `router.back()` with no depth. | §8 BackButton |
-| RK-3 | Active-affordance flicker: the blue border/shadow visibly toggles during scroll due to redundant `setActivePostId`. | §10.4 |
-| RK-4 | Highlight injection on the focus post matches by **substring regex on HTML** — repeated phrases or tag-spanning ranges can mis-highlight or miss. Fei's intermittent **off-by-3** is the `<p>`-wrap instance of this — now a concrete requirement, **R-ROBUST-9**. | `renderMultiHighlightHtml` |
-| RK-5 | Authenticated mock session floods the console with 404s and adds latency from per-post `fetchPostData`. | §8 |
-| RK-6 | Anchor scroll-pinning compensates `.mantine-AppShell-aside` scrollTop, which doesn't exist on the desktop custom shell → pin may not hold on desktop. | §7 D-ALG-4 |
-| RK-7 | Tooltip stranding: a tooltip-triggering element removed mid-hover (reorder/filter) leaves the portal visible. | R-TIP-3 |
-| RK-8 | Touch path (tap-activate / tap-rerank / tap-outside-clear) diverges from mouse semantics or double-fires navigation. | `handleCardTap` |
-| RK-9 *(obsolete after redesign)* | ~~Symmetric center-resize perceived as broken (users expect one edge to move)~~ — moot under D-RESIZE: a single one-edge ratio slider replaces the symmetric model. | §10.1 |
-| RK-10 | Synthetic-entry drill-down changes the related set size unexpectedly (15→29→28 observed) — verify it's intentional, not duplication. | §10.7 |
-| RK-11 | React StrictMode double-mount (dev) interacts with the mount-restoration + scroll effects to drop the page-local active post. | §10.3-4 |
-| RK-12 | **Merge-revert of deliberate UI decisions** — `Merge listy-injection-main-app` / the resizable-shell rewrite silently undo intentional removals/repositionings (RG-1, RG-2 confirmed; RG-C* at risk). Every merge into this area should re-run the §5A guards. | §5A, §10.9-10 |
+| RK-1 | ✅ **Mitigated.** Focus/aside desync fixed — context reads committed state; active = center-most visible post; bottom-of-feed pinned. | R-FEED-3; §10.3 (pre-fix) |
+| RK-2 | ⏳ **Open.** Back from a deep link (`?from=` seeded, no real history) may strand — `router.back()` with no depth. | §8 BackButton |
+| RK-3 | ✅ **Fixed.** Active-affordance flicker gone — instant border + `React.memo` + IntersectionObserver replaced the per-scroll re-render churn. | §10.4 (pre-fix) |
+| RK-4 | ⏳ **Open / unverified.** Highlight injection matches by substring on HTML; the off-by-3 `<p>`-wrap case (R-ROBUST-9) was **not** in the verified fix set. | `renderMultiHighlightHtml` |
+| RK-5 | ✅ **Fixed.** `Post` no longer refetches per-mount status (reads media from props) → no authenticated 404 flood / latency. | §8 |
+| RK-6 | ✅ **Resolved (`65a7edd`).** Anchor scroll-pin retargeted to `[data-testid="col-aside"]` (the redesigned shell's `overflowY:auto` scroll container) → the clicked card is pinned again (R-GROUP-2 MATCHES). | §7 D-ALG-4 |
+| RK-7 | ✅ **Mitigated.** Single shared tooltip portal hidden on mark-leave and on `relatedStacks` change → no orphan (R-TIP-3). | R-TIP-3 |
+| RK-8 | ✅ **Improved.** `isTouch` now adaptive (hover-capable-but-mouse devices hover correctly); still a separate path — watch parity. | `RelatedStacks` pointer handlers |
+| RK-9 *(obsolete after redesign)* | ~~Symmetric center-resize perceived as broken~~ — moot under the single one-edge ratio slider. | §10.1 |
+| RK-10 | ⏳ **Open / unverified.** Synthetic-entry drill-down changes related-set size (15→29→28) — confirm intentional, not duplication. | §10.7 |
+| RK-11 | ⏳ **Open / unverified.** StrictMode double-mount vs the reworked focus/scroll effects — re-baseline. | §10.3-4 |
+| RK-12 | **Still relevant.** Merge-revert of deliberate UI decisions — RG-1 now fixed (keep its guard); RG-2 obsolete; RG-C1/C2/C4 landed; RG-C3 reversed. Re-run §5A guards on every merge. | §5A |
 
 ---
 
 ## 10. Live-observation appendix (evidence)
+
+> ⚠️ **These measurements are from the PRE-FIX build (≈2026-06-16).** They are the baseline that motivated the fixes now landed on `listy-injection-main-app` (§0 update). Treat them as historical evidence, not current behavior — re-capture against the current build before citing. Items confirmed fixed: §10.1 (resize overflow → R-RESIZE), §10.3-4 (focus invariant → R-FEED-3/5), §10.10 (stack icons → RG-1). Still relevant: §10.5 (R-EXPAND-2), §10.8 (button-in-button, partially → R-A11Y-1).
 
 Environment: `pnpm dev` (port 3002), unauthenticated, Chromium via preview tools.
 
@@ -453,5 +458,19 @@ Environment: `pnpm dev` (port 3002), unauthenticated, Chromium via preview tools
 
 ---
 
-## 13. Next phase (not in this doc)
-With this approved, the agentic workflow is: (1) add the recommended `data-testid` hooks (§4); (2) have TestSprite generate cases from §5/§5A/§9; (3) implement them in Playwright across the §11 viewports; (4) the `SPEC > CURRENT` rows are the expected-fail set that drives the fixes (**the layout redesign R-RESIZE-1..7**, bounded reveal, focus invariant, nested-button, back parity, **plus the confirmed focus-post stack-icons regression (RG-1)** — RG-2/burger is now obsolete under D-NAV). The §5A guards should also be wired into CI to fire on every merge into this area (RK-12).
+## 13. Next phase
+
+Most of the original `SPEC > CURRENT` set has **landed** on `listy-injection-main-app`, and a **Playwright E2E suite already exists** (`e2e/landing.spec.ts`, `e2e/listy-injection.spec.ts`, `e2e/callback.spec.ts`; `pnpm test:e2e`, chromium on `:3002`) — so the CLAUDE.md "No test framework is configured" note is now stale. Remaining work:
+
+1. **Add the missing `data-testid` hooks in `RelatedStacks.tsx`** (it currently has none): `filter-chip`, `related-count`, `card-category-tag`, `span-filter-pill`, `grouped-by-pill`, `more-like-this` — needed before the R-FILTER/R-GROUP/R-HL tests can be selector-based (§4).
+2. **Expand Playwright to lock in the now-`MATCHES` behavior as regression guards:** R-RESIZE-1..7, R-FEED-2/3/5, R-NOSTACK-1 (RG-1), the R-REORDER family, R-TIP-3/4/5, R-GROUP-1/3/4/5/6, error-handling/heuristic #9, and the §5A guards (RG-1, RG-C1/C2/C4; **drop RG-C3**).
+3. **Remaining `SPEC > CURRENT` / open — the expected-fail list that drives fixes:**
+   - **R-EXPAND-2** — bounded reveal + scroll-to-span (not confirmed).
+   - **R-A11Y-1** — avatar/display-name `<button>`-in-`<button>` still in `RelatedStacks`.
+   - **R-A11Y-3** — `InteractionControl` `:focus-visible` outline.
+   - **R-A11Y-4** — assistive-tech thread/reply semantics.
+   - **R-ROBUST-9** — off-by-3 `<p>`-wrap highlight (not re-verified).
+   - **Pre-release polish** — remove `SYNTHETIC_TOPIC_POOLS` (off-domain topic labels); close the residual silent failures (`ReplySection` feedback, one share-copy `.catch`).
+4. **Accepted deviations (won't fix — ratified 2026-06-23):** `prefers-reduced-motion` support is intentionally not implemented (R-MOTION-1 / R-EXPAND-5); category tags + F-indicator are always colored at rest (R-COLOR-1, supersedes RG-C3).
+5. **Still genuinely `UNVERIFIED`** (need tests to set ground truth — no fix claimed): the R-FILTER family (1, 4–9), R-NAV-4/5/6, R-HL-1/2/3, R-URL-1/2, and the open decision R-TIP-6 / D-LABEL-1 (quotes vs boldface label).
+6. **Wire the §5A guards into CI** to fire on every merge into this area (RK-12).

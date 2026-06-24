@@ -9,13 +9,15 @@ Stacky is a Mastodon-compatible social media client built with Next.js. Users br
 ## Commands
 
 ```bash
-pnpm install    # Install dependencies
-pnpm dev        # Start dev server at localhost:3000
-pnpm build      # Production build
-pnpm lint       # ESLint via next lint
+pnpm install     # Install dependencies
+pnpm dev         # Start dev server at localhost:3000
+pnpm build       # Production build
+pnpm lint        # ESLint via next lint
+pnpm test:e2e    # Playwright end-to-end tests (chromium; starts/reuses the dev server)
+pnpm test:e2e:ui # Playwright in interactive UI mode
 ```
 
-No test framework is configured.
+End-to-end tests use **Playwright** (`e2e/*.spec.ts`): the landing/OAuth page, the `/listy-injection` mock feed + post detail, and the `/callback` failure path. There is no unit-test framework.
 
 ## Tech Stack
 
