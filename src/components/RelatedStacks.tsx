@@ -245,7 +245,7 @@ function FilterChip({ category, count, active, previewActive, previewDim, onClic
       }}
     >
       {React.cloneElement(iconMapping[category] ?? iconMapping['default'], { color: isLit ? colors.text : "#64748b", size: 13 })}
-      <Text size="xs" fw={600} c={isLit ? colors.text : "#64748b"} style={{ fontSize: "11px", lineHeight: 1, whiteSpace: "nowrap" }}>{label}</Text>
+      <Text className="related-chip-text" size="xs" fw={600} c={isLit ? colors.text : "#64748b"} style={{ fontSize: "11px", lineHeight: 1, whiteSpace: "nowrap" }}>{label}</Text>
       <Text size="xs" c={isLit ? colors.text : "#94a3b8"} style={{ fontSize: "10px", lineHeight: 1 }}>{count}</Text>
     </button>
   );
@@ -1896,7 +1896,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                           }}
                         >
                           {React.cloneElement(iconMapping[cat] || iconMapping['default'], { color: tc.text, size: 12 })}
-                          <Text size="xs" c={tc.text} fw={700} style={{ fontSize: '10px' }}>
+                          <Text className="related-tag-text" size="xs" c={tc.text} fw={700} style={{ fontSize: '10px' }}>
                             {CATEGORY_LABELS[cat] ?? cat}
                           </Text>
                         </div>

@@ -290,6 +290,10 @@ function DesktopShell({
                     bottom: 0,
                     left: "calc(50vw + var(--center-w) / 2)",
                     width: "var(--related-w)",
+                    // Make the related panel a container-query context so its filter
+                    // chips / category tags collapse to icons based on the panel's
+                    // own (resizable) width, not the viewport width.
+                    containerType: "inline-size",
                     backgroundColor: "#FCFBF5",
                     borderLeft: "1px solid rgba(0,0,0,0.08)",
                     overflowY: "auto",

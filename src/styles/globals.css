@@ -61,3 +61,19 @@ body {
     background-color: #FCFBF5;
     overflow-x: hidden;
 }
+
+/* Related panel collapse: the aside is a container-query context
+   (container-type: inline-size) whose width is the resizable related column
+   (var(--related-w), range 320–700, default 460). When the user drags the panel
+   narrow, collapse the top category filter chips to just icon + count so the
+   10-category bar stays compact instead of sprawling across several rows. The
+   per-card category tags keep their word until the panel is very narrow. The
+   thresholds are tuned so words stay visible while there's room and only drop
+   when genuinely cramped — they respond to the panel's real width, not the
+   viewport. */
+@container (max-width: 360px) {
+    .related-chip-text { display: none; }
+}
+@container (max-width: 300px) {
+    .related-tag-text { display: none; }
+}
