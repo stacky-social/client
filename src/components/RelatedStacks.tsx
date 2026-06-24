@@ -5,7 +5,6 @@ import { Layers } from 'lucide-react';
 import { formatPostDate } from '../utils/formatPostDate';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import StackPostsModal from './StackPostsModal';
 import InteractionControl from './InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
@@ -710,6 +709,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   // opens the related post instead of the pairing" bug).
   const { activePostId: ctxActivePostId } = useRelatedStacks();
   const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
+  // Debounce hover activation. Hovering a card cross-highlights the (possibly
+  // long) focus post, which re-parses its HTML + reflows (~300ms). Firing that
+  // on every enter/leave as the cursor sweeps across cards stacks up into a
+  // multi-second main-thread block (the "page died" freeze). Coalescing rapid
+  // enter/leave into a single settle keeps the thread free while moving.
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Shared-pairing highlight: scroll the emphasised card into view when arriving
   // via a …?related={id} link (or when the highlight target changes).
   const highlightCardRef = useRef<HTMLDivElement | null>(null);
@@ -1208,26 +1213,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     router.push(`/user/${profileHandle}`);
   };
 
-  const containerVariants = {
-    hidden: { opacity: 1 },
-    show: { opacity: 1, transition: { staggerChildren: 0.15 } },
-  };
-
-  // Per-item enter / exit / layout-change variants.
-  // `layout` on motion.div handles reordering (up/down) smoothly.
-  // AnimatePresence handles enter/exit (vanish) when a post appears/disappears.
-  const itemVariants = {
-    hidden: { opacity: 0, y: 24, scale: 0.96 },
-    show: {
-      opacity: 1, y: 0, scale: 1,
-      transition: { duration: 0.35, ease: [0.2, 0.8, 0.2, 1] as any },
-    },
-    exit: {
-      opacity: 0, scale: 0.97,
-      transition: { duration: 0.2, ease: "easeIn" },
-    },
-  };
-
   const handleOpenStackModal = (stackId: string) => {
     setCurrentStackId(stackId);
     setStackPostsModalOpen(true);
@@ -1269,7 +1254,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
     // Clear hover state — card indices shift after reorder, so old
     // hoveredCardIndex would point at a different card → everything dims.
-    setHoveredCardIndex(null);
+    setHoveredCardId(null);
     setHoveredSidebarPost(null);
     setHoveredHighlightRangeIndex(null);
     setHoveredCategory(null);
@@ -1289,8 +1274,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     toggleReRankAnchor(postId, rangeIndex);
   };
 
-  // Compensate scroll BEFORE paint — runs after React commits the DOM update
-  // but before the browser paints, so the card never visually moves.
+  // Compensate scroll BEFORE paint so the clicked card never visually moves on a
+  // regroup. CRITICAL: this is keyed on the grouping state — it must NOT run on
+  // every render. A dependency-less version ran (and mutated aside.scrollTop) on
+  // every hover-driven re-render, which, combined with cards moving under the
+  // cursor, was the page-freeze amplifier. The pinnedPostIdRef guard makes it a
+  // no-op unless a toggle just set it.
   useLayoutEffect(() => {
     const postId = pinnedPostIdRef.current;
     const prevTop = pinnedPrevTopRef.current;
@@ -1300,20 +1289,18 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     pinnedPostIdRef.current = null;
     pinnedPrevTopRef.current = null;
 
-    const cardEl = document.querySelector(`[data-post-id="${postId}"]`) as HTMLElement | null;
-    if (!cardEl) return;
-    // Viewport-relative again (matches the capture above). delta is how far the
-    // clicked card moved on screen due to the header growth + reorder; scrolling
-    // the aside by that amount puts it back exactly where the user clicked.
+    // Scope the lookup to THIS aside (avoids matching another route's panel) and
+    // clamp the result so a mis-measured delta can never fling the scroll.
+    const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+    const cardEl = aside?.querySelector(`[data-post-id="${postId}"]`) as HTMLElement | null;
+    if (!aside || !cardEl) return;
     const newTop = cardEl.getBoundingClientRect().top;
     const delta = newTop - prevTop;
     if (Math.abs(delta) > 0.5) {
-      // The aside scroll container is the custom column exposed as
-      // [data-testid="col-aside"] (Shell.tsx, ref={asideRef}, overflowY:auto).
-      const aside = document.querySelector('[data-testid="col-aside"]');
-      if (aside) aside.scrollTop += delta;
+      const max = Math.max(0, aside.scrollHeight - aside.clientHeight);
+      aside.scrollTop = Math.min(max, Math.max(0, aside.scrollTop + delta));
     }
-  });
+  }, [reRankAnchorIds, anchoredRangeByPost, shownByAnchor]);
 
   /** Ref-based guard: set when a touch tap just "activated" a card/range so the
    *  synthetic click that follows doesn't also navigate. */
@@ -1379,8 +1366,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
   // hoveredIndex: for the stacked-card bottom-edge layer effect only
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  // hoveredCardIndex: tracks which card the mouse is actually over (for highlight marks + cross-highlighting)
-  const [hoveredCardIndex, setHoveredCardIndex] = useState<number | null>(null);
+  // hoveredCardId: tracks which card the mouse is actually over, BY POST ID (not
+  // array index). Index-keying broke when displayStacks reordered/filtered under
+  // the hover (grouping, pagination, AnimatePresence exits) — the highlighted
+  // card stopped matching the cursor. A stable id is immune to all reshuffles.
+  const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
 
   // Debounced range hover — prevents Level 2 from firing immediately on card enter
   const rangeHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1402,7 +1392,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   useLayoutEffect(() => {
     const focusId = sourcePostId ?? ctxActivePostId ?? null;
     setPanelFocus(focusId);
-    setHoveredCardIndex(null);
+    setHoveredCardId(null);
     setHoveredIndex(null);
     hideTooltip();
     if (rangeHoverTimer.current) clearTimeout(rangeHoverTimer.current);
@@ -1569,16 +1559,18 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
         )}
       </div>
 
-      {/* Cards — no inner scroll, the aside's own scrollbar handles everything */}
-      <LayoutGroup>
-      <motion.div
-        variants={containerVariants} initial="hidden" animate="show"
+      {/* Cards — no inner scroll, the aside's own scrollbar handles everything.
+          NOTE: LayoutGroup + AnimatePresence mode="popLayout" + layout FLIP were
+          removed — in this grouped, custom-scroll container their per-render
+          layout projection never settled (10+ perpetual animations saturating
+          the main thread → the page-freeze on hover-while-grouped). Reorders now
+          snap; the clicked card still stays put via the scroll compensation. */}
+      <div
         style={{
           display: 'flex', flexDirection: 'column', gap: '0.75rem',
           paddingBottom: '1rem',
         }}
       >
-        <AnimatePresence initial={false} mode="popLayout">
         {(() => {
           // Compute the active anchor's dominant topic (after synthetic fallback) so
           // each card can decide whether to show the F indicator.
@@ -1597,7 +1589,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             : null;
 
           return displayStacks.flatMap((stack, index) => {
-          const isCardHovered = hoveredCardIndex === index;
+          const isCardHovered = hoveredCardId === stack.topPost.id;
           const isHighlighted = !!highlightPostId && stack.topPost.id === highlightPostId;
           const colors = getCategoryColors(stack.rel);
           const isExpanded = !!expandedCards[stack.stackId];
@@ -1636,7 +1628,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           // Card-level dim/bright: when any card is hovered OR tapped, non-active cards dim.
           const isCardTapped = tappedCardPostId === stack.topPost.id;
           const isCardActive = isCardHovered || isCardTapped;
-          const anyCardHovered = hoveredCardIndex !== null || tappedCardPostId !== null;
+          const anyCardHovered = hoveredCardId !== null || tappedCardPostId !== null;
           const cardDimStyle = anyCardHovered && !isCardActive
             ? { opacity: 0.45, filter: 'grayscale(0.3)' }
             : { opacity: 1, filter: 'none' };
@@ -1792,13 +1784,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           };
           const renderHeader = showBlockDecorations && isFirstInBlock && !!anchorTopic;
           const headerEl = renderHeader && anchorForThisCard ? (
-            <motion.div
+            <div
               key={`header-${anchorForThisCard}`}
-              layout
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
               style={{
                 position: 'relative',
                 display: 'flex', alignItems: 'center', gap: '6px',
@@ -1852,17 +1839,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               >
                 ×
               </button>
-            </motion.div>
+            </div>
           ) : null;
 
           const cardEl = (
-            <motion.div
+            <div
               key={stack.stackId}
-              layout={pinnedPostIdRef.current !== stack.topPost.id}
-              variants={itemVariants}
-              initial="hidden"
-              animate="show"
-              exit="exit"
               data-related-card
               style={{
                 position: 'relative',
@@ -1890,10 +1872,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 const x = e.clientX, y = e.clientY;
                 const withinX = x >= rect.left && x <= rect.right;
                 const inBottomEdge = y >= rect.bottom && y <= rect.bottom + EDGE_HOVER_HEIGHT;
-                const insideMain = y >= rect.top && y <= rect.bottom;
-                if (withinX && inBottomEdge) setHoveredIndex(index);
-                else if (withinX && insideMain) setHoveredIndex(null);
-                else setHoveredIndex(null);
+                // Idempotent: mousemove fires on every pixel of motion; only
+                // commit a state change when the bottom-edge hover actually
+                // flips, so a steady cursor (or one over animating geometry)
+                // can't drive a render storm / feedback loop.
+                const nextIdx = (withinX && inBottomEdge) ? index : null;
+                setHoveredIndex((prev) => (prev === nextIdx ? prev : nextIdx));
               }}
               onMouseLeave={() => {
                 if (isTouch) return;
@@ -1937,8 +1921,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 onMouseEnter={() => {
                   if (isTouch) return;
                   setHoveredIndex(null);
-                  setHoveredCardIndex(index);
-                  setHoveredSidebarPost(stack.topPost.id, stack.topPost.relations);
+                  // Debounced: coalesce a fast cursor sweep into a single settle
+                  // so the expensive focus-post cross-highlight fires once.
+                  const pid = stack.topPost.id;
+                  const rels = stack.topPost.relations;
+                  if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                  hoverTimerRef.current = setTimeout(() => {
+                    setHoveredCardId(pid);
+                    setHoveredSidebarPost(pid, rels);
+                  }, 90);
                 }}
                 onMouseLeave={(e) => {
                   if (isTouch) return;
@@ -1953,8 +1944,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       ?.contains(next)) {
                     return;
                   }
-                  setHoveredCardIndex(null); setHoveredSidebarPost(null);
-                  setHoveredHighlightRangeIndex(null); setHoveredCategory(null);
+                  // Debounced clear — same coalescing so a sweep doesn't trigger
+                  // an expensive un-highlight on every card boundary.
+                  if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                  hoverTimerRef.current = setTimeout(() => {
+                    setHoveredCardId(null); setHoveredSidebarPost(null);
+                    setHoveredHighlightRangeIndex(null); setHoveredCategory(null);
+                  }, 60);
                 }}
                 style={{
                   position: 'relative', width: '100%', backgroundColor: '#ffffff', zIndex: isHighlighted ? 6 : 5,
@@ -2248,15 +2244,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   ))}
                 </>
               )}
-            </motion.div>
+            </div>
           );
 
           return [headerEl, cardEl].filter(Boolean);
           }); // end displayStacks.flatMap
         })()} {/* end activeAnchorTopic IIFE */}
-        </AnimatePresence>
-      </motion.div>
-      </LayoutGroup>
+      </div>
 
       <StackPostsModal
         isOpen={stackPostsModalOpen} onClose={() => setStackPostsModalOpen(false)}

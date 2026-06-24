@@ -66,6 +66,12 @@ function renderMultiHighlightHtml(
     if (!catColors) return null;
 
     const snippet = focusPlainText.slice(r.focusStart, r.focusEnd);
+    // Guard: an empty/invalid focus span yields an empty snippet. Below we build
+    // `new RegExp('', 'g')` and drive it with exec() in a while loop — an empty
+    // pattern matches zero-width, lastIndex never advances, and the loop spins
+    // FOREVER (the page-freeze: hovering a related post with such a relation
+    // cross-highlights the focus post and hangs the thread). Skip empty snippets.
+    if (!snippet) return null;
     let bgAlpha = (hoveredRangeIndex === null || hoveredRangeIndex === i) ? 1 : 0.2;
     if (dimmed) bgAlpha = 0.25;
     const bgColor = bgAlpha < 1 ? hexToRgba(catColors.bg, bgAlpha) : catColors.bg;
@@ -86,10 +92,13 @@ function renderMultiHighlightHtml(
   const usedPositions = new Set<number>();
 
   for (const entry of entries) {
+    if (!entry.snippet) continue; // defensive: never build a zero-width regex
     const escaped = entry.snippet.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(escaped, 'g');
     let match: RegExpExecArray | null;
     while ((match = regex.exec(result)) !== null) {
+      // Defensive: a zero-width match would not advance lastIndex → infinite loop.
+      if (match.index === regex.lastIndex) { regex.lastIndex++; continue; }
       if (!usedPositions.has(match.index)) {
         usedPositions.add(match.index);
         let innerHtml = entry.snippet;
