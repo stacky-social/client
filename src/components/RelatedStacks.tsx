@@ -1427,7 +1427,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
         {/* "More like this" active indicator — single anchor only */}
         {reRankAnchorIds.length > 0 && (
-          <div style={{
+          <div data-testid="grouped-by-pill" style={{
             display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px',
             background: '#f0f4ff', borderRadius: '6px', marginBottom: '0.5rem', flexWrap: 'wrap',
           }}>
@@ -1635,6 +1635,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           const renderFooter = showBlockDecorations && isLastInBlock && !!anchorTopic;
           const footerEl = renderFooter && anchorForThisCard ? (
             <div
+              data-testid="more-like-this"
               style={{
                 position: 'relative',
                 marginLeft: `${indentPx}px`,
@@ -1713,6 +1714,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 borderRadius: GROUP_LINE_WIDTH,
               }} />
               <span
+                data-testid="topic-block-header"
                 onMouseEnter={(e) => headerHover(e.clientX, e.clientY)}
                 onMouseLeave={() => hideTooltip()}
                 onPointerEnter={(e) => { if (e.pointerType === 'mouse') headerHover(e.clientX, e.clientY); }}
@@ -1914,6 +1916,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                               handleToggleAnchor(stack.topPost.id, indices[0]);
                             }
                           }}
+                          data-testid="card-category-tag"
+                          data-category={cat}
                           style={{
                             // Category tags are always color-coded so the highlight↔icon
                             // mapping is visible without relying on a colored card border.
