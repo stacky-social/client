@@ -412,6 +412,18 @@ export function useLocalStore<T>(selector: (snapshot: LocalState) => T): T {
   );
 }
 
+const noopSubscribe = () => () => {};
+
+/**
+ * True only AFTER client mount — false on the server and on the first client
+ * (hydration) render. Gate any localStorage-dependent UI on this so the first
+ * client render matches the server HTML, then re-renders with real data. Avoids
+ * React hydration mismatches for store-backed feeds/states.
+ */
+export function useHydrated(): boolean {
+  return useSyncExternalStore(noopSubscribe, () => true, () => false);
+}
+
 // ─── Internal read helpers ───────────────────────────────────────────────────
 
 /** Resolve a post by id from current state (hydrating first). */
@@ -428,6 +440,25 @@ function postsByAcct(acct: string): Post[] {
     .sort(byNewest);
 }
 
+// ─── Derived-list memoization ────────────────────────────────────────────────
+// useSyncExternalStore requires getSnapshot (and any selector built on it) to
+// return a STABLE reference when nothing changed — otherwise it warns about an
+// uncached snapshot, loops, and breaks hydration. The list getters below build
+// fresh arrays, so memoize them keyed on the current `state` identity (which only
+// changes inside mutate()). Same state → same array reference; a mutation resets
+// the cache so consumers re-render exactly once.
+let memoState: LocalState | null = null;
+let memo = new Map<string, unknown>();
+function memoized<T>(key: string, compute: () => T): T {
+  ensureHydrated();
+  if (memoState !== state) {
+    memoState = state;
+    memo = new Map();
+  }
+  if (!memo.has(key)) memo.set(key, compute());
+  return memo.get(key) as T;
+}
+
 // ─── Public REST-shaped API ──────────────────────────────────────────────────
 //
 // Each function notes the Mastodon endpoint it will call when swapped to REST.
@@ -439,11 +470,12 @@ function postsByAcct(acct: string): Post[] {
  * REST: GET /api/v1/timelines/home
  */
 export function getHomeFeed(): Post[] {
-  ensureHydrated();
-  const sources = new Set<string>([state.me.acct, ...state.following]);
-  return Object.values(state.posts)
-    .filter((p) => sources.has(p.account.acct))
-    .sort(byNewest);
+  return memoized("home", () => {
+    const sources = new Set<string>([state.me.acct, ...state.following]);
+    return Object.values(state.posts)
+      .filter((p) => sources.has(p.account.acct))
+      .sort(byNewest);
+  });
 }
 
 /**
@@ -452,11 +484,12 @@ export function getHomeFeed(): Post[] {
  * REST: GET /api/v1/bookmarks
  */
 export function getBookmarks(): Post[] {
-  ensureHydrated();
-  return state.bookmarked
-    .map((id) => state.posts[id])
-    .filter((p): p is Post => !!p)
-    .sort(byNewest);
+  return memoized("bookmarks", () =>
+    state.bookmarked
+      .map((id) => state.posts[id])
+      .filter((p): p is Post => !!p)
+      .sort(byNewest),
+  );
 }
 
 /**
@@ -465,11 +498,12 @@ export function getBookmarks(): Post[] {
  * REST: GET /api/v1/favourites
  */
 export function getLiked(): Post[] {
-  ensureHydrated();
-  return state.liked
-    .map((id) => state.posts[id])
-    .filter((p): p is Post => !!p)
-    .sort(byNewest);
+  return memoized("liked", () =>
+    state.liked
+      .map((id) => state.posts[id])
+      .filter((p): p is Post => !!p)
+      .sort(byNewest),
+  );
 }
 
 /**
@@ -489,7 +523,7 @@ export function getUserProfile(acct: string): Account {
  * REST: GET /api/v1/accounts/{id}/statuses
  */
 export function getUserPosts(acct: string): Post[] {
-  return postsByAcct(acct);
+  return memoized("userPosts:" + acct, () => postsByAcct(acct));
 }
 
 /**
@@ -575,8 +609,9 @@ export function addComment(postId: string, text: string): Comment {
  * REST: GET /api/v1/statuses/{id}/context  (filtered to the user's own replies)
  */
 export function getComments(postId: string): Comment[] {
-  ensureHydrated();
-  return [...(state.comments[postId] ?? [])].sort(byNewest);
+  return memoized("comments:" + postId, () =>
+    [...(state.comments[postId] ?? [])].sort(byNewest),
+  );
 }
 
 /**

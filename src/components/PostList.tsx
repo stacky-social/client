@@ -5,6 +5,56 @@ import { Virtuoso } from 'react-virtuoso';
 import { PostType } from '../types/PostType';
 import Post from './Posts/Post';
 import axios from 'axios';
+import {
+    useLocalStore,
+    useHydrated,
+    getHomeFeed,
+    getBookmarks,
+    getLiked,
+    type Post as StorePost,
+} from '../utils/localStore';
+
+/** Local (no-backend) feed sources backed by the localStore. */
+export type FeedSource = 'home' | 'bookmarks' | 'liked';
+
+/** Read the posts for a store-backed feed source. */
+function selectStoreFeed(source: FeedSource): StorePost[] {
+    switch (source) {
+        case 'home':
+            return getHomeFeed();
+        case 'bookmarks':
+            return getBookmarks();
+        case 'liked':
+            return getLiked();
+        default:
+            return [];
+    }
+}
+
+/** Map a store `Post` (Mastodon-style snake_case) into the feed's `PostType`.
+ *  Mirrors PostList's `mapResponseToPosts` so store posts render identically to
+ *  REST posts (the `replies` field is set to the count, as the REST path does). */
+function storeToPost(post: StorePost): PostType {
+    return {
+        postId: post.id,
+        text: post.content,
+        author: post.account.username,
+        account: post.account.acct,
+        avatar: post.account.avatar,
+        createdAt: post.created_at,
+        replies: post.replies_count as unknown as PostType['replies'],
+        replies_count: post.replies_count,
+        stackCount: post.stackCount,
+        favouritesCount: post.favourites_count,
+        favourited: post.favourited,
+        bookmarked: post.bookmarked,
+        mediaAttachments: (post.media_attachments || []).map((m: any) =>
+            typeof m === 'string' ? m : m.url
+        ),
+        relatedStacks: Array.isArray(post.relatedStacks) ? post.relatedStacks : [],
+        previewCard: null,
+    };
+}
 
 const MastodonInstanceUrl = 'https://beta.stacky.social:3002';
 
@@ -65,9 +115,21 @@ interface PostListProps {
     setActivePostId: (id: string | null) => void;
     showLoadMore?: boolean;
     ready: boolean;
+    /** When set, the feed reads reactively from the localStore instead of fetching `apiUrl`. */
+    source?: FeedSource;
 }
 
-const PostList: React.FC<PostListProps> = ({
+const PostList: React.FC<PostListProps> = (props) => {
+    // Store-backed feeds (Home/Bookmarks/Liked in local mode) bypass the REST
+    // fetch + cache + virtualization entirely and render reactively from the
+    // localStore. The apiUrl path below is preserved EXACTLY as-is.
+    if (props.source) {
+        return <StoreFeed {...props} source={props.source} />;
+    }
+    return <ApiFeed {...props} />;
+};
+
+const ApiFeed: React.FC<PostListProps> = ({
     apiUrl,
     handleStackIconClick,
     loadStackInfo,
@@ -579,6 +641,78 @@ const PostList: React.FC<PostListProps> = ({
                     components={{ Footer }}
                 />
             )}
+        </Box>
+    );
+};
+
+/**
+ * Store-backed feed (local/demo mode). Reads posts reactively from the localStore
+ * for the given `source` (home/bookmarks/liked) instead of fetching `apiUrl`, and
+ * renders them with the SAME `Post` component, prop mapping and `handleStackIconClick`
+ * wiring the apiUrl path uses — so the aside lights up on click identically.
+ *
+ * No fetch, no module cache, no virtualization: the store is the source of truth
+ * and re-renders on every mutation via useLocalStore. An empty result renders an
+ * empty feed (no spinner, no error).
+ */
+const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
+    source,
+    handleStackIconClick,
+    setIsModalOpen,
+    setIsExpandModalOpen,
+    activePostId,
+    setActivePostId,
+}) => {
+    // Re-renders on any store mutation (post/like/bookmark/follow) so the feed
+    // stays live without a manual refresh.
+    const hydrated = useHydrated();
+    const storePosts = useLocalStore(() => selectStoreFeed(source));
+    // Render empty on the server + first client render (the store reads
+    // localStorage, which the server can't see) so hydration matches; fill in
+    // immediately after mount.
+    const posts: PostType[] = hydrated ? storePosts.map(storeToPost) : [];
+
+    // Mirror the apiUrl path's manual-selection bookkeeping so clicking a post
+    // both highlights it and (when relatedStacks exist) drives the aside.
+    const lastUserActivateRef = useRef<number>(0);
+    const manualActiveIdRef = useRef<string | null>(null);
+    const manualLockRef = useRef(false);
+
+    return (
+        <Box style={{ width: '100%', position: 'relative', minHeight: 80 }}>
+            {posts.map((post) => (
+                <div
+                    key={post.postId}
+                    data-post-id={post.postId}
+                >
+                    <Post
+                        id={post.postId}
+                        text={post.text}
+                        author={post.author}
+                        account={post.account}
+                        avatar={post.avatar}
+                        repliesCount={post.replies_count}
+                        createdAt={post.createdAt}
+                        stackCount={post.stackCount}
+                        favouritesCount={post.favouritesCount}
+                        favourited={post.favourited}
+                        bookmarked={post.bookmarked}
+                        mediaAttachments={post.mediaAttachments}
+                        onStackIconClick={handleStackIconClick}
+                        setIsModalOpen={setIsModalOpen}
+                        setIsExpandModalOpen={setIsExpandModalOpen}
+                        relatedStacks={post.relatedStacks}
+                        activePostId={activePostId}
+                        setActivePostId={(id: string | null) => {
+                            lastUserActivateRef.current = Date.now();
+                            manualActiveIdRef.current = id;
+                            manualLockRef.current = !!id;
+                            setActivePostId(id);
+                        }}
+                        initialCard={post.previewCard || null}
+                    />
+                </div>
+            ))}
         </Box>
     );
 };

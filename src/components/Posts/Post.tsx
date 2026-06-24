@@ -11,6 +11,8 @@ import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
 import { PreviewCardType } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
+import { toggleFavourite, toggleBookmark } from '../../utils/mastoActions';
+import { getPost, isLiked as storeIsLiked, isBookmarked as storeIsBookmarked } from '../../utils/localStore';
 import { useHighlightStore, setFilterFocusSpan, clearFilterFocusSpan } from '../../utils/highlightStore';
 import type { Relation } from '../../types/PostType';
 import { showTooltip, hideTooltip } from '../HoverTooltip';
@@ -541,6 +543,14 @@ function Post({
 
   const [isExpandModalOpen, setIsExpandModalOpen] = useState(false);
 
+  // Initialize interaction state from the local store so persisted likes/bookmarks
+  // survive reload and show consistently across routes (e.g. a post liked on
+  // /listy-injection shows as liked there, on /liked, and after a refresh). When
+  // the post is not yet in the store, fall back to the props from the parent.
+  // Initialize from the PARENT PROPS only so the first render matches the server
+  // HTML. The store reads localStorage (invisible to the server), so reading it
+  // during the initial render would cause a hydration mismatch. The effect below
+  // re-syncs liked/bookmarked/count from the store immediately after mount.
   const [liked, setLiked] = useState(favourited);
   const [bookmarkedState, setBookmarkedState] = useState(bookmarked);
   const [likeCount, setLikeCount] = useState(favouritesCount);
@@ -568,6 +578,23 @@ function Post({
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
+
+  // Re-sync interaction state from the store whenever the rendered post id (or its
+  // incoming props) changes — under feed virtualization a Post instance can be
+  // reused for a different id, and this keeps the heart/bookmark/count accurate.
+  useEffect(() => {
+    const stored = getPost(id);
+    if (stored) {
+      setLiked(storeIsLiked(id));
+      setBookmarkedState(storeIsBookmarked(id));
+      setLikeCount(stored.favourites_count);
+    } else {
+      setLiked(favourited);
+      setBookmarkedState(bookmarked);
+      setLikeCount(favouritesCount);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, favourited, bookmarked, favouritesCount]);
 
   useEffect(() => {
     const element = textRef.current;
@@ -675,23 +702,24 @@ function Post({
   };
 
   const handleLike = async () => {
-    const accessToken = getAccessToken();
-    if (!accessToken) return;
-
     // Optimistic update so the heart reflects the tap instantly.
     const wasLiked = liked;
     setLiked(!wasLiked);
     setLikeCount((c) => Math.max(0, c + (wasLiked ? -1 : 1)));
 
     try {
-      const endpoint = wasLiked
-        ? `${MastodonInstanceUrl}/api/v1/statuses/${id}/unfavourite`
-        : `${MastodonInstanceUrl}/api/v1/statuses/${id}/favourite`;
-      await axios.post(endpoint, {}, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        timeout: 10000,
-      });
-      await fetchPostData();
+      // Persists to the local store (flips liked[] + favourites_count) and returns
+      // { ok: true, value: <new liked state> }. ok is always true in local mode,
+      // so this just confirms the optimistic update; the revert path is retained
+      // for the future swap back to REST.
+      const result = await toggleFavourite(id, wasLiked);
+      if (!mountedRef.current) return;
+      if (result.ok) {
+        // Confirm against the store's authoritative new state.
+        setLiked(result.value);
+      } else {
+        throw new Error('toggleFavourite returned ok: false');
+      }
     } catch (error) {
       console.error('Error liking post:', error);
       // Revert optimistic UI on failure.
@@ -708,22 +736,21 @@ function Post({
   };
 
   const handleSave = async () => {
-    const accessToken = getAccessToken();
-    if (!accessToken) return;
-
     // Optimistic update so the bookmark icon reflects the tap instantly.
     const wasBookmarked = bookmarkedState;
     setBookmarkedState(!wasBookmarked);
 
     try {
-      const endpoint = wasBookmarked
-        ? `${MastodonInstanceUrl}/api/v1/statuses/${id}/unbookmark`
-        : `${MastodonInstanceUrl}/api/v1/statuses/${id}/bookmark`;
-      await axios.post(endpoint, {}, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        timeout: 10000,
-      });
-      await fetchPostData();
+      // Persists to the local store (flips bookmarked[]) and returns
+      // { ok: true, value: <new bookmarked state> }. ok is always true in local
+      // mode; the revert path is retained for the future swap back to REST.
+      const result = await toggleBookmark(id, wasBookmarked);
+      if (!mountedRef.current) return;
+      if (result.ok) {
+        setBookmarkedState(result.value);
+      } else {
+        throw new Error('toggleBookmark returned ok: false');
+      }
     } catch (error) {
       console.error('Error bookmarking post:', error);
       // Revert optimistic UI on failure.
@@ -1011,11 +1038,14 @@ function Post({
             onClick={handleSave}
             active={bookmarkedState}
             />
+            {/* Annotate action hidden in local mode. The trigger button and the
+                AnnotationModal below are not rendered; AnnotationModal import +
+                handleAnnotation remain in place for when it is re-enabled.
             <InteractionControl
               icon={<IconNote size={20} />}
               ariaLabel="Annotate"
               onClick={handleAnnotation}
-            />
+            /> */}
             <InteractionControl
               icon={<IconLink size={20} />}
               ariaLabel="Open in new tab"
@@ -1024,11 +1054,12 @@ function Post({
           </Group>
         </div>
       </Paper>
+      {/* AnnotationModal hidden in local mode (see hidden Annotate trigger above).
       <AnnotationModal
         isOpen={annotationModalOpen}
         onClose={() => setAnnotationModalOpen(false)}
         stackId={id}
-      />
+      /> */}
     </div>
   );
 }

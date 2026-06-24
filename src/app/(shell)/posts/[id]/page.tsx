@@ -12,6 +12,7 @@ import BackButton from "../../../../components/BackButton";
 import ThreadedReplyList from "../../../../components/ThreadedReplyList";
 import { useRelatedStacks } from "../../related-stacks-context";
 import { useUrlSync } from "../../../../utils/useUrlSync";
+import { useLocalStore, useHydrated, getComments } from "../../../../utils/localStore";
 
 // -------------------- Types --------------------
 interface Account {
@@ -116,8 +117,29 @@ export default function PostView({ params }: { params: { id: string } }) {
   }, [id]);
 
   // -------------------- Derived values --------------------
-  const filteredReplies = useMemo(() => replies.filter((r) => r.in_reply_to_id === id), [replies, id]);
-  const replyIDs = useMemo(() => filteredReplies.map((r) => r.id), [filteredReplies]);
+  // User-authored replies from the local store (reactive). Already Post-shaped
+  // with in_reply_to_id === id, so they merge in as top-level replies. This is
+  // additive and does not touch the REST fetch flow above.
+  // Store comments live in localStorage; gate on mount so the thread matches the
+  // server render, then merge them in.
+  const hydrated = useHydrated();
+  const userCommentsLive = useLocalStore(() => getComments(id));
+  const userComments = hydrated ? userCommentsLive : [];
+
+  const mergedReplies = useMemo(() => {
+    if (userComments.length === 0) return replies;
+    const seen = new Set(replies.map((r) => r.id));
+    const extra = userComments.filter((c) => !seen.has(c.id));
+    return [...replies, ...(extra as unknown as PostType[])];
+  }, [replies, userComments]);
+
+  const filteredReplies = useMemo(() => mergedReplies.filter((r) => r.in_reply_to_id === id), [mergedReplies, id]);
+  /** REST-backed immediate reply ids (exclude local store comments — the backend
+   *  doesn't know them) used as payload for the recommended/stacked/summary tabs. */
+  const replyIDs = useMemo(
+    () => replies.filter((r) => r.in_reply_to_id === id).map((r) => r.id),
+    [replies, id]
+  );
   /** Count of top-level reply branches for the tree-aware pagination button. */
   const totalTopLevelReplies = filteredReplies.length;
 
@@ -125,9 +147,9 @@ export default function PostView({ params }: { params: { id: string } }) {
   const allPostsById = useMemo(() => {
     const map = new Map<string, PostType>();
     if (post) map.set(post.id, post);
-    [...ancestors, ...replies, ...recommendedPosts].forEach((p) => map.set(p.id, p));
+    [...ancestors, ...mergedReplies, ...recommendedPosts].forEach((p) => map.set(p.id, p));
     return map;
-  }, [post, ancestors, replies, recommendedPosts]);
+  }, [post, ancestors, mergedReplies, recommendedPosts]);
 
   // -------------------- Position helpers --------------------
   const readRectOf = (el: HTMLElement | null) => {
@@ -547,7 +569,7 @@ export default function PostView({ params }: { params: { id: string } }) {
 
         <ReplySection postId={id} currentUser={currentUser} fetchPostAndReplies={() => fetchContext(id)} />
 
-        {replies.length > 0 && (
+        {mergedReplies.length > 0 && (
           <Paper
             style={{
               borderRadius: "0 0 8px 8px",
@@ -572,7 +594,7 @@ export default function PostView({ params }: { params: { id: string } }) {
 
               <Tabs.Panel value="time">
                 <ThreadedReplyList
-                  replies={replies}
+                  replies={mergedReplies}
                   rootId={id}
                   renderPost={renderPost}
                   visibleTopLevelCount={visibleTopLevelReplies}

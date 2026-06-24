@@ -22,6 +22,7 @@ import {
 } from "../../../../../utils/mockPostResolver";
 import type { Relation } from "../../../../../types/PostType";
 import { getCurrentUser } from "../../../../../utils/getCurrentUser";
+import { useLocalStore, useHydrated, getComments } from "../../../../../utils/localStore";
 
 // Thread connector line style — mirrors /posts/[id]
 const THREAD_LINE_COLOR = "#ccd1dc";
@@ -60,7 +61,29 @@ export default function MockPostView({ params }: { params: { id: string } }) {
 
   const plainPostText = post ? stripHtmlToPlain(post.content) : null;
 
-  const filteredReplies = useMemo(() => replies.filter((r) => r.in_reply_to_id === id), [replies, id]);
+  // User-authored replies from the local store (reactive: a just-posted comment
+  // re-renders this component immediately). Already in the right Post shape with
+  // in_reply_to_id === id, so they slot in as top-level replies of the focus post.
+  // Store comments live in localStorage; gate on mount so the thread matches the
+  // server render, then merge them in.
+  const hydrated = useHydrated();
+  const userCommentsLive = useLocalStore(() => getComments(id));
+  const userComments = hydrated ? userCommentsLive : [];
+
+  // Merge seeded mock replies with the user's store comments so both appear in
+  // the thread. De-dupe by id defensively (a store comment should never collide
+  // with a seeded reply, but this guards against accidental overlap).
+  const mergedReplies = useMemo(() => {
+    if (userComments.length === 0) return replies;
+    const seen = new Set(replies.map((r) => r.id));
+    const extra = userComments.filter((c) => !seen.has(c.id));
+    return [...replies, ...(extra as unknown as MockPostType[])];
+  }, [replies, userComments]);
+
+  const filteredReplies = useMemo(
+    () => mergedReplies.filter((r) => r.in_reply_to_id === id),
+    [mergedReplies, id]
+  );
   const totalTopLevelReplies = filteredReplies.length;
 
   // -------------------- Load mock data --------------------
@@ -212,7 +235,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
 
         {showThread && <ReplySection postId={id} currentUser={currentUser} fetchPostAndReplies={() => {}} />}
 
-        {showThread && replies.length > 0 && (
+        {showThread && mergedReplies.length > 0 && (
           <Paper
             style={{
               borderRadius: "0 0 8px 8px",
@@ -237,7 +260,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
 
               <Tabs.Panel value="time">
                 <ThreadedReplyList
-                  replies={replies as any}
+                  replies={mergedReplies as any}
                   rootId={id}
                   renderPost={renderPost as any}
                   visibleTopLevelCount={visibleTopLevelReplies}

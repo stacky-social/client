@@ -8,7 +8,7 @@ import PostList from '../PostList';
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { useAccessToken } from '../../utils/useAccessToken';
 
-export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, showLoadMore = false, }: { apiUrl: string, loadStackInfo: boolean, showSubmitAndSearch: boolean, showLoadMore?: boolean; }) {
+export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, showLoadMore = false, source, }: { apiUrl?: string, loadStackInfo: boolean, showSubmitAndSearch: boolean, showLoadMore?: boolean; source?: "home" | "bookmarks" | "liked"; }) {
     const { token: accessToken, ready } = useAccessToken();
     const [activePostId, setActivePostId] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -39,7 +39,8 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, show
                     </div>
                 )}
                 <PostList
-                    apiUrl={apiUrl}
+                    apiUrl={apiUrl ?? ""}
+                    source={source}
                     handleStackIconClick={handleStackIconClick}
                     loadStackInfo={loadStackInfo}
                     accessToken={accessToken}

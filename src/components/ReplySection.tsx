@@ -5,6 +5,7 @@ import { Avatar, Group, Button, Text, Stack, Paper, Badge, Loader, TextInput } f
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { pickAvatarForText } from '../utils/sentimentAvatar';
+import { addComment } from '../utils/localStore';
 
 interface ReplySectionProps {
     postId: string;
@@ -114,26 +115,12 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
     const handleReplySubmit = async () => {
         if (isDisabled) return;
 
-        const accessToken = localStorage.getItem('accessToken');
-        if (!accessToken || accessToken === "null" || accessToken === "undefined") {
-            console.error('Access token is missing.');
-            return;
-        }
-
         setIsSubmitting(true);
         try {
-            await axios.post(
-                `${MastodonInstanceUrl}/api/v1/statuses`,
-                {
-                    status: replyContent,
-                    in_reply_to_id: postId
-                },
-                {
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`
-                    }
-                }
-            );
+            // Local mode: persist the reply through the local store. It is created
+            // as a Post-shaped Comment authored by the local user "me" with
+            // in_reply_to_id === postId, so thread views render it directly.
+            addComment(postId, replyContent);
 
             setReplyContent('');
             setPraise(null);

@@ -5,7 +5,7 @@ import {
     IconHome,
     IconSearch,
     IconBookmark,
-    IconStar,
+    IconHeart,
     IconLogout,
 } from "@tabler/icons-react";
 import { useRouter, usePathname } from "next/navigation";
@@ -22,7 +22,7 @@ const LINKS = [
     { link: "/home", label: "Home", Icon: IconHome },
     { link: "/search", label: "Search", Icon: IconSearch },
     { link: "/bookmarks", label: "Bookmarks", Icon: IconBookmark },
-    { link: "/favorites", label: "Favorites", Icon: IconStar },
+    { link: "/liked", label: "Liked", Icon: IconHeart },
 ] as const;
 
 /**
