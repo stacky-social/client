@@ -1,13 +1,12 @@
 "use client";
 
-import { Group, ActionIcon, Tooltip, Menu, Box } from "@mantine/core";
+import { Group, ActionIcon, Tooltip, Box } from "@mantine/core";
 import {
     IconHome,
     IconSearch,
     IconBookmark,
     IconStar,
     IconLogout,
-    IconDotsVertical,
 } from "@tabler/icons-react";
 import { useRouter, usePathname } from "next/navigation";
 import StackLogo from "../../utils/StackLogo";
@@ -28,7 +27,7 @@ const LINKS = [
 
 /**
  * Horizontal sticky top nav bar (D-NAV): logo on the left, condensed icon
- * links, and an overflow / account menu (labelled links + Logout) on the right.
+ * links, and a Logout button on the right.
  * Replaces the old left nav column + collapse burger.
  */
 export function TopNav() {
@@ -111,38 +110,18 @@ export function TopNav() {
                     );
                 })}
 
-                <Menu position="bottom-end" withArrow width={180}>
-                    <Menu.Target>
-                        <ActionIcon
-                            variant="subtle"
-                            color="gray"
-                            size="lg"
-                            aria-label="More"
-                            data-testid="nav-overflow-toggle"
-                        >
-                            <IconDotsVertical size={20} stroke={1.8} />
-                        </ActionIcon>
-                    </Menu.Target>
-                    <Menu.Dropdown>
-                        {LINKS.map(({ link, label, Icon }) => (
-                            <Menu.Item
-                                key={link}
-                                leftSection={<Icon size={16} />}
-                                onClick={() => router.push(link)}
-                            >
-                                {label}
-                            </Menu.Item>
-                        ))}
-                        <Menu.Divider />
-                        <Menu.Item
-                            color="red"
-                            leftSection={<IconLogout size={16} />}
-                            onClick={handleLogOut}
-                        >
-                            Logout
-                        </Menu.Item>
-                    </Menu.Dropdown>
-                </Menu>
+                <Tooltip label="Logout" withArrow>
+                    <ActionIcon
+                        variant="subtle"
+                        color="red"
+                        size="lg"
+                        aria-label="Logout"
+                        data-testid="nav-logout"
+                        onClick={handleLogOut}
+                    >
+                        <IconLogout size={20} stroke={1.8} />
+                    </ActionIcon>
+                </Tooltip>
             </Group>
         </Box>
     );
