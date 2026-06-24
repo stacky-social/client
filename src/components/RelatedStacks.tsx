@@ -1225,7 +1225,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     const newTop = absoluteOffsetTop(cardEl);
     const delta = newTop - prevTop;
     if (Math.abs(delta) > 1) {
-      const aside = document.querySelector('.mantine-AppShell-aside');
+      // The redesigned shell no longer uses Mantine AppShell; the aside scroll
+      // container is the custom column exposed as [data-testid="col-aside"]
+      // (Shell.tsx, ref={asideRef}, overflowY:auto). Retargeting it keeps the
+      // clicked card pinned in place across a rerank.
+      const aside = document.querySelector('[data-testid="col-aside"]');
       if (aside) aside.scrollTop += delta;
     }
   });
