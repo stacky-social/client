@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 
 type RelatedStacksArray = any[];
 
@@ -10,6 +10,7 @@ type RelatedStacksContextValue = {
   previousPostId: string | null;
   setFromPost: (stacks: RelatedStacksArray, postId: string, options?: { force?: boolean }) => void;
   showUpdate: boolean;
+  clear: () => void;
 };
 
 const RelatedStacksContext = createContext<RelatedStacksContextValue | null>(null);
@@ -17,39 +18,60 @@ const RelatedStacksContext = createContext<RelatedStacksContextValue | null>(nul
 export function RelatedStacksProvider({ children }: { children: React.ReactNode }) {
   const [relatedStacks, setRelatedStacks] = useState<RelatedStacksArray>([]);
   const [activePostId, setActivePostId] = useState<string | null>(null);
-  const previousPostIdRef = useRef<string | null>(null);
+  const [previousPostId, setPreviousPostId] = useState<string | null>(null);
 
-  const setFromPost = (stacks: RelatedStacksArray, postId: string, options?: { force?: boolean }) => {
-    if (options?.force) {
-      // Skip no-op updates so the aside doesn't re-render (and replay framer-motion) on every scroll tick
-      if (postId === activePostId) return;
-      previousPostIdRef.current = activePostId;
-      setRelatedStacks(Array.isArray(stacks) ? stacks : []);
-      setActivePostId(postId);
-      return;
-    }
-    // Toggle behavior: if the same post is already active and showing stacks, hide them
-    if (postId === activePostId && relatedStacks && relatedStacks.length > 0) {
-      previousPostIdRef.current = activePostId;
-      setRelatedStacks([]);
-      setActivePostId(null);
-      return;
-    }
+  // Mirrors of committed state, updated synchronously in every update path below.
+  // They let setFromPost make a joint toggle decision across both atoms from
+  // committed values, so two calls in one tick don't race on a stale render closure.
+  const activePostIdRef = useRef<string | null>(activePostId);
+  const relatedStacksRef = useRef<RelatedStacksArray>(relatedStacks);
 
-    previousPostIdRef.current = activePostId;
-    setRelatedStacks(Array.isArray(stacks) ? stacks : []);
-    setActivePostId(postId);
-  };
+  const apply = useCallback((nextActive: string | null, nextStacks: RelatedStacksArray) => {
+    setPreviousPostId(activePostIdRef.current);
+    activePostIdRef.current = nextActive;
+    relatedStacksRef.current = nextStacks;
+    setActivePostId(nextActive);
+    setRelatedStacks(nextStacks);
+  }, []);
+
+  const clear = useCallback(() => {
+    apply(null, []);
+  }, [apply]);
+
+  const setFromPost = useCallback(
+    (stacks: RelatedStacksArray, postId: string, options?: { force?: boolean }) => {
+      const nextStacks = Array.isArray(stacks) ? stacks : [];
+
+      if (options?.force) {
+        // Skip no-op updates so the aside doesn't re-render (and replay framer-motion)
+        // on every scroll tick. Read committed state via the ref mirror.
+        if (postId === activePostIdRef.current) return;
+        apply(postId, nextStacks);
+        return;
+      }
+
+      // Toggle behavior: if the same post is already active and showing stacks, hide them.
+      // Decision is made from committed-state refs, not render-closure values.
+      if (postId === activePostIdRef.current && relatedStacksRef.current.length > 0) {
+        apply(null, []);
+        return;
+      }
+
+      apply(postId, nextStacks);
+    },
+    [apply]
+  );
 
   const value = useMemo(
     () => ({
       relatedStacks,
       activePostId,
-      previousPostId: previousPostIdRef.current,
+      previousPostId,
       setFromPost,
-      showUpdate: activePostId !== previousPostIdRef.current,
+      showUpdate: activePostId !== previousPostId,
+      clear,
     }),
-    [relatedStacks, activePostId]
+    [relatedStacks, activePostId, previousPostId, setFromPost, clear]
   );
 
   return <RelatedStacksContext.Provider value={value}>{children}</RelatedStacksContext.Provider>;

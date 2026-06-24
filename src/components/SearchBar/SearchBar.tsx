@@ -140,12 +140,12 @@ export default function SearchBar() {
 
   const handleNavigateToUser = (acct: string) => {
   const url = `/user/${acct}`;
-  router.push(url); 
+  router.push(url);
 };
 
 const handleNavigateToTag = (tag: string) => {
   const url = `/tag/${tag}`;
-  router.push(url); 
+  router.push(url);
 };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -169,7 +169,7 @@ const handleNavigateToTag = (tag: string) => {
         favouritesCount={status.favourites_count}
         favourited={status.favourited}
         bookmarked={status.bookmarked}
-        mediaAttachments={status.media_attachments}
+        mediaAttachments={(status.media_attachments || []).map((m: any) => m.url)}
         onStackIconClick={handleStackIconClick}
         setIsModalOpen={() => {}}
         setIsExpandModalOpen={() => {}}

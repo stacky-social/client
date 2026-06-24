@@ -33,7 +33,7 @@ export default function ListyInjectionAside() {
   }
 
   return (
-    <div style={{ width: "100%", paddingTop: "0.5rem" }}>
+    <div style={{ width: "100%" }}>
       <RelatedStacks
         relatedStacks={relatedStacks}
         cardWidth="100%"

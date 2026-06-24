@@ -15,7 +15,9 @@ export function formatPostDate(input: string | Date): string {
   const d = input instanceof Date ? input : new Date(input);
   const now = new Date();
   const days = differenceInDays(now, d);
-  if (days < 7) return `${formatDistanceToNow(d)} ago`;
+  // Future or clock-skewed dates: avoid "in about 3 hours ago".
+  if (days < 0) return 'just now';
+  if (days < 7) return formatDistanceToNow(d, { addSuffix: true });
   if (d.getFullYear() === now.getFullYear()) return format(d, 'MMM d');
   return format(d, 'MMM d, yyyy');
 }

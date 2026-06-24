@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Textarea, Button, Box } from '@mantine/core';
 import axios from 'axios';
+import { getCurrentUser } from '../utils/getCurrentUser';
 
 const MastodonInstanceUrl = 'https://beta.stacky.social:3002';
 
@@ -17,9 +18,6 @@ interface AnnotationModalProps {
   onClose: () => void;
   stackId: string | null;
 }
-
-//fake data
-const questions: Question[] = [];
 
 const AnnotationModal: React.FC<AnnotationModalProps> = ({ isOpen, onClose, stackId }) => {
   const [answers, setAnswers] = useState<{ [questionId: string]: string }>({});
@@ -46,9 +44,8 @@ const AnnotationModal: React.FC<AnnotationModalProps> = ({ isOpen, onClose, stac
   }, [stackId]);
 
   useEffect(() => {
-    const user = localStorage.getItem('currentUser');
-    if (user) {
-      const parsedUser = JSON.parse(user);
+    const parsedUser = getCurrentUser();
+    if (parsedUser) {
       setUserId(parsedUser.id);
     }
   }, []);
@@ -93,7 +90,7 @@ const AnnotationModal: React.FC<AnnotationModalProps> = ({ isOpen, onClose, stac
       console.log('answers submitted successfully');
       setAnswers({});
       onClose();
-    } catch (error) { 
+    } catch (error) {
       console.error('error happens:', error);
     }
   };

@@ -9,6 +9,7 @@ import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import StackPostsModal from './StackPostsModal';
 import InteractionControl from './InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
+import { notifications } from '@mantine/notifications';
 import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, clearFilterFocusSpan, useHighlightStore } from '../utils/highlightStore';
 import { reorderForAnchor } from '../utils/reorderForAnchor';
 import type { Relation } from '../types/PostType';
@@ -733,18 +734,45 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     favouritesCountOverride[postId] !== undefined ? favouritesCountOverride[postId] : initial;
 
   const handleToggleFavourite = async (postId: string, current: boolean, initialCount: number) => {
-    const next = await toggleFavourite(postId, current);
-    setFavouritedOverride(prev => ({ ...prev, [postId]: next }));
+    // Optimistically reflect the toggle, then confirm/revert with the server result
+    // (mastoActions now returns { ok, value } so failures can be surfaced).
+    const optimistic = !current;
+    setFavouritedOverride(prev => ({ ...prev, [postId]: optimistic }));
     setFavouritesCountOverride(prev => {
       const effectivePrev = prev[postId] !== undefined ? prev[postId] : initialCount;
-      const newCount = next ? effectivePrev + (current ? 0 : 1) : effectivePrev - (current ? 1 : 0);
+      const newCount = optimistic ? effectivePrev + 1 : effectivePrev - 1;
       return { ...prev, [postId]: Math.max(0, newCount) };
     });
+
+    const result = await toggleFavourite(postId, current);
+    if (!result.ok) {
+      // Revert optimistic UI on failure.
+      setFavouritedOverride(prev => ({ ...prev, [postId]: current }));
+      setFavouritesCountOverride(prev => {
+        const effectivePrev = prev[postId] !== undefined ? prev[postId] : initialCount;
+        const reverted = optimistic ? effectivePrev - 1 : effectivePrev + 1;
+        return { ...prev, [postId]: Math.max(0, reverted) };
+      });
+      notifications.show({
+        title: 'Error',
+        message: 'Could not update like. Please try again.',
+        color: 'red',
+      });
+    }
   };
 
   const handleToggleBookmark = async (postId: string, current: boolean) => {
-    const next = await toggleBookmark(postId, current);
-    setBookmarkedOverride(prev => ({ ...prev, [postId]: next }));
+    // Optimistically reflect the toggle, then confirm/revert with the server result.
+    setBookmarkedOverride(prev => ({ ...prev, [postId]: !current }));
+    const result = await toggleBookmark(postId, current);
+    if (!result.ok) {
+      setBookmarkedOverride(prev => ({ ...prev, [postId]: current }));
+      notifications.show({
+        title: 'Error',
+        message: 'Could not update bookmark. Please try again.',
+        color: 'red',
+      });
+    }
   };
 
   const [currentStackId, setCurrentStackId] = useState<string | null>(null);

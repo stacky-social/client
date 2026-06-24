@@ -21,6 +21,7 @@ import {
   type MockPostType,
 } from "../../../../../utils/mockPostResolver";
 import type { Relation } from "../../../../../types/PostType";
+import { getCurrentUser } from "../../../../../utils/getCurrentUser";
 
 // Thread connector line style — mirrors /posts/[id]
 const THREAD_LINE_COLOR = "#ccd1dc";
@@ -52,6 +53,10 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   const [visibleTopLevelReplies, setVisibleTopLevelReplies] = useState(5);
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any | null>(null);
+  // Defer the (potentially large) reply thread one task so the focus post +
+  // ancestors paint immediately and the heavy thread render doesn't block the
+  // main thread as one giant synchronous task (fixes slow nav + the freeze).
+  const [showThread, setShowThread] = useState(false);
 
   const plainPostText = post ? stripHtmlToPlain(post.content) : null;
 
@@ -75,10 +80,16 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       setActivePostId(id);
     }
     // Read currentUser from localStorage if present (ReplySection wants it; mock allows null).
-    try {
-      const raw = localStorage.getItem("currentUser");
-      if (raw) setCurrentUser(JSON.parse(raw));
-    } catch {}
+    const user = getCurrentUser();
+    if (user) setCurrentUser(user);
+  }, [id]);
+
+  // Defer the reply thread to the next task so the focus post + ancestors
+  // paint immediately instead of blocking on one big synchronous render.
+  useEffect(() => {
+    setShowThread(false);
+    const t = setTimeout(() => setShowThread(true), 0);
+    return () => clearTimeout(t);
   }, [id]);
 
   // -------------------- URL sync (H1/H2/H4/H5) --------------------
@@ -120,7 +131,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       favouritesCount={p.favourites_count}
       favourited={p.favourited}
       bookmarked={p.bookmarked}
-      mediaAttachments={[]}
+      mediaAttachments={(p.media_attachments || []).map((m: any) => m.url)}
       onStackIconClick={() => {}}
       setIsModalOpen={() => {}}
       setIsExpandModalOpen={() => {}}
@@ -128,6 +139,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       setActivePostId={setActivePostId}
       activePostId={activePostId}
       focusRelations={isFocusPost ? focusRelations : []}
+      clampLines={10}
     />
   );
 
@@ -198,9 +210,9 @@ export default function MockPostView({ params }: { params: { id: string } }) {
 
         <Divider my="md" />
 
-        <ReplySection postId={id} currentUser={currentUser} fetchPostAndReplies={() => {}} />
+        {showThread && <ReplySection postId={id} currentUser={currentUser} fetchPostAndReplies={() => {}} />}
 
-        {replies.length > 0 && (
+        {showThread && replies.length > 0 && (
           <Paper
             style={{
               borderRadius: "0 0 8px 8px",

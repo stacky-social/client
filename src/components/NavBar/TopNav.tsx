@@ -1,0 +1,149 @@
+"use client";
+
+import { Group, ActionIcon, Tooltip, Menu, Box } from "@mantine/core";
+import {
+    IconHome,
+    IconSearch,
+    IconBookmark,
+    IconStar,
+    IconLogout,
+    IconDotsVertical,
+} from "@tabler/icons-react";
+import { useRouter, usePathname } from "next/navigation";
+import StackLogo from "../../utils/StackLogo";
+
+const MastodonInstanceUrl = "https://beta.stacky.social";
+const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
+const clientSecret = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_SECRET;
+
+/** Height of the sticky top nav bar (used by the shell for sticky offsets). */
+export const TOP_NAV_HEIGHT = 56;
+
+const LINKS = [
+    { link: "/home", label: "Home", Icon: IconHome },
+    { link: "/search", label: "Search", Icon: IconSearch },
+    { link: "/bookmarks", label: "Bookmarks", Icon: IconBookmark },
+    { link: "/favorites", label: "Favorites", Icon: IconStar },
+] as const;
+
+/**
+ * Horizontal sticky top nav bar (D-NAV): logo on the left, condensed icon
+ * links, and an overflow / account menu (labelled links + Logout) on the right.
+ * Replaces the old left nav column + collapse burger.
+ */
+export function TopNav() {
+    const router = useRouter();
+    const pathname = usePathname();
+
+    const handleLogOut = async () => {
+        const accessToken =
+            typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+        if (!accessToken) {
+            router.push("/");
+            return;
+        }
+        try {
+            await fetch(`${MastodonInstanceUrl}/oauth/revoke`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    client_id: clientId,
+                    client_secret: clientSecret,
+                    token: accessToken,
+                }),
+            });
+        } catch (error) {
+            console.error("Failed to log out:", error);
+        } finally {
+            localStorage.removeItem("accessToken");
+            router.push("/");
+        }
+    };
+
+    return (
+        <Box
+            component="nav"
+            data-testid="top-nav"
+            style={{
+                position: "sticky",
+                top: 0,
+                zIndex: 200,
+                height: TOP_NAV_HEIGHT,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "0 16px",
+                background: "#FCFBF5",
+                borderBottom: "1px solid rgba(0,0,0,0.08)",
+            }}
+        >
+            <button
+                onClick={() => router.push("/home")}
+                aria-label="Home"
+                style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    padding: 0,
+                }}
+            >
+                <StackLogo size={28} />
+            </button>
+
+            <Group gap={4} style={{ marginLeft: "auto" }}>
+                {LINKS.map(({ link, label, Icon }) => {
+                    const active = pathname === link;
+                    return (
+                        <Tooltip key={link} label={label} withArrow>
+                            <ActionIcon
+                                variant={active ? "light" : "subtle"}
+                                color={active ? "blue" : "gray"}
+                                size="lg"
+                                aria-label={label}
+                                data-active={active || undefined}
+                                onClick={() => router.push(link)}
+                            >
+                                <Icon size={20} stroke={1.8} />
+                            </ActionIcon>
+                        </Tooltip>
+                    );
+                })}
+
+                <Menu position="bottom-end" withArrow width={180}>
+                    <Menu.Target>
+                        <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            size="lg"
+                            aria-label="More"
+                            data-testid="nav-overflow-toggle"
+                        >
+                            <IconDotsVertical size={20} stroke={1.8} />
+                        </ActionIcon>
+                    </Menu.Target>
+                    <Menu.Dropdown>
+                        {LINKS.map(({ link, label, Icon }) => (
+                            <Menu.Item
+                                key={link}
+                                leftSection={<Icon size={16} />}
+                                onClick={() => router.push(link)}
+                            >
+                                {label}
+                            </Menu.Item>
+                        ))}
+                        <Menu.Divider />
+                        <Menu.Item
+                            color="red"
+                            leftSection={<IconLogout size={16} />}
+                            onClick={handleLogOut}
+                        >
+                            Logout
+                        </Menu.Item>
+                    </Menu.Dropdown>
+                </Menu>
+            </Group>
+        </Box>
+    );
+}

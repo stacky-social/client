@@ -45,7 +45,7 @@ export default function TagPage() {
   const fetchTagData = async (tag: string) => {
     try {
       const accessToken = localStorage.getItem('accessToken');
-      const response = await axios.get(`${MastodonInstanceUrl}/api/v1/tags/${tag}`, {
+      const response = await axios.get(`${MastodonInstanceUrl}/api/v1/tags/${encodeURIComponent(tag)}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -70,8 +70,8 @@ export default function TagPage() {
     try {
       const accessToken = localStorage.getItem('accessToken');
       const url = isFollowing
-        ? `${MastodonInstanceUrl}/api/v1/tags/${tagName}/unfollow`
-        : `${MastodonInstanceUrl}/api/v1/tags/${tagName}/follow`;
+        ? `${MastodonInstanceUrl}/api/v1/tags/${encodeURIComponent(tagName)}/unfollow`
+        : `${MastodonInstanceUrl}/api/v1/tags/${encodeURIComponent(tagName)}/follow`;
 
       await axios.post(url, {}, {
         headers: {
@@ -117,7 +117,7 @@ export default function TagPage() {
           </Button>
         </Group>
         <Divider my="md" />
-       
+
         <Group style={{ justifyContent: 'center', gap: '2rem' }}>
           <div>
             <Text size="lg" style={{ textAlign: 'center' }}>
@@ -134,7 +134,7 @@ export default function TagPage() {
         </Group>
       </Paper>
       <div style={{ marginTop: '20px' }}>
-        <Posts apiUrl={`${MastodonInstanceUrl}/api/v1/timelines/tag/${tagName}`} loadStackInfo={true} showSubmitAndSearch={false} />
+        <Posts apiUrl={`${MastodonInstanceUrl}/api/v1/timelines/tag/${encodeURIComponent(tagName)}`} loadStackInfo={true} showSubmitAndSearch={false} />
       </div>
     </div>
   );

@@ -63,14 +63,12 @@ body {
 }
 
 /* Related panel collapse: the aside is a container-query context
-   (container-type: inline-size) whose width is the resizable related column
-   (var(--related-w), range 320–700, default 460). When the user drags the panel
-   narrow, collapse the top category filter chips to just icon + count so the
-   10-category bar stays compact instead of sprawling across several rows. The
-   per-card category tags keep their word until the panel is very narrow. The
-   thresholds are tuned so words stay visible while there's room and only drop
-   when genuinely cramped — they respond to the panel's real width, not the
-   viewport. */
+   (container-type: inline-size), so these rules respond to the related panel's
+   own width — set by the feed/aside resize divider — not the viewport. When the
+   panel is narrow, collapse the top category filter chips to just icon + count
+   (below ~360px) and the per-card category tags to icon-only (below ~300px), so
+   the bar stays compact instead of sprawling. Words stay visible while there's
+   room and only drop when the panel is genuinely cramped. */
 @container (max-width: 360px) {
     .related-chip-text { display: none; }
 }
