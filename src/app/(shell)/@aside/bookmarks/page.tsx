@@ -37,6 +37,7 @@ export default function BookmarksAside() {
             cardWidth="100%"
             onStackClick={() => {}}
             showupdate={showUpdate}
+            sourcePostId={activePostId ?? undefined}
             onPostNavigate={(postId) => triggerNavigate(postId)}
           />
         </div>

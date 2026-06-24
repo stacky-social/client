@@ -10,6 +10,7 @@ import StackPostsModal from './StackPostsModal';
 import InteractionControl from './InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import { notifications } from '@mantine/notifications';
+import { copyLink } from '../utils/share';
 import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, clearFilterFocusSpan, useHighlightStore } from '../utils/highlightStore';
 import { reorderForAnchor } from '../utils/reorderForAnchor';
 import type { Relation } from '../types/PostType';
@@ -53,6 +54,9 @@ interface RelatedStacksProps {
   onPostNavigate?: (postId: string) => void;
   /** H5: when set, appends ?from={sourcePostId} to related-post navigation URLs */
   sourcePostId?: string;
+  /** When set, the matching related card is emphasised + scrolled into view
+   *  (arrived via a shared "pairing" link: …/posts/{source}?related={this}). */
+  highlightPostId?: string | null;
 }
 
 // ─── Category colors ─────────────────────────────────────────────────────────
@@ -677,9 +681,21 @@ function similarityScore(textA: string, textB: string): number {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth = "100%", onStackClick, showupdate, onOpenModalWithStackId, onPostNavigate, sourcePostId }) => {
+const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth = "100%", onStackClick, showupdate, onOpenModalWithStackId, onPostNavigate, sourcePostId, highlightPostId }) => {
   const router = useRouter();
   const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
+  // Shared-pairing highlight: scroll the emphasised card into view when arriving
+  // via a …?related={id} link (or when the highlight target changes).
+  const highlightCardRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!highlightPostId) return;
+    const el = highlightCardRef.current;
+    if (!el) return;
+    const t = setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+    return () => clearTimeout(t);
+  }, [highlightPostId, relatedStacks]);
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [favouritedOverride, setFavouritedOverride] = useState<Record<string, boolean>>({});
   const [bookmarkedOverride, setBookmarkedOverride] = useState<Record<string, boolean>>({});
@@ -1496,6 +1512,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
           return displayStacks.flatMap((stack, index) => {
           const isCardHovered = hoveredCardIndex === index;
+          const isHighlighted = !!highlightPostId && stack.topPost.id === highlightPostId;
           const colors = getCategoryColors(stack.rel);
           const isExpanded = !!expandedCards[stack.stackId];
 
@@ -1822,7 +1839,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 }} />
               )}
               <Paper
-                ref={(el) => { paperRefs.current[index] = el; }}
+                ref={(el) => { paperRefs.current[index] = el; if (isHighlighted) highlightCardRef.current = el; }}
                 data-post-id={stack.topPost.id}
                 onMouseEnter={() => {
                   if (isTouch) return;
@@ -1847,10 +1864,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   setHoveredHighlightRangeIndex(null); setHoveredCategory(null);
                 }}
                 style={{
-                  position: 'relative', width: '100%', backgroundColor: '#ffffff', zIndex: 5,
+                  position: 'relative', width: '100%', backgroundColor: '#ffffff', zIndex: isHighlighted ? 6 : 5,
                   borderRadius: '10px', margin: '0 auto', paddingTop: '40px',
-                  border: `2px solid #e2e8f0`,
-                  boxShadow: stack.size > 1 ? 'none' : '0 2px 12px rgba(0,0,0,0.06)',
+                  border: isHighlighted ? `2px solid #1c2b4a` : `2px solid #e2e8f0`,
+                  boxShadow: isHighlighted
+                    ? '0 0 0 3px rgba(28,43,74,0.18), 0 4px 16px rgba(0,0,0,0.10)'
+                    : stack.size > 1 ? 'none' : '0 2px 12px rgba(0,0,0,0.06)',
                   transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
                   cursor: 'pointer',
                 }}
@@ -2092,8 +2111,17 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       ariaLabel="Bookmark"
                       onClick={() => handleToggleBookmark(stack.topPost.id, isBookmarked(stack.topPost.id, stack.topPost.bookmarked))}
                       active={isBookmarked(stack.topPost.id, stack.topPost.bookmarked)} />
-                    <InteractionControl icon={<IconShare size={20} />} ariaLabel="Share"
-                      onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/posts/${stack.topPost.id}?stackId=${stack.stackId}`).catch(() => {}); }} />
+                    <InteractionControl icon={<IconShare size={20} />} ariaLabel="Share pairing"
+                      onClick={() => {
+                        // Share this related response *paired with* its focus post.
+                        // Opening the link lands on the focus post and emphasises
+                        // this card (see the ?related= handler on the focus page).
+                        const origin = window.location.origin;
+                        const url = sourcePostId
+                          ? `${origin}/ChineseEVs/posts/${sourcePostId}?related=${stack.topPost.id}`
+                          : `${origin}/ChineseEVs/posts/${stack.topPost.id}`;
+                        copyLink(url, sourcePostId ? "Pairing link copied" : "Post link copied");
+                      }} />
                   </Group>
                 </div>
                 {stack.size !== null && stack.size > 1 && (

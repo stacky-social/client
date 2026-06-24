@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import Post from "../../../../../components/Posts/Post";
 import ReplySection from "../../../../../components/ReplySection";
 import BackButton from "../../../../../components/BackButton";
@@ -99,8 +100,19 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     setRecommendedPosts(getMockRecommended(id));
     setFocusRelations(getMockFocusRelations(id));
     if (p) {
-      setFromPost(p.relatedStacks, id, { force: true });
+      // ?related={id}: arrived via a shared "pairing" link — emphasise that
+      // related card in the aside. If the id isn't among this post's related
+      // responses (stale/invalid link), still show the post, but flag it.
+      const relatedId = searchParamsObj?.get("related") ?? null;
+      setFromPost(p.relatedStacks, id, { force: true, highlightPostId: relatedId });
       setActivePostId(id);
+      if (relatedId && !p.relatedStacks.some((s: any) => s?.topPost?.id === relatedId)) {
+        notifications.show({
+          title: "Pairing unavailable",
+          message: "That related response isn't available for this post anymore.",
+          color: "yellow",
+        });
+      }
     }
     // Read currentUser from localStorage if present (ReplySection wants it; mock allows null).
     const user = getCurrentUser();

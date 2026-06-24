@@ -4,7 +4,8 @@ import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 're
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconLink } from '@tabler/icons-react';
+import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconShare } from '@tabler/icons-react';
+import { copyLink } from '../../utils/share';
 import { format } from 'date-fns';
 import { formatPostDate } from '../../utils/formatPostDate';
 import axios from 'axios';
@@ -767,9 +768,12 @@ function Post({
     setAnnotationModalOpen(true);
   };
 
-  const handleOpenInNewTab = () => {
-    const url = articleUrl || `${window.location.origin}/posts/${id}`;
-    window.open(url, '_blank');
+  const handleShare = () => {
+    // Copy the in-app post link so a recipient lands on this post's focus view
+    // (related responses in the aside). Local-mode stand-in for a real share;
+    // swap the host for prod and the link shape is unchanged.
+    const url = `${window.location.origin}/ChineseEVs/posts/${id}`;
+    copyLink(url, "Post link copied");
   };
 
   const handleStackCountClick = async () => {
@@ -1047,9 +1051,9 @@ function Post({
               onClick={handleAnnotation}
             /> */}
             <InteractionControl
-              icon={<IconLink size={20} />}
-              ariaLabel="Open in new tab"
-              onClick={handleOpenInNewTab}
+              icon={<IconShare size={20} />}
+              ariaLabel="Share post"
+              onClick={handleShare}
             />
           </Group>
         </div>

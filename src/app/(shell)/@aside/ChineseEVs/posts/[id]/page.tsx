@@ -5,7 +5,7 @@ import RelatedStacks from "../../../../../../components/RelatedStacks";
 import { useRelatedStacks } from "../../../../related-stacks-context";
 
 export default function MockPostAside() {
-  const { relatedStacks, showUpdate } = useRelatedStacks();
+  const { relatedStacks, showUpdate, highlightPostId } = useRelatedStacks();
   const params = useParams();
   const router = useRouter();
   const focusPostId = typeof params?.id === "string" ? params.id : undefined;
@@ -32,6 +32,7 @@ export default function MockPostAside() {
         onStackClick={() => {}}
         showupdate={showUpdate}
         sourcePostId={focusPostId}
+        highlightPostId={highlightPostId}
         onPostNavigate={onPostNavigate}
       />
     </div>
