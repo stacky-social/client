@@ -220,19 +220,15 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // Marks are visually active when: cross-highlight, per-mark dwell, or filter active
   const anyMarkVisuallyActive = showCrossHighlight || dwellOnMarkIndex !== null || (filterFocusSpan !== null && filterIdx >= 0);
 
+  // PERF: the marks are rendered ONCE from this post's own spans (focusRelations)
+  // and never re-parsed on hover. Hover/cross-highlight states are applied as CSS
+  // classes on the stable marks (see the effects below) instead of rebuilding the
+  // article HTML — re-parsing the long article on every sidebar hover was the
+  // ~300ms-per-hover cost behind the page-freeze.
   const html = useMemo(() => {
-    // Always render marks in DOM when focusRelations exist so cursor events fire on them.
-    // CSS overrides control visibility — not DOM presence.
-    const relations = showCrossHighlight && hoveredRelations ? hoveredRelations : focusRelations;
-    if (!relations || relations.length === 0) return displayText;
-    return renderMultiHighlightHtml(
-      displayText,
-      stripHtml(rawText),
-      relations,
-      showCrossHighlight ? hoveredHighlightRangeIndex : null,
-      /* dimmed */ false,
-    );
-  }, [displayText, rawText, showCrossHighlight, hoveredRelations, focusRelations, hoveredHighlightRangeIndex]);
+    if (!focusRelations || focusRelations.length === 0) return displayText;
+    return renderMultiHighlightHtml(displayText, stripHtml(rawText), focusRelations, null, /* dimmed */ false);
+  }, [displayText, rawText, focusRelations]);
 
   const innerRef = useRef<HTMLDivElement | null>(null);
   const setRefs = (el: HTMLDivElement | null) => {
@@ -380,7 +376,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       const rid = target.getAttribute('data-range-id');
       if (rid === null) return;
       const idx = parseInt(rid, 10);
-      const rels = showCrossHighlight && hoveredRelations ? hoveredRelations : focusRelations;
+      const rels = focusRelations;
       if (!rels || idx >= rels.length) return;
       const rel = rels[idx];
       // Belt-and-suspenders: stop all further propagation and default browser actions
@@ -430,17 +426,12 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       document.head.appendChild(styleEl);
     }
 
-    if (showCrossHighlight) {
-      // Cross-highlight inline styles win — only ensure cursor is set
-      styleEl.textContent = `#${id} mark { cursor: pointer; }`;
-    } else {
-      // Default: hide all marks. Show one in neutral grey if dwell or filter active.
-      const visibleRule = visibleMarkIdx !== null
-        ? `#${id} mark[data-range-id="${visibleMarkIdx}"] { background: rgba(100,116,139,0.30) !important; }`
-        : '';
-      styleEl.textContent = `#${id} mark { background: transparent !important; cursor: pointer; transition: background 200ms ease; } ${visibleRule}`;
-    }
-  }, [showCrossHighlight, visibleMarkIdx]);
+    // Default: hide all marks. Show one in neutral grey if dwell or filter active.
+    const visibleRule = visibleMarkIdx !== null
+      ? `#${id} mark[data-range-id="${visibleMarkIdx}"] { background: rgba(100,116,139,0.30) !important; }`
+      : '';
+    styleEl.textContent = `#${id} mark { background: transparent !important; cursor: pointer; transition: background 200ms ease; } ${visibleRule}`;
+  }, [visibleMarkIdx]);
 
   // Cleanup scoped style on unmount
   useEffect(() => {
