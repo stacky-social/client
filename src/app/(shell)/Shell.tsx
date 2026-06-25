@@ -113,6 +113,7 @@ export default function Shell({
 
                 <div
                     data-testid="col-aside"
+                    className="aside-scroll"
                     ref={asideRef}
                     style={{
                         flexGrow: hasAside ? 1 - ratio : 0,
@@ -130,7 +131,12 @@ export default function Shell({
                         // horizontal scrollbar.
                         overflowX: "hidden",
                         overscrollBehavior: "contain",
-                        scrollbarWidth: "none",
+                        // Visible, distinctly-styled scrollbar for the related panel
+                        // (Firefox here; the custom webkit style is in globals.css
+                        // under .aside-scroll). Deliberately different from the
+                        // system scrollbar of the feed column so they don't confuse.
+                        scrollbarWidth: "thin",
+                        scrollbarColor: "rgba(28,43,74,0.32) transparent",
                         // No paddingTop: the RelatedStacks header is `position:sticky;
                         // top:0`, so any top padding on this scroll container leaves a
                         // transparent strip above the header that scrolled cards show
