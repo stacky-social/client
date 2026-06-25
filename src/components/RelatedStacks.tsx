@@ -1620,7 +1620,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           const colors = getCategoryColors(stack.rel);
           const isExpanded = !!expandedCards[stack.stackId];
 
-          const plainContent = stack.topPost.content;
+          // Strip HTML so the text matches the relations' PLAIN-text offsets.
+          // The mock resolver wraps card content as `<p>…</p>`, which both leaks
+          // literal tags into view and shifts every highlight by the tag length;
+          // the focus post already strips before highlighting, so mirror that.
+          const plainContent = (stack.topPost.content || '').replace(/<[^>]*>/g, '');
           const rels = stack.topPost.relations;
 
           // Smart windowing: show only the highlighted portion unless expanded
