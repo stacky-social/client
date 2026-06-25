@@ -51,15 +51,9 @@ function hexToRgba(hex: string, alpha: number): string {
 
 /** Hex → "R,G,B" triple for use in a CSS variable (so CSS can vary the alpha per
  *  hover state without re-rendering the mark). */
-function hexToRgbTriple(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `${r},${g},${b}`;
-}
-
 /** Render multi-range focus highlights into HTML using offset-based Relations.
- *  Each relation's focus range gets its category color.
+ *  Highlights are neutral grey (the category guard below just drops unknown
+ *  categories); colour lives on the related cards, not the focus article.
  *  Level 2: when hoveredRangeIndex is set, non-active highlights dim their BACKGROUND only.
  *  When dimmed=true, all marks render at low alpha (always-visible default state). */
 function renderMultiHighlightHtml(
@@ -82,11 +76,12 @@ function renderMultiHighlightHtml(
     // FOREVER (the page-freeze: hovering a related post with such a relation
     // cross-highlights the focus post and hangs the thread). Skip empty snippets.
     if (!snippet) return null;
-    // Carry the category color as an "R,G,B" CSS var (--mb) plus the focus
-    // offsets. The mark renders invisible by default; CSS varies the alpha per
-    // hover state (faint on post hover, dark on span hover) WITHOUT re-rendering.
-    return { snippet, rgb: hexToRgbTriple(catColors.bg), index: i, fs: r.focusStart, fe: r.focusEnd };
-  }).filter(Boolean) as Array<{ snippet: string; rgb: string; index: number; fs: number; fe: number }>;
+    // The mark renders invisible by default; CSS varies the alpha per hover state
+    // (faint on post hover, dark on span hover) WITHOUT re-rendering. The focus
+    // post's highlights are neutral grey — not category-coloured — so the article
+    // text stays calm; category colour lives only on the related cards.
+    return { snippet, index: i, fs: r.focusStart, fe: r.focusEnd };
+  }).filter(Boolean) as Array<{ snippet: string; index: number; fs: number; fe: number }>;
 
   // Sort by longest snippet first to avoid partial matches
   entries.sort((a, b) => b.snippet.length - a.snippet.length);
@@ -104,7 +99,7 @@ function renderMultiHighlightHtml(
       if (match.index === regex.lastIndex) { regex.lastIndex++; continue; }
       if (!usedPositions.has(match.index)) {
         usedPositions.add(match.index);
-        const markHtml = `<mark data-range-id="${entry.index}" data-fs="${entry.fs}" data-fe="${entry.fe}" style="--mb:${entry.rgb};padding:1px 0;color:inherit">${entry.snippet}</mark>`;
+        const markHtml = `<mark data-range-id="${entry.index}" data-fs="${entry.fs}" data-fe="${entry.fe}" style="padding:1px 0;color:inherit">${entry.snippet}</mark>`;
         result = result.slice(0, match.index) + markHtml + result.slice(match.index + entry.snippet.length);
         break;
       }
@@ -410,9 +405,9 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       ? `#${id} mark[data-range-id="${visibleMarkIdx}"] { background: rgba(100,116,139,0.34) !important; }`
       : '';
     styleEl.textContent =
-      `#${id} mark { background: rgba(var(--mb,100,116,139),0); cursor: pointer; border-radius: 3px; transition: background 150ms ease; }` +
-      `#${id}.fp-hovering mark { background: rgba(var(--mb,100,116,139),0.22); }` +
-      `#${id} mark.fp-dark { background: rgba(var(--mb,100,116,139),0.80); }` +
+      `#${id} mark { background: rgba(100,116,139,0); cursor: pointer; border-radius: 3px; transition: background 150ms ease; }` +
+      `#${id}.fp-hovering mark { background: rgba(100,116,139,0.12); }` +
+      `#${id} mark.fp-dark { background: rgba(100,116,139,0.40); }` +
       filterRule;
   }, [visibleMarkIdx]);
 
