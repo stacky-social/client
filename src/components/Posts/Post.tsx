@@ -303,7 +303,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // Spec hover model (CSS-driven via classes — never re-parses the article):
   //  · enter the post       → faint ALL its spans (.fp-hovering on the container)
   //  · over a span          → DARKEN the union of spans covering the cursor
-  //  · dwell 1.5s on a span → tooltip "Click to filter to N related posts"
+  //  · dwell 1.5s on a span → tooltip "Click to focus on N related posts"
   //  · click a span         → filter to those posts (post is already focused)
   //  · click a non-span     → falls through to the card-level navigate handler
   useEffect(() => {
@@ -356,7 +356,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         dwellTimerRef.current = null;
         const n = countRelated(ranges);
         showTooltip({
-          content: <>Click to filter to <strong>{n} related {n === 1 ? 'post' : 'posts'}</strong></>,
+          content: <>Click to focus on <strong>{n} related {n === 1 ? 'post' : 'posts'}</strong></>,
           colors: { text: '#334155', border: '#cbd5e1' },
           x: latestX, y: latestY,
         });

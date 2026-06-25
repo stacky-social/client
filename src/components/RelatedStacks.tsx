@@ -217,6 +217,17 @@ function buildTooltipLabel(
   );
 }
 
+// Span-hover tooltip (hover spec): clicking a span filters the panel to the
+// related posts linked to that span's focus region.
+function buildFocusTooltip(n: number, textColor: string): React.ReactNode {
+  return (
+    <>
+      Click to focus on{' '}
+      <strong style={{ color: textColor }}>{n} related {n === 1 ? 'post' : 'posts'}</strong>
+    </>
+  );
+}
+
 // ─── Filter chip ─────────────────────────────────────────────────────────────
 
 function FilterChip({ category, count, active, previewActive, previewDim, onClick, onMouseEnter, onMouseLeave }: {
@@ -399,6 +410,9 @@ function buildMultiHighlightNodes(
     onRangeClick?: (index: number) => void;
     /** topic → number of OTHER posts (excluding current) that share this topic */
     otherCountByTopic?: (topic: string) => number;
+    /** range indices → number of related posts linked to those spans' focus
+     *  regions (the N in "Click to focus on N related posts"). */
+    countLinkedToRanges?: (rangeIndices: number[]) => number;
     stackId: string;
   },
 ): React.ReactNode[] {
@@ -442,21 +456,18 @@ function buildMultiHighlightNodes(
       const isBandActive = (c: { rangeIndex: number; category: string }) =>
         opts.hoveredRangeIndex === c.rangeIndex ||
         (opts.hoveredCategory !== null && opts.hoveredCategory === c.category);
-      const anyDirected = opts.hoveredRangeIndex !== null || opts.hoveredCategory !== null;
-      const baseAlpha =
-        opts.isCardHovered ? 1 :
-        opts.anyCardHovered ? 0.25 :
-        0.7;
       const bandTopic = (c: { topic?: string; category: string; rangeIndex: number }) =>
         c.topic ?? getSyntheticTopic(c.category, `${opts.stackId}-${c.rangeIndex}`);
-      const isBandOnActiveTopic = (c: { topic?: string; category: string; rangeIndex: number }) =>
-        opts.activeTopic !== null && bandTopic(c) === opts.activeTopic;
+      // Hover spec: hidden at rest, FAINT when the card is hovered, and the WHOLE
+      // overlap (the union of every span covering the cursor) goes DARK when any of
+      // its bands is under the cursor. A grouping anchor band stays visible.
+      const segHovered = cats.some(c => isBandActive(c));
       const gradientStops = cats.map((c, i) => {
-        let a = baseAlpha;
-        if (anyDirected) a = isBandActive(c) ? 1 : 0.18;
-        // In-block dimming: dim bands whose topic isn't the active one
-        // (unless this very band is hovered).
-        else if (opts.inActiveBlock && !isBandOnActiveTopic(c) && !isBandActive(c)) a = 0.2;
+        const isAnchoredBand = opts.anchoredRangeIndex === c.rangeIndex;
+        let a: number;
+        if (segHovered || isAnchoredBand) a = 0.85;   // union under cursor / anchor → dark
+        else if (opts.isCardHovered) a = 0.26;        // card hovered → faint
+        else a = 0;                                    // at rest → hidden
         const pct1 = (i / cats.length) * 100;
         const pct2 = ((i + 1) / cats.length) * 100;
         const rgba = hexToRgba(c.colors.bg, a);
@@ -472,12 +483,13 @@ function buildMultiHighlightNodes(
         const band = cats[bandIdx];
         opts.onRangeHover(band.rangeIndex);
 
-        const resolvedTopic = bandTopic(band);
-        const isShown = opts.activeTopic !== null && resolvedTopic === opts.activeTopic;
-        const count = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopic) : undefined;
+        // Union of every span covering the cursor — "focus on N related posts".
+        const n = opts.countLinkedToRanges
+          ? opts.countLinkedToRanges(cats.map(cc => cc.rangeIndex))
+          : 0;
         const colors: TooltipColors = { text: band.colors.text, border: band.colors.border };
         showTooltip({
-          content: buildTooltipLabel(resolvedTopic, count, band.colors.text, isShown),
+          content: buildFocusTooltip(n, band.colors.text),
           colors,
           x: clientX,
           y: clientY,
@@ -501,9 +513,9 @@ function buildMultiHighlightNodes(
               const bandIdx = Math.max(0, Math.min(cats.length - 1, Math.floor(rel * cats.length)));
               e.stopPropagation();
               (e.currentTarget as HTMLElement).blur();
-              // Forward to onRangeClick — handleToggleAnchor enforces the
-              // "same-topic on a different post = no-op" rule; clicking the
-              // anchor's own band must pass through to toggle the anchor off.
+              // Overlap click → filter by the band under the cursor (onRangeClick
+              // sets the span filter). stopPropagation keeps the card's
+              // open-the-post handler from also firing.
               opts.onRangeClick(cats[bandIdx].rangeIndex);
             }}
             style={{
@@ -528,7 +540,6 @@ function buildMultiHighlightNodes(
       const isThisRangeHovered =
         opts.hoveredRangeIndex === c.rangeIndex ||
         (opts.hoveredCategory !== null && opts.hoveredCategory === c.category);
-      const anyDirected = opts.hoveredRangeIndex !== null || opts.hoveredCategory !== null;
 
       // Resolved topic for this range — used for in-block dimming and the
       // "(shown)" tooltip wording / no-op click for same-topic spans.
@@ -538,25 +549,17 @@ function buildMultiHighlightNodes(
       // non-Topic spans dim out (unless this very span is hovered).
       const dimByBlock = opts.inActiveBlock && !isOnActiveTopic && !isThisRangeHovered;
 
-      // 3-level background alpha — dims highlight background only, text stays readable
+      // Hover spec (same as the focus post): hidden at rest, FAINT when the card
+      // is hovered, DARK for the span under the cursor. A grouping anchor stays
+      // visible. Text alpha is untouched — only the highlight background changes.
       const isAnchored = opts.anchoredRangeIndex === c.rangeIndex;
       let bgAlpha: number;
-      if (isAnchored) {
-        bgAlpha = 1; // Anchored range always stays bright
-      } else if (opts.anchoredRangeIndex !== null && !opts.isCardHovered) {
-        bgAlpha = 0.2; // Another range in this card is anchored — dim this one
+      if (isThisRangeHovered || isAnchored) {
+        bgAlpha = 0.85;                       // span under cursor / grouping anchor → dark
       } else if (opts.isCardHovered) {
-        if (!anyDirected) {
-          bgAlpha = dimByBlock ? 0.2 : 1; // Level 1: this card hovered (dim non-Topic spans in block)
-        } else {
-          bgAlpha = isThisRangeHovered ? 1 : 0.2; // Level 2: specific range or category hovered
-        }
-      } else if (opts.anyCardHovered) {
-        bgAlpha = 0.25; // Another card is hovered — dim these highlights
-      } else if (dimByBlock) {
-        bgAlpha = 0.2; // Non-Topic span inside the active topic block
+        bgAlpha = dimByBlock ? 0.12 : 0.26;   // card hovered → faint all spans
       } else {
-        bgAlpha = opts.anchoredRangeIndex !== null ? 0.2 : 0.7; // default
+        bgAlpha = 0;                          // at rest (or another card hovered) → hidden
       }
       const bgColor = bgAlpha < 1 ? hexToRgba(colors.bg, bgAlpha) : colors.bg;
 
@@ -583,9 +586,9 @@ function buildMultiHighlightNodes(
             tabIndex={-1}
             onMouseEnter={(e) => {
               opts.onRangeHover(c.rangeIndex);
-              const count = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopicForRange) : undefined;
+              const n = opts.countLinkedToRanges ? opts.countLinkedToRanges([c.rangeIndex]) : 0;
               showTooltip({
-                content: buildTooltipLabel(resolvedTopicForRange, count, colors.text, isOnActiveTopic),
+                content: buildFocusTooltip(n, colors.text),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
@@ -595,9 +598,9 @@ function buildMultiHighlightNodes(
             onPointerEnter={(e) => {
               if (e.pointerType !== 'mouse') return;
               opts.onRangeHover(c.rangeIndex);
-              const count = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopicForRange) : undefined;
+              const n = opts.countLinkedToRanges ? opts.countLinkedToRanges([c.rangeIndex]) : 0;
               showTooltip({
-                content: buildTooltipLabel(resolvedTopicForRange, count, colors.text, isOnActiveTopic),
+                content: buildFocusTooltip(n, colors.text),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
@@ -608,10 +611,9 @@ function buildMultiHighlightNodes(
               if (!opts.onRangeClick) return;
               e.stopPropagation();
               (e.currentTarget as HTMLElement).blur();
-              // Forward every click to onRangeClick (handleToggleAnchor) — it
-              // owns the "same-topic on a different post = no-op" rule. The
-              // anchor card's own span must still pass through so re-clicking
-              // it toggles the anchor off.
+              // Span click → onRangeClick filters the panel to the posts linked to
+              // this span (toggles off on re-click). stopPropagation keeps it from
+              // bubbling to the card's open-the-post handler.
               opts.onRangeClick(c.rangeIndex);
             }}
             style={{
@@ -1676,6 +1678,19 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 const total = topicTotal.get(topic) ?? 0;
                 const hasSelf = postTopics.get(stack.topPost.id)?.has(topic) ? 1 : 0;
                 return Math.max(0, total - hasSelf);
+              },
+              countLinkedToRanges: (ris: number[]) => {
+                // N for "Click to focus on N related posts": related posts whose
+                // relations overlap the focus region(s) of the clicked span(s) —
+                // exactly the set a span click filters the panel down to.
+                const rels = ris
+                  .map(ri => stack.topPost.relations?.[ri])
+                  .filter((r): r is Relation => !!r);
+                if (rels.length === 0) return 0;
+                return relatedStacks.filter(s =>
+                  (s.topPost.relations ?? []).some(r =>
+                    rels.some(rel => rel.focusStart < r.focusEnd && r.focusStart < rel.focusEnd)),
+                ).length;
               },
               stackId: stack.stackId,
             },
