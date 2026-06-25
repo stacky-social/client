@@ -15,6 +15,7 @@ import InteractionControl from '../InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../../utils/mastoActions';
 import { getPost, isLiked as storeIsLiked, isBookmarked as storeIsBookmarked } from '../../utils/localStore';
 import { useHighlightStore, setFilterFocusSpan, clearFilterFocusSpan } from '../../utils/highlightStore';
+import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 import type { Relation } from '../../types/PostType';
 import { showTooltip, hideTooltip } from '../HoverTooltip';
 
@@ -48,6 +49,15 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+/** Hex → "R,G,B" triple for use in a CSS variable (so CSS can vary the alpha per
+ *  hover state without re-rendering the mark). */
+function hexToRgbTriple(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `${r},${g},${b}`;
+}
+
 /** Render multi-range focus highlights into HTML using offset-based Relations.
  *  Each relation's focus range gets its category color.
  *  Level 2: when hoveredRangeIndex is set, non-active highlights dim their BACKGROUND only.
@@ -72,18 +82,11 @@ function renderMultiHighlightHtml(
     // FOREVER (the page-freeze: hovering a related post with such a relation
     // cross-highlights the focus post and hangs the thread). Skip empty snippets.
     if (!snippet) return null;
-    let bgAlpha = (hoveredRangeIndex === null || hoveredRangeIndex === i) ? 1 : 0.2;
-    if (dimmed) bgAlpha = 0.25;
-    const bgColor = bgAlpha < 1 ? hexToRgba(catColors.bg, bgAlpha) : catColors.bg;
-
-    // focusComment substring to bold — only when this specific highlight is hovered (Level 2)
-    const isThisRangeHovered = hoveredRangeIndex === i;
-    const focusComment = (isThisRangeHovered && r.focusCommentStart < r.focusCommentEnd)
-      ? focusPlainText.slice(r.focusCommentStart, r.focusCommentEnd)
-      : undefined;
-
-    return { snippet, bgColor, focusComment, index: i };
-  }).filter(Boolean) as Array<{ snippet: string; bgColor: string; focusComment?: string; index: number }>;
+    // Carry the category color as an "R,G,B" CSS var (--mb) plus the focus
+    // offsets. The mark renders invisible by default; CSS varies the alpha per
+    // hover state (faint on post hover, dark on span hover) WITHOUT re-rendering.
+    return { snippet, rgb: hexToRgbTriple(catColors.bg), index: i, fs: r.focusStart, fe: r.focusEnd };
+  }).filter(Boolean) as Array<{ snippet: string; rgb: string; index: number; fs: number; fe: number }>;
 
   // Sort by longest snippet first to avoid partial matches
   entries.sort((a, b) => b.snippet.length - a.snippet.length);
@@ -101,15 +104,7 @@ function renderMultiHighlightHtml(
       if (match.index === regex.lastIndex) { regex.lastIndex++; continue; }
       if (!usedPositions.has(match.index)) {
         usedPositions.add(match.index);
-        let innerHtml = entry.snippet;
-        if (entry.focusComment && entry.snippet.includes(entry.focusComment)) {
-          const ci = entry.snippet.indexOf(entry.focusComment);
-          const before = entry.snippet.slice(0, ci);
-          const bold = `<span style="text-shadow:0 0 0.7px currentColor,0 0 0.7px currentColor">${entry.focusComment}</span>`;
-          const after = entry.snippet.slice(ci + entry.focusComment.length);
-          innerHtml = before + bold + after;
-        }
-        const markHtml = `<mark data-range-id="${entry.index}" style="background:${entry.bgColor};padding:1px 0;color:inherit;border-radius:3px;transition:background 200ms ease">${innerHtml}</mark>`;
+        const markHtml = `<mark data-range-id="${entry.index}" data-fs="${entry.fs}" data-fe="${entry.fe}" style="--mb:${entry.rgb};padding:1px 0;color:inherit">${entry.snippet}</mark>`;
         result = result.slice(0, match.index) + markHtml + result.slice(match.index + entry.snippet.length);
         break;
       }
@@ -183,6 +178,12 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
 }>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [] }, ref) {
   const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, filterFocusSpan } = useHighlightStore();
   const showCrossHighlight = !!hoveredPostId && !!hoveredRelations;
+  // Related stacks of the active (focus) post — used to count "N related posts"
+  // for the click-to-filter affordance. Mirrored to a ref so the DOM hover
+  // handlers read the latest without re-subscribing.
+  const { relatedStacks: ctxRelatedStacks } = useRelatedStacks();
+  const relatedStacksRef = useRef(ctxRelatedStacks);
+  relatedStacksRef.current = ctxRelatedStacks;
 
   // Per-mark dwell: index of the mark that has become visible via 1500ms dwell
   const [dwellOnMarkIndex, setDwellOnMarkIndex] = useState<number | null>(null);
@@ -217,8 +218,9 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     : -1;
   const visibleMarkIdx = dwellOnMarkIndex !== null ? dwellOnMarkIndex : (filterIdx >= 0 ? filterIdx : null);
 
-  // Marks are visually active when: cross-highlight, per-mark dwell, or filter active
-  const anyMarkVisuallyActive = showCrossHighlight || dwellOnMarkIndex !== null || (filterFocusSpan !== null && filterIdx >= 0);
+  // Expand-to-reveal triggers for the persistent filter span (transient hover
+  // highlights are CSS-only and don't grow the clamp).
+  const anyMarkVisuallyActive = filterFocusSpan !== null && filterIdx >= 0;
 
   // PERF: the marks are rendered ONCE from this post's own spans (focusRelations)
   // and never re-parsed on hover. Hover/cross-highlight states are applied as CSS
@@ -298,120 +300,93 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     };
   }, [anyMarkVisuallyActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // D1/D2: event delegation on the container div — per-mark dwell + click span filter
+  // Spec hover model (CSS-driven via classes — never re-parses the article):
+  //  · enter the post       → faint ALL its spans (.fp-hovering on the container)
+  //  · over a span          → DARKEN the union of spans covering the cursor
+  //  · dwell 1.5s on a span → tooltip "Click to filter to N related posts"
+  //  · click a span         → filter to those posts (post is already focused)
+  //  · click a non-span     → falls through to the card-level navigate handler
   useEffect(() => {
     const el = innerRef.current;
     if (!el) return;
+    let latestX = 0, latestY = 0;
 
-    // Latest cursor position over the currently-hovered mark, so the affordance
-    // tooltip appears at the right spot when the 1500ms dwell timer fires.
-    let latestX = 0;
-    let latestY = 0;
+    const clearDark = () => el.querySelectorAll('mark.fp-dark').forEach((m) => m.classList.remove('fp-dark'));
+    const cancelDwell = () => {
+      if (dwellTimerRef.current) { clearTimeout(dwellTimerRef.current); dwellTimerRef.current = null; }
+      if (tooltipShownByMeRef.current) { hideTooltip(); tooltipShownByMeRef.current = false; }
+    };
+    // Full spans overlapping the hovered mark = the union (never a partial span).
+    const unionFor = (mark: HTMLElement) => {
+      const fs = parseInt(mark.getAttribute('data-fs') || 'NaN', 10);
+      const fe = parseInt(mark.getAttribute('data-fe') || 'NaN', 10);
+      const marks: HTMLElement[] = [];
+      const ranges: Array<{ fs: number; fe: number }> = [];
+      el.querySelectorAll('mark[data-fs]').forEach((m) => {
+        const a = parseInt((m as HTMLElement).getAttribute('data-fs') || 'NaN', 10);
+        const b = parseInt((m as HTMLElement).getAttribute('data-fe') || 'NaN', 10);
+        if (a < fe && fs < b) { marks.push(m as HTMLElement); ranges.push({ fs: a, fe: b }); }
+      });
+      return { marks, ranges };
+    };
+    const countRelated = (ranges: Array<{ fs: number; fe: number }>) =>
+      (relatedStacksRef.current || []).filter((s: any) =>
+        (s.topPost?.relations ?? []).some((r: any) =>
+          ranges.some((u) => r.focusStart < u.fe && u.fs < r.focusEnd))).length;
 
-    const handleMouseOver = (e: MouseEvent) => {
-      const target = (e.target as HTMLElement).closest('mark');
-      if (!target) return;
-      const rid = target.getAttribute('data-range-id');
-      if (rid === null) return;
-      const idx = parseInt(rid, 10);
-      latestX = e.clientX;
-      latestY = e.clientY;
-
-      // Start a fresh dwell timer for this specific mark
-      if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
-      // If we were showing a different mark, hide it immediately
-      setDwellOnMarkIndex(prev => (prev === idx ? prev : null));
+    const onEnter = () => { el.classList.add('fp-hovering'); };
+    const onLeave = (e: MouseEvent) => {
+      const related = e.relatedTarget as Node | null;
+      if (related && el.contains(related)) return;
+      el.classList.remove('fp-hovering');
+      clearDark();
+      cancelDwell();
+    };
+    const onMove = (e: MouseEvent) => {
+      latestX = e.clientX; latestY = e.clientY;
+      el.classList.add('fp-hovering');
+      const mark = (e.target as HTMLElement).closest('mark') as HTMLElement | null;
+      if (!mark) { clearDark(); cancelDwell(); return; }
+      if (mark.classList.contains('fp-dark')) return; // already the active union
+      clearDark();
+      const { marks, ranges } = unionFor(mark);
+      marks.forEach((m) => m.classList.add('fp-dark'));
+      cancelDwell();
       dwellTimerRef.current = setTimeout(() => {
-        setDwellOnMarkIndex(idx);
         dwellTimerRef.current = null;
-
-        // Affordance tooltip: appears with the gray highlight so users know what
-        // clicking will do. Suppressed in cross-highlight mode where the sidebar
-        // already drives its own per-segment tooltips.
-        if (showCrossHighlightRef.current) return;
-        const rel = focusRelationsRef.current?.[idx];
-        if (!rel) return;
-        const ff = filterFocusSpanRef.current;
-        const isThisFiltered =
-          ff !== null && ff.start === rel.focusStart && ff.end === rel.focusEnd;
+        const n = countRelated(ranges);
         showTooltip({
-          content: isThisFiltered ? (
-            <>Click to <strong>clear filter</strong></>
-          ) : (
-            <>Click to <strong>filter related stacks</strong></>
-          ),
+          content: <>Click to filter to <strong>{n} related {n === 1 ? 'post' : 'posts'}</strong></>,
           colors: { text: '#334155', border: '#cbd5e1' },
-          x: latestX,
-          y: latestY,
+          x: latestX, y: latestY,
         });
         tooltipShownByMeRef.current = true;
       }, FOCUS_HOVER_DWELL_MS);
     };
-    const handleMouseMove = (e: MouseEvent) => {
-      const target = (e.target as HTMLElement).closest('mark');
-      if (!target) return;
-      latestX = e.clientX;
-      latestY = e.clientY;
-    };
-    const handleMouseOut = (e: MouseEvent) => {
-      const target = (e.target as HTMLElement).closest('mark');
-      if (!target) return;
-      // Allow cursor moving within the same mark (e.g., over a child span)
-      const related = e.relatedTarget as HTMLElement | null;
-      if (related && target.contains(related)) return;
-      // Cancel any pending dwell, hide the shown mark
-      if (dwellTimerRef.current) {
-        clearTimeout(dwellTimerRef.current);
-        dwellTimerRef.current = null;
-      }
-      setDwellOnMarkIndex(null);
-      if (tooltipShownByMeRef.current) {
-        hideTooltip();
-        tooltipShownByMeRef.current = false;
-      }
-    };
-    const handleClick = (e: MouseEvent) => {
-      const target = (e.target as HTMLElement).closest('mark');
-      if (!target) return;
-      const rid = target.getAttribute('data-range-id');
-      if (rid === null) return;
-      const idx = parseInt(rid, 10);
-      const rels = focusRelations;
-      if (!rels || idx >= rels.length) return;
-      const rel = rels[idx];
-      // Belt-and-suspenders: stop all further propagation and default browser actions
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      // Toggle: clicking the same span clears the filter; different span sets it
-      if (
-        filterFocusSpan !== null &&
-        filterFocusSpan.start === rel.focusStart &&
-        filterFocusSpan.end === rel.focusEnd
-      ) {
-        clearFilterFocusSpan();
-      } else {
-        const plainText = stripHtml(rawText);
-        setFilterFocusSpan({
-          start: rel.focusStart,
-          end: rel.focusEnd,
-          text: plainText.slice(rel.focusStart, rel.focusEnd),
-        });
-      }
+    const onClick = (e: MouseEvent) => {
+      const mark = (e.target as HTMLElement).closest('mark') as HTMLElement | null;
+      if (!mark) return; // non-span pixel → let the card-level navigate handler run
+      const fs = parseInt(mark.getAttribute('data-fs') || 'NaN', 10);
+      const fe = parseInt(mark.getAttribute('data-fe') || 'NaN', 10);
+      if (Number.isNaN(fs) || Number.isNaN(fe)) return;
+      e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+      const ff = filterFocusSpanRef.current;
+      if (ff && ff.start === fs && ff.end === fe) { clearFilterFocusSpan(); return; }
+      const plain = stripHtml(rawText);
+      setFilterFocusSpan({ start: fs, end: fe, text: plain.slice(fs, fe) });
     };
 
-    el.addEventListener('mouseover', handleMouseOver);
-    el.addEventListener('mousemove', handleMouseMove);
-    el.addEventListener('mouseout', handleMouseOut);
-    // Capture phase so our handler fires before the card navigation handler
-    el.addEventListener('click', handleClick, true);
+    el.addEventListener('mouseenter', onEnter);
+    el.addEventListener('mouseleave', onLeave);
+    el.addEventListener('mousemove', onMove);
+    el.addEventListener('click', onClick, true); // capture: before card navigation
     return () => {
-      el.removeEventListener('mouseover', handleMouseOver);
-      el.removeEventListener('mousemove', handleMouseMove);
-      el.removeEventListener('mouseout', handleMouseOut);
-      el.removeEventListener('click', handleClick, true);
+      el.removeEventListener('mouseenter', onEnter);
+      el.removeEventListener('mouseleave', onLeave);
+      el.removeEventListener('mousemove', onMove);
+      el.removeEventListener('click', onClick, true);
     };
-  }, [showCrossHighlight, hoveredRelations, focusRelations, filterFocusSpan, rawText]);
+  }, [rawText]);
 
   // D1: inject a scoped <style> to control mark visibility
   // Default: all marks hidden (transparent). Override: dwell/filter mark visible in neutral grey.
@@ -426,11 +401,19 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       document.head.appendChild(styleEl);
     }
 
-    // Default: hide all marks. Show one in neutral grey if dwell or filter active.
-    const visibleRule = visibleMarkIdx !== null
-      ? `#${id} mark[data-range-id="${visibleMarkIdx}"] { background: rgba(100,116,139,0.30) !important; }`
+    // Spec states, all CSS so hover never re-renders the article:
+    //   default            → invisible
+    //   .fp-hovering mark   → faint (post hovered)
+    //   mark.fp-dark        → dark (span union under the cursor)
+    //   active filter span  → neutral grey
+    const filterRule = visibleMarkIdx !== null
+      ? `#${id} mark[data-range-id="${visibleMarkIdx}"] { background: rgba(100,116,139,0.34) !important; }`
       : '';
-    styleEl.textContent = `#${id} mark { background: transparent !important; cursor: pointer; transition: background 200ms ease; } ${visibleRule}`;
+    styleEl.textContent =
+      `#${id} mark { background: rgba(var(--mb,100,116,139),0); cursor: pointer; border-radius: 3px; transition: background 150ms ease; }` +
+      `#${id}.fp-hovering mark { background: rgba(var(--mb,100,116,139),0.22); }` +
+      `#${id} mark.fp-dark { background: rgba(var(--mb,100,116,139),0.80); }` +
+      filterRule;
   }, [visibleMarkIdx]);
 
   // Cleanup scoped style on unmount
