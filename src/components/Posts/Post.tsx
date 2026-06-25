@@ -210,9 +210,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     : -1;
   const visibleMarkIdx = dwellOnMarkIndex !== null ? dwellOnMarkIndex : (filterIdx >= 0 ? filterIdx : null);
 
-  // Expand-to-reveal triggers for the persistent filter span (transient hover
-  // highlights are CSS-only and don't grow the clamp).
-  const anyMarkVisuallyActive = filterFocusSpan !== null && filterIdx >= 0;
+  // Expand-to-reveal triggers: the persistent filter span, OR a hovered related
+  // span whose linked region sits below the clamp — so the cross-highlight is
+  // actually visible. Transient direct hover on this post stays CSS-only.
+  const crossActive = hoveredRelations !== null && hoveredHighlightRangeIndex !== null;
+  const anyMarkVisuallyActive = (filterFocusSpan !== null && filterIdx >= 0) || crossActive;
 
   // PERF: the marks are rendered ONCE from this post's own spans (focusRelations)
   // and never re-parsed on hover. Hover/cross-highlight states are applied as CSS
@@ -252,7 +254,22 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     const el = innerRef.current;
     if (!el || isTextExpanded || !anyMarkVisuallyActive) return;
 
-    const marks = Array.from(el.querySelectorAll('mark'));
+    // Reveal only the marks we're actually lighting up: the hovered related
+    // span's linked region (by overlap), else the filter/dwell mark. Avoids
+    // expanding to the whole article on every sidebar hover.
+    const hovered = crossActive && hoveredHighlightRangeIndex !== null ? hoveredRelations![hoveredHighlightRangeIndex] : null;
+    let marks: HTMLElement[];
+    if (hovered) {
+      marks = (Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[]).filter((m) => {
+        const a = parseInt(m.getAttribute('data-fs') || 'NaN', 10);
+        const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
+        return a < hovered.focusEnd && hovered.focusStart < b;
+      });
+    } else if (visibleMarkIdx !== null) {
+      marks = Array.from(el.querySelectorAll(`mark[data-range-id="${visibleMarkIdx}"]`));
+    } else {
+      marks = Array.from(el.querySelectorAll('mark'));
+    }
     if (marks.length === 0) return;
 
     const boxRect = el.getBoundingClientRect();
@@ -273,7 +290,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       setCollapsing(false);
       setRevealHeight(Math.min(needed, el.scrollHeight));
     }
-  }, [html, isTextExpanded, anyMarkVisuallyActive]);
+  }, [html, isTextExpanded, anyMarkVisuallyActive, crossActive, hoveredHighlightRangeIndex, hoveredRelations, visibleMarkIdx]);
 
   // COLLAPSE: when marks become invisible, start the collapse animation.
   // revealHeight stays set (keeping display:block) while CSS transition plays.
