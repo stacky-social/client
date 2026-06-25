@@ -171,7 +171,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   isTextExpanded: boolean;
   focusRelations?: Relation[];
 }>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [] }, ref) {
-  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, filterFocusSpan } = useHighlightStore();
+  const { hoveredPostId, hoveredRelations, filterFocusSpan } = useHighlightStore();
   // Related stacks of the active (focus) post — used to count "N related posts"
   // for the click-to-filter affordance. Mirrored to a ref so the DOM hover
   // handlers read the latest without re-subscribing.
@@ -211,9 +211,9 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   const visibleMarkIdx = dwellOnMarkIndex !== null ? dwellOnMarkIndex : (filterIdx >= 0 ? filterIdx : null);
 
   // Expand-to-reveal triggers: the persistent filter span, OR a hovered related
-  // span whose linked region sits below the clamp — so the cross-highlight is
+  // card whose linked regions sit below the clamp — so the cross-highlight is
   // actually visible. Transient direct hover on this post stays CSS-only.
-  const crossActive = hoveredRelations !== null && hoveredHighlightRangeIndex !== null;
+  const crossActive = hoveredRelations !== null && hoveredRelations.length > 0;
   const anyMarkVisuallyActive = (filterFocusSpan !== null && filterIdx >= 0) || crossActive;
 
   // PERF: the marks are rendered ONCE from this post's own spans (focusRelations)
@@ -254,16 +254,16 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     const el = innerRef.current;
     if (!el || isTextExpanded || !anyMarkVisuallyActive) return;
 
-    // Reveal only the marks we're actually lighting up: the hovered related
-    // span's linked region (by overlap), else the filter/dwell mark. Avoids
+    // Reveal only the marks we're actually lighting up: every region the hovered
+    // related card links to (by overlap), else the filter/dwell mark. Avoids
     // expanding to the whole article on every sidebar hover.
-    const hovered = crossActive && hoveredHighlightRangeIndex !== null ? hoveredRelations![hoveredHighlightRangeIndex] : null;
     let marks: HTMLElement[];
-    if (hovered) {
+    if (crossActive && hoveredRelations) {
+      const rels = hoveredRelations;
       marks = (Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[]).filter((m) => {
         const a = parseInt(m.getAttribute('data-fs') || 'NaN', 10);
         const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
-        return a < hovered.focusEnd && hovered.focusStart < b;
+        return rels.some((r) => a < r.focusEnd && r.focusStart < b);
       });
     } else if (visibleMarkIdx !== null) {
       marks = Array.from(el.querySelectorAll(`mark[data-range-id="${visibleMarkIdx}"]`));
@@ -290,7 +290,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       setCollapsing(false);
       setRevealHeight(Math.min(needed, el.scrollHeight));
     }
-  }, [html, isTextExpanded, anyMarkVisuallyActive, crossActive, hoveredHighlightRangeIndex, hoveredRelations, visibleMarkIdx]);
+  }, [html, isTextExpanded, anyMarkVisuallyActive, crossActive, hoveredRelations, visibleMarkIdx]);
 
   // COLLAPSE: when marks become invisible, start the collapse animation.
   // revealHeight stays set (keeping display:block) while CSS transition plays.
@@ -397,41 +397,30 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     };
   }, [rawText]);
 
-  // Cross-highlight: when a related card (or one of its spans) is hovered in the
-  // aside, mirror it onto THIS focus post's marks — faint for every focus region
-  // the card links to, dark for the specific span under the cursor. Applied as
-  // CSS classes on the stable marks (no re-parse — the re-parse was the freeze),
-  // in the same neutral grey as direct hover so the two look identical.
-  useEffect(() => {
+  // Cross-highlight: when a related card is hovered in the aside, highlight every
+  // focus region it connects to ("hover a post to highlight the relevant parts").
+  // ONE uniform level — overlapping/nested marks must not stack into darker bands,
+  // so the CSS uses a solid (opaque) light grey that can't compound. Applied as a
+  // class on the stable marks (no re-parse — that was the freeze). Robust: keys off
+  // the card's relations directly, not a span index that may not line up.
+  // Runs after EVERY commit (no deps): React re-applies dangerouslySetInnerHTML on
+  // re-render, replacing the mark nodes and wiping imperatively-set classes — so we
+  // must reconcile fp-cross after the commit, not only when the store changes.
+  useLayoutEffect(() => {
     const el = innerRef.current;
     if (!el) return;
-    const clear = () => el.querySelectorAll('mark.fp-cross, mark.fp-cross-faint')
-      .forEach((m) => m.classList.remove('fp-cross', 'fp-cross-faint'));
-    clear();
-    if (!hoveredRelations || hoveredRelations.length === 0) return clear;
-    const overlapMarks = (fs: number, fe: number): HTMLElement[] => {
-      const out: HTMLElement[] = [];
-      el.querySelectorAll('mark[data-fs]').forEach((m) => {
-        const a = parseInt((m as HTMLElement).getAttribute('data-fs') || 'NaN', 10);
-        const b = parseInt((m as HTMLElement).getAttribute('data-fe') || 'NaN', 10);
-        if (a < fe && fs < b) out.push(m as HTMLElement);
-      });
-      return out;
-    };
-    // Faint every focus region this card connects to.
-    for (const r of hoveredRelations) {
-      overlapMarks(r.focusStart, r.focusEnd).forEach((m) => m.classList.add('fp-cross-faint'));
+    const marks = Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[];
+    if (!hoveredRelations || hoveredRelations.length === 0) {
+      marks.forEach((m) => m.classList.remove('fp-cross'));
+      return;
     }
-    // Darken the span under the cursor (the union of overlapping focus regions).
-    const hovered = hoveredHighlightRangeIndex !== null ? hoveredRelations[hoveredHighlightRangeIndex] : null;
-    if (hovered) {
-      overlapMarks(hovered.focusStart, hovered.focusEnd).forEach((m) => {
-        m.classList.remove('fp-cross-faint');
-        m.classList.add('fp-cross');
-      });
-    }
-    return clear;
-  }, [hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex]);
+    marks.forEach((m) => {
+      const a = parseInt(m.getAttribute('data-fs') || 'NaN', 10);
+      const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
+      const on = hoveredRelations.some((r) => a < r.focusEnd && r.focusStart < b);
+      m.classList.toggle('fp-cross', on);
+    });
+  });
 
   // D1: inject a scoped <style> to control mark visibility
   // Default: all marks hidden (transparent). Override: dwell/filter mark visible in neutral grey.
@@ -458,11 +447,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       `#${id} mark { background: rgba(100,116,139,0); cursor: pointer; border-radius: 3px; transition: background 150ms ease; }` +
       `#${id}.fp-hovering mark { background: rgba(100,116,139,0.12); }` +
       `#${id} mark.fp-dark { background: rgba(100,116,139,0.40); }` +
-      // Cross-highlight from a hovered related card — same neutral grey as direct
-      // hover (faint for the card's linked regions, dark for the span under the
-      // cursor) so the two interactions look identical, never category-coloured.
-      `#${id} mark.fp-cross-faint { background: rgba(100,116,139,0.12); }` +
-      `#${id} mark.fp-cross { background: rgba(100,116,139,0.40); }` +
+      // Cross-highlight from a hovered related card: ONE uniform light grey for
+      // every linked region. SOLID (opaque) so overlapping/nested marks can't
+      // stack into darker bands — the brightness never depends on how many spans
+      // correlate to a passage.
+      `#${id} mark.fp-cross { background: rgb(236,238,241); }` +
       filterRule;
   }, [visibleMarkIdx]);
 
