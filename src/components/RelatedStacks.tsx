@@ -228,6 +228,20 @@ function buildFocusTooltip(n: number, textColor: string): React.ReactNode {
   );
 }
 
+// Span tooltips on the cards appear only after a 1.5s dwell (hover spec), so
+// sweeping the cursor across spans doesn't spam tooltips. The highlight itself
+// stays immediate — only the tooltip waits. Any reschedule / leave / click
+// cancels a pending one. Module-level: shared across all card marks.
+let cardTooltipTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleCardTooltip(payload: Parameters<typeof showTooltip>[0]) {
+  if (cardTooltipTimer) clearTimeout(cardTooltipTimer);
+  cardTooltipTimer = setTimeout(() => { cardTooltipTimer = null; showTooltip(payload); }, 1500);
+}
+function cancelCardTooltip() {
+  if (cardTooltipTimer) { clearTimeout(cardTooltipTimer); cardTooltipTimer = null; }
+  hideTooltip();
+}
+
 // ─── Filter chip ─────────────────────────────────────────────────────────────
 
 function FilterChip({ category, count, active, previewActive, previewDim, onClick, onMouseEnter, onMouseLeave }: {
@@ -488,7 +502,7 @@ function buildMultiHighlightNodes(
           ? opts.countLinkedToRanges(cats.map(cc => cc.rangeIndex))
           : 0;
         const colors: TooltipColors = { text: band.colors.text, border: band.colors.border };
-        showTooltip({
+        scheduleCardTooltip({
           content: buildFocusTooltip(n, band.colors.text),
           colors,
           x: clientX,
@@ -502,9 +516,9 @@ function buildMultiHighlightNodes(
             data-overlap-range-ids={cats.map(c => c.rangeIndex).join(',')}
             tabIndex={-1}
             onMouseMove={(e) => overlapHover(e.clientX, e.clientY, e.currentTarget as HTMLElement)}
-            onMouseLeave={() => { opts.onRangeHover(null); hideTooltip(); }}
+            onMouseLeave={() => { opts.onRangeHover(null); cancelCardTooltip(); }}
             onPointerMove={(e) => { if (e.pointerType === 'mouse') overlapHover(e.clientX, e.clientY, e.currentTarget as HTMLElement); }}
-            onPointerLeave={(e) => { if (e.pointerType === 'mouse') { opts.onRangeHover(null); hideTooltip(); } }}
+            onPointerLeave={(e) => { if (e.pointerType === 'mouse') { opts.onRangeHover(null); cancelCardTooltip(); } }}
             onClick={(e) => {
               if (!opts.onRangeClick) return;
               const el = e.currentTarget as HTMLElement;
@@ -513,6 +527,7 @@ function buildMultiHighlightNodes(
               const bandIdx = Math.max(0, Math.min(cats.length - 1, Math.floor(rel * cats.length)));
               e.stopPropagation();
               (e.currentTarget as HTMLElement).blur();
+              cancelCardTooltip();
               // Overlap click → filter by the band under the cursor (onRangeClick
               // sets the span filter). stopPropagation keeps the card's
               // open-the-post handler from also firing.
@@ -587,30 +602,31 @@ function buildMultiHighlightNodes(
             onMouseEnter={(e) => {
               opts.onRangeHover(c.rangeIndex);
               const n = opts.countLinkedToRanges ? opts.countLinkedToRanges([c.rangeIndex]) : 0;
-              showTooltip({
+              scheduleCardTooltip({
                 content: buildFocusTooltip(n, colors.text),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
               });
             }}
-            onMouseLeave={() => { opts.onRangeHover(null); hideTooltip(); }}
+            onMouseLeave={() => { opts.onRangeHover(null); cancelCardTooltip(); }}
             onPointerEnter={(e) => {
               if (e.pointerType !== 'mouse') return;
               opts.onRangeHover(c.rangeIndex);
               const n = opts.countLinkedToRanges ? opts.countLinkedToRanges([c.rangeIndex]) : 0;
-              showTooltip({
+              scheduleCardTooltip({
                 content: buildFocusTooltip(n, colors.text),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
               });
             }}
-            onPointerLeave={(e) => { if (e.pointerType === 'mouse') { opts.onRangeHover(null); hideTooltip(); } }}
+            onPointerLeave={(e) => { if (e.pointerType === 'mouse') { opts.onRangeHover(null); cancelCardTooltip(); } }}
             onClick={(e) => {
               if (!opts.onRangeClick) return;
               e.stopPropagation();
               (e.currentTarget as HTMLElement).blur();
+              cancelCardTooltip();
               // Span click → onRangeClick filters the panel to the posts linked to
               // this span (toggles off on re-click). stopPropagation keeps it from
               // bubbling to the card's open-the-post handler.
