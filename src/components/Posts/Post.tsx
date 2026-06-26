@@ -239,6 +239,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // Per-mark dwell: index of the mark that has become visible via 1500ms dwell
   const [dwellOnMarkIndex, setDwellOnMarkIndex] = useState<number | null>(null);
   const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Direct-hover state, mirrored to refs so it can be re-applied after a commit
+  // (clicking a span re-renders + re-commits the innerHTML, wiping the imperative
+  // fp-dark/fp-hovering classes; without this the span goes light until you move).
+  const hoveringRef = useRef(false);
+  const hoverRangeRef = useRef<{ fs: number; fe: number } | null>(null);
   // Tracks whether *this instance* is currently the one showing the global hover tooltip,
   // so unmount/cleanup only hides our own tooltip, not someone else's.
   const tooltipShownByMeRef = useRef(false);
@@ -400,19 +405,25 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         (s.topPost?.relations ?? []).some((r: any) =>
           ranges.some((u) => r.focusStart < u.fe && u.fs < r.focusEnd))).length;
 
-    const onEnter = () => { el.classList.add('fp-hovering'); };
+    const onEnter = () => { hoveringRef.current = true; el.classList.add('fp-hovering'); };
     const onLeave = (e: MouseEvent) => {
       const related = e.relatedTarget as Node | null;
       if (related && el.contains(related)) return;
+      hoveringRef.current = false;
+      hoverRangeRef.current = null;
       el.classList.remove('fp-hovering');
       clearDark();
       cancelDwell();
     };
     const onMove = (e: MouseEvent) => {
       latestX = e.clientX; latestY = e.clientY;
+      hoveringRef.current = true;
       el.classList.add('fp-hovering');
       const mark = (e.target as HTMLElement).closest('mark') as HTMLElement | null;
-      if (!mark) { clearDark(); cancelDwell(); return; }
+      if (!mark) { hoverRangeRef.current = null; clearDark(); cancelDwell(); return; }
+      const fsHover = parseInt(mark.getAttribute('data-fs') || 'NaN', 10);
+      const feHover = parseInt(mark.getAttribute('data-fe') || 'NaN', 10);
+      hoverRangeRef.current = (Number.isNaN(fsHover) || Number.isNaN(feHover)) ? null : { fs: fsHover, fe: feHover };
       if (mark.classList.contains('fp-dark')) return; // already the active union
       clearDark();
       const { marks, ranges } = unionFor(mark);
@@ -492,6 +503,24 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     if (level2 && level2.focusCommentEnd > level2.focusCommentStart) {
       boldFocusCommentRange(el, level2.focusCommentStart, level2.focusCommentEnd);
     }
+  });
+
+  // Re-apply the DIRECT-hover grey after every commit. Clicking a span re-renders
+  // (sets the filter), React re-commits the innerHTML and replaces the mark nodes,
+  // wiping the imperatively-set fp-dark — so the span would go light until the next
+  // mousemove. Re-add it from the tracked hover refs. (Skip when a card is hovered:
+  // the cross-highlight owns the marks then.)
+  useLayoutEffect(() => {
+    const el = innerRef.current;
+    if (!el || hoveredRelations || !hoveringRef.current) return;
+    el.classList.add('fp-hovering');
+    const r = hoverRangeRef.current;
+    if (!r) return;
+    el.querySelectorAll('mark[data-fs]').forEach((m) => {
+      const a = parseInt((m as HTMLElement).getAttribute('data-fs') || 'NaN', 10);
+      const b = parseInt((m as HTMLElement).getAttribute('data-fe') || 'NaN', 10);
+      if (a < r.fe && r.fs < b) (m as HTMLElement).classList.add('fp-dark');
+    });
   });
 
   // D1: inject a scoped <style> to control mark visibility
