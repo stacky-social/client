@@ -516,10 +516,19 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     el.classList.add('fp-hovering');
     const r = hoverRangeRef.current;
     if (!r) return;
-    el.querySelectorAll('mark[data-fs]').forEach((m) => {
-      const a = parseInt((m as HTMLElement).getAttribute('data-fs') || 'NaN', 10);
-      const b = parseInt((m as HTMLElement).getAttribute('data-fe') || 'NaN', 10);
-      if (a < r.fe && r.fs < b) (m as HTMLElement).classList.add('fp-dark');
+    el.querySelectorAll('mark[data-fs]').forEach((mark) => {
+      const m = mark as HTMLElement;
+      const a = parseInt(m.getAttribute('data-fs') || 'NaN', 10);
+      const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
+      if (a < r.fe && r.fs < b && !m.classList.contains('fp-dark')) {
+        // Apply WITHOUT the 150ms fade: this mark was just re-committed (e.g. by a
+        // span click setting the filter); transitioning from faint → dark reads as
+        // a blink. Suppress the transition for this instant re-apply, then restore.
+        m.style.transition = 'none';
+        m.classList.add('fp-dark');
+        void m.offsetHeight; // force reflow so the dark paints immediately
+        m.style.transition = '';
+      }
     });
   });
 
