@@ -432,9 +432,12 @@ function buildMultiHighlightNodes(
 ): React.ReactNode[] {
   if (!relations || relations.length === 0) return [plain];
 
-  // Build tagged ranges from relations (content side)
+  // Build tagged ranges from relations (content side). rangeIndex must be the
+  // index into the ORIGINAL relations array (stack.topPost.relations), not this
+  // possibly-windowed/filtered copy — otherwise hover→focus mapping is off. The
+  // windowing step stamps __idx with the original index; fall back to i when not.
   const tagged: TaggedRange[] = relations.map((r, i) => ({
-    start: r.contentStart, end: r.contentEnd, rangeIndex: i,
+    start: r.contentStart, end: r.contentEnd, rangeIndex: ((r as any).__idx ?? i) as number,
     category: r.category,
     topic: r.topic,
     // contentComment is the substring plain[contentCommentStart:contentCommentEnd]
@@ -480,7 +483,7 @@ function buildMultiHighlightNodes(
         const isAnchoredBand = opts.anchoredRangeIndex === c.rangeIndex;
         let a: number;
         if (segHovered || isAnchoredBand) a = 0.85;   // union under cursor / anchor → dark
-        else if (opts.isCardHovered) a = 0.26;        // card hovered → faint
+        else if (opts.isCardHovered) a = 0.5;         // card hovered → level-1 (clearly visible)
         else a = 0;                                    // at rest → hidden
         const pct1 = (i / cats.length) * 100;
         const pct2 = ((i + 1) / cats.length) * 100;
@@ -572,7 +575,7 @@ function buildMultiHighlightNodes(
       if (isThisRangeHovered || isAnchored) {
         bgAlpha = 0.85;                       // span under cursor / grouping anchor → dark
       } else if (opts.isCardHovered) {
-        bgAlpha = dimByBlock ? 0.12 : 0.26;   // card hovered → faint all spans
+        bgAlpha = dimByBlock ? 0.22 : 0.5;    // card hovered → level-1 (clearly visible)
       } else {
         bgAlpha = 0;                          // at rest (or another card hovered) → hidden
       }
@@ -680,8 +683,9 @@ function windowContent(plain: string, relations: Relation[] | undefined, expande
   const start = Math.max(0, center - WINDOW_CHARS);
   const end = Math.min(plain.length, center + WINDOW_CHARS);
   const text = plain.slice(start, end);
-  const adjustedRelations = relations.map(r => ({
+  const adjustedRelations = relations.map((r, i) => ({
     ...r,
+    __idx: i, // preserve original index so rangeIndex survives the filter below
     contentStart: Math.max(0, r.contentStart - start),
     contentEnd: Math.min(text.length, r.contentEnd - start),
     contentCommentStart: Math.max(0, r.contentCommentStart - start),

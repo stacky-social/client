@@ -49,6 +49,16 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+/** Blend two hex colours by t (0..1) → OPAQUE rgb (so overlapping/nested marks
+ *  never compound into darker bands). Level-1 faint = blend toward white;
+ *  level-2 strong = blend the category bg toward its saturated border. */
+function blendHex(from: string, to: string, t: number): string {
+  const a = [1, 3, 5].map((i) => parseInt(from.slice(i, i + 2), 16));
+  const b = [1, 3, 5].map((i) => parseInt(to.slice(i, i + 2), 16));
+  const m = (x: number, y: number) => Math.round(x + (y - x) * t);
+  return `rgb(${m(a[0], b[0])},${m(a[1], b[1])},${m(a[2], b[2])})`;
+}
+
 /** Hex → "R,G,B" triple for use in a CSS variable (so CSS can vary the alpha per
  *  hover state without re-rendering the mark). */
 /** Render multi-range focus highlights into HTML using offset-based Relations.
@@ -171,7 +181,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   isTextExpanded: boolean;
   focusRelations?: Relation[];
 }>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [] }, ref) {
-  const { hoveredPostId, hoveredRelations, filterFocusSpan } = useHighlightStore();
+  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, filterFocusSpan } = useHighlightStore();
   // Related stacks of the active (focus) post — used to count "N related posts"
   // for the click-to-filter affordance. Mirrored to a ref so the DOM hover
   // handlers read the latest without re-subscribing.
@@ -403,25 +413,36 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // so the CSS uses a solid (opaque) light grey that can't compound. Applied as a
   // class on the stable marks (no re-parse — that was the freeze). Robust: keys off
   // the card's relations directly, not a span index that may not line up.
-  // Cross-highlight: hovering a related card colours the focus post's matching
-  // regions with that post's CATEGORY colour and bolds them (the original
-  // behaviour). Direct hover on the focus post stays neutral grey (CSS classes).
+  // Cross-highlight from the aside, two levels (category colour, never grey):
+  //   Level 1 — a related CARD is hovered: faint colour on every region it links
+  //             to, normal weight.
+  //   Level 2 — a specific SPAN on that card is hovered: that one region goes
+  //             bold + a stronger colour; the others stay at level 1.
+  // Direct hover on the focus post itself stays neutral grey (the CSS classes).
   // Runs after EVERY commit (no deps): React re-applies dangerouslySetInnerHTML on
-  // re-render, replacing the mark nodes and wiping imperative styles, so we must
-  // reconcile after the commit — not only when the store changes. The category
-  // colours are opaque, so overlapping/nested marks render at one uniform shade.
+  // re-render, replacing the mark nodes and wiping imperative styles, so reconcile
+  // after the commit, not only on store change. Colours are OPAQUE so overlapping/
+  // nested marks render at one uniform shade (no compounding).
   useLayoutEffect(() => {
     const el = innerRef.current;
     if (!el) return;
+    const level2 = (hoveredRelations && hoveredHighlightRangeIndex != null)
+      ? hoveredRelations[hoveredHighlightRangeIndex] : null;
     const marks = Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[];
     marks.forEach((m) => {
       const a = parseInt(m.getAttribute('data-fs') || 'NaN', 10);
       const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
+      if (level2 && a < level2.focusEnd && level2.focusStart < b) {
+        const c = CROSS_HIGHLIGHT_CATEGORY_COLORS[level2.category];
+        m.style.backgroundColor = c ? blendHex(c.bg, c.border, 0.30) : '#cbd5e1';
+        m.style.fontWeight = '700';
+        return;
+      }
       const matched = hoveredRelations?.find((r) => a < r.focusEnd && r.focusStart < b);
       if (matched) {
         const c = CROSS_HIGHLIGHT_CATEGORY_COLORS[matched.category];
-        m.style.backgroundColor = c ? c.bg : '#e2e8f0';
-        m.style.fontWeight = '700';
+        m.style.backgroundColor = c ? blendHex(c.bg, '#ffffff', 0.35) : '#eef0f3';
+        m.style.fontWeight = '';
       } else {
         m.style.backgroundColor = '';
         m.style.fontWeight = '';
@@ -452,8 +473,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       : '';
     styleEl.textContent =
       `#${id} mark { background: rgba(100,116,139,0); cursor: pointer; border-radius: 3px; transition: background 150ms ease; }` +
-      `#${id}.fp-hovering mark { background: rgba(100,116,139,0.12); }` +
-      `#${id} mark.fp-dark { background: rgba(100,116,139,0.40); }` +
+      // Direct hover on the focus post = neutral grey, two levels. SOLID (opaque)
+      // so overlapping/nested marks don't compound into darker bands: faint grey
+      // on the whole post, a darker grey on just the span union under the cursor.
+      `#${id}.fp-hovering mark { background: rgb(236,238,241); }` +
+      `#${id} mark.fp-dark { background: rgb(193,199,209); }` +
       // The related-card cross-highlight (category colour + bold) is applied as
       // inline styles per mark in the layout effect above, so no rule here.
       filterRule;
