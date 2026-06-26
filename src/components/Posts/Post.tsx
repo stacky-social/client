@@ -59,6 +59,53 @@ function blendHex(from: string, to: string, t: number): string {
   return `rgb(${m(a[0], b[0])},${m(a[1], b[1])},${m(a[2], b[2])})`;
 }
 
+/** Remove any previous focus-comment bold wrappers (idempotency before re-wrap). */
+function clearFocusCommentBold(container: HTMLElement): void {
+  container.querySelectorAll('span[data-fc]').forEach((s) => {
+    const p = s.parentNode;
+    if (!p) return;
+    while (s.firstChild) p.insertBefore(s.firstChild, s);
+    p.removeChild(s);
+    p.normalize();
+  });
+}
+
+/** Bold the focus-comment sub-range [fcStart,fcEnd] (focus-plain offsets) inside
+ *  the focus post — the data's OPTIONAL "bold span". Anchored on the smallest mark
+ *  that contains it (a mark's text is exactly focusText.slice(data-fs,data-fe), so
+ *  offsets are valid even though displayText != focusPlain). Skips gracefully when
+ *  the range crosses a nested-mark boundary. */
+function boldFocusCommentRange(container: HTMLElement, fcStart: number, fcEnd: number): void {
+  const marks = Array.from(container.querySelectorAll('mark[data-fs]')) as HTMLElement[];
+  let host: HTMLElement | null = null, hostSpan = Infinity, hostA = 0;
+  for (const m of marks) {
+    const a = parseInt(m.getAttribute('data-fs') || 'NaN', 10);
+    const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
+    if (a <= fcStart && b >= fcEnd && (b - a) < hostSpan) { host = m; hostSpan = b - a; hostA = a; }
+  }
+  if (!host) return;
+  const relStart = fcStart - hostA, relEnd = fcEnd - hostA;
+  const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+  let pos = 0, sN: Text | null = null, sO = 0, eN: Text | null = null, eO = 0;
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    const len = (node.textContent || '').length;
+    if (sN === null && pos + len > relStart) { sN = node as Text; sO = relStart - pos; }
+    if (pos + len >= relEnd) { eN = node as Text; eO = relEnd - pos; break; }
+    pos += len;
+  }
+  if (!sN || !eN) return;
+  try {
+    const range = document.createRange();
+    range.setStart(sN, sO);
+    range.setEnd(eN, eO);
+    const b = document.createElement('span');
+    b.setAttribute('data-fc', '');
+    b.style.fontWeight = '700';
+    range.surroundContents(b);
+  } catch { /* range crosses an element boundary — skip the bold */ }
+}
+
 /** Hex → "R,G,B" triple for use in a CSS variable (so CSS can vary the alpha per
  *  hover state without re-rendering the mark). */
 /** Render multi-range focus highlights into HTML using offset-based Relations.
@@ -407,17 +454,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     };
   }, [rawText]);
 
-  // Cross-highlight: when a related card is hovered in the aside, highlight every
-  // focus region it connects to ("hover a post to highlight the relevant parts").
-  // ONE uniform level — overlapping/nested marks must not stack into darker bands,
-  // so the CSS uses a solid (opaque) light grey that can't compound. Applied as a
-  // class on the stable marks (no re-parse — that was the freeze). Robust: keys off
-  // the card's relations directly, not a span index that may not line up.
   // Cross-highlight from the aside, two levels (category colour, never grey):
   //   Level 1 — a related CARD is hovered: faint colour on every region it links
   //             to, normal weight.
-  //   Level 2 — a specific SPAN on that card is hovered: that one region goes
-  //             bold + a stronger colour; the others stay at level 1.
+  //   Level 2 — a specific SPAN on that card is hovered: that one region gets a
+  //             STRONGER colour, and ONLY the data's optional "bold span"
+  //             (focusComment) inside it goes bold — not the whole region. The
+  //             other regions stay at level 1.
   // Direct hover on the focus post itself stays neutral grey (the CSS classes).
   // Runs after EVERY commit (no deps): React re-applies dangerouslySetInnerHTML on
   // re-render, replacing the mark nodes and wiping imperative styles, so reconcile
@@ -426,6 +469,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   useLayoutEffect(() => {
     const el = innerRef.current;
     if (!el) return;
+    clearFocusCommentBold(el);
     const level2 = (hoveredRelations && hoveredHighlightRangeIndex != null)
       ? hoveredRelations[hoveredHighlightRangeIndex] : null;
     const marks = Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[];
@@ -435,19 +479,19 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       if (level2 && a < level2.focusEnd && level2.focusStart < b) {
         const c = CROSS_HIGHLIGHT_CATEGORY_COLORS[level2.category];
         m.style.backgroundColor = c ? blendHex(c.bg, c.border, 0.30) : '#cbd5e1';
-        m.style.fontWeight = '700';
         return;
       }
       const matched = hoveredRelations?.find((r) => a < r.focusEnd && r.focusStart < b);
-      if (matched) {
-        const c = CROSS_HIGHLIGHT_CATEGORY_COLORS[matched.category];
-        m.style.backgroundColor = c ? blendHex(c.bg, '#ffffff', 0.35) : '#eef0f3';
-        m.style.fontWeight = '';
-      } else {
-        m.style.backgroundColor = '';
-        m.style.fontWeight = '';
-      }
+      m.style.backgroundColor = matched
+        ? (CROSS_HIGHLIGHT_CATEGORY_COLORS[matched.category]
+            ? blendHex(CROSS_HIGHLIGHT_CATEGORY_COLORS[matched.category].bg, '#ffffff', 0.35)
+            : '#eef0f3')
+        : '';
     });
+    // Level 2: bold ONLY the data's optional bold sub-span, not the whole region.
+    if (level2 && level2.focusCommentEnd > level2.focusCommentStart) {
+      boldFocusCommentRange(el, level2.focusCommentStart, level2.focusCommentEnd);
+    }
   });
 
   // D1: inject a scoped <style> to control mark visibility

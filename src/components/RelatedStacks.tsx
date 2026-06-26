@@ -473,18 +473,24 @@ function buildMultiHighlightNodes(
       const isBandActive = (c: { rangeIndex: number; category: string }) =>
         opts.hoveredRangeIndex === c.rangeIndex ||
         (opts.hoveredCategory !== null && opts.hoveredCategory === c.category);
+      const anyDirected = opts.hoveredRangeIndex !== null || opts.hoveredCategory !== null;
+      // Original related-post hover behaviour: always-visible by default, full on
+      // card hover (Level 1), and on span/category hover (Level 2) the active band
+      // stays full while the rest dim. (The grey/colour spec is focus-post only.)
+      const baseAlpha =
+        opts.isCardHovered ? 1 :
+        opts.anyCardHovered ? 0.25 :
+        0.7;
       const bandTopic = (c: { topic?: string; category: string; rangeIndex: number }) =>
         c.topic ?? getSyntheticTopic(c.category, `${opts.stackId}-${c.rangeIndex}`);
-      // Hover spec: hidden at rest, FAINT when the card is hovered, and the WHOLE
-      // overlap (the union of every span covering the cursor) goes DARK when any of
-      // its bands is under the cursor. A grouping anchor band stays visible.
-      const segHovered = cats.some(c => isBandActive(c));
+      const isBandOnActiveTopic = (c: { topic?: string; category: string; rangeIndex: number }) =>
+        opts.activeTopic !== null && bandTopic(c) === opts.activeTopic;
       const gradientStops = cats.map((c, i) => {
-        const isAnchoredBand = opts.anchoredRangeIndex === c.rangeIndex;
-        let a: number;
-        if (segHovered || isAnchoredBand) a = 0.85;   // union under cursor / anchor → dark
-        else if (opts.isCardHovered) a = 0.5;         // card hovered → level-1 (clearly visible)
-        else a = 0;                                    // at rest → hidden
+        let a = baseAlpha;
+        if (anyDirected) a = isBandActive(c) ? 1 : 0.18;
+        // In-block dimming: dim bands whose topic isn't the active one
+        // (unless this very band is hovered).
+        else if (opts.inActiveBlock && !isBandOnActiveTopic(c) && !isBandActive(c)) a = 0.2;
         const pct1 = (i / cats.length) * 100;
         const pct2 = ((i + 1) / cats.length) * 100;
         const rgba = hexToRgba(c.colors.bg, a);
@@ -566,18 +572,31 @@ function buildMultiHighlightNodes(
       // In-block dimming: when this card sits inside the active topic block,
       // non-Topic spans dim out (unless this very span is hovered).
       const dimByBlock = opts.inActiveBlock && !isOnActiveTopic && !isThisRangeHovered;
+      const anyDirected = opts.hoveredRangeIndex !== null || opts.hoveredCategory !== null;
 
-      // Hover spec (same as the focus post): hidden at rest, FAINT when the card
-      // is hovered, DARK for the span under the cursor. A grouping anchor stays
-      // visible. Text alpha is untouched — only the highlight background changes.
+      // 3-level background alpha (original related-post hover behaviour): spans are
+      // always visible by default; Level 1 (card hovered) brings them all full;
+      // Level 2 (a span/category hovered) keeps the active one full and dims the
+      // rest. Dims background only — text stays readable. (The new grey/colour
+      // spec applies only to the FOCUS post, not here.)
       const isAnchored = opts.anchoredRangeIndex === c.rangeIndex;
       let bgAlpha: number;
-      if (isThisRangeHovered || isAnchored) {
-        bgAlpha = 0.85;                       // span under cursor / grouping anchor → dark
+      if (isAnchored) {
+        bgAlpha = 1; // Anchored range always stays bright
+      } else if (opts.anchoredRangeIndex !== null && !opts.isCardHovered) {
+        bgAlpha = 0.2; // Another range in this card is anchored — dim this one
       } else if (opts.isCardHovered) {
-        bgAlpha = dimByBlock ? 0.22 : 0.5;    // card hovered → level-1 (clearly visible)
+        if (!anyDirected) {
+          bgAlpha = dimByBlock ? 0.2 : 1; // Level 1: this card hovered
+        } else {
+          bgAlpha = isThisRangeHovered ? 1 : 0.2; // Level 2: specific span/category hovered
+        }
+      } else if (opts.anyCardHovered) {
+        bgAlpha = 0.25; // Another card is hovered — dim these highlights
+      } else if (dimByBlock) {
+        bgAlpha = 0.2; // Non-Topic span inside the active topic block
       } else {
-        bgAlpha = 0;                          // at rest (or another card hovered) → hidden
+        bgAlpha = opts.anchoredRangeIndex !== null ? 0.2 : 0.7; // default — always visible
       }
       const bgColor = bgAlpha < 1 ? hexToRgba(colors.bg, bgAlpha) : colors.bg;
 
