@@ -403,22 +403,29 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // so the CSS uses a solid (opaque) light grey that can't compound. Applied as a
   // class on the stable marks (no re-parse — that was the freeze). Robust: keys off
   // the card's relations directly, not a span index that may not line up.
+  // Cross-highlight: hovering a related card colours the focus post's matching
+  // regions with that post's CATEGORY colour and bolds them (the original
+  // behaviour). Direct hover on the focus post stays neutral grey (CSS classes).
   // Runs after EVERY commit (no deps): React re-applies dangerouslySetInnerHTML on
-  // re-render, replacing the mark nodes and wiping imperatively-set classes — so we
-  // must reconcile fp-cross after the commit, not only when the store changes.
+  // re-render, replacing the mark nodes and wiping imperative styles, so we must
+  // reconcile after the commit — not only when the store changes. The category
+  // colours are opaque, so overlapping/nested marks render at one uniform shade.
   useLayoutEffect(() => {
     const el = innerRef.current;
     if (!el) return;
     const marks = Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[];
-    if (!hoveredRelations || hoveredRelations.length === 0) {
-      marks.forEach((m) => m.classList.remove('fp-cross'));
-      return;
-    }
     marks.forEach((m) => {
       const a = parseInt(m.getAttribute('data-fs') || 'NaN', 10);
       const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
-      const on = hoveredRelations.some((r) => a < r.focusEnd && r.focusStart < b);
-      m.classList.toggle('fp-cross', on);
+      const matched = hoveredRelations?.find((r) => a < r.focusEnd && r.focusStart < b);
+      if (matched) {
+        const c = CROSS_HIGHLIGHT_CATEGORY_COLORS[matched.category];
+        m.style.backgroundColor = c ? c.bg : '#e2e8f0';
+        m.style.fontWeight = '700';
+      } else {
+        m.style.backgroundColor = '';
+        m.style.fontWeight = '';
+      }
     });
   });
 
@@ -447,11 +454,8 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       `#${id} mark { background: rgba(100,116,139,0); cursor: pointer; border-radius: 3px; transition: background 150ms ease; }` +
       `#${id}.fp-hovering mark { background: rgba(100,116,139,0.12); }` +
       `#${id} mark.fp-dark { background: rgba(100,116,139,0.40); }` +
-      // Cross-highlight from a hovered related card: ONE uniform light grey for
-      // every linked region. SOLID (opaque) so overlapping/nested marks can't
-      // stack into darker bands — the brightness never depends on how many spans
-      // correlate to a passage.
-      `#${id} mark.fp-cross { background: rgb(236,238,241); }` +
+      // The related-card cross-highlight (category colour + bold) is applied as
+      // inline styles per mark in the layout effect above, so no rule here.
       filterRule;
   }, [visibleMarkIdx]);
 
