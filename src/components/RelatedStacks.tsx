@@ -1310,6 +1310,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   //   Other cards keep `layout` and animate smoothly around the pinned one.
   const pinnedPostIdRef = useRef<string | null>(null);
   const pinnedPrevTopRef = useRef<number | null>(null);
+  // FLIP reorder animation: per-card viewport tops captured at toggle time (the
+  // "First" measurement), and the rAF handle for the "Play" step.
+  const flipFirstTopsRef = useRef<Map<string, number> | null>(null);
+  const flipRafRef = useRef<number>(0);
 
   /** Toggle an anchor. The interacted card stays visually pinned while other
    *  cards animate around it. */
@@ -1352,9 +1356,19 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     // viewport-relative measure captures that header growth as well as the
     // reorder, so the post-reorder scroll compensation can keep the clicked
     // card exactly where it was.
-    const cardEl = document.querySelector(`[data-post-id="${postId}"]`) as HTMLElement | null;
+    const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+    const cardEl = (aside ?? document).querySelector(`[data-post-id="${postId}"]`) as HTMLElement | null;
     pinnedPostIdRef.current = postId;
     pinnedPrevTopRef.current = cardEl ? cardEl.getBoundingClientRect().top : null;
+
+    // FLIP "First": record every card's current viewport top so the layout effect
+    // can slide each one from here to its new slot after the reorder.
+    const firstTops = new Map<string, number>();
+    aside?.querySelectorAll('[data-related-card]').forEach((el) => {
+      const pid = el.querySelector('[data-post-id]')?.getAttribute('data-post-id');
+      if (pid) firstTops.set(pid, (el as HTMLElement).getBoundingClientRect().top);
+    });
+    flipFirstTopsRef.current = firstTops;
 
     toggleReRankAnchor(postId, rangeIndex);
   };
@@ -1366,25 +1380,58 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   // cursor, was the page-freeze amplifier. The pinnedPostIdRef guard makes it a
   // no-op unless a toggle just set it.
   useLayoutEffect(() => {
+    const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+
+    // 1) Scroll compensation — keep the clicked/anchor card visually fixed.
     const postId = pinnedPostIdRef.current;
     const prevTop = pinnedPrevTopRef.current;
-    if (!postId || prevTop === null) return;
-
-    // Clear refs so future renders don't re-compensate
     pinnedPostIdRef.current = null;
     pinnedPrevTopRef.current = null;
-
-    // Scope the lookup to THIS aside (avoids matching another route's panel) and
-    // clamp the result so a mis-measured delta can never fling the scroll.
-    const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
-    const cardEl = aside?.querySelector(`[data-post-id="${postId}"]`) as HTMLElement | null;
-    if (!aside || !cardEl) return;
-    const newTop = cardEl.getBoundingClientRect().top;
-    const delta = newTop - prevTop;
-    if (Math.abs(delta) > 0.5) {
-      const max = Math.max(0, aside.scrollHeight - aside.clientHeight);
-      aside.scrollTop = Math.min(max, Math.max(0, aside.scrollTop + delta));
+    if (aside && postId && prevTop !== null) {
+      const cardEl = aside.querySelector(`[data-post-id="${postId}"]`) as HTMLElement | null;
+      if (cardEl) {
+        const delta = cardEl.getBoundingClientRect().top - prevTop;
+        if (Math.abs(delta) > 0.5) {
+          const max = Math.max(0, aside.scrollHeight - aside.clientHeight);
+          aside.scrollTop = Math.min(max, Math.max(0, aside.scrollTop + delta));
+        }
+      }
     }
+
+    // 2) FLIP reorder animation — slide each card from its captured "First" top to
+    // its new slot. Measured AFTER the scroll compensation, so the anchor's delta
+    // is ~0 (it stays put, and is skipped anyway) while the rest animate around
+    // it. A manual one-shot CSS transition: fixed-duration and self-terminating,
+    // unlike the framer-motion `layout` projection that was removed for never
+    // settling in this grouped scroll container (the hover-while-grouped freeze).
+    const first = flipFirstTopsRef.current;
+    flipFirstTopsRef.current = null;
+    if (!aside || !first) return;
+    const anchorId = reRankAnchorIds.length > 0 ? reRankAnchorIds[reRankAnchorIds.length - 1] : null;
+    const cards = Array.from(aside.querySelectorAll('[data-related-card]')) as HTMLElement[];
+    // Reset any leftover transform from a previous (possibly interrupted) FLIP so
+    // getBoundingClientRect reads true resting positions.
+    cards.forEach((el) => { el.style.transition = 'none'; el.style.transform = ''; });
+    const toPlay: HTMLElement[] = [];
+    cards.forEach((el) => {
+      const pid = el.querySelector('[data-post-id]')?.getAttribute('data-post-id');
+      if (!pid || pid === anchorId) return;          // skip the pinned anchor
+      const oldTop = first.get(pid);
+      if (oldTop === undefined) return;              // not present before the reorder
+      const dy = oldTop - el.getBoundingClientRect().top;
+      if (Math.abs(dy) < 1) return;
+      el.style.transform = `translateY(${dy}px)`;    // Invert (transition already none)
+      toPlay.push(el);
+    });
+    if (toPlay.length === 0) return;
+    if (flipRafRef.current) cancelAnimationFrame(flipRafRef.current);
+    flipRafRef.current = requestAnimationFrame(() => {              // Play
+      for (const el of toPlay) {
+        el.style.transition = 'transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1)';
+        el.style.transform = '';
+      }
+    });
+    return () => { if (flipRafRef.current) cancelAnimationFrame(flipRafRef.current); };
   }, [reRankAnchorIds, anchoredRangeByPost, shownByAnchor]);
 
   /** Ref-based guard: set when a touch tap just "activated" a card/range so the
