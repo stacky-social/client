@@ -175,6 +175,13 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       activePostId={activePostId}
       focusRelations={isFocusPost ? focusRelations : []}
       clampLines={10}
+      // Keep every post/reply on the mock-backed detail route. Without this the
+      // Post component falls back to the real /posts/[id] route, which requires a
+      // Mastodon access token and renders a blank "Access token is missing" screen.
+      onNavigate={(pid: string) => {
+        sessionStorage.setItem(`previousPath:/ChineseEVs/posts/${pid}`, window.location.pathname + window.location.search);
+        router.push(`/ChineseEVs/posts/${pid}`);
+      }}
     />
   );
 

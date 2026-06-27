@@ -384,7 +384,17 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         (s.topPost?.relations ?? []).some((r: any) =>
           ranges.some((u) => r.focusStart < u.fe && u.fs < r.focusEnd))).length;
 
-    const onEnter = () => { hoveringRef.current = true; el.classList.add('fp-hovering'); };
+    const onEnter = () => {
+      hoveringRef.current = true;
+      el.classList.add('fp-hovering');
+      // Entering the focus post means DIRECT-hover mode (neutral grey), not the
+      // related-card cross-highlight (category colour). Clear any inline
+      // backgroundColor the cross-highlight left on the marks — otherwise that
+      // residue (e.g. after grouping/ungrouping by hovering+clicking a card span)
+      // overrides the .fp-dark grey via inline-beats-CSS, so the span "won't
+      // darken". A real card hover re-paints on its next commit, so this is safe.
+      el.querySelectorAll('mark[data-fs]').forEach((m) => { (m as HTMLElement).style.backgroundColor = ''; });
+    };
     const onLeave = (e: MouseEvent) => {
       const related = e.relatedTarget as Node | null;
       if (related && el.contains(related)) return;

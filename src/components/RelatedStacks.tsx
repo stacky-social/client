@@ -217,18 +217,7 @@ function buildTooltipLabel(
   );
 }
 
-// Span-hover tooltip (hover spec): clicking a span filters the panel to the
-// related posts linked to that span's focus region.
-function buildFocusTooltip(n: number, textColor: string): React.ReactNode {
-  return (
-    <>
-      Click to focus on{' '}
-      <strong style={{ color: textColor }}>{n} related {n === 1 ? 'post' : 'posts'}</strong>
-    </>
-  );
-}
-
-// Span tooltips on the cards appear only after a 1.5s dwell (hover spec), so
+// Related-card span tooltips appear only after a 1.5s dwell (hover spec), so
 // sweeping the cursor across spans doesn't spam tooltips. The highlight itself
 // stays immediate — only the tooltip waits. Any reschedule / leave / click
 // cancels a pending one. Module-level: shared across all card marks.
@@ -537,13 +526,15 @@ function buildMultiHighlightNodes(
         const band = cats[bandIdx];
         opts.onRangeHover(band.rangeIndex);
 
-        // Union of every span covering the cursor — "focus on N related posts".
-        const n = opts.countLinkedToRanges
-          ? opts.countLinkedToRanges(cats.map(cc => cc.rangeIndex))
-          : 0;
+        // Clicking a related-card span GROUPS BY its topic, so the tooltip
+        // previews the grouping ("N more <Topic>") — NOT the focus-post span
+        // filter wording. (The "Click to focus on N posts" tooltip belongs to the
+        // focus post only.)
+        const topic = bandTopic(band);
+        const moreCount = opts.otherCountByTopic ? opts.otherCountByTopic(topic) : 0;
         const colors: TooltipColors = { text: band.colors.text, border: band.colors.border };
         scheduleCardTooltip({
-          content: buildFocusTooltip(n, band.colors.text),
+          content: buildTooltipLabel(topic, moreCount, band.colors.text),
           colors,
           x: clientX,
           y: clientY,
@@ -654,9 +645,9 @@ function buildMultiHighlightNodes(
             tabIndex={-1}
             onMouseEnter={(e) => {
               opts.onRangeHover(c.rangeIndex);
-              const n = opts.countLinkedToRanges ? opts.countLinkedToRanges([c.rangeIndex]) : 0;
+              const moreCount = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopicForRange) : 0;
               scheduleCardTooltip({
-                content: buildFocusTooltip(n, colors.text),
+                content: buildTooltipLabel(resolvedTopicForRange, moreCount, colors.text),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
@@ -666,9 +657,9 @@ function buildMultiHighlightNodes(
             onPointerEnter={(e) => {
               if (e.pointerType !== 'mouse') return;
               opts.onRangeHover(c.rangeIndex);
-              const n = opts.countLinkedToRanges ? opts.countLinkedToRanges([c.rangeIndex]) : 0;
+              const moreCount = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopicForRange) : 0;
               scheduleCardTooltip({
-                content: buildFocusTooltip(n, colors.text),
+                content: buildTooltipLabel(resolvedTopicForRange, moreCount, colors.text),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
