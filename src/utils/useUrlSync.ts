@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   setFilterCategories,
-  setFilterFocusSpan,
+  setResponseFilter,
   useHighlightStore,
 } from "./highlightStore";
 
@@ -14,7 +14,7 @@ export interface UrlSyncOptions {
   setActiveTab: (tab: string) => void;
   /**
    * Plain-text content of the focus post — needed to reconstruct the `text`
-   * field of filterFocusSpan from the ?fs= offset param on hydration.
+   * field of responseFilter from the ?fs= offset param on hydration.
    * Pass null until the post content is loaded.
    */
   plainPostText: string | null;
@@ -38,10 +38,10 @@ function isValidTab(v: string): v is ValidTab {
  * Read direction (hydration):
  *   ?tab    → setActiveTab()
  *   ?fc     → setFilterCategories()
- *   ?fs     → setFilterFocusSpan() (deferred until plainPostText is available)
+ *   ?fs     → setResponseFilter() (deferred until plainPostText is available)
  *
  * Write direction (debounced):
- *   activeTab + filterCategories + filterFocusSpan → router.replace(pathname + ?params)
+ *   activeTab + filterCategories + responseFilter → router.replace(pathname + ?params)
  *
  * ?stackId and ?from are preserved (pass-through) and not modified here.
  */
@@ -54,7 +54,7 @@ export function useUrlSync({
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const { filterCategories, filterFocusSpan } = useHighlightStore();
+  const { filterCategories, responseFilter } = useHighlightStore();
 
   // Tracks whether we have completed the initial hydration for the current pathname.
   // Reset when the pathname changes (i.e., user navigated to a different post).
@@ -103,7 +103,7 @@ export function useUrlSync({
 
   // ── SPAN HYDRATION: deferred until post content loads ────────────────────
   // ?fs=start-end can only be applied once we have the post's plain text to
-  // reconstruct the `text` field of filterFocusSpan.
+  // reconstruct the `text` field of responseFilter.
   const fsHydratedRef = useRef(false);
 
   useEffect(() => {
@@ -141,7 +141,7 @@ export function useUrlSync({
 
     const safeEnd = Math.min(end, plainPostText.length);
     const text = plainPostText.slice(start, safeEnd);
-    setFilterFocusSpan({ start, end: safeEnd, text });
+    setResponseFilter({ start, end: safeEnd, text });
     fsHydratedRef.current = true;
   }, [plainPostText, pathname, searchParams]);  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -171,8 +171,8 @@ export function useUrlSync({
       params.set("fc", Array.from(filterCategories).sort().join(","));
     }
 
-    if (filterFocusSpan !== null) {
-      params.set("fs", `${filterFocusSpan.start}-${filterFocusSpan.end}`);
+    if (responseFilter !== null) {
+      params.set("fs", `${responseFilter.start}-${responseFilter.end}`);
     }
 
     // Pass through params managed by other parts of the app
@@ -196,5 +196,5 @@ export function useUrlSync({
         debounceRef.current = null;
       }
     };
-  }, [activeTab, filterCategories, filterFocusSpan, pathname, searchParams, router]);
+  }, [activeTab, filterCategories, responseFilter, pathname, searchParams, router]);
 }

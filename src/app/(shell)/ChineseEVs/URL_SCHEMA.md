@@ -37,8 +37,8 @@ If/when these land, follow the same patterns as `fc` and `fs`: hydrate once per 
 ## Hydration semantics
 
 1. **Read direction (mount):** the first effect under a given `pathname` reads `?tab` / `?fc` / `?fs` once and applies to local state. A `hydratedRef` guards against re-application until the route changes.
-2. **Write direction (state change):** any change to `activeTab`, `filterCategories`, or `filterFocusSpan` schedules a `router.replace()` with a 300 ms debounce. `router.replace` (not `push`) — filter toggles don't pollute history.
-3. **Span text reconstruction:** `?fs=12-89` carries offsets only. The `text` field of `filterFocusSpan` is reconstructed from `plainPostText.slice(start, end)` after the post loads. Hand-edited URLs need to know the post's exact text.
+2. **Write direction (state change):** any change to `activeTab`, `filterCategories`, or `responseFilter` (the "Responses to" passage filter) schedules a `router.replace()` with a 300 ms debounce. `router.replace` (not `push`) — filter toggles don't pollute history.
+3. **Passage text reconstruction:** `?fs=12-89` carries offsets only (the `fs` param key is kept for URL back-compat). The `text` field of `responseFilter` is reconstructed from `plainPostText.slice(start, end)` after the post loads. Hand-edited URLs need to know the post's exact text.
 4. **`?from` is one-shot:** seeded into `sessionStorage` on mount, never written. The `BackButton` reads from `sessionStorage['previousPath:{pathname}']` on its own mount. Navigating away clears the read but the storage entry stays until next session.
 
 ## How a study deep-link reconstructs

@@ -28,10 +28,12 @@ interface HighlightState {
   /** Which highlight range triggered each anchor (postId -> rangeIndex) */
   anchoredRangeByPost: Record<string, number>;
   /**
-   * D2: focus-post mark clicked — filter sidebar to stacks whose relations overlap this span.
-   * Carries the text snippet so RelatedStacks can compute D3 without needing the full focus post text.
+   * "Responses to" filter: a passage of the focus post was clicked — filter the
+   * sidebar to stacks whose relations overlap this passage (the posts responding
+   * to it). Carries the text snippet so RelatedStacks can render the label and
+   * compute the shortest-common phrase without the full focus post text.
    */
-  filterFocusSpan: { start: number; end: number; text: string } | null;
+  responseFilter: { start: number; end: number; text: string } | null;
 }
 
 const INITIAL: HighlightState = {
@@ -44,7 +46,7 @@ const INITIAL: HighlightState = {
   tappedRangeIndex: null,
   reRankAnchorIds: [],
   anchoredRangeByPost: {},
-  filterFocusSpan: null,
+  responseFilter: null,
 };
 
 // ─── Module-level store ─────────────────────────────────────────────────────
@@ -152,12 +154,12 @@ export function toggleFilterCategory(category: string): void {
 }
 
 export function resetHighlightStore(): void {
-  state = { ...INITIAL, filterCategories: new Set(), filterFocusSpan: null };
+  state = { ...INITIAL, filterCategories: new Set(), responseFilter: null };
   notify();
 }
 
 // ─── Per-focus-post panel persistence ───────────────────────────────────────
-// Grouping + category/span filters are scoped to the focus post they were made
+// Grouping + category/"responses to" filters are scoped to the focus post they were made
 // on. Snapshotting them per focus id lets navigation (back button, a feed post →
 // its full view, scrolling between focus posts) restore the work the user did in
 // the related panel instead of clearing it. In-memory, so it survives SPA
@@ -167,18 +169,34 @@ interface PanelSnapshot {
   filterCategories: string[];
   reRankAnchorIds: string[];
   anchoredRangeByPost: Record<string, number>;
-  filterFocusSpan: { start: number; end: number; text: string } | null;
+  responseFilter: { start: number; end: number; text: string } | null;
 }
 
 const panelStateByFocus = new Map<string, PanelSnapshot>();
 let currentPanelFocusId: string | null = null;
+
+// Related-panel SCROLL position, scoped per focus post (kept separate from the
+// snapshot so it can be updated live on every scroll, not only on focus switch).
+// Restored when returning to a focus post (scrolling between focus posts, or
+// entering/leaving a post's full view). In-memory, like the filter persistence.
+const panelScrollByFocus = new Map<string, number>();
+
+/** Record the related-panel scroll offset for a focus post (called on scroll). */
+export function savePanelScroll(focusId: string | null, scrollTop: number): void {
+  if (focusId) panelScrollByFocus.set(focusId, scrollTop);
+}
+
+/** Read the saved related-panel scroll offset for a focus post (0 if none). */
+export function getPanelScroll(focusId: string | null): number {
+  return (focusId != null ? panelScrollByFocus.get(focusId) : undefined) ?? 0;
+}
 
 function snapshotPanel(): PanelSnapshot {
   return {
     filterCategories: Array.from(state.filterCategories),
     reRankAnchorIds: [...state.reRankAnchorIds],
     anchoredRangeByPost: { ...state.anchoredRangeByPost },
-    filterFocusSpan: state.filterFocusSpan,
+    responseFilter: state.responseFilter,
   };
 }
 
@@ -201,7 +219,7 @@ export function setPanelFocus(focusId: string | null): void {
     filterCategories: saved ? new Set(saved.filterCategories) : new Set(),
     reRankAnchorIds: saved ? [...saved.reRankAnchorIds] : [],
     anchoredRangeByPost: saved ? { ...saved.anchoredRangeByPost } : {},
-    filterFocusSpan: saved ? saved.filterFocusSpan : null,
+    responseFilter: saved ? saved.responseFilter : null,
     // transient view state never persists across a focus switch
     hoveredPostId: null,
     hoveredRelations: null,
@@ -214,15 +232,15 @@ export function setPanelFocus(focusId: string | null): void {
 }
 
 /** D2: Set the span filter from a clicked focus-post mark. */
-export function setFilterFocusSpan(span: { start: number; end: number; text: string }): void {
-  state = { ...state, filterFocusSpan: span };
+export function setResponseFilter(span: { start: number; end: number; text: string }): void {
+  state = { ...state, responseFilter: span };
   notify();
 }
 
 /** D2: Clear the span filter. */
-export function clearFilterFocusSpan(): void {
-  if (state.filterFocusSpan === null) return;
-  state = { ...state, filterFocusSpan: null };
+export function clearResponseFilter(): void {
+  if (state.responseFilter === null) return;
+  state = { ...state, responseFilter: null };
   notify();
 }
 
@@ -251,7 +269,7 @@ function getSnapshot() {
 
 // Server snapshot uses a stable object. We cannot reuse INITIAL directly since
 // Set instances are mutable — create a fresh frozen copy for the server.
-const SERVER_SNAPSHOT: HighlightState = { ...INITIAL, filterCategories: new Set(), filterFocusSpan: null };
+const SERVER_SNAPSHOT: HighlightState = { ...INITIAL, filterCategories: new Set(), responseFilter: null };
 function getServerSnapshot() {
   return SERVER_SNAPSHOT;
 }

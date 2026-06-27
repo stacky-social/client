@@ -14,7 +14,7 @@ import { PreviewCardType } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../../utils/mastoActions';
 import { getPost, isLiked as storeIsLiked, isBookmarked as storeIsBookmarked } from '../../utils/localStore';
-import { useHighlightStore, setFilterFocusSpan, clearFilterFocusSpan } from '../../utils/highlightStore';
+import { useHighlightStore, setResponseFilter, clearResponseFilter } from '../../utils/highlightStore';
 import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 import type { Relation } from '../../types/PostType';
 import { showTooltip, hideTooltip } from '../HoverTooltip';
@@ -235,7 +235,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
    *  auto-expanded. */
   onAutoReveal?: (reveal: boolean) => void;
 }>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [], onAutoReveal }, ref) {
-  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, filterFocusSpan } = useHighlightStore();
+  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, responseFilter } = useHighlightStore();
   // Related stacks of the active (focus) post — used to count "N related posts"
   // for the click-to-filter affordance. Mirrored to a ref so the DOM hover
   // handlers read the latest without re-subscribing.
@@ -257,8 +257,8 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
 
   // Refs mirror reactive state so the deferred dwell-timer callback always reads
   // the latest values (otherwise its closure would freeze at timer setup time).
-  const filterFocusSpanRef = useRef(filterFocusSpan);
-  filterFocusSpanRef.current = filterFocusSpan;
+  const responseFilterRef = useRef(responseFilter);
+  responseFilterRef.current = responseFilter;
   const focusRelationsRef = useRef(focusRelations);
   focusRelationsRef.current = focusRelations;
 
@@ -274,8 +274,8 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   }, []);
 
   // Compute which mark index (if any) should be visible in neutral grey
-  const filterIdx = filterFocusSpan
-    ? focusRelations.findIndex(r => r.focusStart === filterFocusSpan.start && r.focusEnd === filterFocusSpan.end)
+  const filterIdx = responseFilter
+    ? focusRelations.findIndex(r => r.focusStart === responseFilter.start && r.focusEnd === responseFilter.end)
     : -1;
   const visibleMarkIdx = dwellOnMarkIndex !== null ? dwellOnMarkIndex : (filterIdx >= 0 ? filterIdx : null);
 
@@ -283,7 +283,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // card whose linked regions sit below the clamp — so the cross-highlight is
   // actually visible. Transient direct hover on this post stays CSS-only.
   const crossActive = hoveredRelations !== null && hoveredRelations.length > 0;
-  const anyMarkVisuallyActive = (filterFocusSpan !== null && filterIdx >= 0) || crossActive;
+  const anyMarkVisuallyActive = (responseFilter !== null && filterIdx >= 0) || crossActive;
 
   // PERF: the marks are rendered ONCE from this post's own spans (focusRelations)
   // and never re-parsed on hover. Hover/cross-highlight states are applied as CSS
@@ -426,10 +426,10 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       const fe = parseInt(mark.getAttribute('data-fe') || 'NaN', 10);
       if (Number.isNaN(fs) || Number.isNaN(fe)) return;
       e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-      const ff = filterFocusSpanRef.current;
-      if (ff && ff.start === fs && ff.end === fe) { clearFilterFocusSpan(); return; }
+      const ff = responseFilterRef.current;
+      if (ff && ff.start === fs && ff.end === fe) { clearResponseFilter(); return; }
       const plain = stripHtml(rawText);
-      setFilterFocusSpan({ start: fs, end: fe, text: plain.slice(fs, fe) });
+      setResponseFilter({ start: fs, end: fe, text: plain.slice(fs, fe) });
     };
 
     el.addEventListener('mouseenter', onEnter);

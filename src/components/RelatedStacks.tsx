@@ -11,7 +11,7 @@ import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import { notifications } from '@mantine/notifications';
 import { copyLink } from '../utils/share';
 import { useRelatedStacks } from '../app/(shell)/related-stacks-context';
-import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, clearFilterFocusSpan, setPanelFocus, useHighlightStore } from '../utils/highlightStore';
+import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, clearResponseFilter, setPanelFocus, savePanelScroll, getPanelScroll, useHighlightStore } from '../utils/highlightStore';
 import { reorderForAnchor } from '../utils/reorderForAnchor';
 import type { Relation } from '../types/PostType';
 import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
@@ -337,6 +337,37 @@ function decideGroupFilterMode(
     if (!groupMemberIds.has(stack.topPost.id)) continue;
     const cats = new Set<string>();
     for (const r of stack.topPost.relations ?? []) cats.add(r.category);
+    let allPresent = true;
+    need.forEach(c => { if (!cats.has(c)) allPresent = false; });
+    if (allPresent) return 'STACK';
+  }
+  return 'SWITCH';
+}
+
+/**
+ * "Responses to" × category interaction — the same STACK/SWITCH model as
+ * decideGroupFilterMode, but scoped to the posts that respond to the active
+ * passage (responseFilter) instead of a group:
+ * - 'STACK'  → some post that responds to the passage also has every
+ *              (current filters + candidate) category → keep the passage filter
+ *              and add the category as an intersection constraint.
+ * - 'SWITCH' → no responding post matches, so clicking would abandon the passage
+ *              filter and just filter by the category instead.
+ */
+function decideResponseFilterMode(
+  responseFilter: { start: number; end: number },
+  stacks: RelatedStackType[],
+  currentFilters: Set<string>,
+  candidate: string,
+): 'STACK' | 'SWITCH' {
+  const need = new Set(currentFilters);
+  need.add(candidate);
+  for (const stack of stacks) {
+    const rels = stack.topPost.relations ?? [];
+    const responds = rels.some(r => r.focusStart < responseFilter.end && responseFilter.start < r.focusEnd);
+    if (!responds) continue;
+    const cats = new Set<string>();
+    for (const r of rels) cats.add(r.category);
     let allPresent = true;
     need.forEach(c => { if (!cats.has(c)) allPresent = false; });
     if (allPresent) return 'STACK';
@@ -772,7 +803,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const [favouritedOverride, setFavouritedOverride] = useState<Record<string, boolean>>({});
   const [bookmarkedOverride, setBookmarkedOverride] = useState<Record<string, boolean>>({});
   const [favouritesCountOverride, setFavouritesCountOverride] = useState<Record<string, number>>({});
-  const { filterCategories, filterFocusSpan, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, reRankAnchorIds, anchoredRangeByPost } = useHighlightStore();
+  const { filterCategories, responseFilter, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, reRankAnchorIds, anchoredRangeByPost } = useHighlightStore();
   // C2: hover preview state for filter chips
   const [chipHovered, setChipHovered] = useState<string | null>(null);
   // Interaction mode: hover (mouse/pen) vs tap (touch). Adaptive — the most
@@ -886,6 +917,20 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       } else {
         // No group member matches → abandon the grouping and filter fresh.
         clearReRankAnchors();
+        setFilterCategories(new Set([category]));
+      }
+      return;
+    }
+
+    // "Responses to" × category: same STACK/SWITCH model as grouping. A category
+    // that can coexist with the passage stacks as an intersection; one that can't
+    // replaces the passage filter (and filters fresh by the category).
+    if (responseFilter !== null) {
+      const mode = decideResponseFilterMode(responseFilter, relatedStacks, active, category);
+      if (mode === 'STACK') {
+        setFilterCategories(new Set(Array.from(active).concat([category])));
+      } else {
+        clearResponseFilter();
         setFilterCategories(new Set([category]));
       }
       return;
@@ -1046,10 +1091,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       // Span filter — keep stacks whose relations overlap the clicked span's
       // focus region ("focus on the N related posts linked to this span"). This
       // must run when UNGROUPED too — a span click filters without grouping.
-      if (filterFocusSpan !== null) {
+      if (responseFilter !== null) {
         result = result.filter(s =>
           (s.topPost.relations ?? []).some(r =>
-            r.focusStart < filterFocusSpan!.end && filterFocusSpan!.start < r.focusEnd));
+            r.focusStart < responseFilter!.end && responseFilter!.start < r.focusEnd));
       }
       return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic, groupMemberIds };
     }
@@ -1173,16 +1218,16 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     }
 
     // D2: span filter — keep only stacks whose relations overlap the clicked focus-post span
-    if (filterFocusSpan !== null) {
+    if (responseFilter !== null) {
       result = result.filter(s =>
         (s.topPost.relations ?? []).some(r =>
-          r.focusStart < filterFocusSpan.end && filterFocusSpan.start < r.focusEnd
+          r.focusStart < responseFilter.end && responseFilter.start < r.focusEnd
         )
       );
     }
 
     return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic, groupMemberIds };
-  }, [relatedStacks, filterCategories, filterFocusSpan, reRankAnchorIds, shownByAnchor, anchoredRangeByPost]);
+  }, [relatedStacks, filterCategories, responseFilter, reRankAnchorIds, shownByAnchor, anchoredRangeByPost]);
 
   // E: keep prevDisplayStacksRef up-to-date so the next anchor activation can
   // capture the order the user currently sees as the new baseOrder.
@@ -1204,14 +1249,14 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   /**
    * D3: shortest common related text — the narrowest focus-post substring that
    * all currently-visible stacks' relevant relations collectively cover.
-   * Only computed when filterFocusSpan is active.
+   * Only computed when responseFilter is active.
    */
   const shortestCommonText = useMemo<string | null>(() => {
-    if (!filterFocusSpan) return null;
+    if (!responseFilter) return null;
     if (displayStacks.length === 0) return null;
 
-    let maxStart = filterFocusSpan.start;
-    let minEnd = filterFocusSpan.end;
+    let maxStart = responseFilter.start;
+    let minEnd = responseFilter.end;
 
     for (const s of displayStacks) {
       const rels = (s.topPost.relations ?? []).filter(r =>
@@ -1219,7 +1264,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       );
       for (const r of rels) {
         // Only narrow on relations that actually overlap the span filter
-        if (r.focusStart < filterFocusSpan.end && filterFocusSpan.start < r.focusEnd) {
+        if (r.focusStart < responseFilter.end && responseFilter.start < r.focusEnd) {
           if (r.focusStart > maxStart) maxStart = r.focusStart;
           if (r.focusEnd < minEnd) minEnd = r.focusEnd;
         }
@@ -1229,16 +1274,16 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     let text: string;
     if (
       maxStart < minEnd &&
-      maxStart >= filterFocusSpan.start &&
-      minEnd <= filterFocusSpan.end
+      maxStart >= responseFilter.start &&
+      minEnd <= responseFilter.end
     ) {
-      text = filterFocusSpan.text.slice(maxStart - filterFocusSpan.start, minEnd - filterFocusSpan.start);
+      text = responseFilter.text.slice(maxStart - responseFilter.start, minEnd - responseFilter.start);
     } else {
-      text = filterFocusSpan.text; // fallback: show the full clicked span
+      text = responseFilter.text; // fallback: show the full clicked span
     }
 
     return text.length > 60 ? text.slice(0, 60) + '…' : text;
-  }, [displayStacks, filterFocusSpan, filterCategories]);
+  }, [displayStacks, responseFilter, filterCategories]);
 
   const EDGE_HOVER_HEIGHT = 28;
 
@@ -1438,8 +1483,17 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   // its full view, and scrolling between focus posts. useLayoutEffect so the
   // restore runs before useUrlSync's passive ?fc/?fs handling — a shared filter
   // link still wins, while ordinary navigation restores the saved panel.
+  // Related-panel scroll persistence (mirrors the filter persistence above):
+  // remember the aside's scroll offset per focus post and restore it when
+  // returning — scrolling between focus posts, or entering/leaving a post's full
+  // view. panelFocusIdRef tracks whose scroll the live listener is saving;
+  // restoringPanelScrollRef suppresses the listener during a programmatic restore.
+  const panelFocusIdRef = useRef<string | null>(null);
+  const restoringPanelScrollRef = useRef(false);
+
   useLayoutEffect(() => {
     const focusId = sourcePostId ?? ctxActivePostId ?? null;
+    const focusChanged = panelFocusIdRef.current !== focusId;
     setPanelFocus(focusId);
     setHoveredCardId(null);
     setHoveredIndex(null);
@@ -1451,7 +1505,37 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     baseOrderRef.current = [];
     activeAnchorIdRef.current = null;
     prevDisplayStacksRef.current = [];
+
+    // Restore the incoming focus's scroll only on a real focus switch (not on a
+    // same-focus data refresh, which would yank the user's current scroll).
+    if (focusChanged) {
+      restoringPanelScrollRef.current = true;
+      panelFocusIdRef.current = focusId;
+      const saved = getPanelScroll(focusId);
+      requestAnimationFrame(() => {
+        const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+        if (aside) aside.scrollTop = saved;
+        requestAnimationFrame(() => { restoringPanelScrollRef.current = false; });
+      });
+    }
   }, [relatedStacks, sourcePostId, ctxActivePostId]);
+
+  // Live-save the aside scroll offset for the current focus post on every scroll
+  // (rAF-throttled), so the latest position is always captured before a switch.
+  useEffect(() => {
+    const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+    if (!aside) return;
+    let raf = 0;
+    const onScroll = () => {
+      if (restoringPanelScrollRef.current || raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        savePanelScroll(panelFocusIdRef.current, aside.scrollTop);
+      });
+    };
+    aside.addEventListener('scroll', onScroll, { passive: true });
+    return () => { aside.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf); };
+  }, []);
 
   // Touch: tap-outside clears the active state so highlights/sidebar reset.
   useEffect(() => {
@@ -1481,6 +1565,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     grouped && chipHovered !== null && !filterCategories.has(chipHovered)
       ? decideGroupFilterMode(groupMemberIds, relatedStacks, filterCategories, chipHovered) === 'SWITCH'
       : false;
+  // Same STACK/SWITCH preview for the "Responses to" passage filter: hovering a
+  // category chip that can't coexist with the passage will REPLACE it. (Grouping
+  // takes precedence, so only preview this when not grouped.)
+  const responseHoveredWouldReplace =
+    !grouped && responseFilter !== null && chipHovered !== null && !filterCategories.has(chipHovered)
+      ? decideResponseFilterMode(responseFilter, relatedStacks, filterCategories, chipHovered) === 'SWITCH'
+      : false;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -1503,8 +1594,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   category={category}
                   count={count}
                   active={filterCategories.has(category)}
-                  previewActive={(previewMode !== 'none' || grouped) && category === chipHovered}
-                  previewDim={(previewMode === 'switch' || hoveredWouldDropGroup) && filterCategories.has(category)}
+                  previewActive={(previewMode !== 'none' || grouped || responseFilter !== null) && category === chipHovered}
+                  previewDim={(previewMode === 'switch' || hoveredWouldDropGroup || responseHoveredWouldReplace) && filterCategories.has(category)}
                   onClick={() => handleFilterChipClick(category)}
                   onMouseEnter={() => setChipHovered(category)}
                   onMouseLeave={() => setChipHovered(null)}
@@ -1515,35 +1606,41 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
         )}
 
         <Text size="xs" c="dimmed" mb={4}>
-          {filterCategories.size > 0 && filterFocusSpan !== null
-            ? `${displayStacks.length} post${displayStacks.length !== 1 ? 's' : ''} matching category + span`
-            : filterFocusSpan !== null
-            ? `${displayStacks.length} post${displayStacks.length !== 1 ? 's' : ''} matching span`
+          {filterCategories.size > 0 && responseFilter !== null
+            ? `${displayStacks.length} post${displayStacks.length !== 1 ? 's' : ''} matching category, responding to passage`
+            : responseFilter !== null
+            ? `${displayStacks.length} post${displayStacks.length !== 1 ? 's' : ''} responding to this passage`
             : filterCategories.size > 0
             ? `${displayStacks.length} ${Array.from(filterCategories).map(c => CATEGORY_LABELS[c] ?? c).join(' + ')} post${displayStacks.length !== 1 ? 's' : ''}`
             : `${displayStacks.length} posts across all categories`}
         </Text>
 
-        {/* D2: span filter active indicator */}
-        {filterFocusSpan !== null && (
+        {/* "Responses to" passage filter active indicator. Mirrors the grouping
+            pill: dims + turns red while hovering a category chip that would
+            REPLACE the passage filter, so the consequence is visible pre-click. */}
+        {responseFilter !== null && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px',
-            background: '#f1f5f9', borderRadius: '6px', marginBottom: '0.5rem',
-            border: '1px solid #cbd5e1', flexWrap: 'wrap',
+            background: responseHoveredWouldReplace ? '#fdecea' : '#f1f5f9',
+            borderRadius: '6px', marginBottom: '0.5rem',
+            border: `1px solid ${responseHoveredWouldReplace ? '#f5c6cb' : '#cbd5e1'}`,
+            flexWrap: 'wrap',
+            opacity: responseHoveredWouldReplace ? 0.6 : 1,
+            transition: 'opacity 120ms ease, background 120ms ease',
           }}>
-            <Text size="xs" c="#5a71a8" fw={600} style={{ fontSize: '11px', flexShrink: 0 }}>
-              Span:
+            <Text size="xs" c={responseHoveredWouldReplace ? '#c0392b' : '#5a71a8'} fw={600} style={{ fontSize: '11px', flexShrink: 0 }}>
+              {responseHoveredWouldReplace ? 'Will replace responses:' : 'Responses to:'}
             </Text>
             <Text size="xs" c="#64748b" style={{
               fontSize: '10px', fontWeight: 500,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               maxWidth: '140px', fontStyle: 'italic',
             }}>
-              "{filterFocusSpan.text.length > 35 ? filterFocusSpan.text.slice(0, 35) + '…' : filterFocusSpan.text}"
+              "{responseFilter.text.length > 35 ? responseFilter.text.slice(0, 35) + '…' : responseFilter.text}"
             </Text>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); clearFilterFocusSpan(); }}
+              onClick={(e) => { e.stopPropagation(); clearResponseFilter(); }}
               // A5: 24px minimum hit target. Larger transparent zone around the
               // glyph so the close button can actually be clicked reliably.
               style={{
@@ -1556,7 +1653,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#475569'; (e.currentTarget as HTMLElement).style.background = '#e2e8f0'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#94a3b8'; (e.currentTarget as HTMLElement).style.background = 'none'; }}
-              aria-label="Clear span filter"
+              aria-label="Clear responses-to filter"
             >×</button>
           </div>
         )}
@@ -1708,7 +1805,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               // re-ranks/groups the panel around that card's topic (with the
               // "Grouped by" pill, group header/footer, connector lines and the
               // F-indicator). This is intentionally DISTINCT from the focus-post
-              // span click, which applies the overlap filter (filterFocusSpan).
+              // span click, which applies the overlap filter (responseFilter).
               onRangeClick: (ri) => handleToggleAnchor(stack.topPost.id, ri),
               otherCountByTopic: (topic: string) => {
                 const total = topicTotal.get(topic) ?? 0;
@@ -2009,8 +2106,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   // (bottom-edge zone, stack-shadow layers). Without this guard
                   // the cross-highlight/dim breaks every time the cursor brushes
                   // those zones mid-interaction.
-                  const next = (e.relatedTarget as Node | null);
-                  if (next && (e.currentTarget as HTMLElement)
+                  // relatedTarget can be null OR a non-Node EventTarget (e.g. the
+                  // window when the cursor leaves the viewport) — Node.contains()
+                  // throws on anything that isn't a Node, so guard with instanceof.
+                  const next = e.relatedTarget;
+                  if (next instanceof Node && (e.currentTarget as HTMLElement)
                       .closest('[data-related-card]')
                       ?.contains(next)) {
                     return;
