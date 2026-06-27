@@ -11,7 +11,7 @@ import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import { notifications } from '@mantine/notifications';
 import { copyLink } from '../utils/share';
 import { useRelatedStacks } from '../app/(shell)/related-stacks-context';
-import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, setFilterFocusSpan, clearFilterFocusSpan, setPanelFocus, useHighlightStore } from '../utils/highlightStore';
+import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, clearFilterFocusSpan, setPanelFocus, useHighlightStore } from '../utils/highlightStore';
 import { reorderForAnchor } from '../utils/reorderForAnchor';
 import type { Relation } from '../types/PostType';
 import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
@@ -1704,19 +1704,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               activeTopic: activeAnchorTopic,
               inActiveBlock,
               onRangeHover: debouncedRangeHover,
-              onRangeClick: (ri) => {
-                // Spec: clicking a span on a related card FILTERS to the related
-                // posts linked to that span (its focus-post region) — not the old
-                // "group by topic". Toggling the same span clears the filter.
-                const rel = stack.topPost.relations?.[ri];
-                if (!rel) return;
-                if (filterFocusSpan && filterFocusSpan.start === rel.focusStart && filterFocusSpan.end === rel.focusEnd) {
-                  clearFilterFocusSpan();
-                  return;
-                }
-                const plain = (stack.topPost.content || '').replace(/<[^>]*>/g, '');
-                setFilterFocusSpan({ start: rel.focusStart, end: rel.focusEnd, text: plain.slice(rel.contentStart, rel.contentEnd) });
-              },
+              // Clicking a span on a related card toggles a TOPIC ANCHOR: it
+              // re-ranks/groups the panel around that card's topic (with the
+              // "Grouped by" pill, group header/footer, connector lines and the
+              // F-indicator). This is intentionally DISTINCT from the focus-post
+              // span click, which applies the overlap filter (filterFocusSpan).
+              onRangeClick: (ri) => handleToggleAnchor(stack.topPost.id, ri),
               otherCountByTopic: (topic: string) => {
                 const total = topicTotal.get(topic) ?? 0;
                 const hasSelf = postTopics.get(stack.topPost.id)?.has(topic) ? 1 : 0;

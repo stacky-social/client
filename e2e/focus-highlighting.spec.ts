@@ -44,6 +44,7 @@ const DRIVER = `
       },
       enter: (i, withMark) => { const c = window.__hl.cardFor(i); if (c.cp && c.cp.onMouseEnter) c.cp.onMouseEnter(mkEvt(c.div)); if (withMark && c.mp && c.mp.onMouseEnter) c.mp.onMouseEnter(mkEvt(c.mark)); return !!c.cp; },
       leave: (i) => { const c = window.__hl.cardFor(i); if (c.mp && c.mp.onMouseLeave) c.mp.onMouseLeave(mkEvt(c.div)); if (c.cp && c.cp.onMouseLeave) c.cp.onMouseLeave(mkEvt(c.div)); },
+      clickCardSpan: (i) => { const mark = aside.querySelectorAll('mark')[i]; const r = mark.getBoundingClientRect(); mark.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: r.left + 2, clientY: r.top + 2 })); },
     };
     return window.__hl.cardMarkCount();
   })()
@@ -74,17 +75,17 @@ test.describe('Focus-post highlighting', () => {
   test('#1/#2 cross-highlight emphasis is non-reflowing faux-bold and lightly coloured', async ({ page }) => {
     await page.goto(DETAIL_URL);
     await expect(page.locator('[data-related-card]').first()).toBeVisible();
-    const count = await page.evaluate(DRIVER);
+    const count = (await page.evaluate(DRIVER)) as number;
     expect(count).toBeGreaterThan(0);
 
     // Drive card+mark hover until a relation with an optional bold sub-span lights
     // up (not every relation carries a focusComment).
     let fcFound = false;
     for (let i = 0; i < Math.min(count, 12) && !fcFound; i++) {
-      await page.evaluate((idx) => (window as any).__hl.enter(idx, true), i);
+      await page.evaluate((idx: number) => (window as any).__hl.enter(idx, true), i);
       await page.waitForTimeout(350); // onRangeHover → store index is debounced ~200ms
       fcFound = (await page.locator('[data-testid="focus-reveal"] span[data-fc]').count()) > 0;
-      if (!fcFound) await page.evaluate((idx) => (window as any).__hl.leave(idx), i);
+      if (!fcFound) await page.evaluate((idx: number) => (window as any).__hl.leave(idx), i);
     }
     expect(fcFound, 'a related-card span hover should emphasise a focus sub-span').toBeTruthy();
 
@@ -119,7 +120,7 @@ test.describe('Focus-post highlighting', () => {
     await expect(focus).toBeVisible();
     await expect(page.getByText('Read more').first()).toBeVisible();
 
-    const count = await page.evaluate(DRIVER);
+    const count = (await page.evaluate(DRIVER)) as number;
     const collapsedH = await focus.evaluate((el) => Math.round(el.getBoundingClientRect().height));
 
     // Drive card hover until one links to a region below the fold and the post
@@ -127,21 +128,50 @@ test.describe('Focus-post highlighting', () => {
     let hoveredCard = -1;
     let expandedH = collapsedH;
     for (let i = 0; i < Math.min(count, 12); i++) {
-      await page.evaluate((idx) => (window as any).__hl.enter(idx, false), i);
+      await page.evaluate((idx: number) => (window as any).__hl.enter(idx, false), i);
       await page.waitForTimeout(300);
       expandedH = await focus.evaluate((el) => Math.round(el.getBoundingClientRect().height));
       if (expandedH > collapsedH + 20) { hoveredCard = i; break; }
-      await page.evaluate((idx) => (window as any).__hl.leave(idx), i);
+      await page.evaluate((idx: number) => (window as any).__hl.leave(idx), i);
     }
     expect(expandedH, 'a below-fold highlight should auto-expand the post').toBeGreaterThan(collapsedH + 20);
     await expect(page.getByText('Read less').first()).toBeVisible();
 
     // Leaving the card restores the collapsed state (we only auto-collapse what we
     // auto-expanded).
-    await page.evaluate((idx) => (window as any).__hl.leave(idx), hoveredCard);
+    await page.evaluate((idx: number) => (window as any).__hl.leave(idx), hoveredCard);
     await expect
       .poll(async () => focus.evaluate((el) => Math.round(el.getBoundingClientRect().height)), { timeout: 8000 })
       .toBeLessThanOrEqual(collapsedH + 20);
     await expect(page.getByText('Read more').first()).toBeVisible();
+  });
+
+  test('#5 related-card span click groups the panel (anchor) — distinct from the focus-post filter', async ({ page }) => {
+    await page.goto(DETAIL_URL);
+    await expect(page.locator('[data-related-card]').first()).toBeVisible();
+    await page.evaluate(DRIVER);
+
+    // The two span clicks must do DIFFERENT things:
+    //   - related-card span  → toggle a TOPIC ANCHOR (panel groups, "Grouped by:" pill)
+    //   - focus-post span     → apply the overlap FILTER (clicked span turns dark)
+    // The regression collapsed both onto the focus-post filter.
+    const groupedBy = page.getByText('Grouped by:');
+    await expect(groupedBy).toHaveCount(0);
+
+    // Related-card span click → panel groups.
+    await page.evaluate(() => (window as any).__hl.clickCardSpan(0));
+    await expect(groupedBy.first()).toBeVisible();
+
+    // Clicking the same span again toggles the grouping off.
+    await page.evaluate(() => (window as any).__hl.clickCardSpan(0));
+    await expect(groupedBy).toHaveCount(0);
+
+    // The focus-post span click is the OTHER mechanism: it must NOT group, and it
+    // turns the clicked span dark (the filter).
+    await page.locator(focusMarks).first().click();
+    await expect(groupedBy).toHaveCount(0);
+    await expect
+      .poll(async () => page.locator(focusMarks).first().evaluate((el) => getComputedStyle(el).backgroundColor))
+      .toBe(DARK);
   });
 });
