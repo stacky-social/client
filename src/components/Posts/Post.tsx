@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
@@ -101,7 +101,10 @@ function boldFocusCommentRange(container: HTMLElement, fcStart: number, fcEnd: n
     range.setEnd(eN, eO);
     const b = document.createElement('span');
     b.setAttribute('data-fc', '');
-    b.style.fontWeight = '700';
+    // Non-reflowing faux-bold: matches the related cards' technique exactly so the
+    // emphasis never changes the glyph metrics (real font-weight widens the text and
+    // reflows the surrounding article on hover). text-shadow thickens in place.
+    b.style.textShadow = '0 0 0.7px currentColor, 0 0 0.7px currentColor';
     range.surroundContents(b);
   } catch { /* range crosses an element boundary — skip the bold */ }
 }
@@ -227,7 +230,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   className?: string;
   isTextExpanded: boolean;
   focusRelations?: Relation[];
-}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [] }, ref) {
+  /** Ask the parent to expand/collapse via its Read-more state so a highlight
+   *  below the clamp becomes visible. The parent only auto-collapses what it
+   *  auto-expanded. */
+  onAutoReveal?: (reveal: boolean) => void;
+}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [], onAutoReveal }, ref) {
   const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, filterFocusSpan } = useHighlightStore();
   // Related stacks of the active (focus) post — used to count "N related posts"
   // for the click-to-filter affordance. Mirrored to a ref so the DOM hover
@@ -298,27 +305,24 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // D1/D2: stable container ID for scoped CSS and event delegation
   const containerIdRef = useRef<string>(`ahc-${Math.random().toString(36).slice(2)}`);
 
-  // ── Expand-to-reveal ──────────────────────────────────────────────────────
-  // When a mark is below the 5-line clamp, smoothly grow the box downward.
-  // Collapses with a matching animation when marks become invisible.
-  //
-  // Phase: 'normal' → 'expanded' → 'collapsing' → 'normal'
-  //   expanded:   display:block, maxHeight = revealHeight  (large)
-  //   collapsing: display:block, maxHeight = clamp height  (CSS transition plays)
-  //   normal:     -webkit-box with line-clamp              (after timeout)
-  const [revealHeight, setRevealHeight] = useState<number | null>(null);
-  const [collapsing, setCollapsing] = useState(false);
-  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ── Expand-to-reveal (collapsed fold) ─────────────────────────────────────
+  // When a highlighted mark sits below the "Read more" clamp, ask the PARENT to
+  // expand the post via its existing isTextExpanded (Read-more) render. We drive
+  // that state instead of measuring a target height ourselves: lifting the clamp
+  // to measure mis-reports height badly here because nested <mark>s under
+  // display:block inflate the scrollHeight (~6×), so the old manual revealHeight
+  // overshot. The Read-more layout already renders the natural expanded height
+  // correctly, so reuse it. The parent only auto-collapses what WE auto-expanded;
+  // a manual Read-more is left untouched (see handleAutoReveal in the parent).
 
-  // EXPAND: useLayoutEffect fires synchronously when html changes (marks appear).
-  // Triggers on any anyMarkVisuallyActive → true transition (cross-highlight OR dwell OR filter).
+  // EXPAND: when a relevant mark is clipped below the fold, request reveal.
   useLayoutEffect(() => {
     const el = innerRef.current;
-    if (!el || isTextExpanded || !anyMarkVisuallyActive) return;
+    if (!el || isTextExpanded || !anyMarkVisuallyActive || !onAutoReveal) return;
 
-    // Reveal only the marks we're actually lighting up: every region the hovered
+    // Only consider the marks we're actually lighting up: every region the hovered
     // related card links to (by overlap), else the filter/dwell mark. Avoids
-    // expanding to the whole article on every sidebar hover.
+    // expanding the whole article on every sidebar hover.
     let marks: HTMLElement[];
     if (crossActive && hoveredRelations) {
       const rels = hoveredRelations;
@@ -334,42 +338,17 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     }
     if (marks.length === 0) return;
 
-    const boxRect = el.getBoundingClientRect();
-    let lowestBottom = 0;
-    for (const m of marks) {
-      const r = m.getBoundingClientRect();
-      const relBottom = r.bottom - boxRect.top;
-      if (relBottom > lowestBottom) lowestBottom = relBottom;
-    }
+    // A mark whose bottom falls past the clamped box bottom is hidden by the fold.
+    const boxBottom = el.getBoundingClientRect().bottom;
+    const clipped = marks.some((m) => m.getBoundingClientRect().bottom > boxBottom + 1);
+    if (clipped) onAutoReveal(true);
+  }, [html, isTextExpanded, anyMarkVisuallyActive, crossActive, hoveredRelations, visibleMarkIdx, onAutoReveal]);
 
-    const PADDING = 24;
-    const needed = lowestBottom + PADDING;
-    const clampHeight = el.clientHeight;
-
-    if (needed > clampHeight) {
-      // Cancel any pending collapse — we're re-expanding
-      if (collapseTimerRef.current) { clearTimeout(collapseTimerRef.current); collapseTimerRef.current = null; }
-      setCollapsing(false);
-      setRevealHeight(Math.min(needed, el.scrollHeight));
-    }
-  }, [html, isTextExpanded, anyMarkVisuallyActive, crossActive, hoveredRelations, visibleMarkIdx]);
-
-  // COLLAPSE: when marks become invisible, start the collapse animation.
-  // revealHeight stays set (keeping display:block) while CSS transition plays.
-  // After 320ms, clear everything → snap to normal -webkit-box style.
+  // COLLAPSE: when nothing is highlighted anymore, restore the collapsed state —
+  // but only if WE auto-expanded it (the parent guards a manual Read-more).
   useEffect(() => {
-    if (!anyMarkVisuallyActive && revealHeight !== null) {
-      setCollapsing(true);
-      collapseTimerRef.current = setTimeout(() => {
-        setCollapsing(false);
-        setRevealHeight(null);
-        collapseTimerRef.current = null;
-      }, 320);
-    }
-    return () => {
-      if (collapseTimerRef.current) { clearTimeout(collapseTimerRef.current); collapseTimerRef.current = null; }
-    };
-  }, [anyMarkVisuallyActive]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!anyMarkVisuallyActive && onAutoReveal) onAutoReveal(false);
+  }, [anyMarkVisuallyActive, onAutoReveal]);
 
   // Spec hover model (CSS-driven via classes — never re-parses the article):
   //  · enter the post       → faint ALL its spans (.fp-hovering on the container)
@@ -489,7 +468,10 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
       if (level2 && a < level2.focusEnd && level2.focusStart < b) {
         const c = CROSS_HIGHLIGHT_CATEGORY_COLORS[level2.category];
-        m.style.backgroundColor = c ? blendHex(c.bg, c.border, 0.30) : '#cbd5e1';
+        // L2 = a stronger shade of the SAME category colour, but only lightly toward
+        // the saturated border (0.15, was 0.30 which read as too dark). Still clearly
+        // stronger than the L1 faint (blend toward white), still pastel — not dark.
+        m.style.backgroundColor = c ? blendHex(c.bg, c.border, 0.15) : '#cbd5e1';
         return;
       }
       const matched = hoveredRelations?.find((r) => a < r.focusEnd && r.focusStart < b);
@@ -550,8 +532,14 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     //   .fp-hovering mark   → faint (post hovered)
     //   mark.fp-dark        → dark (span union under the cursor)
     //   active filter span  → neutral grey
+    // Clicked/filtered span stays VISIBLY DARK. This is a stable stylesheet rule
+    // keyed on data-range-id (which lives in the HTML), so it survives any re-commit
+    // and paints the final colour on freshly committed marks with no transition
+    // replay — i.e. no blink and no "turns off until you move the mouse". Matches the
+    // direct-hover .fp-dark shade so clicking a hovered span is seamless (it simply
+    // stays as dark as it already was) rather than dropping to a lighter filter tint.
     const filterRule = visibleMarkIdx !== null
-      ? `#${id} mark[data-range-id="${visibleMarkIdx}"] { background: rgba(100,116,139,0.34) !important; }`
+      ? `#${id} mark[data-range-id="${visibleMarkIdx}"] { background: rgb(193,199,209) !important; }`
       : '';
     styleEl.textContent =
       `#${id} mark { background: rgba(100,116,139,0); cursor: pointer; border-radius: 3px; transition: background 150ms ease; }` +
@@ -574,39 +562,9 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     };
   }, []);
 
-  // Build the merged style
-  const TRANSITION = 'max-height 300ms ease';
-  let mergedStyle: React.CSSProperties;
-
-  if (revealHeight && !collapsing) {
-    // EXPANDED: display:block, large maxHeight
-    mergedStyle = {
-      ...style,
-      display: 'block',
-      WebkitLineClamp: undefined,
-      WebkitBoxOrient: undefined,
-      overflow: 'hidden',
-      maxHeight: `${revealHeight}px`,
-      textOverflow: 'clip',
-      transition: TRANSITION,
-    };
-  } else if (revealHeight && collapsing) {
-    // COLLAPSING: KEEP display:block + revealHeight in DOM (so browser knows
-    // the starting maxHeight for the transition), but target the small height.
-    mergedStyle = {
-      ...style,
-      display: 'block',
-      WebkitLineClamp: undefined,
-      WebkitBoxOrient: undefined,
-      overflow: 'hidden',
-      maxHeight: style.maxHeight ?? 'calc(1.5em * 5)',
-      textOverflow: 'ellipsis',
-      transition: TRANSITION,
-    };
-  } else {
-    // NORMAL: -webkit-box with line-clamp
-    mergedStyle = style;
-  }
+  // Expansion is now owned by the parent's isTextExpanded (Read-more) render —
+  // which already supplies the correct clamp/expanded style via the `style` prop.
+  const mergedStyle = style;
 
   return (
     <div
@@ -693,6 +651,10 @@ function Post({
   const isActive = activePostId === id;
   const [isExpanded, setIsExpanded] = useState(isActive);
   const [isTextExpanded, setIsTextExpanded] = useState(false);
+  // Mirror for handleAutoReveal so it can read the latest without a stale closure
+  // or impure state-updater (see the note there).
+  const isTextExpandedRef = useRef(isTextExpanded);
+  isTextExpandedRef.current = isTextExpanded;
   const [hovered, setHovered] = useState(false);
 
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>(initialCard ? [initialCard] : []);
@@ -951,9 +913,31 @@ function Post({
     onStackIconClick(newRelatedStacks, id, adjustedPosition);
   };
 
+  // Auto-reveal: the active post's highlight layer asks us to expand when a
+  // highlighted span sits below the Read-more fold. We track whether the current
+  // expansion was ours (auto) vs the user's click, so we only collapse our own.
+  // NB: the ref bookkeeping lives OUTSIDE setIsTextExpanded — a state updater must
+  // be pure, and React StrictMode double-invokes it (which would replay the ref
+  // mutation and flip the result back). The guards make this idempotent instead.
+  const autoExpandedRef = useRef(false);
+  const handleAutoReveal = useCallback((reveal: boolean) => {
+    if (reveal) {
+      // Expand only if nothing has it open yet; remember it was us.
+      if (!autoExpandedRef.current && !isTextExpandedRef.current) {
+        autoExpandedRef.current = true;
+        setIsTextExpanded(true);
+      }
+    } else if (autoExpandedRef.current) {
+      // Collapse only what WE auto-opened; a manual Read-more is left alone.
+      autoExpandedRef.current = false;
+      setIsTextExpanded(false);
+    }
+  }, []);
+
   const handleExpandText = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     event.preventDefault();
+    autoExpandedRef.current = false; // user now owns the expanded state
     setIsTextExpanded(true);
     setIsOverflowing(false);
   };
@@ -961,6 +945,7 @@ function Post({
   const handleCollapseText = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     event.preventDefault();
+    autoExpandedRef.current = false;
     setIsTextExpanded(false);
     // isOverflowing will be recalculated by the useEffect on next render
   };
@@ -1059,6 +1044,7 @@ function Post({
           rawText={text}
           isTextExpanded={isTextExpanded}
           focusRelations={focusRelations}
+          onAutoReveal={handleAutoReveal}
           className={isTextExpanded ? undefined : 'postClampedText'}
           style={{
             display: isTextExpanded ? 'block' : '-webkit-box',
