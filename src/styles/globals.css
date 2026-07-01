@@ -95,3 +95,22 @@ body {
 .aside-scroll::-webkit-scrollbar-thumb:hover {
     background: rgba(28, 43, 74, 0.5);
 }
+
+/* ── Focus-post highlight marks ──────────────────────────────────────────────
+   Neutral-grey, hover-revealed spans (rendered by ActiveHighlightedContent).
+   Global and keyed on the stable data-testid rather than a per-instance injected
+   <style> whose random container id can mismatch the rendered div — which left
+   the browser's default <mark> yellow showing through. The per-mark filter rule
+   (the persistent dark clicked span) is still injected per active post. */
+[data-testid="focus-reveal"] mark {
+    background: rgba(100, 116, 139, 0);
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 150ms ease;
+}
+[data-testid="focus-reveal"].fp-hovering mark {
+    background: rgb(236, 238, 241);
+}
+[data-testid="focus-reveal"] mark.fp-dark {
+    background: rgb(193, 199, 209);
+}

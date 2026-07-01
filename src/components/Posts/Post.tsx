@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, useId } from 'react';
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
@@ -320,7 +320,10 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   };
 
   // D1/D2: stable container ID for scoped CSS and event delegation
-  const containerIdRef = useRef<string>(`ahc-${Math.random().toString(36).slice(2)}`);
+  // Stable across SSR + client hydration. Math.random() here caused a hydration
+  // mismatch (server/client generated different ids); useId() is deterministic.
+  // Strip non-alphanumerics so the id stays valid inside the `#${id}` CSS rules below.
+  const containerIdRef = useRef<string>(`ahc-${useId().replace(/[^a-zA-Z0-9]/g, '')}`);
 
   // ── Expand-to-reveal (collapsed fold) ─────────────────────────────────────
   // When a highlighted mark sits below the "Read more" clamp, ask the PARENT to
@@ -583,19 +586,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     // Only the FOCUSED post shows the persistent filter/dwell mark. On non-focused
     // feed posts visibleMarkIdx could coincidentally match the focused post's
     // filter offsets; gate on `active` so it never lights the wrong post.
-    const filterRule = active && visibleMarkIdx !== null
+    // Base + hover mark styles now live in globals.css (keyed on data-testid) so a
+    // random container-id mismatch can't leave the UA-default <mark> yellow showing
+    // through. This injected rule is ONLY the persistent filter mark for the
+    // focused post's clicked span (per-instance because it targets a data-range-id).
+    styleEl.textContent = active && visibleMarkIdx !== null
       ? `#${id} mark[data-range-id="${visibleMarkIdx}"] { background: rgb(193,199,209) !important; }`
       : '';
-    styleEl.textContent =
-      `#${id} mark { background: rgba(100,116,139,0); cursor: pointer; border-radius: 3px; transition: background 150ms ease; }` +
-      // Direct hover on the focus post = neutral grey, two levels. SOLID (opaque)
-      // so overlapping/nested marks don't compound into darker bands: faint grey
-      // on the whole post, a darker grey on just the span union under the cursor.
-      `#${id}.fp-hovering mark { background: rgb(236,238,241); }` +
-      `#${id} mark.fp-dark { background: rgb(193,199,209); }` +
-      // The related-card cross-highlight (category colour + bold) is applied as
-      // inline styles per mark in the layout effect above, so no rule here.
-      filterRule;
   }, [visibleMarkIdx, active]);
 
   // Cleanup scoped style on unmount
