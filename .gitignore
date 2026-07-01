@@ -148,4 +148,5 @@ package-lock.json
 /docs/superpowers/
 /firebase-debug.log
 
-testsprite_tests/tmp/config.json
+# TestSprite run artifacts: regenerated per run, and config.json holds an API key.
+testsprite_tests/tmp/
