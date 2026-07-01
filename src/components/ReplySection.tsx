@@ -140,7 +140,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontFamily: 'Roboto, sans-serif' }}>
             <Group>
-                <Avatar src={currentUser?.avatar || 'defaultAvatarUrl'} alt="Current User" radius="xl" />
+                <Avatar src={currentUser?.avatar || undefined} alt="Current User" radius="xl" />
                 <TextInput
                     placeholder="Post your reply"
                     variant="unstyled"

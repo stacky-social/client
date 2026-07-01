@@ -2124,6 +2124,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               <Paper
                 ref={(el) => { paperRefs.current[index] = el; if (isHighlighted) highlightCardRef.current = el; }}
                 data-post-id={stack.topPost.id}
+                onClick={(e) => handleCardClick(e, stack.topPost.id, stack.stackId)}
                 onMouseEnter={() => {
                   if (isTouch) return;
                   setHoveredIndex(null);
@@ -2333,7 +2334,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   );
                 })()}
 
-                <UnstyledButton onClick={() => handleNavigate(stack.topPost.id, stack.stackId)} style={{ width: '100%' }}>
+                <UnstyledButton onClick={(e) => { e.stopPropagation(); handleNavigate(stack.topPost.id, stack.stackId); }} style={{ width: '100%' }}>
                   <Group style={{ paddingLeft: '1rem' }}>
                     <UnstyledButton onClick={(e) => handleNavigateToUser(e, stack.topPost.account)} className="avatarHoverDim">
                       <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
@@ -2350,7 +2351,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
                 {/* Content with smart windowing + highlight marks on hover */}
                 <div
-                  onClick={(e) => handleCardClick(e, stack.topPost.id, stack.stackId)}
+                  onClick={(e) => { e.stopPropagation(); handleCardClick(e, stack.topPost.id, stack.stackId); }}
                   style={{ paddingLeft: '54px', paddingRight: '1rem', cursor: 'pointer' }}
                 >
                   {/* D3: shortest common related text label — only when span filter is active */}
