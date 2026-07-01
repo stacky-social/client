@@ -214,12 +214,20 @@ export function setPanelFocus(focusId: string | null): void {
   }
   currentPanelFocusId = focusId;
   const saved = focusId ? panelStateByFocus.get(focusId) : undefined;
+  // A span click on a non-focused post focuses it AND filters by that span. The
+  // filter is stashed as "pending" and applied here — after the saved-panel
+  // restore that would otherwise wipe it on the focus switch.
+  let incomingResponseFilter = saved ? saved.responseFilter : null;
+  if (pendingResponseFilter && pendingResponseFilter.postId === focusId) {
+    incomingResponseFilter = pendingResponseFilter.span;
+    pendingResponseFilter = null;
+  }
   state = {
     ...state,
     filterCategories: saved ? new Set(saved.filterCategories) : new Set(),
     reRankAnchorIds: saved ? [...saved.reRankAnchorIds] : [],
     anchoredRangeByPost: saved ? { ...saved.anchoredRangeByPost } : {},
-    responseFilter: saved ? saved.responseFilter : null,
+    responseFilter: incomingResponseFilter,
     // transient view state never persists across a focus switch
     hoveredPostId: null,
     hoveredRelations: null,
@@ -242,6 +250,15 @@ export function clearResponseFilter(): void {
   if (state.responseFilter === null) return;
   state = { ...state, responseFilter: null };
   notify();
+}
+
+// Span clicked on a NON-focused post: that post is about to become the focus, so
+// stash the requested "Responses to" span and let setPanelFocus apply it once the
+// focus switches (it would otherwise be wiped by the saved-panel restore).
+let pendingResponseFilter: { postId: string; span: { start: number; end: number; text: string } } | null = null;
+
+export function setPendingResponseFilter(postId: string, span: { start: number; end: number; text: string }): void {
+  pendingResponseFilter = { postId, span };
 }
 
 // ─── Navigation callback (shared between page and aside parallel routes) ────

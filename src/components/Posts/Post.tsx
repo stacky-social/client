@@ -14,7 +14,7 @@ import { PreviewCardType } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../../utils/mastoActions';
 import { getPost, isLiked as storeIsLiked, isBookmarked as storeIsBookmarked } from '../../utils/localStore';
-import { useHighlightStore, setResponseFilter, clearResponseFilter } from '../../utils/highlightStore';
+import { useHighlightStore, setResponseFilter, clearResponseFilter, setPendingResponseFilter } from '../../utils/highlightStore';
 import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 import type { Relation } from '../../types/PostType';
 import { showTooltip, hideTooltip } from '../HoverTooltip';
@@ -221,8 +221,12 @@ function cleanPostHtml(html: string, card: PreviewCard | null | undefined): Clea
 // Dwell duration (ms) before focus-post marks become visible on hover.
 const FOCUS_HOVER_DWELL_MS = 1500;
 
-// Subscribes to the highlight store — only mounted for the *active* post so
-// inactive posts don't re-render on every sidebar hover.
+// Renders the interactive highlight spans for ANY post that has relations, not
+// just the focused one, so feed posts get span hover + click-to-focus. It
+// subscribes to the highlight store, but the store-driven work (cross-highlight,
+// filter visual, auto-reveal) is gated on `active`, so non-focused posts only pay
+// for shallow re-renders. A span click on a non-focused post focuses it (scroll
+// to the active line) and then filters, via onSpanFocusRequest.
 const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   displayText: string;
   rawText: string;
@@ -234,7 +238,14 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
    *  below the clamp becomes visible. The parent only auto-collapses what it
    *  auto-expanded. */
   onAutoReveal?: (reveal: boolean) => void;
-}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [], onAutoReveal }, ref) {
+  /** Whether this is the focused post. Non-focused feed posts still render the
+   *  spans + direct-hover darkening, but skip the store-driven cross-highlight,
+   *  the response-filter visual, and the auto-reveal; a span click on them
+   *  requests focus instead of filtering directly. */
+  active?: boolean;
+  /** Non-focused post only: a span was clicked — focus this post then filter. */
+  onSpanFocusRequest?: (span: { start: number; end: number; text: string }) => void;
+}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [], onAutoReveal, active = true, onSpanFocusRequest }, ref) {
   const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, responseFilter } = useHighlightStore();
   // Related stacks of the active (focus) post — used to count "N related posts"
   // for the click-to-filter affordance. Mirrored to a ref so the DOM hover
@@ -254,6 +265,12 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // Tracks whether *this instance* is currently the one showing the global hover tooltip,
   // so unmount/cleanup only hides our own tooltip, not someone else's.
   const tooltipShownByMeRef = useRef(false);
+  // Mirror active / onSpanFocusRequest so the [rawText]-scoped event handlers read
+  // the latest without re-binding listeners.
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const onSpanFocusRequestRef = useRef(onSpanFocusRequest);
+  onSpanFocusRequestRef.current = onSpanFocusRequest;
 
   // Refs mirror reactive state so the deferred dwell-timer callback always reads
   // the latest values (otherwise its closure would freeze at timer setup time).
@@ -318,7 +335,9 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // EXPAND: when a relevant mark is clipped below the fold, request reveal.
   useLayoutEffect(() => {
     const el = innerRef.current;
-    if (!el || isTextExpanded || !anyMarkVisuallyActive || !onAutoReveal) return;
+    // Auto-reveal is a FOCUSED-post affordance: anyMarkVisuallyActive reflects the
+    // focus post's filter/cross-highlight, so non-focused feed posts must not react.
+    if (!el || !active || isTextExpanded || !anyMarkVisuallyActive || !onAutoReveal) return;
 
     // Only consider the marks we're actually lighting up: every region the hovered
     // related card links to (by overlap), else the filter/dwell mark. Avoids
@@ -342,7 +361,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     const boxBottom = el.getBoundingClientRect().bottom;
     const clipped = marks.some((m) => m.getBoundingClientRect().bottom > boxBottom + 1);
     if (clipped) onAutoReveal(true);
-  }, [html, isTextExpanded, anyMarkVisuallyActive, crossActive, hoveredRelations, visibleMarkIdx, onAutoReveal]);
+  }, [html, isTextExpanded, anyMarkVisuallyActive, crossActive, hoveredRelations, visibleMarkIdx, onAutoReveal, active]);
 
   // COLLAPSE: when nothing is highlighted anymore, restore the collapsed state —
   // but only if WE auto-expanded it (the parent guards a manual Read-more).
@@ -420,9 +439,14 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       cancelDwell();
       dwellTimerRef.current = setTimeout(() => {
         dwellTimerRef.current = null;
-        const n = countRelated(ranges);
+        // On the focused post the count is its related stacks; on a non-focused
+        // feed post we don't have its stacks loaded, so the tooltip just invites
+        // focusing it (the click will focus + filter).
+        const content = activeRef.current
+          ? (() => { const n = countRelated(ranges); return <>Click to focus on <strong>{n} related {n === 1 ? 'post' : 'posts'}</strong></>; })()
+          : <>Click to <strong>focus this post</strong></>;
         showTooltip({
-          content: <>Click to focus on <strong>{n} related {n === 1 ? 'post' : 'posts'}</strong></>,
+          content,
           colors: { text: '#334155', border: '#cbd5e1' },
           x: latestX, y: latestY,
         });
@@ -436,10 +460,14 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       const fe = parseInt(mark.getAttribute('data-fe') || 'NaN', 10);
       if (Number.isNaN(fs) || Number.isNaN(fe)) return;
       e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+      const plain = stripHtml(rawText);
+      const span = { start: fs, end: fe, text: plain.slice(fs, fe) };
+      // Non-focused feed post: clicking a span focuses this post (scroll + filter)
+      // rather than filtering the wrong post's panel.
+      if (!activeRef.current) { onSpanFocusRequestRef.current?.(span); return; }
       const ff = responseFilterRef.current;
       if (ff && ff.start === fs && ff.end === fe) { clearResponseFilter(); return; }
-      const plain = stripHtml(rawText);
-      setResponseFilter({ start: fs, end: fe, text: plain.slice(fs, fe) });
+      setResponseFilter(span);
     };
 
     el.addEventListener('mouseenter', onEnter);
@@ -469,6 +497,10 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   useLayoutEffect(() => {
     const el = innerRef.current;
     if (!el) return;
+    // The aside cross-highlight belongs to the FOCUSED post only. Non-focused feed
+    // posts render the same spans but must not category-colour them from another
+    // post's card hover (their direct grey hover still works via CSS classes).
+    if (!active) { clearFocusCommentBold(el); return; }
     clearFocusCommentBold(el);
     const level2 = (hoveredRelations && hoveredHighlightRangeIndex != null)
       ? hoveredRelations[hoveredHighlightRangeIndex] : null;
@@ -548,7 +580,10 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     // replay — i.e. no blink and no "turns off until you move the mouse". Matches the
     // direct-hover .fp-dark shade so clicking a hovered span is seamless (it simply
     // stays as dark as it already was) rather than dropping to a lighter filter tint.
-    const filterRule = visibleMarkIdx !== null
+    // Only the FOCUSED post shows the persistent filter/dwell mark. On non-focused
+    // feed posts visibleMarkIdx could coincidentally match the focused post's
+    // filter offsets; gate on `active` so it never lights the wrong post.
+    const filterRule = active && visibleMarkIdx !== null
       ? `#${id} mark[data-range-id="${visibleMarkIdx}"] { background: rgb(193,199,209) !important; }`
       : '';
     styleEl.textContent =
@@ -561,7 +596,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       // The related-card cross-highlight (category colour + bold) is applied as
       // inline styles per mark in the layout effect above, so no rule here.
       filterRule;
-  }, [visibleMarkIdx]);
+  }, [visibleMarkIdx, active]);
 
   // Cleanup scoped style on unmount
   useEffect(() => {
@@ -944,6 +979,26 @@ function Post({
     }
   }, []);
 
+  // Span clicked on a NON-focused feed post: make this post the focus (scroll it
+  // to the viewport centre, which is the active-post criterion, and lock it), then
+  // apply the "Responses to" filter. The filter is stashed as pending so it
+  // survives the focus switch (setPanelFocus would otherwise clear it).
+  const handleSpanFocusRequest = useCallback((span: { start: number; end: number; text: string }) => {
+    setPendingResponseFilter(id, span);
+    setActivePostId(id);
+    // Scroll this post's top to the feed's "active line" (30% of the viewport, the
+    // same line the feed uses to pick the focused post) so it settles focused —
+    // centring it would leave a higher post on the line. Instant (not animated):
+    // a smooth animation fires a scroll event per frame, and the feed re-evaluates
+    // the active post on every one, which — now that every feed post renders the
+    // highlight layer — is a re-render storm. One jump = one active switch.
+    const el = paperRef.current;
+    if (el) {
+      const targetY = window.scrollY + (el.getBoundingClientRect().top - window.innerHeight * 0.3) + 4;
+      window.scrollTo(0, Math.max(0, targetY));
+    }
+  }, [id, setActivePostId]);
+
   const handleExpandText = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     event.preventDefault();
@@ -1047,13 +1102,18 @@ function Post({
           onMouseUp={(e) => handleMouseUp(e)}
         >
           <div>
-      {isActive ? (
+      {focusRelations.length > 0 ? (
+        // Render the interactive spans for EVERY post that has them — not just the
+        // focused one — so feed posts get span hover + click-to-focus. active gates
+        // the focused-only behaviour (cross-highlight, filter visual, auto-reveal).
         <ActiveHighlightedContent
           ref={textRef}
           displayText={displayText}
           rawText={text}
           isTextExpanded={isTextExpanded}
           focusRelations={focusRelations}
+          active={isActive}
+          onSpanFocusRequest={handleSpanFocusRequest}
           onAutoReveal={handleAutoReveal}
           className={isTextExpanded ? undefined : 'postClampedText'}
           style={{
