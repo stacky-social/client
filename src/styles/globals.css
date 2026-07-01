@@ -1,10 +1,45 @@
 /* styles/globals.css */
+
+/* Auto-hide scrollbar: visible only while scrolling or on hover */
 html {
-    scrollbar-gutter: stable;          /* modern browsers */
+    scrollbar-gutter: stable;
+}
+
+html::-webkit-scrollbar {
+    width: 8px;
+}
+
+html::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 4px;
+    transition: background 0.3s;
+}
+
+html:hover::-webkit-scrollbar-thumb,
+html:active::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+}
+
+html::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
 }
 
 @supports not (scrollbar-gutter: stable) {
     html { overflow-y: scroll; }
+}
+
+/* Strip <p> margins inside clamped post text so -webkit-line-clamp aligns
+   perfectly with the max-height. Without this, <p> margins add extra height
+   that lets a sliver of the next line peek through. */
+.postClampedText p {
+    margin: 0;
+}
+.postClampedText p + p {
+    margin-top: 0.75em;  /* paragraph gap via margin-top only */
 }
 
 .avatarHoverDim {
@@ -19,4 +54,63 @@ html {
 .avatarHoverDim:hover *,
 .avatarHoverDim:hover img {
     filter: brightness(0.95);
+}
+
+/* Resizable shell columns: body background = gutter color; suppress horizontal scroll. */
+body {
+    background-color: #FCFBF5;
+    overflow-x: hidden;
+}
+
+/* Related panel collapse: the aside is a container-query context
+   (container-type: inline-size), so these rules respond to the related panel's
+   own width — set by the feed/aside resize divider — not the viewport. When the
+   panel is narrow, collapse the top category filter chips to just icon + count
+   (below ~360px) and the per-card category tags to icon-only (below ~300px), so
+   the bar stays compact instead of sprawling. Words stay visible while there's
+   room and only drop when the panel is genuinely cramped. */
+@container (max-width: 360px) {
+    .related-chip-text { display: none; }
+}
+@container (max-width: 300px) {
+    .related-tag-text { display: none; }
+}
+
+/* Related-panel (right pane) scrollbar — a custom, branded style on the right of
+   the panel so it reads as distinct from the feed column's system scrollbar.
+   (Firefox uses scrollbar-width/-color set inline in Shell.tsx.) */
+.aside-scroll::-webkit-scrollbar {
+    width: 10px;
+}
+.aside-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+.aside-scroll::-webkit-scrollbar-thumb {
+    background: rgba(28, 43, 74, 0.28);
+    border-radius: 8px;
+    /* border in the panel's background colour gives the thumb visual padding,
+       so it looks like a deliberate pill rather than the OS scrollbar. */
+    border: 2px solid #fcfbf5;
+}
+.aside-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(28, 43, 74, 0.5);
+}
+
+/* ── Focus-post highlight marks ──────────────────────────────────────────────
+   Neutral-grey, hover-revealed spans (rendered by ActiveHighlightedContent).
+   Global and keyed on the stable data-testid rather than a per-instance injected
+   <style> whose random container id can mismatch the rendered div — which left
+   the browser's default <mark> yellow showing through. The per-mark filter rule
+   (the persistent dark clicked span) is still injected per active post. */
+[data-testid="focus-reveal"] mark {
+    background: rgba(100, 116, 139, 0);
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 150ms ease;
+}
+[data-testid="focus-reveal"].fp-hovering mark {
+    background: rgb(236, 238, 241);
+}
+[data-testid="focus-reveal"] mark.fp-dark {
+    background: rgb(193, 199, 209);
 }

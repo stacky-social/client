@@ -1,7 +1,11 @@
+"use client";
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Avatar, Group, Button, Text, Stack, Paper, Badge, Loader, TextInput } from "@mantine/core";
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
+import { pickAvatarForText } from '../utils/sentimentAvatar';
+import { addComment } from '../utils/localStore';
 
 interface ReplySectionProps {
     postId: string;
@@ -10,17 +14,6 @@ interface ReplySectionProps {
 }
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
-
-const avatars = [
-    '/avatar/stacky_angry.PNG',
-    '/avatar/stacky_cracked.PNG',
-    '/avatar/stacky_default.PNG',
-    '/avatar/stacky_haha.PNG',
-    '/avatar/stacky_love.PNG',
-    '/avatar/stacky_queasy.PNG',
-    '/avatar/stacky_sad.PNG',
-    '/avatar/stacky_sweet.PNG'
-];
 
 const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchPostAndReplies }) => {
     const [replyContent, setReplyContent] = useState<string>('');
@@ -31,7 +24,6 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [countdown, setCountdown] = useState<number>(0);
     const [simulatedReplies, setSimulatedReplies] = useState<any[]>([]);
-    const [avatar, setAvatar] = useState(avatars[0]);
 
     const draftIdRef = useRef(uuidv4());
     const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -46,7 +38,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
 
     useEffect(() => {
         if (countdown > 0) {
-            setButtonLabel(`Submit? (Wait ${countdown} seconds)`);
+            setButtonLabel(`Wait ${countdown}s…`);
             if (!countdownIntervalRef.current) {
                 countdownIntervalRef.current = setInterval(() => {
                     setCountdown((c) => Math.max(0, c - 1));
@@ -123,26 +115,12 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
     const handleReplySubmit = async () => {
         if (isDisabled) return;
 
-        const accessToken = localStorage.getItem('accessToken');
-        if (!accessToken || accessToken === "null" || accessToken === "undefined") {
-            console.error('Access token is missing.');
-            return;
-        }
-
         setIsSubmitting(true);
         try {
-            await axios.post(
-                `${MastodonInstanceUrl}/api/v1/statuses`,
-                {
-                    status: replyContent,
-                    in_reply_to_id: postId
-                },
-                {
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`
-                    }
-                }
-            );
+            // Local mode: persist the reply through the local store. It is created
+            // as a Post-shaped Comment authored by the local user "me" with
+            // in_reply_to_id === postId, so thread views render it directly.
+            addComment(postId, replyContent);
 
             setReplyContent('');
             setPraise(null);
@@ -162,7 +140,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontFamily: 'Roboto, sans-serif' }}>
             <Group>
-                <Avatar src={currentUser?.avatar || 'defaultAvatarUrl'} alt="Current User" radius="xl" />
+                <Avatar src={currentUser?.avatar || undefined} alt="Current User" radius="xl" />
                 <TextInput
                     placeholder="Post your reply"
                     variant="unstyled"
@@ -196,26 +174,17 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                     ) : (
                         <>
                             {(advice || praise) && (
-                                <Paper
-                                    style={{
-                                        padding: '10px',
-                                        backgroundColor: '#f9f9f9',
-                                        borderRadius: '8px',
-                                        fontFamily: 'Roboto, sans-serif',
-                                        fontSize: '14px',
-                                        marginBottom: '10px'
-                                    }}
-                                >
+                                <div style={{ marginBottom: '10px' }}>
                                     <Text fw="900" size="xl">Feedback</Text>
-                                    {praise && <Text>{praise}</Text>}
-                                    {advice && <Text>{advice}</Text>}
-                                </Paper>
+                                    {praise && <Text mt={4}>{praise}</Text>}
+                                    {advice && <Text mt={4}>{advice}</Text>}
+                                </div>
                             )}
 
                             {simulatedReplies.length > 0 && (
                                 <Stack>
                                     {simulatedReplies.map((reply, index) => (
-                                        <div key={index} style={{ position: 'relative' }}>
+                                        <div key={reply.id ?? reply.content} style={{ position: 'relative' }}>
                                             <Paper
                                                 style={{
                                                     position: 'relative',
@@ -230,7 +199,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                                                 }}
                                             >
                                                 <Group>
-                                                    <Avatar src={avatar} radius="xl" />
+                                                    <Avatar src={pickAvatarForText(reply.content)} radius="xl" />
                                                     <div>
                                                         <Text fw="700" size="sm">Robot {index + 1}</Text>
                                                     </div>
@@ -239,6 +208,8 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                                                 <Badge
                                                     color="gray"
                                                     variant="outline"
+                                                    tt="uppercase"
+                                                    fw={700}
                                                     style={{
                                                         position: 'absolute',
                                                         top: '10px',

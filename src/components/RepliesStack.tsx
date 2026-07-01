@@ -1,11 +1,13 @@
+"use client";
+
 import React, { useRef, useEffect, useState } from 'react';
 import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Anchor } from '@mantine/core';
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser } from '@tabler/icons-react';
 import { Layers } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatPostDate } from '../utils/formatPostDate';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { notifications } from '@mantine/notifications';
 import './RelatedStacks.css';
 import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import InteractionControl from './InteractionControl';
@@ -25,10 +27,10 @@ interface PostType {
     username?: string;
   };
   content_rewritten: string;
-  rewrite: 
-  {content: string; 
+  rewrite:
+  {content: string;
     significant:boolean;
- } 
+ }
 }
 
 interface RepliesStackType {
@@ -75,18 +77,44 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
     favouritesCountOverride[postId] !== undefined ? favouritesCountOverride[postId] : initial;
 
   const handleToggleFavourite = async (postId: string, current: boolean, initialCount: number) => {
-    const next = await toggleFavourite(postId, current);
-    setFavouritedOverride(prev => ({ ...prev, [postId]: next }));
+    // Optimistically reflect the toggle, then confirm/revert with the server result.
+    const optimistic = !current;
+    setFavouritedOverride(prev => ({ ...prev, [postId]: optimistic }));
     setFavouritesCountOverride(prev => {
       const effectivePrev = prev[postId] !== undefined ? prev[postId] : initialCount;
-      const newCount = next ? effectivePrev + (current ? 0 : 1) : effectivePrev - (current ? 1 : 0);
+      const newCount = optimistic ? effectivePrev + 1 : effectivePrev - 1;
       return { ...prev, [postId]: Math.max(0, newCount) };
     });
+
+    const result = await toggleFavourite(postId, current);
+    if (!result.ok) {
+      // Revert optimistic UI on failure.
+      setFavouritedOverride(prev => ({ ...prev, [postId]: current }));
+      setFavouritesCountOverride(prev => {
+        const effectivePrev = prev[postId] !== undefined ? prev[postId] : initialCount;
+        const reverted = optimistic ? effectivePrev - 1 : effectivePrev + 1;
+        return { ...prev, [postId]: Math.max(0, reverted) };
+      });
+      notifications.show({
+        title: 'Error',
+        message: 'Could not update like. Please try again.',
+        color: 'red',
+      });
+    }
   };
 
   const handleToggleBookmark = async (postId: string, current: boolean) => {
-    const next = await toggleBookmark(postId, current);
-    setBookmarkedOverride(prev => ({ ...prev, [postId]: next }));
+    // Optimistically reflect the toggle, then confirm/revert with the server result.
+    setBookmarkedOverride(prev => ({ ...prev, [postId]: !current }));
+    const result = await toggleBookmark(postId, current);
+    if (!result.ok) {
+      setBookmarkedOverride(prev => ({ ...prev, [postId]: current }));
+      notifications.show({
+        title: 'Error',
+        message: 'Could not update bookmark. Please try again.',
+        color: 'red',
+      });
+    }
   };
   const [cardHeights, setCardHeights] = useState<number[]>([]);
   const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -114,41 +142,19 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
     router.push(`/user/${profileHandle}`);
   };
 
-  const containerVariants = {
-    hidden: { opacity: 1 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.2,
-      },
-    },
-  };
-
-  const itemVariants = (index: number) => ({
-    hidden: showupdate ? { opacity: 0, x: -200, y: -200 * (index + 1) } : { opacity: 0, y: 200 },
-    show: { 
-      opacity: 1, 
-      x: 0, 
-      y: 0,
-      transition: {
-        duration: 0.5 
-      }
-    },
-  });
-
   const handleClick = (postId: string, stackId: string) => {
     handleNavigate(postId, stackId);
   };
 
   return (
     <div
-      
+
       style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center', width: '100%' }}
     >
       {repliesStacks.slice(0, maxStacksToShow).map((stack, index) => (
         <div
           key={stack.stackId}
-     
+
           style={{
             position: 'relative',
             margin: '20px 20px',
@@ -170,7 +176,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
               paddingTop: '20px',
               cursor: 'pointer'
             }}
-     
+
           >
             {stack.topPost.rewrite.significant&&  (
              <div
@@ -210,7 +216,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
                     {stack.topPost.account.display_name}
                   </Anchor>
                   <Text size="xs" c="dimmed">
-                    {formatDistanceToNow(new Date(stack.topPost.created_at))} ago
+                    {formatPostDate(stack.topPost.created_at)}
                   </Text>
                 </div>
               </Group>
@@ -222,7 +228,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
                 paddingRight: '1rem',
                 cursor: 'pointer'
               }}
-                
+
             >
                 {stack.topPost.content_rewritten ? (
                   <Text c="#011445" dangerouslySetInnerHTML={{ __html: stack.topPost.rewrite.content }} />
@@ -262,7 +268,21 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
                 ariaLabel="Share"
                 onClick={() => {
                   const url = `${window.location.origin}/posts/${stack.topPost.id}?stackId=${stack.stackId}`;
-                  navigator.clipboard.writeText(url).catch(() => {});
+                  navigator.clipboard.writeText(url)
+                    .then(() => {
+                      notifications.show({
+                        title: 'Link copied',
+                        message: 'The link was copied to your clipboard',
+                        color: 'green',
+                      });
+                    })
+                    .catch(() => {
+                      notifications.show({
+                        title: 'Copy failed',
+                        message: 'Could not copy the link',
+                        color: 'red',
+                      });
+                    });
                 }}
               />
             </Group>
@@ -271,7 +291,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
             )}
           </Paper>
 
-          {stack.size !== null && stack.size > 1 && 
+          {stack.size !== null && stack.size > 1 &&
             [...Array(3)].map((_, idx) => (
               <div
                 key={idx}

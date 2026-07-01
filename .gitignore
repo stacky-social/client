@@ -133,3 +133,20 @@ dist
 !/pnpm-lock.yaml
 pnpm-lock.yaml
 package-lock.json
+
+# Playwright E2E
+/test-results/
+/playwright-report/
+/.playwright/
+/playwright/.cache/
+
+# Internal tooling / agent artifacts (not for public repo)
+/.agents/
+/AGENTS.md
+/graphify-out/
+/.claude/launch.json
+/docs/superpowers/
+/firebase-debug.log
+
+# TestSprite run artifacts: regenerated per run, and config.json holds an API key.
+testsprite_tests/tmp/

@@ -1,98 +1,63 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useParams } from 'next/navigation';
 import { Text, Avatar, Group, Paper, Divider, Button } from '@mantine/core';
-import axios from 'axios';
-import Posts from '../../../../components/Posts/Posts'; 
-
-const MastodonInstanceUrl = 'https://beta.stacky.social';
+import Post from '../../../../components/Posts/Post';
+import {
+  getUserProfile,
+  getUserPosts,
+  isFollowing as storeIsFollowing,
+  toggleFollow,
+  useLocalStore,
+  useHydrated,
+  type Post as StorePost,
+} from '../../../../utils/localStore';
 
 export default function UserPage() {
   const params = useParams();
-  const userName = Array.isArray(params.userName) ? params.userName[0] : params.userName;
-  const [userData, setUserData] = useState<any>(null);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const accessToken = localStorage.getItem('accessToken');
+  const rawUserName = Array.isArray(params.userName) ? params.userName[0] : params.userName;
+  // Route param may be URL-encoded (e.g. "nickl_nyt%40stacky-nyt.com").
+  const acct = rawUserName ? decodeURIComponent(rawUserName) : '';
 
-  useEffect(() => {
-    if (userName) {
-      fetchUserData(userName);
-    }
-  }, [userName]);
+  // Reactive store reads: re-render when the profile / posts / follow state change.
+  const userData = useLocalStore(() => getUserProfile(acct));
+  const posts = useLocalStore(() => getUserPosts(acct));
+  // Follow state comes from localStorage — gate on mount so the button label
+  // matches the server render (which can't see localStorage), then re-sync.
+  const hydrated = useHydrated();
+  const followingLive = useLocalStore(() => storeIsFollowing(acct));
+  const following = hydrated ? followingLive : false;
 
-  const fetchUserData = async (username: string) => {
-    try {
-      const userResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/accounts/lookup?acct=${username}`);
-      setUserData(userResponse.data);
-      fetchRelationship(userResponse.data.id);
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-    }
+  const handleFollowToggle = () => {
+    if (acct) toggleFollow(acct);
   };
 
-  const fetchRelationship = async (userId: string) => {
-    try {
-      if (!accessToken) {
-        console.error('Access token not found');
-        return;
-      }
-      const relationshipResponse = await axios.get(`${MastodonInstanceUrl}/api/v1/accounts/relationships?id=${userId}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-      if (relationshipResponse.data && relationshipResponse.data.length > 0) {
-        setIsFollowing(relationshipResponse.data[0].following);
-      }
-    } catch (error) {
-      console.error('Error fetching relationship data:', error);
-    }
-  };
+  // No-op handlers — the profile page renders posts as a simple, static list.
+  const noop = () => {};
 
-  const handleFollowToggle = async () => {
-    try {
-      setLoading(true);
-      if (!accessToken) {
-        console.error('Access token not found');
-        setLoading(false);
-        return;
-      }
-
-      if (isFollowing) {
-        await axios.post(
-          `${MastodonInstanceUrl}/api/v1/accounts/${userData.id}/unfollow`,
-          {},
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
-        );
-      } else {
-        await axios.post(
-          `${MastodonInstanceUrl}/api/v1/accounts/${userData.id}/follow`,
-          {},
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
-        );
-      }
-
-      console.log('Follow toggle successful');
-      await fetchUserData(userName);
-    } catch (error) {
-      console.error('Error toggling follow status:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!userData) {
-    return <div>Loading...</div>;
-  }
+  const renderPost = (p: StorePost) => (
+    <Post
+      key={p.id}
+      id={p.id}
+      text={p.content}
+      author={p.account.username}
+      account={p.account.acct}
+      avatar={p.account.avatar}
+      repliesCount={p.replies_count}
+      createdAt={p.created_at}
+      stackCount={-1}
+      favouritesCount={p.favourites_count}
+      favourited={p.favourited}
+      bookmarked={p.bookmarked}
+      mediaAttachments={(p.media_attachments || []).map((m: any) => m.url)}
+      onStackIconClick={noop}
+      setIsModalOpen={noop}
+      setIsExpandModalOpen={noop}
+      relatedStacks={[]}
+      setActivePostId={noop}
+      activePostId={null}
+    />
+  );
 
   return (
     <div>
@@ -109,16 +74,15 @@ export default function UserPage() {
           <Group>
             <Avatar src={userData.avatar} alt={userData.username} radius="xl" size="lg" />
             <div>
-              <Text size="xl">{userData.username}</Text>
+              <Text size="xl">{userData.display_name}</Text>
               <Text size="sm" color="dimmed">@{userData.acct}</Text>
             </div>
           </Group>
           <Button
-            color={isFollowing ? 'red' : 'blue'}
+            color={following ? 'red' : 'blue'}
             onClick={handleFollowToggle}
-            disabled={loading}
           >
-            {loading ? 'Loading...' : (isFollowing ? 'Unfollow' : 'Follow')}
+            {following ? 'Unfollow' : 'Follow'}
           </Button>
         </Group>
         <Divider my="md" />
@@ -140,8 +104,13 @@ export default function UserPage() {
         </Group>
       </Paper>
       <div style={{ marginTop: '20px' }}>
-      <Posts apiUrl={`${MastodonInstanceUrl}/api/v1/accounts/${userData.id}/statuses`}  loadStackInfo={true} showSubmitAndSearch={false} />
-       
+        {posts.length > 0 ? (
+          posts.map(renderPost)
+        ) : (
+          <Text size="sm" color="dimmed" style={{ textAlign: 'center', marginTop: '2rem' }}>
+            No posts yet.
+          </Text>
+        )}
       </div>
     </div>
   );

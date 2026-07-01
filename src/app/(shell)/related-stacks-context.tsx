@@ -1,15 +1,34 @@
 "use client";
 
-import React, { createContext, useContext, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 
 type RelatedStacksArray = any[];
+
+/** Real-time writing feedback for the post composer (POST /posts/feedback). */
+export type ComposerFeedbackData = {
+  loading: boolean;
+  advice?: string;
+  praise?: string;
+  simulatedReplies?: { id?: string; content: string }[];
+};
 
 type RelatedStacksContextValue = {
   relatedStacks: RelatedStacksArray;
   activePostId: string | null;
   previousPostId: string | null;
-  setFromPost: (stacks: RelatedStacksArray, postId: string, options?: { force?: boolean }) => void;
+  setFromPost: (
+    stacks: RelatedStacksArray,
+    postId: string,
+    options?: { force?: boolean; highlightPostId?: string | null }
+  ) => void;
   showUpdate: boolean;
+  clear: () => void;
+  /** A related-post id to pin + emphasise in the aside (from a shared "pairing" link). */
+  highlightPostId: string | null;
+  setHighlightPostId: (postId: string | null) => void;
+  /** Composer writing-feedback shown in the aside while drafting a post (null = none). */
+  composerFeedback: ComposerFeedbackData | null;
+  setComposerFeedback: (feedback: ComposerFeedbackData | null) => void;
 };
 
 const RelatedStacksContext = createContext<RelatedStacksContextValue | null>(null);
@@ -17,37 +36,77 @@ const RelatedStacksContext = createContext<RelatedStacksContextValue | null>(nul
 export function RelatedStacksProvider({ children }: { children: React.ReactNode }) {
   const [relatedStacks, setRelatedStacks] = useState<RelatedStacksArray>([]);
   const [activePostId, setActivePostId] = useState<string | null>(null);
-  const previousPostIdRef = useRef<string | null>(null);
+  const [previousPostId, setPreviousPostId] = useState<string | null>(null);
+  const [highlightPostId, setHighlightPostId] = useState<string | null>(null);
+  const [composerFeedback, setComposerFeedback] = useState<ComposerFeedbackData | null>(null);
 
-  const setFromPost = (stacks: RelatedStacksArray, postId: string, options?: { force?: boolean }) => {
-    if (options?.force) {
-      previousPostIdRef.current = activePostId;
-      setRelatedStacks(Array.isArray(stacks) ? [...stacks] : []);
-      setActivePostId(postId);
-      return;
-    }
-    // Toggle behavior: if the same post is already active and showing stacks, hide them
-    if (postId === activePostId && relatedStacks && relatedStacks.length > 0) {
-      previousPostIdRef.current = activePostId;
-      setRelatedStacks([]);
-      setActivePostId(null);
-      return;
-    }
+  // Mirrors of committed state, updated synchronously in every update path below.
+  // They let setFromPost make a joint toggle decision across both atoms from
+  // committed values, so two calls in one tick don't race on a stale render closure.
+  const activePostIdRef = useRef<string | null>(activePostId);
+  const relatedStacksRef = useRef<RelatedStacksArray>(relatedStacks);
 
-    previousPostIdRef.current = activePostId;
-    setRelatedStacks(Array.isArray(stacks) ? [...stacks] : []);
-    setActivePostId(postId);
-  };
+  const apply = useCallback(
+    (nextActive: string | null, nextStacks: RelatedStacksArray, nextHighlight: string | null = null) => {
+      setPreviousPostId(activePostIdRef.current);
+      activePostIdRef.current = nextActive;
+      relatedStacksRef.current = nextStacks;
+      setActivePostId(nextActive);
+      setRelatedStacks(nextStacks);
+      setHighlightPostId(nextHighlight);
+    },
+    []
+  );
+
+  const clear = useCallback(() => {
+    apply(null, [], null);
+  }, [apply]);
+
+  const setFromPost = useCallback(
+    (
+      stacks: RelatedStacksArray,
+      postId: string,
+      options?: { force?: boolean; highlightPostId?: string | null }
+    ) => {
+      const nextStacks = Array.isArray(stacks) ? stacks : [];
+      const nextHighlight = options?.highlightPostId ?? null;
+
+      if (options?.force) {
+        // Skip no-op updates so the aside doesn't re-render (and replay framer-motion)
+        // on every scroll tick. Read committed state via the ref mirror. A shared-pairing
+        // highlight still needs to apply even when the post is already active, so don't
+        // early-return when there's a highlight to set.
+        if (postId === activePostIdRef.current && !nextHighlight) return;
+        apply(postId, nextStacks, nextHighlight);
+        return;
+      }
+
+      // Toggle behavior: if the same post is already active and showing stacks, hide them.
+      // Decision is made from committed-state refs, not render-closure values.
+      if (postId === activePostIdRef.current && relatedStacksRef.current.length > 0) {
+        apply(null, [], null);
+        return;
+      }
+
+      apply(postId, nextStacks, nextHighlight);
+    },
+    [apply]
+  );
 
   const value = useMemo(
     () => ({
       relatedStacks,
       activePostId,
-      previousPostId: previousPostIdRef.current,
+      previousPostId,
       setFromPost,
-      showUpdate: activePostId !== previousPostIdRef.current,
+      showUpdate: activePostId !== previousPostId,
+      clear,
+      highlightPostId,
+      setHighlightPostId,
+      composerFeedback,
+      setComposerFeedback,
     }),
-    [relatedStacks, activePostId]
+    [relatedStacks, activePostId, previousPostId, setFromPost, clear, highlightPostId, composerFeedback]
   );
 
   return <RelatedStacksContext.Provider value={value}>{children}</RelatedStacksContext.Provider>;

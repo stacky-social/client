@@ -1,18 +1,18 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import { Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { AnimatePresence, motion } from "framer-motion";
-
 import Post from "../../../../components/Posts/Post";
-import RelatedStacks from "../../../../components/RelatedStacks";
 import RepliesStack from "../../../../components/RepliesStack";
 import ReplySection from "../../../../components/ReplySection";
 import BackButton from "../../../../components/BackButton";
+import ThreadedReplyList from "../../../../components/ThreadedReplyList";
 import { useRelatedStacks } from "../../related-stacks-context";
+import { useUrlSync } from "../../../../utils/useUrlSync";
+import { useLocalStore, useHydrated, getComments } from "../../../../utils/localStore";
 
 // -------------------- Types --------------------
 interface Account {
@@ -52,21 +52,26 @@ const mapWithStackFields = <T extends object>(x: T) => ({
   stackCount: null,
 });
 
-// UI constants (avoid magic numbers sprinkled throughout)
-const CONNECTOR_STYLE = {
-  position: "absolute" as const,
-  left: "10%",
-  bottom: -48,
-  width: 2,
-  height: 48,
-  backgroundColor: "#545454",
-  transform: "translateX(-50%)",
-  zIndex: 0,
-};
+// Thread connector line style shared by ancestor + reply connectors
+const THREAD_LINE_COLOR = "#ccd1dc";
+// Avatar center x = Paper.border (2) + paddingLeft (16) + half-avatar (19) = 37.
+// Subtract 1 (half line width) so the 2px line is centered on the avatar.
+const THREAD_LINE_LEFT = 36;
+
+/** Strip HTML tags to produce plain text for span-filter hydration */
+function stripHtmlToPlain(html: string): string {
+  if (typeof document !== "undefined") {
+    const el = document.createElement("div");
+    el.innerHTML = html;
+    return el.textContent ?? el.innerText ?? "";
+  }
+  return html.replace(/<[^>]*>/g, "");
+}
 
 // -------------------- Component --------------------
 export default function PostView({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const searchParamsObj = useSearchParams();
   const { id } = params;
   const { setFromPost, activePostId: asideActivePostId, relatedStacks: asideStacks } = useRelatedStacks();
 
@@ -81,7 +86,12 @@ export default function PostView({ params }: { params: { id: string } }) {
   // UI state
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("time");
-  const [visibleReplies, setVisibleReplies] = useState(15);
+
+  // H1: plain-text content of focus post — needed for ?fs= span hydration
+  const plainPostText = post ? stripHtmlToPlain(post.content) : null;
+
+  /** Number of top-level reply branches visible in the Time tab. */
+  const [visibleTopLevelReplies, setVisibleTopLevelReplies] = useState(5);
   const [recommendedLoading, setRecommendedLoading] = useState(false);
   const [recommendedPosts, setRecommendedPosts] = useState<PostType[]>([]);
   const [loadingRepliesStack, setLoadingRepliesStack] = useState(false);
@@ -107,20 +117,39 @@ export default function PostView({ params }: { params: { id: string } }) {
   }, [id]);
 
   // -------------------- Derived values --------------------
-  const filteredReplies = useMemo(() => replies.filter((r) => r.in_reply_to_id === id), [replies, id]);
-  const repliesByTimeDesc = useMemo(
-    () => filteredReplies.slice().sort((a, b) => b.created_at.localeCompare(a.created_at)),
-    [filteredReplies]
+  // User-authored replies from the local store (reactive). Already Post-shaped
+  // with in_reply_to_id === id, so they merge in as top-level replies. This is
+  // additive and does not touch the REST fetch flow above.
+  // Store comments live in localStorage; gate on mount so the thread matches the
+  // server render, then merge them in.
+  const hydrated = useHydrated();
+  const userCommentsLive = useLocalStore(() => getComments(id));
+  const userComments = hydrated ? userCommentsLive : [];
+
+  const mergedReplies = useMemo(() => {
+    if (userComments.length === 0) return replies;
+    const seen = new Set(replies.map((r) => r.id));
+    const extra = userComments.filter((c) => !seen.has(c.id));
+    return [...replies, ...(extra as unknown as PostType[])];
+  }, [replies, userComments]);
+
+  const filteredReplies = useMemo(() => mergedReplies.filter((r) => r.in_reply_to_id === id), [mergedReplies, id]);
+  /** REST-backed immediate reply ids (exclude local store comments — the backend
+   *  doesn't know them) used as payload for the recommended/stacked/summary tabs. */
+  const replyIDs = useMemo(
+    () => replies.filter((r) => r.in_reply_to_id === id).map((r) => r.id),
+    [replies, id]
   );
-  const replyIDs = useMemo(() => filteredReplies.map((r) => r.id), [filteredReplies]);
+  /** Count of top-level reply branches for the tree-aware pagination button. */
+  const totalTopLevelReplies = filteredReplies.length;
 
   // Allow quick lookup of any post by id (ancestors, replies, recommended, and the focus post)
   const allPostsById = useMemo(() => {
     const map = new Map<string, PostType>();
     if (post) map.set(post.id, post);
-    [...ancestors, ...replies, ...recommendedPosts].forEach((p) => map.set(p.id, p));
+    [...ancestors, ...mergedReplies, ...recommendedPosts].forEach((p) => map.set(p.id, p));
     return map;
-  }, [post, ancestors, replies, recommendedPosts]);
+  }, [post, ancestors, mergedReplies, recommendedPosts]);
 
   // -------------------- Position helpers --------------------
   const readRectOf = (el: HTMLElement | null) => {
@@ -180,9 +209,12 @@ export default function PostView({ params }: { params: { id: string } }) {
     try {
       const { data } = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}/context`, withAuth());
 
+      const descendants: PostType[] = Array.isArray(data?.descendants) ? data.descendants : [];
+      const ancestorsFromApi: PostType[] = Array.isArray(data?.ancestors) ? data.ancestors : [];
+
       setReplies((prev) => {
         const prevMap = new Map(prev.map((p) => [p.id, p]));
-        return data.descendants.map((desc: PostType) => {
+        return descendants.map((desc) => {
           const existing = prevMap.get(desc.id);
           const base = mapWithStackFields(desc);
           return existing
@@ -193,7 +225,7 @@ export default function PostView({ params }: { params: { id: string } }) {
 
       setAncestors((prev) => {
         const prevMap = new Map(prev.map((p) => [p.id, p]));
-        return data.ancestors.map((ancestor: PostType) => {
+        return ancestorsFromApi.map((ancestor) => {
           const existing = prevMap.get(ancestor.id);
           const base = mapWithStackFields(ancestor);
           return existing
@@ -203,6 +235,11 @@ export default function PostView({ params }: { params: { id: string } }) {
       });
     } catch (e) {
       console.error("Failed to fetch context:", e);
+      notifications.show({
+        color: "red",
+        title: "Failed to load replies and ancestors",
+        message: "Please try again later.",
+      });
     }
   }, []);
 
@@ -316,6 +353,33 @@ export default function PostView({ params }: { params: { id: string } }) {
     }
   }, [id, replyIDs]);
 
+  // -------------------- URL sync (H1/H2/H4/H5) --------------------
+  useUrlSync({
+    activeTab,
+    setActiveTab,
+    plainPostText,
+    onHydratedTab: async (tab) => {
+      const actions: Record<string, (() => Promise<void>) | undefined> = {
+        recommended: fetchRecommended,
+        stacked: fetchRepliesStack,
+        summary: fetchSummary,
+      };
+      const fn = actions[tab];
+      if (fn) await fn();
+    },
+  });
+
+  // H5: seed BackButton sessionStorage from ?from= when opening a shared link
+  useEffect(() => {
+    const fromId = searchParamsObj?.get("from");
+    if (!fromId) return;
+    const key = `previousPath:${window.location.pathname}`;
+    if (!sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, `/posts/${fromId}`);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // -------------------- Effects --------------------
   useEffect(() => {
     const init = async () => {
@@ -403,9 +467,6 @@ export default function PostView({ params }: { params: { id: string } }) {
     }
   };
 
-  const handleShowMoreReplies = () =>
-    setVisibleReplies((v) => Math.min(v + 15, filteredReplies.length));
-
   const handleTabChange = async (value: string | null) => {
     if (!value) return;
     setActiveTab(value);
@@ -420,10 +481,8 @@ export default function PostView({ params }: { params: { id: string } }) {
   };
 
   // -------------------- Render helpers --------------------
-  const renderPost = (
-    p: PostType,
-    overrides?: Partial<Pick<PostType, "stackCount" | "relatedStacks">>
-  ) => (
+  // Stack icons are hidden on the focused view; related stacks live in the aside.
+  const renderPost = (p: PostType) => (
     <Post
       key={p.id}
       id={p.id}
@@ -433,15 +492,15 @@ export default function PostView({ params }: { params: { id: string } }) {
       avatar={p.account.avatar}
       repliesCount={p.replies_count}
       createdAt={p.created_at}
-      stackCount={overrides?.stackCount ?? p.stackCount}
+      stackCount={-1}
       favouritesCount={p.favourites_count}
       favourited={p.favourited}
       bookmarked={p.bookmarked}
-      mediaAttachments={[]}
+      mediaAttachments={(p.media_attachments || []).map((m: any) => m.url)}
       onStackIconClick={handleStackIconClick}
       setIsModalOpen={() => { }}
       setIsExpandModalOpen={() => { }}
-      relatedStacks={overrides?.relatedStacks ?? p.relatedStacks}
+      relatedStacks={[]}
       setActivePostId={setActivePostId}
       activePostId={highlightId}
     />
@@ -468,17 +527,41 @@ export default function PostView({ params }: { params: { id: string } }) {
       <BackButton />
       <div>
         <div style={{ position: "relative" }}>
-          {/* Ancestors */}
-          {ancestors.map((a) => (
-            <div key={a.id} style={{ position: "relative", marginBottom: "1rem", marginLeft: 40 }}>
-              {renderPost(a)}
-              <div style={CONNECTOR_STYLE} />
+          {/* Ancestors — thread connector line runs at the avatar column,
+              BEHIND the Post's Paper (zIndex 0 < Paper's zIndex 5). Visible
+              only in the gap between cards, matching the Twitter-style thread
+              look. paddingBottom holds the Post's marginBottom inside the
+              wrapper so the absolute line spans through to the next post;
+              negative marginBottom cancels the extra height for layout. */}
+          {ancestors.length > 0 && (
+            <div style={{ position: "relative" }}>
+              {ancestors.map((a) => (
+                <div
+                  key={a.id}
+                  style={{
+                    position: "relative",
+                    paddingBottom: "3rem",
+                    marginBottom: "-3rem",
+                  }}
+                >
+                  <div aria-hidden style={{
+                    position: "absolute",
+                    left: THREAD_LINE_LEFT,
+                    top: 0,
+                    bottom: 0,
+                    width: 2,
+                    backgroundColor: THREAD_LINE_COLOR,
+                    zIndex: 0,
+                  }} />
+                  {renderPost(a)}
+                </div>
+              ))}
             </div>
-          ))}
+          )}
 
           {/* Current Post */}
           <div ref={currentPostRef} style={{ position: "relative" }}>
-            {post && renderPost(post, { stackCount: size, relatedStacks: focusRelatedStacks })}
+            {post && renderPost(post)}
           </div>
         </div>
 
@@ -486,7 +569,7 @@ export default function PostView({ params }: { params: { id: string } }) {
 
         <ReplySection postId={id} currentUser={currentUser} fetchPostAndReplies={() => fetchContext(id)} />
 
-        {replies.length > 0 && (
+        {mergedReplies.length > 0 && (
           <Paper
             style={{
               borderRadius: "0 0 8px 8px",
@@ -510,14 +593,29 @@ export default function PostView({ params }: { params: { id: string } }) {
               </Tabs.List>
 
               <Tabs.Panel value="time">
-                <>
-                  {repliesByTimeDesc.slice(0, visibleReplies).map((p) => renderPost(p))}
-                  {visibleReplies < repliesByTimeDesc.length && (
-                    <Button onClick={handleShowMoreReplies} variant="outline" fullWidth style={{ marginTop: 10 }}>
-                      More Replies
-                    </Button>
-                  )}
-                </>
+                <ThreadedReplyList
+                  replies={mergedReplies}
+                  rootId={id}
+                  renderPost={renderPost}
+                  visibleTopLevelCount={visibleTopLevelReplies}
+                />
+                {visibleTopLevelReplies < totalTopLevelReplies && (
+                  <Button
+                    onClick={() =>
+                      setVisibleTopLevelReplies((v) =>
+                        Math.min(v + 5, totalTopLevelReplies)
+                      )
+                    }
+                    variant="outline"
+                    fullWidth
+                    style={{ marginTop: 10 }}
+                  >
+                    {totalTopLevelReplies - visibleTopLevelReplies} more{" "}
+                    {totalTopLevelReplies - visibleTopLevelReplies === 1
+                      ? "reply"
+                      : "replies"}
+                  </Button>
+                )}
               </Tabs.Panel>
 
               <Tabs.Panel value="recommended">

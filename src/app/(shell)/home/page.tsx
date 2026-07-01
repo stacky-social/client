@@ -3,14 +3,12 @@ import React from 'react';
 import Posts from '../../../components/Posts/Posts';
 
 export default function Home() {
-    const MastodonInstanceUrl = 'https://beta.stacky.social/api/v1/timelines/home';
-
     return (
-        <Posts 
-            apiUrl={MastodonInstanceUrl} 
-            loadStackInfo={true} 
-            showSubmitAndSearch={true} 
-            showLoadMore={true}
+        <Posts
+            source="home"
+            loadStackInfo
+            showSubmitAndSearch
+            showLoadMore={false}
         />
-        );
+    );
 }

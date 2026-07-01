@@ -1,42 +1,69 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { Group, Avatar, Button, ActionIcon, Textarea, TextInput } from '@mantine/core';
 import { IconPhoto, IconChartBar, IconAlertTriangle, IconMoodSmile,  } from '@tabler/icons-react';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { notifications } from '@mantine/notifications';
+import { getMe, createPost, useLocalStore } from '../../utils/localStore';
+import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
+import axios from 'axios';
 import classes from './SubmitPost.module.css';
 
-const MastodonInstanceUrl = 'https://beta.stacky.social';
-// const MastodonInstanceUrl = 'https://mastodon.social';
-
 export function SubmitPost() {
-  const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  // Local current user — reactive so the avatar reflects store identity.
+  const currentUser = useLocalStore(() => getMe());
+  // Publish live writing-feedback to the aside (rendered by the feed @aside slot).
+  const { setComposerFeedback } = useRelatedStacks();
   const [postText, setPostText] = useState('');
-  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const draftIdRef = useRef(`draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const feedbackReqIdRef = useRef(0);
 
   const iconStyle = { width: 20, height: 20};
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    setAccessToken(token);
-
-    const user = localStorage.getItem('currentUser');
-    if (user) {
-      setCurrentUser(JSON.parse(user));
-    }
-  }, []);
-
-  useEffect(() => {
     adjustTextareaHeight();
   }, [postText]);
+
+  // Live writing feedback: debounce the draft, ask the same backend that powers
+  // comment-draft feedback, and surface the result in the aside via context.
+  // Real remote call (POST /posts/feedback) — fails gracefully when offline.
+  useEffect(() => {
+    const text = postText.trim();
+    if (text.length < 10) {
+      setComposerFeedback(null);
+      return;
+    }
+    const t = setTimeout(async () => {
+      const myReqId = ++feedbackReqIdRef.current;
+      setComposerFeedback({ loading: true });
+      try {
+        const res = await axios.post('https://beta.stacky.social:3002/posts/feedback', {
+          draftID: draftIdRef.current,
+          parentPostID: null,
+          draftText: text,
+        });
+        if (myReqId !== feedbackReqIdRef.current) return;
+        const { advice, praise, simulatedReplies } = res.data || {};
+        setComposerFeedback({ loading: false, advice, praise, simulatedReplies });
+      } catch {
+        if (myReqId !== feedbackReqIdRef.current) return;
+        setComposerFeedback(null);
+      }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [postText, setComposerFeedback]);
+
+  // Clear feedback from the aside when the composer unmounts.
+  useEffect(() => () => {
+    feedbackReqIdRef.current++;
+    setComposerFeedback(null);
+  }, [setComposerFeedback]);
 
 
   useEffect(() => {
@@ -62,71 +89,34 @@ export function SubmitPost() {
     };
   }, [showEmojiPicker]);
 
-  const handleSubmit = async () => {
-    try {
-      if (submitting) return;
-      if (!postText.trim()) {
-        notifications.show({
-          title: 'Error',
-          message: 'Please enter some text before posting.',
-          color: 'red',
-        });
-        return;
-      }
-
-      if (!accessToken) {
-        notifications.show({
-          title: 'Error',
-          message: 'Access token is missing. Please log in again.',
-          color: 'red',
-        });
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('status', postText);
-      if (fileInputRef.current?.files?.[0]) {
-        formData.append('media[]', fileInputRef.current.files[0]);
-      }
-
-      setSubmitting(true);
-      const response = await fetch(`${MastodonInstanceUrl}/api/v1/statuses`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: formData,
+  const handleSubmit = () => {
+    if (submitting) return;
+    if (!postText.trim()) {
+      notifications.show({
+        title: 'Error',
+        message: 'Please enter some text before posting.',
+        color: 'red',
       });
+      return;
+    }
 
-      if (response.ok) {
-        notifications.show({
-          title: 'Success',
-          message: 'Post created successfully.',
-          color: 'green',
-        });
-        setPostText(''); // Clear the post text after successful post
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        setShowEmojiPicker(false);
-        // Refresh the page to show the new post in feeds
-        try { router.refresh(); } catch {}
-        if (typeof window !== 'undefined') {
-          window.location.reload();
-        }
-      } else {
-        let errorMessage = 'Failed to create post.';
-        try {
-          const data = await response.json();
-          errorMessage = data?.error || data?.message || errorMessage;
-          console.error('Failed to create post:', data);
-        } catch (e) {
-          // ignore JSON parse errors
-        }
-        notifications.show({
-          title: 'Error',
-          message: errorMessage,
-          color: 'red',
-        });
-      }
+    setSubmitting(true);
+    try {
+      // Local mode: persist the post to the store. It surfaces at the top of
+      // Home immediately (the store is reactive).
+      createPost(postText.trim());
+      notifications.show({
+        title: 'Success',
+        message: 'Post created successfully.',
+        color: 'green',
+      });
+      setPostText(''); // Clear the composer after posting.
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setShowEmojiPicker(false);
+      // Clear the aside feedback and start a fresh draft id for the next post.
+      feedbackReqIdRef.current++;
+      setComposerFeedback(null);
+      draftIdRef.current = `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     } catch (error) {
       console.error('Error creating post:', error);
       notifications.show({
@@ -134,8 +124,7 @@ export function SubmitPost() {
         message: 'Failed to create post. Please try again later.',
         color: 'red',
       });
-    }
-    finally {
+    } finally {
       setSubmitting(false);
     }
   };
@@ -175,7 +164,7 @@ export function SubmitPost() {
         />
         <div className={classes.ButtonArea} style={{ marginTop: '20px' }}>
             <Group className="iconlist">
-              <ActionIcon 
+              <ActionIcon
               className={classes.actionIcon}
               style={iconStyle} onClick={() => fileInputRef.current?.click()}>
                 <IconPhoto size={20} />
@@ -186,17 +175,17 @@ export function SubmitPost() {
                 style={{ display: 'none' }}
                 accept="image/*"
               />
-              <ActionIcon 
+              <ActionIcon
               className={classes.actionIcon}
               style={iconStyle}>
                 <IconChartBar size={20} />
               </ActionIcon>
-              <ActionIcon 
+              <ActionIcon
               className={classes.actionIcon}
               style={iconStyle}>
                 <IconAlertTriangle size={20} />
               </ActionIcon>
-              <ActionIcon 
+              <ActionIcon
               className={classes.actionIcon}
               style={iconStyle} onClick={toggleEmojiPicker}>
                 <IconMoodSmile size={20} />

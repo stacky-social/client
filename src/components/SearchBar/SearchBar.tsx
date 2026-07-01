@@ -1,284 +1,182 @@
 "use client";
-import React, { useState, useEffect, Suspense } from 'react';
-import { TextInput, rem, Box, Paper, ActionIcon, useMantineTheme, List, ThemeIcon, Avatar, UnstyledButton, Group, Tabs } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
-import { IconArrowRight, IconSearch, IconUser, IconTag, IconMessageCircle } from '@tabler/icons-react';
-import axios from 'axios';
-import { useRouter } from 'next/navigation';
-import Post from '../Posts/Post';
-import RelatedStacks from '../RelatedStacks';
-import { Loader } from '@mantine/core';
-import { AnimatePresence, motion } from 'framer-motion';
-import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 
-type SearchResult = {
-  accounts: Array<{
-    id: string;
-    username: string;
-    acct: string;
-    display_name: string;
-    locked: boolean;
-    created_at: string;
-    note: string;
-    url: string;
-    avatar: string;
-    header: string;
-  }>;
-  statuses: Array<{
-    id: string;
-    created_at: string;
-    content: string;
-    account: {
-      username: string;
-      acct: string;
-      avatar: string;
-    };
-    replies_count: number;
-    favourites_count: number;
-    favourited: boolean;
-    bookmarked: boolean;
-    media_attachments: any[];
-    relatedStacks: any[];
-    stackCount: number | null;
-  }>;
-  hashtags: Array<{
-    name: string;
-    url: string;
-    history: Array<{
-      day: string;
-      uses: string;
-      accounts: string;
-    }>;
-  }>;
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  TextInput,
+  rem,
+  Box,
+  Paper,
+  Avatar,
+  UnstyledButton,
+  Group,
+  Text,
+  Stack,
+} from "@mantine/core";
+import { IconSearch } from "@tabler/icons-react";
+import { useRouter } from "next/navigation";
+import {
+  searchAccounts,
+  searchPosts,
+  useHydrated,
+  type Account,
+  type Post,
+} from "../../utils/localStore";
+
+/** Strip HTML tags and collapse whitespace for a plain-text snippet. */
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** Truncate a string to `max` characters with an ellipsis. */
+function snippet(text: string, max = 140): string {
+  const clean = stripHtml(text);
+  return clean.length > max ? `${clean.slice(0, max).trimEnd()}…` : clean;
+}
+
+const CARD_STYLE: React.CSSProperties = {
+  backgroundColor: "#fff",
+  boxShadow: "rgba(0, 0, 0, 0.1) 0px 1px 1px",
+  borderRadius: 8,
 };
-
-const MastodonInstanceUrl = 'https://beta.stacky.social';
 
 export default function SearchBar() {
-  const theme = useMantineTheme();
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResult>({ accounts: [], statuses: [], hashtags: [] });
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [ResultPosts, setResultPosts] = useState<any[]>([]);
-  const [relatedStacks, setRelatedStacks] = useState<any[]>([]);
-  const [loadingRelatedStacks, setLoadingRelatedStacks] = useState(false);
-  const [activePostId, setActivePostId] = useState<string | null>(null);
-  const [postPosition, setPostPosition] = useState<{ top: number, height: number } | null>(null);
-
   const router = useRouter();
-  const { setFromPost } = useRelatedStacks();
+  const hydrated = useHydrated();
+
+  const [query, setQuery] = useState("");
+  // Debounced copy of `query` — searches run against this.
+  const [debounced, setDebounced] = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    setAccessToken(token);
-  }, []);
+    const t = setTimeout(() => setDebounced(query), 250);
+    return () => clearTimeout(t);
+  }, [query]);
 
-  const fetchSearchResults = async (searchQuery: string, token: string | null) => {
-    if (!token) {
-      console.error('No access token found');
-      return;
-    }
+  const q = debounced.trim();
 
-    if (!searchQuery.trim()) return;
-    try {
-      const response = await axios.get(`${MastodonInstanceUrl}/api/v2/search`, {
-        params: { q: searchQuery, limit: 10, resolve: true },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      console.log('Search results:', response.data);
-      setResults(response.data);
-      setResultPosts(response.data.statuses);
-      response.data.statuses.forEach((status: any) => {
-        fetchRelatedStacks(status);
-      });
-    } catch (error) {
-      console.error('Error searching Mastodon:', error);
-      notifications.show({ color: 'red', title: 'Search failed', message: 'Please try again later.' });
-    }
-  };
+  // Only compute results once hydrated (the store reads localStorage), so the
+  // server and first client render match. Recompute when the debounced query changes.
+  const users: Account[] = useMemo(
+    () => (hydrated && q ? searchAccounts(q) : []),
+    [hydrated, q],
+  );
+  const posts: Post[] = useMemo(
+    () => (hydrated && q ? searchPosts(q) : []),
+    [hydrated, q],
+  );
 
-  const fetchRelatedStacks = async (post: any) => {
-    setLoadingRelatedStacks(true);
+  const goToUser = (acct: string) => router.push(`/user/${encodeURIComponent(acct)}`);
+  const goToPost = (id: string) => router.push(`/ChineseEVs/posts/${id}`);
 
-    try {
-      const headers: Record<string, string> = {};
-      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-
-      const response = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${post.id}/related`, { headers });
-      console.log('Related stacks:', response.data);
-      const stackData = response.data.relatedStacks || [];
-      const stackCount = response.data.size;
-
-      setResultPosts((prevPosts) =>
-        prevPosts.map((p) =>
-          p.id === post.id ? { ...p, stackCount: stackCount, relatedStacks: stackData } : p
-        )
-      );
-
-      setRelatedStacks((prevStacks) =>
-        prevStacks.map((s) =>
-          s.id === post.id ? { ...s, stackCount: stackCount, relatedStacks: stackData } : s
-        )
-      );
-
-    } catch (error) {
-      console.error('Error fetching related stacks:', error);
-    } finally {
-      setLoadingRelatedStacks(false);
-    }
-  };
-
-  useEffect(() => {
-    // console.log('ResultPosts:', ResultPosts);
-  }, [ResultPosts]);
-
-  const handleSearch = () => {
-    fetchSearchResults(query, accessToken);
-  };
-
-  const handleNavigateToUser = (acct: string) => {
-  const url = `/user/${acct}`;
-  router.push(url); 
-};
-
-const handleNavigateToTag = (tag: string) => {
-  const url = `/tag/${tag}`;
-  router.push(url); 
-};
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
-
-  const renderStatus = (status: any) => {
-    return (
-      <Post
-        key={status.id}
-        id={status.id}
-        text={status.content}
-        author={status.account.username}
-        account={status.account.acct}
-        avatar={status.account.avatar}
-        repliesCount={status.replies_count}
-        createdAt={status.created_at}
-        stackCount={status.stackCount || null}
-        favouritesCount={status.favourites_count}
-        favourited={status.favourited}
-        bookmarked={status.bookmarked}
-        mediaAttachments={status.media_attachments}
-        onStackIconClick={handleStackIconClick}
-        setIsModalOpen={() => {}}
-        setIsExpandModalOpen={() => {}}
-        relatedStacks={status.relatedStacks || []}
-        setActivePostId={setActivePostId}
-        activePostId={activePostId}
-      />
-    );
-  };
-
-  const handleStackIconClick = (
-    relatedStacks: any[],
-    postId: string,
-    position: { top: number, height: number }
-  ) => {
-    if (Array.isArray(relatedStacks)) {
-      setFromPost(relatedStacks, postId);
-      setActivePostId(postId);
-    }
-  };
+  const hasQuery = q.length > 0;
+  const hasResults = users.length > 0 || posts.length > 0;
 
   return (
-    <Suspense fallback={<Loader />}>
-      <div>
-        <div style={{ gridColumn: '1 / 2', position: 'relative' }}>
-          <Paper withBorder p="md" mb="lg" style={{ borderRadius: '10px' }}>
-            <TextInput
-              placeholder="Search or Paste URL"
-              variant="unstyled"
-              value={query}
-              onChange={(e) => setQuery(e.currentTarget.value)}
-              onKeyDown={handleKeyDown}
-              leftSection={<IconSearch style={{ width: rem(16), height: rem(16) }} />}
-              rightSection={
-                <ActionIcon size={32} radius="xl" color={theme.primaryColor} variant="filled" onClick={handleSearch}>
-                  <IconArrowRight size={18} stroke={1.5} />
-                </ActionIcon>
-              }
-            />
-          </Paper>
+    <Box>
+      <Paper withBorder p="md" mb="lg" style={{ ...CARD_STYLE }}>
+        <TextInput
+          placeholder="Search people and posts"
+          variant="unstyled"
+          value={query}
+          onChange={(e) => setQuery(e.currentTarget.value)}
+          aria-label="Search people and posts"
+          leftSection={<IconSearch style={{ width: rem(16), height: rem(16) }} />}
+        />
+      </Paper>
 
-          <Box mt="md">
-            <Tabs defaultValue="posts">
-              <Tabs.List>
-                <Tabs.Tab value="posts" leftSection={<IconMessageCircle size={18} />}>
-                  Posts
-                </Tabs.Tab>
-                <Tabs.Tab value="accounts" leftSection={<IconUser size={18} />}>
-                  Users
-                </Tabs.Tab>
-                <Tabs.Tab value="hashtags" leftSection={<IconTag size={18} />}>
-                  Hashtags
-                </Tabs.Tab>
-              </Tabs.List>
+      {/* Results render only after hydration so SSR and first client render match. */}
+      {hydrated && (
+        <>
+          {!hasQuery && (
+            <Text size="sm" c="dimmed" px="xs">
+              Start typing to search people and posts.
+            </Text>
+          )}
 
-              <Tabs.Panel value="accounts">
-                {results.accounts.length > 0 && (
-                  <List>
-                    {results.accounts.map((account) => (
-                      <UnstyledButton key={account.id} onClick={() => handleNavigateToUser(account.acct)} style={{ width: '100%' }}>
-                        <Paper withBorder p="md" mb="sm">
-                          <Group>
-                            <Avatar src={account.avatar} radius="xl" size="lg" />
-                            <div>
-                              <div>{account.display_name} (@{account.username})</div>
-                              <div dangerouslySetInnerHTML={{ __html: account.note }} />
-                            </div>
-                          </Group>
-                        </Paper>
-                      </UnstyledButton>
-                    ))}
-                  </List>
-                )}
-              </Tabs.Panel>
+          {hasQuery && !hasResults && (
+            <Text size="sm" c="dimmed" px="xs">
+              No results for &ldquo;{q}&rdquo;
+            </Text>
+          )}
 
-              <Tabs.Panel value="hashtags">
-                {results.hashtags.length > 0 && (
-                  <List>
-                    {results.hashtags.map((hashtag) => (
-                      <UnstyledButton key={hashtag.name} onClick={() => handleNavigateToTag(hashtag.name)} style={{ width: '100%' }}>
-                        <Paper withBorder p="md" mb="sm">
-                          <Group>
-                            <ThemeIcon color="green" size={32} radius="xl"><IconTag size={18} /></ThemeIcon>
-                            <div>#{hashtag.name}</div>
-                          </Group>
-                        </Paper>
-                      </UnstyledButton>
-                    ))}
-                  </List>
-                )}
-              </Tabs.Panel>
+          {hasQuery && users.length > 0 && (
+            <Box mb="lg">
+              <Text
+                size="xs"
+                fw={600}
+                c="dimmed"
+                mb="sm"
+                px="xs"
+                style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}
+              >
+                People
+              </Text>
+              <Stack gap="sm">
+                {users.map((acc) => (
+                  <UnstyledButton
+                    key={acc.acct}
+                    onClick={() => goToUser(acc.acct)}
+                    style={{ width: "100%" }}
+                  >
+                    <Paper withBorder p="md" style={{ ...CARD_STYLE }}>
+                      <Group gap="sm" wrap="nowrap">
+                        <Avatar src={acc.avatar} radius="xl" size="md" />
+                        <div style={{ minWidth: 0 }}>
+                          <Text size="sm" fw={600} truncate>
+                            {acc.display_name}
+                          </Text>
+                          <Text size="xs" c="dimmed" truncate>
+                            @{acc.acct}
+                          </Text>
+                        </div>
+                      </Group>
+                    </Paper>
+                  </UnstyledButton>
+                ))}
+              </Stack>
+            </Box>
+          )}
 
-              <Tabs.Panel value="posts">
-                {ResultPosts.length > 0 && (
-                  <List>
-                    {ResultPosts.map((status) => (
-                      <div key={status.id}>
-                        {renderStatus(status)}
-                      </div>
-                    ))}
-                  </List>
-                )}
-              </Tabs.Panel>
-            </Tabs>
-          </Box>
-        </div>
-
-        {/* Related stacks are now rendered in AppShell.Aside via context */}
-      </div>
-    </Suspense>
+          {hasQuery && posts.length > 0 && (
+            <Box mb="lg">
+              <Text
+                size="xs"
+                fw={600}
+                c="dimmed"
+                mb="sm"
+                px="xs"
+                style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}
+              >
+                Posts
+              </Text>
+              <Stack gap="sm">
+                {posts.map((post) => (
+                  <UnstyledButton
+                    key={post.id}
+                    onClick={() => goToPost(post.id)}
+                    style={{ width: "100%" }}
+                  >
+                    <Paper withBorder p="md" style={{ ...CARD_STYLE }}>
+                      <Group gap="sm" wrap="nowrap" mb={6}>
+                        <Avatar src={post.account.avatar} radius="xl" size="sm" />
+                        <Text size="sm" fw={600} truncate>
+                          {post.account.username}
+                        </Text>
+                        <Text size="xs" c="dimmed" truncate>
+                          @{post.account.acct}
+                        </Text>
+                      </Group>
+                      <Text size="sm" c="#374151" lineClamp={3}>
+                        {snippet(post.content)}
+                      </Text>
+                    </Paper>
+                  </UnstyledButton>
+                ))}
+              </Stack>
+            </Box>
+          )}
+        </>
+      )}
+    </Box>
   );
 }

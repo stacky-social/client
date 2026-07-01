@@ -10,18 +10,18 @@
     border: 1px solid #e7e7e7;
     border-radius: 10px;
     box-shadow: rgba(0, 0, 0, 0.1) 0px 1px 1px;;
-    
-    
+
+
 }
 
 .EmojiPicker {
     position: absolute;
-    top: 50px; 
+    top: 50px;
     left: 0;
     z-index: 1000;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
   }
-  
+
   .textarea {
     width: 100%;
     min-height: 40px;
@@ -38,20 +38,20 @@
     border-radius: 8px; /* Optional: add rounded corners */
 }
 
-  
+
 
 .AvatarArea{
     display: flex;
     align-self: flex-start;
-    margin-right: 10px; 
+    margin-right: 10px;
 }
 
 .inputArea {
-    flex-grow: 1; 
+    flex-grow: 1;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    
+
 }
 .textArea {
     padding: 12px;
@@ -72,18 +72,27 @@
 .button {
     width: 70px;
     height: 36px;
-    background-color: #002379; /* Button color */
-    color: white; /* Text color */
+    background-color: #1c2b4a; /* Crossweave navy — brand primary */
+    color: white;
+    transition: background-color 150ms ease;
+}
+.button:hover {
+    background-color: #2a3d63;
 }
 
 
 .actionIcon {
-    background-color: #002379; /* Icon button background color */
-    color: white; /* Icon color */
-    border-radius: 4px; /* Optional: add rounded corners */
-    display: flex; /* Center the icon within the button */
-    justify-content: center; /* Center the icon within the button */
-    align-items: center; /* Center the icon within the button */
-    width: 36px; /* Set a fixed width */
-    height: 36px; /* Set a fixed height */
+    background-color: transparent; /* Subtle, to match the new theme's action buttons */
+    color: #64748b;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 36px;
+    height: 36px;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+.actionIcon:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: #1c2b4a;
 }

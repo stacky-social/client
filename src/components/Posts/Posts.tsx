@@ -7,19 +7,29 @@ import RelatedStacks from '../RelatedStacks';
 import PostList from '../PostList';
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { useAccessToken } from '../../utils/useAccessToken';
+import { getMockRelatedStacks } from '../../utils/mockPostResolver';
 
-export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, showLoadMore = false, }: { apiUrl: string, loadStackInfo: boolean, showSubmitAndSearch: boolean, showLoadMore?: boolean; }) {
+export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, showLoadMore = false, source, }: { apiUrl?: string, loadStackInfo: boolean, showSubmitAndSearch: boolean, showLoadMore?: boolean; source?: "home" | "bookmarks" | "liked"; }) {
     const { token: accessToken, ready } = useAccessToken();
     const [activePostId, setActivePostId] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isExpandModalOpen, setIsExpandModalOpen] = useState(false);
     const [previousPostId, setPreviousPostId] = useState<string | null>(null);
 
-    const { setFromPost, activePostId: asideActivePostId, relatedStacks: asideStacks } = useRelatedStacks();
+    const { setFromPost, activePostId: asideActivePostId, relatedStacks: asideStacks, clear } = useRelatedStacks();
+
+    // Start each feed visit with a clean aside — clears any related panel left
+    // over from a previous focus so it never shows orphaned (no highlighted post).
+    useEffect(() => { clear(); }, [clear]);
 
     const handleStackIconClick = (incomingRelatedStacks: any[], postId: string, _position: { top: number, height: number }) => {
         const togglingOff = postId === asideActivePostId && Array.isArray(asideStacks) && asideStacks.length > 0;
-        const stacksToPublish = Array.isArray(incomingRelatedStacks) ? incomingRelatedStacks : [];
+        // Store-feed posts (home/bookmarks/liked) carry no inline related stacks;
+        // fall back to the mock dataset so the related panel still populates.
+        const stacksToPublish =
+            Array.isArray(incomingRelatedStacks) && incomingRelatedStacks.length > 0
+                ? incomingRelatedStacks
+                : (getMockRelatedStacks(postId) || []);
         setFromPost(stacksToPublish, postId);
         setPreviousPostId(activePostId);
         setActivePostId(togglingOff ? null : postId);
@@ -39,7 +49,8 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, show
                     </div>
                 )}
                 <PostList
-                    apiUrl={apiUrl}
+                    apiUrl={apiUrl ?? ""}
+                    source={source}
                     handleStackIconClick={handleStackIconClick}
                     loadStackInfo={loadStackInfo}
                     accessToken={accessToken}
