@@ -147,3 +147,5 @@ package-lock.json
 /.claude/launch.json
 /docs/superpowers/
 /firebase-debug.log
+
+testsprite_tests/tmp/config.json
