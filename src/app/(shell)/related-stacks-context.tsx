@@ -73,10 +73,15 @@ export function RelatedStacksProvider({ children }: { children: React.ReactNode 
 
       if (options?.force) {
         // Skip no-op updates so the aside doesn't re-render (and replay framer-motion)
-        // on every scroll tick. Read committed state via the ref mirror. A shared-pairing
-        // highlight still needs to apply even when the post is already active, so don't
-        // early-return when there's a highlight to set.
-        if (postId === activePostIdRef.current && !nextHighlight) return;
+        // on every scroll tick. Read committed state via the ref mirror. A scroll tick
+        // resends the SAME memoized stacks array, so reference equality identifies it;
+        // a re-seed with a different array (e.g. suppression toggling) must apply even
+        // for the already-active post. A shared-pairing highlight also always applies.
+        if (
+          postId === activePostIdRef.current &&
+          !nextHighlight &&
+          nextStacks === relatedStacksRef.current
+        ) return;
         apply(postId, nextStacks, nextHighlight);
         return;
       }

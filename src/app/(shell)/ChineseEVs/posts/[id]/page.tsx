@@ -24,6 +24,7 @@ import {
 import type { Relation } from "../../../../../types/PostType";
 import { getCurrentUser } from "../../../../../utils/getCurrentUser";
 import { useLocalStore, useHydrated, getComments } from "../../../../../utils/localStore";
+import { useExperimentFlags } from "../../../../../utils/experimentFlags";
 
 // Thread connector line style — mirrors /posts/[id]
 const THREAD_LINE_COLOR = "#ccd1dc";
@@ -45,6 +46,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   const searchParamsObj = useSearchParams();
   const { id } = params;
   const { setFromPost } = useRelatedStacks();
+  const flags = useExperimentFlags();
 
   const [post, setPost] = useState<MockPostType | null>(null);
   const [ancestors, setAncestors] = useState<MockPostType[]>([]);
@@ -95,18 +97,33 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     }
     const p = getMockPost(id);
     setPost(p);
-    setAncestors(getMockAncestors(id));
-    setReplies(getMockReplies(id));
+    const threadAncestors = getMockAncestors(id);
+    const threadReplies = getMockReplies(id);
+    setAncestors(threadAncestors);
+    setReplies(threadReplies);
     setRecommendedPosts(getMockRecommended(id));
     setFocusRelations(getMockFocusRelations(id));
     if (p) {
+      // D1 suppression: posts already visible in the thread (the focus post,
+      // its ancestors, its replies) are dropped from the related panel so the
+      // user never meets the same post in both panes. The context only ever
+      // holds the suppressed list, which keeps chip/topic counts honest.
+      const threadIds = new Set<string>([
+        id,
+        ...threadAncestors.map((a) => a.id),
+        ...threadReplies.map((r) => r.id),
+      ]);
+      const visibleStacks = flags.suppressThreadPosts
+        ? p.relatedStacks.filter((s: any) => !threadIds.has(s?.topPost?.id))
+        : p.relatedStacks;
       // ?related={id}: arrived via a shared "pairing" link — emphasise that
       // related card in the aside. If the id isn't among this post's related
-      // responses (stale/invalid link), still show the post, but flag it.
+      // responses (stale/invalid link, or suppressed into the thread), still
+      // show the post, but flag it.
       const relatedId = searchParamsObj?.get("related") ?? null;
-      setFromPost(p.relatedStacks, id, { force: true, highlightPostId: relatedId });
+      setFromPost(visibleStacks, id, { force: true, highlightPostId: relatedId });
       setActivePostId(id);
-      if (relatedId && !p.relatedStacks.some((s: any) => s?.topPost?.id === relatedId)) {
+      if (relatedId && !visibleStacks.some((s: any) => s?.topPost?.id === relatedId)) {
         notifications.show({
           title: "Pairing unavailable",
           message: "That related response isn't available for this post anymore.",
@@ -117,7 +134,8 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     // Read currentUser from localStorage if present (ReplySection wants it; mock allows null).
     const user = getCurrentUser();
     if (user) setCurrentUser(user);
-  }, [id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, flags.suppressThreadPosts]);
 
   // Defer the reply thread to the next task so the focus post + ancestors
   // paint immediately instead of blocking on one big synchronous render.
