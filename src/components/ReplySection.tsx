@@ -60,9 +60,30 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
         };
     }, []);
 
+    /** Drop any visible/in-flight feedback — the draft no longer exists. */
+    const clearFeedback = () => {
+        reqIdRef.current++; // invalidate any in-flight request
+        if (debounceTimeoutRef.current) {
+            clearTimeout(debounceTimeoutRef.current);
+            debounceTimeoutRef.current = null;
+        }
+        setAdvice(null);
+        setPraise(null);
+        setSimulatedReplies([]);
+        setLoading(false);
+        setCountdown(0);
+    };
+
     const handleReplyContentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newContent = e.target.value;
         setReplyContent(newContent);
+
+        // Stopped writing: an (effectively) cleared draft takes its feedback with
+        // it immediately — stale robots reacting to deleted text read as a bug.
+        if (newContent.trim().length < 3) {
+            clearFeedback();
+            return;
+        }
 
         if (debounceTimeoutRef.current) {
             clearTimeout(debounceTimeoutRef.current);
@@ -70,6 +91,11 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
         debounceTimeoutRef.current = setTimeout(() => {
             void fetchRealTimeFeedback(newContent);
         }, 500);
+    };
+
+    /** Unfocusing an empty composer also dismisses leftover feedback. */
+    const handleBlur = () => {
+        if (replyContent.trim().length === 0) clearFeedback();
     };
 
     const fetchRealTimeFeedback = async (inputContent: string) => {
@@ -148,6 +174,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                     size="xl"
                     value={replyContent}
                     onChange={handleReplyContentChange}
+                    onBlur={handleBlur}
                     style={{ flex: 1, fontFamily: 'Roboto, sans-serif', fontSize: '16px' }}
                 />
                 <Button
