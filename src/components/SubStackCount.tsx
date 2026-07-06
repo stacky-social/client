@@ -1,6 +1,6 @@
 import React from 'react';
 import { Paper, Text } from '@mantine/core';
-import { Layers } from 'lucide-react';
+import { IconStack2 } from '@tabler/icons-react';
 
 interface SubStackCountProps {
   count: number;
@@ -39,7 +39,7 @@ const SubStackCount: React.FC<SubStackCountProps> = ({ count, onClick }) => {
         justifyContent: 'center',
         height: '50px',            // 同 StackCount 图标区高度
       }}>
-        <Layers size={24} style={{ color: '#555555' }} />
+        <IconStack2 size={24} style={{ color: '#555555' }} />
         <Text style={{ color: '#555555' }} size="sm">
           {count}
         </Text>

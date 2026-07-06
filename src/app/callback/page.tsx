@@ -95,7 +95,6 @@ function CallbackPage() {
       router.push('/home');
       return;
     }
-    localStorage.setItem('authCode', code);
     fetchAccessToken(code, instance);
   }, [searchParams, router]);
 

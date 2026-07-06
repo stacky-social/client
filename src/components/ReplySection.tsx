@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Avatar, Group, Button, Text, Stack, Paper, Badge, Loader, TextInput } from "@mantine/core";
+import { notifications } from '@mantine/notifications';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { pickAvatarForText } from '../utils/sentimentAvatar';
@@ -99,6 +100,11 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
     };
 
     const fetchRealTimeFeedback = async (inputContent: string) => {
+        // Local/demo mode: the mock thread route has no live backend, so the
+        // draft-feedback POST would only ever fail silently — skip it entirely.
+        if (window.location.pathname.startsWith('/ChineseEVs')) {
+            return;
+        }
         if (inputContent.trim().length < 10) {
             return;
         }
@@ -129,6 +135,13 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
         }
         catch (error) {
             console.error('Failed to fetch real-time feedback:', error);
+            if (myReqId === reqIdRef.current) {
+                notifications.show({
+                    title: 'Error',
+                    message: 'Could not fetch writing feedback. Please try again.',
+                    color: 'red',
+                });
+            }
             setCountdown(0);
         }
         finally {

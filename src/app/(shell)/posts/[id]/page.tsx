@@ -2,8 +2,9 @@
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import axios from "axios";
-import { Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
+import { Anchor, Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import Post from "../../../../components/Posts/Post";
 import RepliesStack from "../../../../components/RepliesStack";
@@ -53,6 +54,19 @@ const mapWithStackFields = <T extends object>(x: T) => ({
   stackCount: null,
 });
 
+/** Failure modes of the initial load — drives the empty-state message. */
+type LoadFailure = "auth" | "network" | "notfound";
+
+/** Only a real 404 means the post doesn't exist; anything else (DNS, timeout,
+ *  5xx, auth rejection) is reported as an unreachable backend. */
+const classifyFetchError = (e: unknown): LoadFailure =>
+  axios.isAxiosError(e) && e.response?.status === 404 ? "notfound" : "network";
+
+const hasStoredAccessToken = () => {
+  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+  return !!token && token !== "null" && token !== "undefined";
+};
+
 // Thread connector line style shared by ancestor + reply connectors
 const THREAD_LINE_COLOR = "#ccd1dc";
 // Avatar center x = Paper.border (2) + paddingLeft (16) + half-avatar (19) = 37.
@@ -86,6 +100,7 @@ export default function PostView({ params }: { params: { id: string } }) {
 
   // UI state
   const [loading, setLoading] = useState(true);
+  const [loadFailure, setLoadFailure] = useState<LoadFailure | null>(null);
   const [activeTab, setActiveTab] = useState<string>("time");
 
   // H1: plain-text content of focus post — needed for ?fs= span hydration
@@ -111,6 +126,12 @@ export default function PostView({ params }: { params: { id: string } }) {
   // --- Deduping fetches for related stacks ---
   const fetchedRelatedIds = useRef<Set<string>>(new Set());
   const inFlightRelatedIds = useRef<Set<string>>(new Set());
+
+  // Stale-response guard for the id-keyed init fetches (same pattern as the
+  // feedback requests in SubmitPost.tsx): every init run bumps the id, and a
+  // late response from a previous post id bails out before touching state, so
+  // rapid A→B navigation can't render A's thread under B's URL.
+  const initReqIdRef = useRef(0);
 
   useEffect(() => {
     fetchedRelatedIds.current.clear();
@@ -191,9 +212,10 @@ export default function PostView({ params }: { params: { id: string } }) {
   }, []);
 
   const fetchPost = useCallback(
-    async (postId: string) => {
+    async (postId: string, reqId: number) => {
       try {
         const { data } = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}`, withAuth());
+        if (reqId !== initReqIdRef.current) return; // stale response for a previous id
         setPost((prev) => ({
           ...data,
           relatedStacks: prev?.relatedStacks?.length ? prev.relatedStacks : focusRelatedStacks,
@@ -201,14 +223,17 @@ export default function PostView({ params }: { params: { id: string } }) {
         }));
       } catch (e) {
         console.error("Failed to fetch post:", e);
+        if (reqId !== initReqIdRef.current) return;
+        setLoadFailure(classifyFetchError(e));
       }
     },
     [focusRelatedStacks]
   );
 
-  const fetchContext = useCallback(async (postId: string) => {
+  const fetchContext = useCallback(async (postId: string, reqId: number) => {
     try {
       const { data } = await axios.get(`${MastodonInstanceUrl}/api/v1/statuses/${postId}/context`, withAuth());
+      if (reqId !== initReqIdRef.current) return; // stale response for a previous id
 
       const descendants: PostType[] = Array.isArray(data?.descendants) ? data.descendants : [];
       const ancestorsFromApi: PostType[] = Array.isArray(data?.ancestors) ? data.ancestors : [];
@@ -236,6 +261,7 @@ export default function PostView({ params }: { params: { id: string } }) {
       });
     } catch (e) {
       console.error("Failed to fetch context:", e);
+      if (reqId !== initReqIdRef.current) return; // stale failure — don't toast under a newer id
       notifications.show({
         color: "red",
         title: "Failed to load replies and ancestors",
@@ -244,15 +270,17 @@ export default function PostView({ params }: { params: { id: string } }) {
     }
   }, []);
 
-  const fetchFocusRelatedStacks = useCallback(async () => {
+  const fetchFocusRelatedStacks = useCallback(async (reqId: number) => {
     try {
       const { data } = await axios.get(`${MastodonInstanceUrl}:3002/stacks/${id}/related`, withAuth());
+      if (reqId !== initReqIdRef.current) return; // stale response for a previous id
       setFocusRelatedStacks(data.relatedStacks || []);
       setSize(data.size);
       // publish to aside when focus stacks load
       setFromPost(data.relatedStacks || [], id, { force: true });
     } catch (e) {
       console.error("Error fetching related stacks from API:", e);
+      if (reqId !== initReqIdRef.current) return; // stale failure — don't toast under a newer id
       notifications.show({
         color: "red",
         title: "Failed to load related stacks",
@@ -386,13 +414,32 @@ export default function PostView({ params }: { params: { id: string } }) {
 
   // -------------------- Effects --------------------
   useEffect(() => {
+    const reqId = ++initReqIdRef.current;
     const init = async () => {
+      // Drop the previous post's thread so it can't linger under the new URL
+      // while (or after) this id loads.
+      setPost(null);
+      setReplies([]);
+      setAncestors([]);
+      setLoadFailure(null);
+
+      // This legacy surface requires a signed-in session against the live
+      // backend. Without a token every request is doomed — skip them and
+      // point the user at the local demo thread instead.
+      if (!hasStoredAccessToken()) {
+        setLoadFailure("auth");
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
-        await Promise.all([fetchCurrentUser(), fetchFocusRelatedStacks(), fetchPost(id), fetchContext(id)]);
+        await Promise.all([fetchCurrentUser(), fetchFocusRelatedStacks(reqId), fetchPost(id, reqId), fetchContext(id, reqId)]);
       } finally {
-        setLoading(false);
-        updateFocusPostPosition();
+        if (reqId === initReqIdRef.current) {
+          setLoading(false);
+          updateFocusPostPosition();
+        }
       }
     };
     init();
@@ -513,7 +560,18 @@ export default function PostView({ params }: { params: { id: string } }) {
   if (!post && !loading) {
     return (
       <Paper withBorder radius="md" mt={20} p="lg">
-        <Text size="sm">Post not found.</Text>
+        {loadFailure === "auth" ? (
+          <Text size="sm">
+            This page needs a signed-in session with a live backend. Try the demo thread instead:{" "}
+            <Anchor component={Link} href="/ChineseEVs" size="sm">
+              /ChineseEVs
+            </Anchor>
+          </Text>
+        ) : loadFailure === "network" ? (
+          <Text size="sm">Couldn&apos;t reach the backend.</Text>
+        ) : (
+          <Text size="sm">Post not found.</Text>
+        )}
       </Paper>
     );
   }
@@ -571,7 +629,7 @@ export default function PostView({ params }: { params: { id: string } }) {
 
         <Divider my="md" />
 
-        <ReplySection postId={id} currentUser={currentUser} fetchPostAndReplies={() => fetchContext(id)} />
+        <ReplySection postId={id} currentUser={currentUser} fetchPostAndReplies={() => fetchContext(id, initReqIdRef.current)} />
 
         {mergedReplies.length > 0 && (
           <Paper
