@@ -2,19 +2,12 @@
 
 import React, { useRef, useEffect, useState } from "react";
 import type { Relation } from "../../types/PostType";
-import { getCategoryColors } from "../../utils/categoryStyles";
+import { getCategoryColors, hexToRgba } from "../../utils/categoryStyles";
 import {
   setHoveredSidebarPost,
   setHoveredHighlightRangeIndex,
 } from "../../utils/highlightStore";
 import { showTooltip, hideTooltip } from "../HoverTooltip";
-
-function hexToRgba(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
 
 interface ReplyHighlightedContentProps {
   /** The reply's plain text — relation content offsets index into this string. */
@@ -26,6 +19,10 @@ interface ReplyHighlightedContentProps {
   onSpanClick?: (rangeIndex: number) => void;
   /** Optional "N more <topic>" tooltip count — wired by the thread page. */
   otherCountByTopic?: (topic: string) => number;
+  /** The reply pane's active grouping topic, if any — a span whose topic is
+   *  already grouped reads "N more <Topic> (shown)" and its click is a no-op
+   *  (R-REORDER-9 parity with the aside). */
+  activeClusterTopic?: string | null;
 }
 
 /**
@@ -41,6 +38,7 @@ export default function ReplyHighlightedContent({
   replyId,
   onSpanClick,
   otherCountByTopic,
+  activeClusterTopic = null,
 }: ReplyHighlightedContentProps) {
   const [hovered, setHovered] = useState(false);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -50,6 +48,16 @@ export default function ReplyHighlightedContent({
   const hoveredIdxRef = useRef<number | null>(null);
   const enterTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const publishedRef = useRef(false);
+  // Ownership guard (same pattern as Post's dwell tooltip): only hide the shared
+  // tooltip portal if WE showed it — an unmounting reply must not kill a tooltip
+  // some other element currently owns.
+  const tooltipShownByMeRef = useRef(false);
+  const hideOwnTooltip = () => {
+    if (tooltipShownByMeRef.current) {
+      hideTooltip();
+      tooltipShownByMeRef.current = false;
+    }
+  };
 
   // Clear any pending publish + our store entry on unmount so a hovered reply
   // that gets filtered/reordered away doesn't leave a stale cross-highlight.
@@ -60,7 +68,7 @@ export default function ReplyHighlightedContent({
         setHoveredSidebarPost(null);
         publishedRef.current = false;
       }
-      hideTooltip();
+      if (tooltipShownByMeRef.current) hideTooltip();
     };
   }, []);
 
@@ -87,7 +95,7 @@ export default function ReplyHighlightedContent({
       }
       setHoveredHighlightRangeIndex(null);
     }, 60);
-    hideTooltip();
+    hideOwnTooltip();
   };
 
   // Sorted, validated segments. Overlap would mean corrupt data — render plain
@@ -146,29 +154,33 @@ export default function ReplyHighlightedContent({
           hoveredIdxRef.current = origIdx;
           setHoveredHighlightRangeIndex(origIdx);
           if (r.topic && otherCountByTopic) {
+            // R-REORDER-9 parity: already-grouped topic reads "(shown)".
+            const isShown = activeClusterTopic !== null && r.topic === activeClusterTopic;
             showTooltip({
               content: (
                 <>
                   {otherCountByTopic(r.topic)} more <strong style={{ color: colors.text }}>{r.topic}</strong>
+                  {isShown ? ' (shown)' : null}
                 </>
               ),
               colors: { text: colors.text, border: colors.border },
               x: e.clientX,
               y: e.clientY,
             });
+            tooltipShownByMeRef.current = true;
           }
         }}
         onMouseLeave={() => {
           setHoveredIdx(null);
           hoveredIdxRef.current = null;
           setHoveredHighlightRangeIndex(null);
-          hideTooltip();
+          hideOwnTooltip();
         }}
         onClick={(e) => {
           if (!onSpanClick) return;
           e.preventDefault();
           e.stopPropagation();
-          hideTooltip();
+          hideOwnTooltip();
           onSpanClick(origIdx);
         }}
       >

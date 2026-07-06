@@ -12,7 +12,9 @@ interface HighlightState {
   hoveredRelations: Relation[] | null;
   /**
    * Set of categories to filter the sidebar by (empty = show all).
-   * Multiple categories use OR semantics (show posts matching ANY active category).
+   * Multiple categories use AND semantics — a post must carry EVERY active
+   * category to survive (see decideFilterMode in RelatedStacks and
+   * threadFilter.mjs; URL_SCHEMA.md documents the same for `fc`).
    */
   filterCategories: Set<string>;
   /** Level 2: which specific substring within the hovered card is being hovered (index into bracket pairs) */

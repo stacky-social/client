@@ -216,6 +216,15 @@ function cleanPostHtml(html: string, card: PreviewCard | null | undefined): Clea
 // Dwell duration (ms) before focus-post marks become visible on hover.
 const FOCUS_HOVER_DWELL_MS = 1500;
 
+// D-EXPAND (R-EXPAND-2): the auto-reveal is BOUNDED — the box grows to at most
+// this many lines (or 40vh, whichever is smaller) and scrolls internally to the
+// highlighted span, so a hover-preview never balloons the post to full height
+// or shoves the feed below it. Manual "Read more" still fully expands.
+const AUTO_REVEAL_CAP_LINES = 12;
+const AUTO_REVEAL_MAX_HEIGHT = `min(calc(1.5em * ${AUTO_REVEAL_CAP_LINES}), 40vh)`;
+/** One line of context kept above the span the reveal scrolls to. */
+const AUTO_REVEAL_SCROLL_CONTEXT_PX = 24;
+
 // Renders the interactive highlight spans for ANY post that has relations, not
 // just the focused one, so feed posts get span hover + click-to-focus. It
 // subscribes to the highlight store, but the store-driven work (cross-highlight,
@@ -228,10 +237,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   style: React.CSSProperties;
   className?: string;
   isTextExpanded: boolean;
+  /** Bounded auto-reveal is active: the box is capped (AUTO_REVEAL_MAX_HEIGHT)
+   *  and this component scrolls it internally to the highlighted span. */
+  autoRevealed?: boolean;
   focusRelations?: Relation[];
-  /** Ask the parent to expand/collapse via its Read-more state so a highlight
-   *  below the clamp becomes visible. The parent only auto-collapses what it
-   *  auto-expanded. */
+  /** Ask the parent to open/close the BOUNDED reveal (capped box + internal
+   *  scroll-to-span) when a highlight sits below the clamp. The parent only
+   *  auto-collapses what it auto-opened; manual Read-more is independent. */
   onAutoReveal?: (reveal: boolean) => void;
   /** Whether this is the focused post. Non-focused feed posts still render the
    *  spans + direct-hover darkening, but skip the store-driven cross-highlight,
@@ -243,7 +255,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   /** Count of THIS post's related posts linked to the hovered span union — for
    *  the dwell tooltip on non-focused posts (whose stacks aren't in context). */
   relatedCountForSpans?: (ranges: Array<{ fs: number; fe: number }>) => number;
-}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [], onAutoReveal, active = true, onSpanFocusRequest, relatedCountForSpans }, ref) {
+  /** Count of displayed REPLIES linked to the hovered span union — merged into
+   *  the focused post's dwell tooltip so a reply-only span never reads
+   *  "0 related posts" while its click usefully filters the replies (honest
+   *  counts across both panes). Supplied by the detail page; feeds without a
+   *  reply pane simply omit it. */
+  replyCountForSpans?: (ranges: Array<{ fs: number; fe: number }>) => number;
+}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, autoRevealed = false, focusRelations = [], onAutoReveal, active = true, onSpanFocusRequest, relatedCountForSpans, replyCountForSpans }, ref) {
   const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, responseFilter, filterCategories } = useHighlightStore();
   // Related stacks of the active (focus) post — used to count "N related posts"
   // for the click-to-filter affordance. Mirrored to a ref so the DOM hover
@@ -271,6 +289,8 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   onSpanFocusRequestRef.current = onSpanFocusRequest;
   const relatedCountForSpansRef = useRef(relatedCountForSpans);
   relatedCountForSpansRef.current = relatedCountForSpans;
+  const replyCountForSpansRef = useRef(replyCountForSpans);
+  replyCountForSpansRef.current = replyCountForSpans;
 
   // Refs mirror reactive state so the deferred dwell-timer callback always reads
   // the latest values (otherwise its closure would freeze at timer setup time).
@@ -337,12 +357,12 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // correctly, so reuse it. The parent only auto-collapses what WE auto-expanded;
   // a manual Read-more is left untouched (see handleAutoReveal in the parent).
 
-  // EXPAND: when a relevant mark is clipped below the fold, request reveal.
+  // EXPAND: when a relevant mark is clipped below the fold, request the bounded reveal.
   useLayoutEffect(() => {
     const el = innerRef.current;
     // Auto-reveal is a FOCUSED-post affordance: anyMarkVisuallyActive reflects the
     // focus post's filter/cross-highlight, so non-focused feed posts must not react.
-    if (!el || !active || isTextExpanded || !anyMarkVisuallyActive || !onAutoReveal) return;
+    if (!el || !active || isTextExpanded || autoRevealed || !anyMarkVisuallyActive || !onAutoReveal) return;
 
     // Only consider the marks we're actually lighting up: every region the hovered
     // related card links to (by overlap), else the filter/dwell mark. Avoids
@@ -366,12 +386,50 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     const boxBottom = el.getBoundingClientRect().bottom;
     const clipped = marks.some((m) => m.getBoundingClientRect().bottom > boxBottom + 1);
     if (clipped) onAutoReveal(true);
-  }, [html, isTextExpanded, anyMarkVisuallyActive, crossActive, hoveredRelations, visibleMarkIdx, onAutoReveal, active]);
+  }, [html, isTextExpanded, autoRevealed, anyMarkVisuallyActive, crossActive, hoveredRelations, visibleMarkIdx, onAutoReveal, active]);
+
+  // SCROLL-TO-SPAN (D-EXPAND): once the bounded reveal is open, scroll the capped
+  // box so the first relevant mark is visible (one line of context above it). If
+  // the span already fits inside the cap, nothing moves. Layout truth comes from
+  // getBoundingClientRect, so the nested-mark scrollHeight inflation that broke
+  // the old measured reveal doesn't apply here.
+  useLayoutEffect(() => {
+    const el = innerRef.current;
+    if (!el || !active || isTextExpanded || !autoRevealed || !anyMarkVisuallyActive) return;
+    let marks: HTMLElement[];
+    if (crossActive && hoveredRelations) {
+      const rels = hoveredRelations;
+      marks = (Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[]).filter((m) => {
+        const a = parseInt(m.getAttribute('data-fs') || 'NaN', 10);
+        const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
+        return rels.some((r) => a < r.focusEnd && r.focusStart < b);
+      });
+    } else if (visibleMarkIdx !== null) {
+      marks = Array.from(el.querySelectorAll(`mark[data-range-id="${visibleMarkIdx}"]`));
+    } else {
+      marks = Array.from(el.querySelectorAll('mark'));
+    }
+    if (marks.length === 0) return;
+    const target = marks.reduce((top, m) =>
+      m.getBoundingClientRect().top < top.getBoundingClientRect().top ? m : top
+    );
+    const boxRect = el.getBoundingClientRect();
+    const markRect = target.getBoundingClientRect();
+    const fullyVisible = markRect.top >= boxRect.top && markRect.bottom <= boxRect.bottom;
+    if (fullyVisible) return;
+    const top = Math.max(0, el.scrollTop + (markRect.top - boxRect.top) - AUTO_REVEAL_SCROLL_CONTEXT_PX);
+    el.scrollTo({ top, behavior: 'smooth' });
+  }, [autoRevealed, isTextExpanded, anyMarkVisuallyActive, crossActive, hoveredRelations, visibleMarkIdx, active, html]);
 
   // COLLAPSE: when nothing is highlighted anymore, restore the collapsed state —
-  // but only if WE auto-expanded it (the parent guards a manual Read-more).
+  // but only if WE auto-opened it (the parent guards a manual Read-more). Reset
+  // the internal scroll so the next reveal starts from the top of the box.
   useEffect(() => {
-    if (!anyMarkVisuallyActive && onAutoReveal) onAutoReveal(false);
+    if (!anyMarkVisuallyActive && onAutoReveal) {
+      onAutoReveal(false);
+      const el = innerRef.current;
+      if (el) el.scrollTop = 0;
+    }
   }, [anyMarkVisuallyActive, onAutoReveal]);
 
   // Spec hover model (CSS-driven via classes — never re-parses the article):
@@ -450,7 +508,18 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         // the context's stacks, a non-focused post through the counter its page
         // supplies (its stacks aren't in context).
         const content = activeRef.current
-          ? (() => { const n = countRelated(ranges); return <>Click to show <strong>{n} related {n === 1 ? 'post' : 'posts'}</strong></>; })()
+          ? (() => {
+              const n = countRelated(ranges);
+              const m = replyCountForSpansRef.current ? replyCountForSpansRef.current(ranges) : 0;
+              // Honest counts across BOTH panes: a reply-only span reads
+              // "… 2 replies", never a misleading "0 related posts".
+              if (m > 0) {
+                return (
+                  <>Click to show <strong>{n} related {n === 1 ? 'post' : 'posts'} · {m} {m === 1 ? 'reply' : 'replies'}</strong></>
+                );
+              }
+              return <>Click to show <strong>{n} related {n === 1 ? 'post' : 'posts'}</strong></>;
+            })()
           : (() => {
               const counter = relatedCountForSpansRef.current;
               if (!counter) return <>Click to <strong>focus this post</strong></>;
@@ -689,9 +758,15 @@ interface PostProps {
   onContentSpanClick?: (rangeIndex: number) => void;
   /** Optional cross-pane count for the reply span tooltip ("N more <topic>"). */
   replyTopicCount?: (topic: string) => number;
+  /** The reply pane's active grouping topic — threaded to the reply spans so an
+   *  already-grouped topic's tooltip reads "(shown)" (R-REORDER-9 parity). */
+  activeClusterTopic?: string | null;
   /** Count of THIS post's related posts linked to a span union — feeds the
    *  dwell tooltip on non-focused posts, whose stacks aren't in context. */
   relatedCountForSpans?: (ranges: Array<{ fs: number; fe: number }>) => number;
+  /** Count of displayed replies linked to a span union — merged into the
+   *  focused post's dwell tooltip on the thread view (honest two-pane counts). */
+  replyCountForSpans?: (ranges: Array<{ fs: number; fe: number }>) => number;
 }
 
 function Post({
@@ -719,7 +794,9 @@ function Post({
   categoryBadges,
   onContentSpanClick,
   replyTopicCount,
+  activeClusterTopic = null,
   relatedCountForSpans,
+  replyCountForSpans,
 }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
@@ -744,6 +821,9 @@ function Post({
   const isActive = activePostId === id;
   const [isExpanded, setIsExpanded] = useState(isActive);
   const [isTextExpanded, setIsTextExpanded] = useState(false);
+  // Bounded auto-reveal (D-EXPAND): capped box + internal scroll-to-span,
+  // driven by the highlight layer; independent of the manual Read-more.
+  const [isAutoRevealed, setIsAutoRevealed] = useState(false);
   // Mirror for handleAutoReveal so it can read the latest without a stale closure
   // or impure state-updater (see the note there).
   const isTextExpandedRef = useRef(isTextExpanded);
@@ -825,8 +905,6 @@ function Post({
   const handleNavigate = () => {
     if (onNavigate) { onNavigate(id); return; }
     const url = `/posts/${id}`;
-    localStorage.setItem('relatedStacks', JSON.stringify(tempRelatedStacks));
-    localStorage.setItem('relatedStacksSize', JSON.stringify(stackCount));
     sessionStorage.setItem(`previousPath:${url}`, window.location.pathname);
     sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
     router.push(url);
@@ -957,9 +1035,13 @@ function Post({
 
   const handleShare = () => {
     // Copy the in-app post link so a recipient lands on this post's focus view
-    // (related responses in the aside). Local-mode stand-in for a real share;
-    // swap the host for prod and the link shape is unchanged.
-    const url = `${window.location.origin}/ChineseEVs/posts/${id}`;
+    // (related responses in the aside). The route prefix follows the surface the
+    // post is being shared FROM: live-backend surfaces (/posts, /tag) link to the
+    // API-backed detail page — their ids don't exist in the mock resolver — while
+    // every store/demo surface links to the mock-backed detail route.
+    const pathname = window.location.pathname;
+    const isLiveSurface = pathname.startsWith('/posts') || pathname.startsWith('/tag');
+    const url = `${window.location.origin}${isLiveSurface ? '/posts/' : '/ChineseEVs/posts/'}${id}`;
     copyLink(url, "Post link copied");
   };
 
@@ -987,7 +1069,7 @@ function Post({
         console.error('Failed to fetch related stacks on click:', error);
         notifications.show({
           color: 'red',
-          title: 'Failed to load stacks',
+          title: 'Failed to load related posts',
           message: 'Please try again later.',
         });
       }
@@ -1006,24 +1088,16 @@ function Post({
     onStackIconClick(newRelatedStacks, id, adjustedPosition);
   };
 
-  // Auto-reveal: the active post's highlight layer asks us to expand when a
-  // highlighted span sits below the Read-more fold. We track whether the current
-  // expansion was ours (auto) vs the user's click, so we only collapse our own.
-  // NB: the ref bookkeeping lives OUTSIDE setIsTextExpanded — a state updater must
-  // be pure, and React StrictMode double-invokes it (which would replay the ref
-  // mutation and flip the result back). The guards make this idempotent instead.
-  const autoExpandedRef = useRef(false);
+  // Auto-reveal (D-EXPAND, bounded): the active post's highlight layer asks us to
+  // open the CAPPED reveal box when a highlighted span sits below the Read-more
+  // fold — a separate state from the manual Read-more, which still fully expands.
+  // setState with a boolean is idempotent, so this stays StrictMode-safe without
+  // ref bookkeeping; a manual Read-more simply wins in the style computation.
   const handleAutoReveal = useCallback((reveal: boolean) => {
     if (reveal) {
-      // Expand only if nothing has it open yet; remember it was us.
-      if (!autoExpandedRef.current && !isTextExpandedRef.current) {
-        autoExpandedRef.current = true;
-        setIsTextExpanded(true);
-      }
-    } else if (autoExpandedRef.current) {
-      // Collapse only what WE auto-opened; a manual Read-more is left alone.
-      autoExpandedRef.current = false;
-      setIsTextExpanded(false);
+      if (!isTextExpandedRef.current) setIsAutoRevealed(true);
+    } else {
+      setIsAutoRevealed(false);
     }
   }, []);
 
@@ -1050,7 +1124,9 @@ function Post({
   const handleExpandText = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     event.preventDefault();
-    autoExpandedRef.current = false; // user now owns the expanded state
+    // User now owns the expanded state; the bounded reveal yields to it (and
+    // will re-open from its effect if a cross-highlight is still active later).
+    setIsAutoRevealed(false);
     setIsTextExpanded(true);
     setIsOverflowing(false);
   };
@@ -1058,7 +1134,7 @@ function Post({
   const handleCollapseText = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     event.preventDefault();
-    autoExpandedRef.current = false;
+    setIsAutoRevealed(false);
     setIsTextExpanded(false);
     // isOverflowing will be recalculated by the useEffect on next render
   };
@@ -1199,6 +1275,7 @@ function Post({
             replyId={id}
             onSpanClick={onContentSpanClick}
             otherCountByTopic={replyTopicCount}
+            activeClusterTopic={activeClusterTopic}
           />
         </div>
       ) : focusRelations.length > 0 ? (
@@ -1210,23 +1287,50 @@ function Post({
           displayText={displayText}
           rawText={text}
           isTextExpanded={isTextExpanded}
+          autoRevealed={isAutoRevealed && !isTextExpanded}
           focusRelations={focusRelations}
           active={isActive}
           onSpanFocusRequest={handleSpanFocusRequest}
           relatedCountForSpans={relatedCountForSpans}
+          replyCountForSpans={replyCountForSpans}
           onAutoReveal={handleAutoReveal}
-          className={isTextExpanded ? undefined : 'postClampedText'}
-          style={{
-            display: isTextExpanded ? 'block' : '-webkit-box',
-            WebkitBoxOrient: 'vertical',
-            WebkitLineClamp: isTextExpanded ? undefined : clampLines,
-            overflow: isTextExpanded ? 'visible' : 'hidden',
-            textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
-            maxHeight: isTextExpanded ? undefined : `calc(1.5em * ${clampLines})`,
-            marginTop: '0px',
-            lineHeight: '1.5',
-            color: '#011445',
-          }}
+          className={isTextExpanded || isAutoRevealed ? undefined : 'postClampedText'}
+          style={
+            isTextExpanded
+              ? {
+                  // Manual Read-more: full natural height.
+                  display: 'block',
+                  overflow: 'visible',
+                  textOverflow: 'unset',
+                  marginTop: '0px',
+                  lineHeight: '1.5',
+                  color: '#011445',
+                }
+              : isAutoRevealed
+              ? {
+                  // Bounded auto-reveal (D-EXPAND): grow to the cap, scroll
+                  // internally to the span — never full height, minimal shove.
+                  display: 'block',
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                  textOverflow: 'unset',
+                  maxHeight: AUTO_REVEAL_MAX_HEIGHT,
+                  marginTop: '0px',
+                  lineHeight: '1.5',
+                  color: '#011445',
+                }
+              : {
+                  display: '-webkit-box',
+                  WebkitBoxOrient: 'vertical',
+                  WebkitLineClamp: clampLines,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxHeight: `calc(1.5em * ${clampLines})`,
+                  marginTop: '0px',
+                  lineHeight: '1.5',
+                  color: '#011445',
+                }
+          }
         />
       ) : (
         <div
