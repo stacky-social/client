@@ -47,9 +47,9 @@ export default function AnnotationPageLayout({ children }: { children: ReactNode
                         * bottom tier: This post is off-topic.
                     </Text>
                     <Text>
-                        Also, does each of the 8 posts AGREE or DISAGREE with the blue post's main views, claims, evidence, or values?
+                        Also, does each of the 8 posts AGREE or DISAGREE with the blue post&apos;s main views, claims, evidence, or values?
                         <br/>
-                        Select "Agrees" or "Disagrees" accordingly. You may select neither or both.
+                        Select &quot;Agrees&quot; or &quot;Disagrees&quot; accordingly. You may select neither or both.
                     </Text>
                 </Stack>
 
