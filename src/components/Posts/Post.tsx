@@ -15,6 +15,7 @@ import InteractionControl from '../InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../../utils/mastoActions';
 import { getPost, isLiked as storeIsLiked, isBookmarked as storeIsBookmarked } from '../../utils/localStore';
 import { useHighlightStore, setResponseFilter, clearResponseFilter, setPendingResponseFilter } from '../../utils/highlightStore';
+import { CATEGORY_COLORS } from '../../utils/categoryStyles';
 import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 import type { Relation } from '../../types/PostType';
 import { showTooltip, hideTooltip } from '../HoverTooltip';
@@ -26,20 +27,13 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
 }
 
-const CROSS_HIGHLIGHT_CATEGORY_COLORS: Record<string, { bg: string; border: string }> = {
-  agree:              { bg: "#d4f9d3", border: "#4caf50" },
-  disagree:           { bg: "#ffe0e0", border: "#f44336" },
-  predictions:        { bg: "#fff3cd", border: "#ff9800" },
-  evidence_public:    { bg: "#e3f2fd", border: "#2196f3" },
-  evidence_personal:  { bg: "#f3e5f5", border: "#9c27b0" },
-  connections:        { bg: "#e0f2f1", border: "#009688" },
-  questions:          { bg: "#fce4ec", border: "#e91e63" },
-  humor:              { bg: "#fff8e1", border: "#ffc107" },
-  values:             { bg: "#ede7f6", border: "#673ab7" },
-  framing:            { bg: "#e0f7fa", border: "#00bcd4" },
-  proposals:          { bg: "#e8eaf6", border: "#3f51b5" },
-  pointers:           { bg: "#e8eaf6", border: "#3f51b5" },
-};
+/** Category colors for the aside→focus cross-highlight — the shared table, minus
+ *  `uncategorized`: relations with an unknown/uncategorized category are dropped
+ *  from the focus post's marks (the guard below relies on undefined). */
+function crossColors(category: string): { bg: string; border: string } | undefined {
+  if (category === 'uncategorized') return undefined;
+  return CATEGORY_COLORS[category];
+}
 
 /** Convert hex color to rgba string */
 function hexToRgba(hex: string, alpha: number): string {
@@ -126,7 +120,7 @@ function renderMultiHighlightHtml(
   if (relations.length === 0) return displayHtml;
 
   const entries = relations.map((r, i) => {
-    const catColors = CROSS_HIGHLIGHT_CATEGORY_COLORS[r.category];
+    const catColors = crossColors(r.category);
     if (!catColors) return null;
 
     const snippet = focusPlainText.slice(r.focusStart, r.focusEnd);
@@ -512,7 +506,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       const a = parseInt(m.getAttribute('data-fs') || 'NaN', 10);
       const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
       if (level2 && a < level2.focusEnd && level2.focusStart < b) {
-        const c = CROSS_HIGHLIGHT_CATEGORY_COLORS[level2.category];
+        const c = crossColors(level2.category);
         // L2 = a stronger shade of the SAME category colour, but only lightly toward
         // the saturated border (0.15, was 0.30 which read as too dark). Still clearly
         // stronger than the L1 faint (blend toward white), still pastel — not dark.
@@ -520,10 +514,9 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         return;
       }
       const matched = hoveredRelations?.find((r) => a < r.focusEnd && r.focusStart < b);
+      const matchedColors = matched ? crossColors(matched.category) : undefined;
       m.style.backgroundColor = matched
-        ? (CROSS_HIGHLIGHT_CATEGORY_COLORS[matched.category]
-            ? blendHex(CROSS_HIGHLIGHT_CATEGORY_COLORS[matched.category].bg, '#ffffff', 0.35)
-            : '#eef0f3')
+        ? (matchedColors ? blendHex(matchedColors.bg, '#ffffff', 0.35) : '#eef0f3')
         : '';
     });
     // Level 2: bold ONLY the data's optional bold sub-span, not the whole region.

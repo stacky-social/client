@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Anchor } from '@mantine/core';
-import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconThumbUp, IconThumbDown } from '@tabler/icons-react';
-import { Layers } from 'lucide-react';
+import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare } from '@tabler/icons-react';
+import { CATEGORY_COLORS, CATEGORY_LABELS, iconMapping, getCategoryColors, type CategoryStyle } from '../utils/categoryStyles';
 import { formatPostDate } from '../utils/formatPostDate';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
@@ -60,46 +60,8 @@ interface RelatedStacksProps {
 }
 
 // ─── Category colors ─────────────────────────────────────────────────────────
-
-interface CategoryStyle { bg: string; border: string; text: string }
-
-const CATEGORY_COLORS: Record<string, CategoryStyle> = {
-  agree:              { bg: "#d4f9d3", border: "#4caf50", text: "#1b5e20" },
-  disagree:           { bg: "#ffe0e0", border: "#f44336", text: "#b71c1c" },
-  predictions:        { bg: "#fff3cd", border: "#ff9800", text: "#e65100" },
-  evidence_public:    { bg: "#e3f2fd", border: "#2196f3", text: "#0d47a1" },
-  evidence_personal:  { bg: "#f3e5f5", border: "#9c27b0", text: "#4a148c" },
-  connections:        { bg: "#e0f2f1", border: "#009688", text: "#004d40" },
-  questions:          { bg: "#fce4ec", border: "#e91e63", text: "#880e4f" },
-  humor:              { bg: "#fff8e1", border: "#ffc107", text: "#ff6f00" },
-  values:             { bg: "#ede7f6", border: "#673ab7", text: "#311b92" },
-  framing:            { bg: "#e0f7fa", border: "#00bcd4", text: "#006064" },
-  proposals:          { bg: "#e8eaf6", border: "#3f51b5", text: "#1a237e" },
-  pointers:           { bg: "#e8eaf6", border: "#3f51b5", text: "#1a237e" },
-  uncategorized:      { bg: "#f5f5f5", border: "#9e9e9e", text: "#424242" },
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  agree: "Agree", disagree: "Disagree", predictions: "Predictions",
-  evidence_public: "Evidence (Public)", evidence_personal: "Evidence (Personal)",
-  connections: "Connections", questions: "Questions", humor: "Humor",
-  values: "Values", framing: "Framing", proposals: "Proposals",
-  pointers: "Pointers", uncategorized: "Uncategorized",
-};
-
-const iconMapping: Record<string, JSX.Element> = {
-  uncategorized: <Layers size={14} />, predictions: <IconBulb size={14} />,
-  evidence_public: <IconQuote size={14} />, evidence_personal: <IconUser size={14} />,
-  connections: <IconLink size={14} />, pointers: <IconPointer size={14} />,
-  proposals: <IconBook size={14} />, humor: <IconMoodSmile size={14} />,
-  values: <IconHeart size={14} />, framing: <IconFrame size={14} />,
-  questions: <IconQuestionMark size={14} />, default: <Layers size={14} />,
-  agree: <IconThumbUp size={14} />, disagree: <IconThumbDown size={14} />,
-};
-
-function getCategoryColors(rel: string): CategoryStyle {
-  return CATEGORY_COLORS[rel] ?? CATEGORY_COLORS.uncategorized;
-}
+// Shared with Post (focus cross-highlight), reply badges, and the experiment
+// panel via src/utils/categoryStyles — keep presentation in one place.
 
 // ─── Eye cursor — indicates "click to see more like this" ───────────────────
 // Small 20x20 SVG eye, encoded inline as the cursor image. Fallback: pointer.
@@ -1674,7 +1636,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               maxWidth: '140px', fontStyle: 'italic',
             }}>
-              "{responseFilter.text.length > 35 ? responseFilter.text.slice(0, 35) + '…' : responseFilter.text}"
+              &ldquo;{responseFilter.text.length > 35 ? responseFilter.text.slice(0, 35) + '…' : responseFilter.text}&rdquo;
             </Text>
             <button
               type="button"
@@ -2367,7 +2329,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         fontStyle: 'italic',
                       }}>
-                        "{shortestCommonText}"
+                        &ldquo;{shortestCommonText}&rdquo;
                       </Text>
                     </div>
                   )}
