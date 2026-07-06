@@ -240,7 +240,10 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   active?: boolean;
   /** Non-focused post only: a span was clicked — focus this post then filter. */
   onSpanFocusRequest?: (span: { start: number; end: number; text: string }) => void;
-}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [], onAutoReveal, active = true, onSpanFocusRequest }, ref) {
+  /** Count of THIS post's related posts linked to the hovered span union — for
+   *  the dwell tooltip on non-focused posts (whose stacks aren't in context). */
+  relatedCountForSpans?: (ranges: Array<{ fs: number; fe: number }>) => number;
+}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [], onAutoReveal, active = true, onSpanFocusRequest, relatedCountForSpans }, ref) {
   const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, responseFilter, filterCategories } = useHighlightStore();
   // Related stacks of the active (focus) post — used to count "N related posts"
   // for the click-to-filter affordance. Mirrored to a ref so the DOM hover
@@ -266,6 +269,8 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   activeRef.current = active;
   const onSpanFocusRequestRef = useRef(onSpanFocusRequest);
   onSpanFocusRequestRef.current = onSpanFocusRequest;
+  const relatedCountForSpansRef = useRef(relatedCountForSpans);
+  relatedCountForSpansRef.current = relatedCountForSpans;
 
   // Refs mirror reactive state so the deferred dwell-timer callback always reads
   // the latest values (otherwise its closure would freeze at timer setup time).
@@ -372,7 +377,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // Spec hover model (CSS-driven via classes — never re-parses the article):
   //  · enter the post       → faint ALL its spans (.fp-hovering on the container)
   //  · over a span          → DARKEN the union of spans covering the cursor
-  //  · dwell 1.5s on a span → tooltip "Click to focus on N related posts"
+  //  · dwell 1.5s on a span → tooltip "Click to show/focus on N related posts"
   //  · click a span         → filter to those posts (post is already focused)
   //  · click a non-span     → falls through to the card-level navigate handler
   useEffect(() => {
@@ -439,12 +444,19 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       cancelDwell();
       dwellTimerRef.current = setTimeout(() => {
         dwellTimerRef.current = null;
-        // On the focused post the count is its related stacks; on a non-focused
-        // feed post we don't have its stacks loaded, so the tooltip just invites
-        // focusing it (the click will focus + filter).
+        // Verb encodes the click's effect: the FOCUSED post's span click SHOWS
+        // (filters to) its linked responses; a non-focused post's click FOCUSES
+        // that post first. Both carry the count — the focused post counts from
+        // the context's stacks, a non-focused post through the counter its page
+        // supplies (its stacks aren't in context).
         const content = activeRef.current
-          ? (() => { const n = countRelated(ranges); return <>Click to focus on <strong>{n} related {n === 1 ? 'post' : 'posts'}</strong></>; })()
-          : <>Click to <strong>focus this post</strong></>;
+          ? (() => { const n = countRelated(ranges); return <>Click to show <strong>{n} related {n === 1 ? 'post' : 'posts'}</strong></>; })()
+          : (() => {
+              const counter = relatedCountForSpansRef.current;
+              if (!counter) return <>Click to <strong>focus this post</strong></>;
+              const n = counter(ranges);
+              return <>Click to focus on <strong>{n} related {n === 1 ? 'post' : 'posts'}</strong></>;
+            })();
         showTooltip({
           content,
           colors: { text: '#334155', border: '#cbd5e1' },
@@ -677,6 +689,9 @@ interface PostProps {
   onContentSpanClick?: (rangeIndex: number) => void;
   /** Optional cross-pane count for the reply span tooltip ("N more <topic>"). */
   replyTopicCount?: (topic: string) => number;
+  /** Count of THIS post's related posts linked to a span union — feeds the
+   *  dwell tooltip on non-focused posts, whose stacks aren't in context. */
+  relatedCountForSpans?: (ranges: Array<{ fs: number; fe: number }>) => number;
 }
 
 function Post({
@@ -704,6 +719,7 @@ function Post({
   categoryBadges,
   onContentSpanClick,
   replyTopicCount,
+  relatedCountForSpans,
 }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
@@ -1197,6 +1213,7 @@ function Post({
           focusRelations={focusRelations}
           active={isActive}
           onSpanFocusRequest={handleSpanFocusRequest}
+          relatedCountForSpans={relatedCountForSpans}
           onAutoReveal={handleAutoReveal}
           className={isTextExpanded ? undefined : 'postClampedText'}
           style={{

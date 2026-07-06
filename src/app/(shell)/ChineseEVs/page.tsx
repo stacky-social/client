@@ -679,6 +679,19 @@ export default function ListyInjectionPage() {
         initialCard={null}
         onNavigate={opts?.isAncestor ? opts.onAncestorClick ? () => opts.onAncestorClick!() : undefined : navigateToPost}
         focusRelations={opts?.isAncestor ? [] : postData.focusRelations}
+        // Span-dwell tooltip count for NON-focused feed posts: their stacks
+        // aren't in context, so count linked responses from this post's own
+        // flat stacks (one stack per related post — distinct-post semantics).
+        relatedCountForSpans={
+          opts?.isAncestor
+            ? undefined
+            : (ranges) =>
+                postData.relatedStacks.filter((s: any) =>
+                  (s.topPost?.relations ?? []).some((r: any) =>
+                    ranges.some((u) => r.focusStart < u.fe && u.fs < r.focusEnd)
+                  )
+                ).length
+        }
       />
     );
   }
