@@ -44,6 +44,10 @@ export default function ReplyHighlightedContent({
 }: ReplyHighlightedContentProps) {
   const [hovered, setHovered] = useState(false);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  // Mirror of hoveredIdx for the debounced publish below: setHoveredSidebarPost
+  // resets the store's range index, so the publish must re-assert the span the
+  // cursor is already on (the span's own enter fires BEFORE the 90ms publish).
+  const hoveredIdxRef = useRef<number | null>(null);
   const enterTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const publishedRef = useRef(false);
 
@@ -68,6 +72,7 @@ export default function ReplyHighlightedContent({
     enterTimer.current = setTimeout(() => {
       setHoveredSidebarPost(replyId, relations);
       publishedRef.current = true;
+      if (hoveredIdxRef.current != null) setHoveredHighlightRangeIndex(hoveredIdxRef.current);
     }, 90);
   };
 
@@ -138,6 +143,7 @@ export default function ReplyHighlightedContent({
         }}
         onMouseEnter={(e) => {
           setHoveredIdx(origIdx);
+          hoveredIdxRef.current = origIdx;
           setHoveredHighlightRangeIndex(origIdx);
           if (r.topic && otherCountByTopic) {
             showTooltip({
@@ -154,6 +160,7 @@ export default function ReplyHighlightedContent({
         }}
         onMouseLeave={() => {
           setHoveredIdx(null);
+          hoveredIdxRef.current = null;
           setHoveredHighlightRangeIndex(null);
           hideTooltip();
         }}

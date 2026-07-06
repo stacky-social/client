@@ -31,6 +31,7 @@ import { filterReplies, clusterTopLevel } from "../../../../../utils/threadFilte
 import { getMockReplyRank } from "../../../../../utils/mockPostResolver";
 import ReplySummaryCard from "../../../../../components/ReplySummaryCard";
 import ReplyFilterBar from "../../../../../components/ReplyFilterBar";
+import FocusPostStickyBar from "../../../../../components/Posts/FocusPostStickyBar";
 import { getCategoryColors } from "../../../../../utils/categoryStyles";
 import {
   useHighlightStore,
@@ -196,17 +197,32 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   const displayedTotal = topLevelOrder ? topLevelOrder.length : totalTopLevelReplies;
 
   // Topic → displayed-reply count, published to the store so the related
-  // panel's "N more <topic>" tooltips count across both panes.
+  // panel's "N more <topic>" tooltips count across both panes. Counts every
+  // reply in the displayed branches — nested replies carry contributions too.
   const replyTopicCountsMap = useMemo(() => {
+    const childIds = new Map<string, string[]>();
+    for (const r of mergedReplies) {
+      const pid = r.in_reply_to_id;
+      if (!pid) continue;
+      const arr = childIds.get(pid) ?? [];
+      arr.push(r.id);
+      childIds.set(pid, arr);
+    }
     const m = new Map<string, number>();
-    for (const r of displayedTopLevel) {
+    const stack = displayedTopLevel.map((r) => r.id);
+    const seen = new Set<string>();
+    while (stack.length) {
+      const rid = stack.pop()!;
+      if (seen.has(rid)) continue;
+      seen.add(rid);
       const topics = new Set(
-        (replyRelationsById.get(r.id) ?? []).map((x) => x.topic).filter(Boolean) as string[]
+        (replyRelationsById.get(rid) ?? []).map((x) => x.topic).filter(Boolean) as string[]
       );
       topics.forEach((t) => m.set(t, (m.get(t) ?? 0) + 1));
+      for (const cid of childIds.get(rid) ?? []) stack.push(cid);
     }
     return m;
-  }, [displayedTopLevel, replyRelationsById]);
+  }, [displayedTopLevel, mergedReplies, replyRelationsById]);
 
   useEffect(() => {
     if (!crossFilterActive) {
@@ -243,6 +259,9 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   // Reply span click: rerank in place. The clicked card is scroll-pinned so the
   // user never loses their place (same contract as the related panel's anchors).
   const replyPinRef = useRef<{ id: string; top: number } | null>(null);
+  // Sticky focus bar anchors: the focus post wrapper + the center column.
+  const focusWrapRef = useRef<HTMLDivElement | null>(null);
+  const columnRef = useRef<HTMLDivElement | null>(null);
   const handleReplySpanClick = useCallback(
     (replyId: string, rangeIndex: number) => {
       if (!flags.replyReranking) return;
@@ -439,8 +458,18 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   if (!post) return <Loader size="lg" />;
 
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "relative" }} ref={columnRef}>
       <BackButton />
+      {flags.stickyFocusBar && post && plainPostText && (
+        <FocusPostStickyBar
+          author={post.account.username}
+          avatar={post.account.avatar}
+          plainText={plainPostText}
+          focusRelations={focusRelations}
+          anchorRef={focusWrapRef}
+          containerRef={columnRef}
+        />
+      )}
       <div>
         <div style={{ position: "relative" }}>
           {/* Ancestors — thread connector line runs at the avatar column,
@@ -482,7 +511,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
           )}
 
           {/* Focus post */}
-          <div style={{ position: "relative" }}>
+          <div style={{ position: "relative" }} ref={focusWrapRef}>
             {renderPost(post, /* isFocusPost */ true)}
           </div>
         </div>
