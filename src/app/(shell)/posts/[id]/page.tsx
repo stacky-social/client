@@ -12,6 +12,7 @@ import BackButton from "../../../../components/BackButton";
 import ThreadedReplyList from "../../../../components/ThreadedReplyList";
 import { useRelatedStacks } from "../../related-stacks-context";
 import { useUrlSync } from "../../../../utils/useUrlSync";
+import { LEGACY_TABS } from "../../../../utils/replyTabs.mjs";
 import { useLocalStore, useHydrated, getComments } from "../../../../utils/localStore";
 
 // -------------------- Types --------------------
@@ -358,6 +359,9 @@ export default function PostView({ params }: { params: { id: string } }) {
     activeTab,
     setActiveTab,
     plainPostText,
+    // This route always renders the legacy tab set — a ?tab= from the
+    // flag-gated route (top/liked) would select a tab with no panel.
+    allowedTabs: LEGACY_TABS,
     onHydratedTab: async (tab) => {
       const actions: Record<string, (() => Promise<void>) | undefined> = {
         recommended: fetchRecommended,
