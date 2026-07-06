@@ -1,6 +1,8 @@
-# Listy Injection Data Schema
+# `/ChineseEVs` Feed Data Schema (`listy-injection.json`)
 
-Data format for the listy injection prototype (`/listy-injection`). Describes the contract between backend and frontend for focus posts, related posts, and their NLP-derived relations.
+> The route this fixture backs was renamed `/listy-injection` → `/ChineseEVs` (redirect in `next.config.mjs`); the fixture keeps its original filename `listy-injection.json` for historical continuity — do not rename it.
+
+Data format for the `/ChineseEVs` research feed (the former listy-injection prototype). Describes the contract between backend and frontend for focus posts, related posts, and their NLP-derived relations.
 
 ## Top-level structure
 

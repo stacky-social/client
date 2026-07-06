@@ -1,14 +1,13 @@
 import React from 'react';
 import {
   IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook,
-  IconMoodSmile, IconFrame, IconUser, IconHeart, IconThumbUp, IconThumbDown,
+  IconMoodSmile, IconFrame, IconUser, IconHeartHandshake, IconThumbUp, IconThumbDown,
+  IconStack2,
 } from '@tabler/icons-react';
-import { Layers } from 'lucide-react';
 
 // Single source of truth for contribution-category presentation. RelatedStacks,
 // Post (focus cross-highlight), reply badges, and the experiment panel all read
-// from here — do not re-declare these tables locally. (RepliesStack/StackCount
-// carry legacy copies pre-dating this module; migrate them when next touched.)
+// from here — do not re-declare these tables locally.
 
 export interface CategoryStyle { bg: string; border: string; text: string }
 
@@ -24,7 +23,9 @@ export const CATEGORY_COLORS: Record<string, CategoryStyle> = {
   values:             { bg: "#ede7f6", border: "#673ab7", text: "#311b92" },
   framing:            { bg: "#e0f7fa", border: "#00bcd4", text: "#006064" },
   proposals:          { bg: "#e8eaf6", border: "#3f51b5", text: "#1a237e" },
-  pointers:           { bg: "#e8eaf6", border: "#3f51b5", text: "#1a237e" },
+  // Distinct from proposals (they were identical, a latent color-identity
+  // confound for the cross-highlight condition the moment pointers appear).
+  pointers:           { bg: "#efebe9", border: "#795548", text: "#3e2723" },
   uncategorized:      { bg: "#f5f5f5", border: "#9e9e9e", text: "#424242" },
 };
 
@@ -43,12 +44,14 @@ export function getCategoryColors(rel: string): CategoryStyle {
 /** Element map kept for the existing React.cloneElement call sites in
  *  RelatedStacks. New code should prefer categoryIcon(). */
 export const iconMapping: Record<string, JSX.Element> = {
-  uncategorized: <Layers size={14} />, predictions: <IconBulb size={14} />,
+  uncategorized: <IconStack2 size={14} />, predictions: <IconBulb size={14} />,
   evidence_public: <IconQuote size={14} />, evidence_personal: <IconUser size={14} />,
   connections: <IconLink size={14} />, pointers: <IconPointer size={14} />,
   proposals: <IconBook size={14} />, humor: <IconMoodSmile size={14} />,
-  values: <IconHeart size={14} />, framing: <IconFrame size={14} />,
-  questions: <IconQuestionMark size={14} />, default: <Layers size={14} />,
+  // values uses the handshake-heart, NOT the plain heart: the plain heart is the
+  // Like action glyph, and a category badge must not read as a like indicator.
+  values: <IconHeartHandshake size={14} />, framing: <IconFrame size={14} />,
+  questions: <IconQuestionMark size={14} />, default: <IconStack2 size={14} />,
   agree: <IconThumbUp size={14} />, disagree: <IconThumbDown size={14} />,
 };
 

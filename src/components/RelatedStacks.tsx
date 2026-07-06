@@ -94,52 +94,14 @@ function warnMissingTopic(stackId: string, rangeIndex: number): void {
   );
 }
 
-// ─── Synthetic count augmentation (research mode) ────────────────────────────
-// The current backend produces sparse topic / category distributions — most
-// topics are unique per stack, so realCount = 1 and the tooltip would read
-// "0 more <Topic>". To produce plausible "N more" values for the UI without
-// altering upstream data, we boost counts deterministically when realCount ≤ 1.
-// The hash ensures the same topic/category always maps to the same displayed N,
-// which is important for study reproducibility. Remove this augmentation once
-// the backend produces organic topic overlap across stacks.
-function hashString(s: string): number {
-  let h = 5381;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
-// ─── Synthetic topic names (research mode) ───────────────────────────────────
-// The backend often omits relation.topic, causing "related" to appear everywhere.
-// We generate deterministic synthetic topic names drawn from per-category pools
-// so the UI reads meaningfully without changing backend data.
-const SYNTHETIC_TOPIC_POOLS: Record<string, string[]> = {
-  evidence_public:    ["Trial results", "Productivity gains", "Worker outcomes", "Cost savings", "Pilot programs", "Public data"],
-  evidence_personal:  ["Personal experience", "My team's data", "Observed shifts", "Time tracking", "Direct observation"],
-  agree:              ["Worker autonomy", "Trial results", "Productivity gains", "Pilot programs", "Shorter workweek"],
-  disagree:           ["Generalizability", "Cherry-picked data", "Cost concerns", "Industry differences", "Implementation gaps"],
-  framing:            ["Worker autonomy", "Time vs output", "Cultural shift", "Employer expectations", "Productivity metrics"],
-  questions:          ["Generalizability", "Implementation", "Long-term effects", "Industry fit", "Worker preferences"],
-  connections:        ["Worker autonomy", "Cultural shift", "Time vs output", "Industry trends"],
-  proposals:          ["Pilot programs", "Phased rollout", "Industry adoption", "Policy framework"],
-  values:             ["Worker dignity", "Time as resource", "Quality of life", "Sustainability"],
-  predictions:        ["Industry adoption", "Long-term effects", "Workforce changes", "Productivity trends"],
-  humor:              ["Office stories", "Workplace humor", "Friday vibes", "Email culture"],
-};
-
-/** Returns a deterministic synthetic topic from the category's pool, or the
- *  category label if no pool exists. `seed` should be a stable string like
- *  `${stackId}-${rangeIndex}` so the same relation always maps to the same name. */
-function getSyntheticTopic(category: string, seed: string): string {
-  const pool = SYNTHETIC_TOPIC_POOLS[category];
-  if (!pool || pool.length === 0) return CATEGORY_LABELS[category] ?? category;
-  const idx = hashString(seed) % pool.length;
-  return pool[idx];
-}
-
-/** Returns the relation's topic if present, otherwise generates a synthetic one.
- *  `stackId` and `rangeIndex` are used as the deterministic seed. */
-function topicOf(relation: { topic?: string; category: string }, stackId: string, rangeIndex: number): string {
-  return relation.topic ?? getSyntheticTopic(relation.category, `${stackId}-${rangeIndex}`);
+/** Returns the relation's topic if present, otherwise the honest fallback: the
+ *  category label. (The former SYNTHETIC_TOPIC_POOLS fabricated off-domain topic
+ *  names for topicless relations — removed for the open-source release; tooltips
+ *  for topicless spans are suppressed separately via warnMissingTopic and
+ *  buildTooltipLabel's undefined-topic short-circuit.)
+ *  `stackId`/`rangeIndex` are kept in the signature so call sites don't churn. */
+function topicOf(relation: { topic?: string; category: string }, _stackId: string, _rangeIndex: number): string {
+  return relation.topic ?? (CATEGORY_LABELS[relation.category] ?? relation.category);
 }
 
 /** When realCount ≤ 1, returns a deterministic value in [2, 7]; otherwise
@@ -465,7 +427,7 @@ function buildMultiHighlightNodes(
         opts.anyCardHovered ? 0.25 :
         0.7;
       const bandTopic = (c: { topic?: string; category: string; rangeIndex: number }) =>
-        c.topic ?? getSyntheticTopic(c.category, `${opts.stackId}-${c.rangeIndex}`);
+        topicOf(c, opts.stackId, c.rangeIndex);
       const isBandOnActiveTopic = (c: { topic?: string; category: string; rangeIndex: number }) =>
         opts.activeTopic !== null && bandTopic(c) === opts.activeTopic;
       const gradientStops = cats.map((c, i) => {
@@ -497,7 +459,9 @@ function buildMultiHighlightNodes(
         const moreCount = opts.otherCountByTopic ? opts.otherCountByTopic(topic) : 0;
         const colors: TooltipColors = { text: band.colors.text, border: band.colors.border };
         scheduleCardTooltip({
-          content: buildTooltipLabel(topic, moreCount, band.colors.text),
+          // R-REORDER-9: hovering a span whose topic is already the active
+          // grouping reads "N more <Topic> (shown)" — the click is a no-op.
+          content: buildTooltipLabel(topic, moreCount, band.colors.text, opts.activeTopic !== null && topic === opts.activeTopic),
           colors,
           x: clientX,
           y: clientY,
@@ -552,7 +516,7 @@ function buildMultiHighlightNodes(
 
       // Resolved topic for this range — used for in-block dimming and the
       // "(shown)" tooltip wording / no-op click for same-topic spans.
-      const resolvedTopicForRange = c.topic ?? getSyntheticTopic(c.category, `${opts.stackId}-${c.rangeIndex}`);
+      const resolvedTopicForRange = topicOf(c, opts.stackId, c.rangeIndex);
       const isOnActiveTopic = opts.activeTopic !== null && resolvedTopicForRange === opts.activeTopic;
       // In-block dimming: when this card sits inside the active topic block,
       // non-Topic spans dim out (unless this very span is hovered).
@@ -610,7 +574,7 @@ function buildMultiHighlightNodes(
               opts.onRangeHover(c.rangeIndex);
               const moreCount = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopicForRange) : 0;
               scheduleCardTooltip({
-                content: buildTooltipLabel(resolvedTopicForRange, moreCount, colors.text),
+                content: buildTooltipLabel(resolvedTopicForRange, moreCount, colors.text, opts.activeTopic !== null && resolvedTopicForRange === opts.activeTopic),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
@@ -622,7 +586,7 @@ function buildMultiHighlightNodes(
               opts.onRangeHover(c.rangeIndex);
               const moreCount = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopicForRange) : 0;
               scheduleCardTooltip({
-                content: buildTooltipLabel(resolvedTopicForRange, moreCount, colors.text),
+                content: buildTooltipLabel(resolvedTopicForRange, moreCount, colors.text, opts.activeTopic !== null && resolvedTopicForRange === opts.activeTopic),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,

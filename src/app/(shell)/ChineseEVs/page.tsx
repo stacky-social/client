@@ -410,7 +410,7 @@ export default function ListyInjectionPage() {
     // swallowing it silently.
     if (!postId || !resolveEntry(postId)) {
       // eslint-disable-next-line no-console
-      console.warn('[listy-injection] navigateToPost: unknown postId, ignoring', { postId });
+      console.warn('[ChineseEVs] navigateToPost: unknown postId, ignoring', { postId });
       return;
     }
     // Save feed state for back-nav restoration: scroll position and the

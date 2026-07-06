@@ -2,10 +2,18 @@
 // node:test suite imports it directly; the page passes accessors for rank and
 // relations so this module stays data-shape agnostic.
 
+/** Final tiebreak: stable id order. Keeps every mode's ordering fully
+ *  deterministic (reproducible study orderings) even for replies that tie on
+ *  timestamp AND score/likes. */
+const byId = (a, b) => (String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0);
+
 /** 'top' | 'time' | 'liked'. Unknown modes fall back to 'time' (newest first). */
 export function sortReplies(replies, mode, { rankOf = () => undefined, relationsOf = () => [] } = {}) {
   const arr = [...replies];
-  const byNewest = (a, b) => String(b.created_at).localeCompare(String(a.created_at));
+  // Numeric timestamp compare — String.localeCompare on ISO dates is
+  // locale-collation dependent in theory; Date.parse is not. Ties fall to id.
+  const byNewest = (a, b) =>
+    (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0) || byId(a, b);
 
   if (mode === 'liked') {
     return arr.sort((a, b) => (b.favourites_count ?? 0) - (a.favourites_count ?? 0) || byNewest(a, b));

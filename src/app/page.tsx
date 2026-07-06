@@ -1,12 +1,14 @@
 'use client';
 
 import {useEffect, useState} from 'react';
-import { Title, Text, Button, TextInput, Box, Center, Container, rem, Paper } from '@mantine/core';
+import { Title, Text, Button, TextInput, Box, Center, Container, rem, Paper, Anchor } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Header } from '../components/Header/Header';
 import { Footer } from '../components/Footer/Footer';
+import { CrossweaveLogo } from '../components/NavBar/CrossweaveLogo';
 import classes from './LandingPage.module.css';
 import {BASE_URL} from "../utils/DevMode";
 
@@ -62,11 +64,9 @@ export default function LandingPage() {
       {/* <Header /> */}
       <Center className={classes.landingPageContent}>
         <Container size={400} className={classes.container}>
-          <img src="/stacksLOGO.jpg" alt="Logo" className={classes.logo} />
-          <img src="/stacks.png" alt="Logo" className={classes.logo} />
-          {/* <Text ta="center" mt={10} size={rem(50)} fw="700" className={classes.title}>
-            STACKY
-          </Text> */}
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+            <CrossweaveLogo height={56} />
+          </div>
           <Text c="dimmed" ta="center" size="md" className={classes.subtitle}>
             AI-Curated Democratic Discourse
           </Text>
@@ -89,6 +89,19 @@ export default function LandingPage() {
               </Button>
             </form>
           </Paper>
+
+          <Anchor
+            component={Link}
+            href="/ChineseEVs"
+            data-testid="landing-demo-link"
+            size="sm"
+            fw={600}
+            display="block"
+            ta="center"
+            mt="lg"
+          >
+            Explore the demo — no login required
+          </Anchor>
         </Container>
       </Center>
       {/* <Footer /> */}

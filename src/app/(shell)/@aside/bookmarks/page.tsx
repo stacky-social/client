@@ -1,13 +1,13 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import RelatedStacks from "../../../../components/RelatedStacks";
 import { ComposerFeedback } from "../../../../components/SubmitPost/ComposerFeedback";
 import { useRelatedStacks } from "../../related-stacks-context";
-import { triggerNavigate } from "../../../../utils/highlightStore";
 
 export default function BookmarksAside() {
   const pathname = usePathname();
+  const router = useRouter();
   const { relatedStacks, activePostId, showUpdate, composerFeedback } =
     useRelatedStacks();
 
@@ -38,7 +38,14 @@ export default function BookmarksAside() {
             onStackClick={() => {}}
             showupdate={showUpdate}
             sourcePostId={activePostId ?? undefined}
-            onPostNavigate={(postId) => triggerNavigate(postId)}
+            // No feed on this route registers a navigate callback, so
+            // triggerNavigate would silently no-op (F-17) — route directly
+            // to the demo detail page instead. Seed previousPath so the
+            // detail page's Back button renders and returns here.
+            onPostNavigate={(postId) => {
+              sessionStorage.setItem(`previousPath:/ChineseEVs/posts/${postId}`, pathname);
+              router.push(`/ChineseEVs/posts/${postId}`);
+            }}
           />
         </div>
       );

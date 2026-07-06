@@ -1,6 +1,6 @@
 import React from 'react';
 import { Paper, Text } from '@mantine/core';
-import { Layers, ArrowRight } from 'lucide-react';
+import { IconStack2, IconArrowRight } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 
 interface RelatedStackCountProps {
@@ -49,8 +49,8 @@ const RelatedStackCount: React.FC<RelatedStackCountProps> = ({ count, onClick, t
         transition={{ type: 'spring', stiffness: 450, damping: 22, mass: 0.3 }}
       >
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Layers size={16} />
-          <ArrowRight
+          <IconStack2 size={16} />
+          <IconArrowRight
             size={12}
             style={{
               position: 'absolute',

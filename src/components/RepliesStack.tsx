@@ -2,8 +2,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Anchor } from '@mantine/core';
-import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser } from '@tabler/icons-react';
-import { Layers } from 'lucide-react';
+import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare } from '@tabler/icons-react';
 import { formatPostDate } from '../utils/formatPostDate';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
@@ -47,20 +46,8 @@ interface RepliesStackProps {
   showupdate: boolean;
 }
 
-const iconMapping: { [key: string]: JSX.Element } = {
-  uncategorized: <Layers size={24} />,
-  predictions: <IconBulb size={24} />,
-  evidence_public: <IconQuote size={24} />,
-  evidence_personal: <IconUser size={24} />,
-  connections: <IconLink size={24} />,
-  pointers: <IconPointer size={24} />,
-  proposals: <IconBook size={24} />,
-  humor: <IconMoodSmile size={24} />,
-  values: <IconHeart size={24} />,
-  framing: <IconFrame size={24} />,
-  questions: <IconQuestionMark size={24} />,
-  default: <Layers size={24} />,
-};
+// Category icon/colour presentation lives in src/utils/categoryStyles.tsx
+// (categoryIcon()/getCategoryColors()) — the legacy local copy was removed.
 
 const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, onStackClick, showupdate }) => {
   const router = useRouter();

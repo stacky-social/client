@@ -4,7 +4,7 @@ import { AppShell, Burger, Group, Text, Title, Stack } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { ReactNode } from 'react';
 
-import StackLogo from '../../utils/StackLogo';
+import { CrossweaveLogo } from '../../components/NavBar/CrossweaveLogo';
 
 export default function AnnotationPageLayout({ children }: { children: ReactNode }) {
     const [opened, { toggle }] = useDisclosure();
@@ -17,7 +17,7 @@ export default function AnnotationPageLayout({ children }: { children: ReactNode
             <AppShell.Header>
                 <Group h="100%" px="md">
                     <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-                    <StackLogo size={30} />
+                    <CrossweaveLogo height={30} />
                 </Group>
             </AppShell.Header>
 

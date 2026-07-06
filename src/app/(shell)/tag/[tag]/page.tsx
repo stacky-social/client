@@ -1,7 +1,8 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { Text, Paper, Divider, Group, Button } from '@mantine/core';
+import Link from 'next/link';
+import { Text, Paper, Divider, Group, Button, Anchor } from '@mantine/core';
 import axios from 'axios';
 import Posts from '../../../../components/Posts/Posts';
 
@@ -33,13 +34,22 @@ export default function TagPage() {
   const cached = rawCached && Date.now() - rawCached._ts < TAG_CACHE_TTL ? rawCached : undefined;
   const [tagData, setTagData] = useState<TagData | null>(cached ?? null);
   const [loading, setLoading] = useState(!cached);
+  const [loadError, setLoadError] = useState(false);
   const [isFollowing, setIsFollowing] = useState(cached?.following ?? false);
   const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
-    if (tagName) {
-      fetchTagData(tagName);
+    if (!tagName) return;
+    // The tag endpoint needs a bearer token — with no signed-in session the
+    // fetch is doomed, so show the explanation card immediately instead of
+    // hanging on "Loading..." (F-24).
+    const accessToken = localStorage.getItem('accessToken');
+    if (!accessToken) {
+      setLoadError(true);
+      setLoading(false);
+      return;
     }
+    fetchTagData(tagName);
   }, [tagName]);
 
   const fetchTagData = async (tag: string) => {
@@ -59,6 +69,7 @@ export default function TagPage() {
       }
     } catch (error) {
       console.error('Error fetching tag data:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -90,6 +101,38 @@ export default function TagPage() {
       setToggling(false);
     }
   };
+
+  // Failed (or unauthenticated) with nothing cached — explain instead of
+  // hanging on "Loading..." forever (F-24). A stale error flag is ignored
+  // whenever we do have data to show.
+  if (loadError && !tagData) {
+    return (
+      <Paper
+        style={{
+          backgroundColor: '#fff',
+          boxShadow: 'rgba(0, 0, 0, 0.1) 0px 1px 1px',
+          borderRadius: '8px',
+          padding: '20px',
+        }}
+        withBorder
+        data-testid="tag-load-error"
+      >
+        <Text size="xl">#{tagName}</Text>
+        <Divider my="md" />
+        <Text size="sm" c="dimmed">
+          Couldn&apos;t load this tag. It may require a signed-in session with a reachable backend.
+        </Text>
+        <Group mt="md" gap="xl">
+          <Anchor component={Link} href="/home" size="sm" fw={600}>
+            Back to home
+          </Anchor>
+          <Anchor component={Link} href="/ChineseEVs" size="sm" fw={600}>
+            Browse the demo thread
+          </Anchor>
+        </Group>
+      </Paper>
+    );
+  }
 
   if (loading || !tagData) {
     return <div>Loading...</div>;

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { LoadingOverlay, Button, Box } from "@mantine/core";
+import { LoadingOverlay, Button, Box, Paper, Text, Anchor } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
+import Link from 'next/link';
 import { Virtuoso } from 'react-virtuoso';
 import { PostType } from '../types/PostType';
 import Post from './Posts/Post';
@@ -16,6 +17,13 @@ import {
 
 /** Local (no-backend) feed sources backed by the localStore. */
 export type FeedSource = 'home' | 'bookmarks' | 'liked';
+
+/** Friendly first line of the store-backed empty state, per feed source (F-23). */
+const EMPTY_FEED_COPY: Record<FeedSource, string> = {
+    home: 'Your feed is empty.',
+    bookmarks: 'No bookmarks yet.',
+    liked: 'No liked posts yet.',
+};
 
 /** Read the posts for a store-backed feed source. */
 function selectStoreFeed(source: FeedSource): StorePost[] {
@@ -652,8 +660,8 @@ const ApiFeed: React.FC<PostListProps> = ({
  * wiring the apiUrl path uses — so the aside lights up on click identically.
  *
  * No fetch, no module cache, no virtualization: the store is the source of truth
- * and re-renders on every mutation via useLocalStore. An empty result renders an
- * empty feed (no spinner, no error).
+ * and re-renders on every mutation via useLocalStore. An empty result renders a
+ * friendly empty-state card pointing at the demo thread (F-23).
  */
 const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
     source,
@@ -677,6 +685,34 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
     const lastUserActivateRef = useRef<number>(0);
     const manualActiveIdRef = useRef<string | null>(null);
     const manualLockRef = useRef(false);
+
+    // Empty state (F-23): once hydrated, a zero-post feed shows a friendly card
+    // pointing at the always-available demo thread instead of a blank page.
+    // Before hydration we still render the bare Box so server/client markup match.
+    if (hydrated && posts.length === 0) {
+        return (
+            <Box style={{ width: '100%', position: 'relative', minHeight: 80 }}>
+                <Paper
+                    withBorder
+                    radius="md"
+                    p="xl"
+                    style={{ textAlign: 'center', marginTop: '16px' }}
+                    data-testid="store-feed-empty"
+                >
+                    <Text fw={600} mb={4}>
+                        {EMPTY_FEED_COPY[source]}
+                    </Text>
+                    <Text size="sm" c="dimmed">
+                        Browse the{' '}
+                        <Anchor component={Link} href="/ChineseEVs" size="sm">
+                            #ChineseEVs demo thread
+                        </Anchor>{' '}
+                        — no login required.
+                    </Text>
+                </Paper>
+            </Box>
+        );
+    }
 
     return (
         <Box style={{ width: '100%', position: 'relative', minHeight: 80 }}>

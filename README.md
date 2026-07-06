@@ -1,21 +1,67 @@
-# Stacky
+# crossweave
 
-Stacky is a Mastodon-compatible social client built with Next.js. Users browse posts from a Mastodon instance, organize them into **stacks** (categorized discussion threads), and explore related stacks in a right-hand aside panel. It also includes a `/listy-injection` research feature backed by local mock JSON. The stack is Next.js 14 (App Router) with TypeScript, Node 22.x, pnpm, Mantine v7, and axios.
+crossweave is a Mastodon-compatible social client built with Next.js. Users browse a feed of posts and explore **stacks** — groups of related posts — in a right-hand panel connected to the post they are reading. It also includes a `/ChineseEVs` research feed backed by local mock JSON, which doubles as a zero-setup demo. The stack is Next.js 14 (App Router) with TypeScript, Node 22.x, pnpm, Mantine v7, and axios.
+
+## Quick demo (no credentials needed)
+
+The fastest way to see the app is the bundled demo feed — no OAuth registration,
+no backend, no `.env.local`:
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Then open <http://localhost:3000/ChineseEVs>. The feed, its post-detail pages,
+and the related-posts panel render entirely from local mock JSON
+(`src/app/FakeData/listy-injection.json`). Likes, bookmarks, and replies all
+work and persist locally in your browser via localStorage — nothing leaves
+your machine.
 
 ## Prerequisites
 
 - **Node.js 22.x** (see the `engines` field in `package.json`)
 - **pnpm** (`npm install -g pnpm`)
 
-## Setup
+## Running
 
-1. **Install dependencies:**
+```bash
+pnpm dev     # Start the dev server at http://localhost:3000
+pnpm build   # Production build
+pnpm start   # Start the production server (after pnpm build)
+pnpm lint    # Run ESLint via next lint
+```
 
-   ```bash
-   pnpm install
-   ```
+## Testing
 
-2. **Configure environment variables.** Copy the example file and fill in your OAuth credentials:
+```bash
+pnpm test:e2e      # Playwright end-to-end suite (6 spec files, 18 tests)
+pnpm test:e2e:ui   # Run the e2e suite in the Playwright UI
+pnpm test:unit     # Unit tests (node --test tests/unit/)
+```
+
+The end-to-end suite consists of no-auth smoke and stress tests covering
+release-critical flows. They use the app's local mock data
+(`src/app/FakeData/listy-injection.json`) and require neither real OAuth nor a
+live backend. The suite reuses a dev server already running on
+`http://localhost:3002`; if none is running it starts one via
+`pnpm dev --port 3002`. Set `E2E_BASE_URL` to point the suite at an
+already-running server (for example a production build) instead — see
+`playwright.config.ts` and `e2e/README.md`.
+
+Unit tests are plain `node:test` suites in `tests/unit/` covering the
+reply-sort, thread-filter, reply-relations, and experiment-flag helpers.
+
+## Connecting a live Mastodon-compatible backend (optional)
+
+Most of the app runs fully offline: the `/ChineseEVs` demo plus the `/home`,
+`/search`, `/user`, `/bookmarks`, and `/liked` feeds are backed by a local
+store in your browser's localStorage. Only the legacy live-mode surfaces
+(`/posts/[id]`, `/tag`, `/oldversion`, `/explore`, `/annotation`) call the
+Mastodon-compatible backend, and signing in requires OAuth credentials:
+
+1. **Configure environment variables.** Copy the example file and fill in your
+   OAuth credentials:
 
    ```bash
    cp .env.example .env.local
@@ -35,40 +81,37 @@ Stacky is a Mastodon-compatible social client built with Next.js. Users browse p
    NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_SECRET=...
    ```
 
-3. **Set the mode.** `NEXT_PUBLIC_MODE=development` makes the app use
+2. **Set the mode.** `NEXT_PUBLIC_MODE=development` makes the app use
    `http://localhost:3000` as its base URL (see `src/utils/DevMode.tsx`), which
    is what the OAuth redirect URI above expects.
 
-## Running
+3. **Sign in.** The landing page (`/`) handles Mastodon instance selection and
+   starts the OAuth flow; `/callback` completes it.
 
-```bash
-pnpm dev     # Start the dev server at http://localhost:3000
-pnpm build   # Production build
-pnpm start   # Start the production server (after pnpm build)
-pnpm lint    # Run ESLint via next lint
-```
+## Glossary
 
-## Testing
+Five terms recur throughout the UI, the docs, and the code:
 
-```bash
-pnpm test:e2e      # Run the Playwright smoke suite
-pnpm test:e2e:ui   # Run the suite in the Playwright UI
-```
-
-The end-to-end suite consists of no-auth smoke tests covering release-critical
-flows. They use the app's local mock data (`src/app/FakeData/listy-injection.json`)
-and require neither real OAuth nor a live backend. The suite reuses a dev server
-already running on `http://localhost:3002`; if none is running it starts one via
-`pnpm dev --port 3002` (see `playwright.config.ts` and `e2e/README.md`).
+- **Post** — a feed item.
+- **Reply** — a threaded response under a post.
+- **Related post** — an item in the right-hand panel connected to the focus
+  post (the post currently being read). The panel is headed "Related
+  responses" in today's UI; the canonical term is **related post**.
+- **Stack** — a group of related posts (size ≥ 1).
+- **Topic** — the label a relation carries, used for grouping related posts.
 
 ## Project structure
 
-- `src/app/` — Next.js App Router routes, including the `(shell)` three-panel
-  layout and its `@aside` parallel route for the related-stacks panel.
-- `src/components/` — Reusable UI components (posts, stacks, navigation, etc.).
-- `src/utils/` — Helpers (Mastodon actions, dev-mode base URL, and more).
-- `src/app/FakeData/` — Local mock data used in development and by the e2e tests.
-- `e2e/` — Playwright smoke tests.
+- `src/app/` — Next.js App Router routes, including the `(shell)` layout
+  (sticky top nav + horizontally centered feed/aside group with a single
+  ratio slider) and its `@aside` parallel route for the related-posts panel.
+- `src/components/` — Reusable UI components (posts, related-posts panel,
+  navigation, etc.).
+- `src/utils/` — Helpers (Mastodon actions, the localStorage-backed store,
+  experiment flags, dev-mode base URL, and more).
+- `src/app/FakeData/` — Local mock data used by the demo and the e2e tests.
+- `e2e/` — Playwright smoke and stress tests.
+- `tests/unit/` — `node:test` unit suites.
 
 ## Contributing
 

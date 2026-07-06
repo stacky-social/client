@@ -3,12 +3,13 @@ import mockData from '../src/app/FakeData/listy-injection.json';
 
 // The research feed at /ChineseEVs is rendered entirely from local mock
 // JSON — no backend needed. Its detail route /ChineseEVs/posts/[id]
-// mirrors a single post.
+// mirrors a single post. (The fixture keeps its historical filename
+// listy-injection.json; the route was renamed /listy-injection -> /ChineseEVs.)
 
 // First focus-post id from the mock data, used by the detail-view test.
 const firstFocusId = (mockData as any)[0].focusPost.id as string;
 
-test.describe('Listy-injection feed', () => {
+test.describe('ChineseEVs feed', () => {
   test('renders the hashtag header, stats, post cards and interactions', async ({ page }) => {
     await page.goto('/ChineseEVs');
 

@@ -11,6 +11,9 @@ export function filterReplies<R>(
   replies: R[],
   relationsOf: (reply: R) => Relation[],
   filters?: ReplyFilterState,
+  /** Union of the whole branch's relations (root + descendants); when provided,
+   *  a branch survives if ANY reply in it matches (root kept as context). */
+  branchRelationsOf?: (reply: R) => Relation[],
 ): R[];
 
 export function clusterTopLevel(

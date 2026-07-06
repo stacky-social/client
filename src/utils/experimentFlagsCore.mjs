@@ -20,9 +20,63 @@ export const DEFAULT_FLAGS = {
   summaryCard: true,
   /** Collapsed sticky focus bar with the contribution strip while scrolling */
   stickyFocusBar: true,
+  /** X-style branch previews: one inline reply per branch, expand in place.
+   *  Off = the control condition: branches render fully expanded, flat. */
+  branchPreviews: true,
 };
 
 export const FLAGS_STORAGE_KEY = 'stacky:experimentFlags:v1';
+
+/** The dependency lattice: a flag is only *effective* when every flag it
+ *  depends on is effective too. These encode real code paths, not policy:
+ *  - crossPaneFiltering renders inside the sort-tabs branch, and without
+ *    suppressThreadPosts a dual-role post is counted twice in cross-pane
+ *    "N more <topic>" totals (dishonest counts).
+ *  - replyReranking is triggered from contribution spans and only runs in
+ *    the sort-tabs branch. */
+export const FLAG_DEPENDENCIES = {
+  crossPaneFiltering: ['replySortTabs', 'suppressThreadPosts'],
+  replyReranking: ['replySortTabs', 'replyContributions'],
+};
+
+/** Derive the flags that are actually in force from the chosen switches:
+ *  any flag with an unmet dependency is forced off. Iterates to a fixed
+ *  point so future chained dependencies keep working. */
+export function effectiveFlags(chosen, dependencies = FLAG_DEPENDENCIES) {
+  const out = { ...chosen };
+  let changed = true;
+  let guard = 0;
+  while (changed && guard++ < 20) {
+    changed = false;
+    for (const [flag, deps] of Object.entries(dependencies)) {
+      if (out[flag] && deps.some((d) => !out[d])) {
+        out[flag] = false;
+        changed = true;
+      }
+    }
+  }
+  return out;
+}
+
+/** Parse a `?flags=key:0,key2:1` URL condition override (session-only, for
+ *  study provenance). Unknown keys and unparseable values are ignored.
+ *  Accepted values: 1/0, true/false, on/off. */
+export function parseFlagOverrides(search, defaults = DEFAULT_FLAGS) {
+  const out = {};
+  try {
+    const raw = new URLSearchParams(search).get('flags');
+    if (!raw) return out;
+    for (const part of raw.split(',')) {
+      const [key, value] = part.split(':').map((s) => (s ?? '').trim());
+      if (!(key in defaults)) continue;
+      if (value === '1' || value === 'true' || value === 'on') out[key] = true;
+      else if (value === '0' || value === 'false' || value === 'off') out[key] = false;
+    }
+  } catch {
+    // Malformed search string — no overrides.
+  }
+  return out;
+}
 
 /** Merge a persisted (possibly stale/corrupt) blob over the defaults.
  *  Only known keys with boolean values are honored. Always returns a fresh object. */

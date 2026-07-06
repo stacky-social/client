@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Simplified crossweave mark (see CrossweaveLogo.tsx): the four-colour
+       woven "X", icon only — no wordmark. Served by Next.js as the app icon. -->
+  <!-- "\" diagonal (NW-SE): navy top-left + amber bottom-right -->
+  <rect x="20" y="10" width="26" height="46" rx="13" fill="#1c2b4a" transform="rotate(-45 33 33)"/>
+  <rect x="54" y="44" width="26" height="46" rx="13" fill="#f0a83e" transform="rotate(-45 67 67)"/>
+  <!-- "/" diagonal (NE-SW): teal top-right + coral bottom-left -->
+  <rect x="54" y="10" width="26" height="46" rx="13" fill="#45a99e" transform="rotate(45 67 33)"/>
+  <rect x="20" y="44" width="26" height="46" rx="13" fill="#e15c52" transform="rotate(45 33 67)"/>
+</svg>

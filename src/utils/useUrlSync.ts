@@ -7,6 +7,7 @@ import {
   setResponseFilter,
   useHighlightStore,
 } from "./highlightStore";
+import { LEGACY_TABS, SORT_TABS } from "./replyTabs.mjs";
 
 export interface UrlSyncOptions {
   /** Current active tab value */
@@ -28,13 +29,22 @@ export interface UrlSyncOptions {
    * tab set; the thread page passes "top" when the reply-sort-tabs flag is on.
    */
   defaultTab?: string;
+  /**
+   * The tabs the caller can currently render (the active tab set). A ?tab=
+   * outside this list is not hydrated, so a stale cross-condition link never
+   * selects a tab that has no panel (audit F-1). Because the experiment
+   * condition settles one render after mount, a rejected tab is retried
+   * whenever this list changes, until it is applied or the param is gone.
+   * Omitted: any known tab hydrates (legacy behavior).
+   */
+  allowedTabs?: readonly string[];
 }
 
-const VALID_TABS = ["time", "recommended", "stacked", "summary", "top", "liked"] as const;
-type ValidTab = (typeof VALID_TABS)[number];
+// Every tab either tab set can render; ?tab= values outside this are ignored.
+const VALID_TABS: readonly string[] = Array.from(new Set([...SORT_TABS, ...LEGACY_TABS]));
 
-function isValidTab(v: string): v is ValidTab {
-  return VALID_TABS.includes(v as ValidTab);
+function isValidTab(v: string): boolean {
+  return VALID_TABS.includes(v);
 }
 
 /**
@@ -56,6 +66,7 @@ export function useUrlSync({
   plainPostText,
   onHydratedTab,
   defaultTab = "time",
+  allowedTabs,
 }: UrlSyncOptions): void {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -65,6 +76,8 @@ export function useUrlSync({
   // Tracks whether we have completed the initial hydration for the current pathname.
   // Reset when the pathname changes (i.e., user navigated to a different post).
   const hydratedRef = useRef(false);
+  // Tracks whether the ?tab= param has been resolved (applied or dismissed).
+  const tabHydratedRef = useRef(false);
   // Tracks whether we triggered onHydratedTab for the current mount.
   const hydratedTabCalledRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -72,25 +85,40 @@ export function useUrlSync({
   // Reset hydration gate when the route changes.
   useEffect(() => {
     hydratedRef.current = false;
+    tabHydratedRef.current = false;
     hydratedTabCalledRef.current = false;
   }, [pathname]);
 
-  // ── HYDRATION: tab + filter categories ───────────────────────────────────
+  // ── TAB HYDRATION: gated on the active tab set ───────────────────────────
+  // Applies ?tab= only when the caller can render it. A valid-but-foreign tab
+  // is left pending rather than dismissed: while the experiment condition is
+  // still settling (persisted flags load one render after mount) the allowed
+  // set may change, and we retry then. The pending window closes on its own —
+  // the write direction below strips a foreign tab from the URL, and that
+  // searchParams change re-runs this effect with no ?tab= left to apply.
+  const allowedKey = allowedTabs ? allowedTabs.join(",") : "";
+  useEffect(() => {
+    if (tabHydratedRef.current) return;
+    const tabParam = searchParams.get("tab");
+    if (!tabParam || !isValidTab(tabParam)) {
+      tabHydratedRef.current = true;
+      return;
+    }
+    if (allowedTabs && !allowedTabs.includes(tabParam)) return; // foreign for now — retry on allowedTabs change
+    tabHydratedRef.current = true;
+    setActiveTab(tabParam);
+    if (!hydratedTabCalledRef.current) {
+      hydratedTabCalledRef.current = true;
+      onHydratedTab?.(tabParam);
+    }
+  }, [pathname, searchParams, allowedKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── HYDRATION: filter categories ─────────────────────────────────────────
   // Runs once per pathname (i.e., once per post ID). Reads URL params and
-  // initializes local state + highlightStore.
+  // initializes highlightStore.
   useEffect(() => {
     if (hydratedRef.current) return;
     hydratedRef.current = true;
-
-    // tab
-    const tabParam = searchParams.get("tab");
-    if (tabParam && isValidTab(tabParam)) {
-      setActiveTab(tabParam);
-      if (!hydratedTabCalledRef.current) {
-        hydratedTabCalledRef.current = true;
-        onHydratedTab?.(tabParam);
-      }
-    }
 
     // fc (filter categories — CSV). A ?fc link overrides the restored panel
     // filters; with no ?fc we leave the per-focus-post state alone — setPanelFocus
@@ -153,7 +181,7 @@ export function useUrlSync({
 
   // ── WRITE: debounced URL update when UI state changes ────────────────────
   // Uses router.replace (not push) so filter toggles don't pollute history.
-  // Preserves ?stackId and ?from (set by other parts of the app).
+  // Preserves ?stackId, ?from and ?related (set by other parts of the app).
   useEffect(() => {
     // Clear any pending debounce up front so a stale router.replace can't fire
     // against an out-of-date path, even if this effect early-returns below.
@@ -186,6 +214,11 @@ export function useUrlSync({
     if (stackId) params.set("stackId", stackId);
     const from = searchParams.get("from");
     if (from) params.set("from", from);
+    // `related` (Share-pairing links): without this pass-through the first
+    // debounced replace silently stripped it, so re-copying the visible URL
+    // lost the pairing (audit F-46).
+    const related = searchParams.get("related");
+    if (related) params.set("related", related);
 
     const newSearch = params.toString();
     const currentSearch = searchParams.toString();
