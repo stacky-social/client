@@ -44,6 +44,13 @@ interface ThreadedReplyListProps {
   /** How many top-level reply branches to show. Each branch includes its full
    *  descendant subtree — no branch is split. Omit to show all. */
   visibleTopLevelCount?: number;
+  /**
+   * Explicit top-level ordering AND filter: when provided, only these ids
+   * render as top-level branches, in this order (ids missing from the thread
+   * are ignored). Nested children keep their own newest-first order. Omit for
+   * the default newest-first top level.
+   */
+  topLevelOrder?: string[];
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -109,9 +116,16 @@ export default function ThreadedReplyList({
   rootId,
   renderPost,
   visibleTopLevelCount,
+  topLevelOrder,
 }: ThreadedReplyListProps) {
   const childMap = buildChildMap(replies);
-  const topLevelReplies = childMap.get(rootId) ?? [];
+  let topLevelReplies = childMap.get(rootId) ?? [];
+  if (topLevelOrder) {
+    const byId = new Map(topLevelReplies.map((p) => [p.id, p]));
+    topLevelReplies = topLevelOrder
+      .map((id) => byId.get(id))
+      .filter((p): p is PostType => p !== undefined);
+  }
 
   if (topLevelReplies.length === 0) {
     return null;

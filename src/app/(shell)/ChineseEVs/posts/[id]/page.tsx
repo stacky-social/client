@@ -26,6 +26,9 @@ import type { Relation } from "../../../../../types/PostType";
 import { getCurrentUser } from "../../../../../utils/getCurrentUser";
 import { useLocalStore, useHydrated, getComments } from "../../../../../utils/localStore";
 import { useExperimentFlags } from "../../../../../utils/experimentFlags";
+import { sortReplies } from "../../../../../utils/replySort.mjs";
+import { getMockReplyRank } from "../../../../../utils/mockPostResolver";
+import ReplySummaryCard from "../../../../../components/ReplySummaryCard";
 
 // Thread connector line style — mirrors /posts/[id]
 const THREAD_LINE_COLOR = "#ccd1dc";
@@ -54,7 +57,8 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   const [replies, setReplies] = useState<MockPostType[]>([]);
   const [recommendedPosts, setRecommendedPosts] = useState<MockPostType[]>([]);
   const [focusRelations, setFocusRelations] = useState<Relation[]>([]);
-  const [activeTab, setActiveTab] = useState<string>("time");
+  // Default tab: "top" under the reply-sort-tabs flag (its default), "time" legacy.
+  const [activeTab, setActiveTab] = useState<string>("top");
   const [visibleTopLevelReplies, setVisibleTopLevelReplies] = useState(5);
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any | null>(null);
@@ -110,6 +114,39 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     });
     return m;
   }, [replyRelationsById]);
+
+  const relationsOfReply = useCallback(
+    (rid: string) => replyRelationsById.get(rid) ?? [],
+    [replyRelationsById]
+  );
+
+  // Top-level order for the current sort mode (also the pagination order).
+  // Only computed under the reply-sort-tabs flag; legacy tabs keep the
+  // component-internal newest-first order.
+  const sortOpts = useMemo(
+    () => ({
+      rankOf: (r: MockPostType) => getMockReplyRank(r.id),
+      relationsOf: (r: MockPostType) => replyRelationsById.get(r.id) ?? [],
+    }),
+    [replyRelationsById]
+  );
+  const topLevelOrder = useMemo(() => {
+    if (!flags.replySortTabs) return undefined;
+    const mode = activeTab === "top" || activeTab === "liked" ? activeTab : "time";
+    return sortReplies(filteredReplies, mode, sortOpts).map((r: MockPostType) => r.id);
+  }, [flags.replySortTabs, activeTab, filteredReplies, sortOpts]);
+
+  // Keep the active tab valid for whichever tab set the flag selects.
+  useEffect(() => {
+    if (flags.replySortTabs) {
+      if (activeTab === "recommended" || activeTab === "stacked" || activeTab === "summary") {
+        setActiveTab("top");
+      }
+    } else if (activeTab === "top" || activeTab === "liked") {
+      setActiveTab("time");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flags.replySortTabs]);
 
   // -------------------- Load mock data --------------------
   useEffect(() => {
@@ -174,6 +211,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     plainPostText,
     // Mock mode: tab switches don't require data fetches (data is already loaded).
     onHydratedTab: () => {},
+    defaultTab: flags.replySortTabs ? "top" : "time",
   });
 
   // H5: seed BackButton sessionStorage from ?from= when opening a shared link
@@ -302,7 +340,68 @@ export default function MockPostView({ params }: { params: { id: string } }) {
 
         {showThread && <ReplySection postId={id} currentUser={currentUser} fetchPostAndReplies={() => {}} />}
 
-        {showThread && mergedReplies.length > 0 && (
+        {/* Summary follows the same small-thread suppression as the sort tabs:
+            with a handful of replies, a digest is noise (Jason's <=5 rule). */}
+        {showThread && flags.summaryCard && totalTopLevelReplies > 5 && filteredReplies.length > 0 && (
+          <div style={{ marginTop: "1rem" }}>
+            <ReplySummaryCard replies={filteredReplies as any} relationsOf={relationsOfReply} />
+          </div>
+        )}
+
+        {showThread && mergedReplies.length > 0 && flags.replySortTabs && (
+          <Paper
+            style={{
+              borderRadius: "0 0 8px 8px",
+              fontFamily: "Roboto, sans-serif",
+              fontSize: 14,
+              marginTop: flags.summaryCard ? 0 : "1rem",
+              width: "100%",
+            }}
+          >
+            {/* Tabs are suppressed for small threads (<=5 top-level replies):
+                with a handful of comments a sort control is noise — show the
+                thread newest-first, as a traditional interface would. */}
+            {totalTopLevelReplies > 5 && (
+              <Tabs color="#002379" value={activeTab} onChange={handleTabChange}>
+                <Tabs.List style={{ marginBottom: "1rem" }} data-testid="reply-sort-tabs">
+                  {([["top", "Top"], ["time", "Newest"], ["liked", "Most liked"]] as const).map(([val, label]) => (
+                    <Tabs.Tab
+                      key={val}
+                      value={val}
+                      style={{ fontWeight: activeTab === val ? "bold" : "normal" }}
+                    >
+                      {label}
+                    </Tabs.Tab>
+                  ))}
+                </Tabs.List>
+              </Tabs>
+            )}
+            {/* One list for every sort: rendering never varies with the tab —
+                only the top-level order does (subtrees stay intact). */}
+            <ThreadedReplyList
+              replies={mergedReplies as any}
+              rootId={id}
+              renderPost={renderPost as any}
+              visibleTopLevelCount={visibleTopLevelReplies}
+              topLevelOrder={topLevelOrder}
+            />
+            {visibleTopLevelReplies < totalTopLevelReplies && (
+              <Button
+                onClick={() =>
+                  setVisibleTopLevelReplies((v) => Math.min(v + 5, totalTopLevelReplies))
+                }
+                variant="outline"
+                fullWidth
+                style={{ marginTop: 10 }}
+              >
+                {totalTopLevelReplies - visibleTopLevelReplies} more{" "}
+                {totalTopLevelReplies - visibleTopLevelReplies === 1 ? "reply" : "replies"}
+              </Button>
+            )}
+          </Paper>
+        )}
+
+        {showThread && mergedReplies.length > 0 && !flags.replySortTabs && (
           <Paper
             style={{
               borderRadius: "0 0 8px 8px",

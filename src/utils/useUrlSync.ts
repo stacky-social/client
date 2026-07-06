@@ -23,9 +23,14 @@ export interface UrlSyncOptions {
    * Use this to trigger the tab's data fetch (e.g., fetchRecommended).
    */
   onHydratedTab?: (tab: string) => void;
+  /**
+   * The tab treated as default (omitted from the URL). "time" for the legacy
+   * tab set; the thread page passes "top" when the reply-sort-tabs flag is on.
+   */
+  defaultTab?: string;
 }
 
-const VALID_TABS = ["time", "recommended", "stacked", "summary"] as const;
+const VALID_TABS = ["time", "recommended", "stacked", "summary", "top", "liked"] as const;
 type ValidTab = (typeof VALID_TABS)[number];
 
 function isValidTab(v: string): v is ValidTab {
@@ -50,6 +55,7 @@ export function useUrlSync({
   setActiveTab,
   plainPostText,
   onHydratedTab,
+  defaultTab = "time",
 }: UrlSyncOptions): void {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -162,8 +168,8 @@ export function useUrlSync({
 
     const params = new URLSearchParams();
 
-    // Only encode non-default tab (default is "time")
-    if (activeTab && activeTab !== "time") {
+    // Only encode a non-default tab
+    if (activeTab && activeTab !== defaultTab) {
       params.set("tab", activeTab);
     }
 
@@ -196,5 +202,5 @@ export function useUrlSync({
         debounceRef.current = null;
       }
     };
-  }, [activeTab, filterCategories, responseFilter, pathname, searchParams, router]);
+  }, [activeTab, defaultTab, filterCategories, responseFilter, pathname, searchParams, router]);
 }
