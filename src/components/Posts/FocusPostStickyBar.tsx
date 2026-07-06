@@ -195,6 +195,19 @@ export default function FocusPostStickyBar({
 
   const oneLine = plainText.replace(/\s+/g, " ").trim();
 
+  // Level-2 bold: when a SPECIFIC span is hovered, only the data's optional
+  // focusComment sub-range goes bold — never the whole region. Relations on
+  // the same focus region carry different focusComments, so this is looked up
+  // from the hovered relation at render time (mirrors the full post).
+  const l2Relation =
+    hoveredRelations && hoveredHighlightRangeIndex != null
+      ? hoveredRelations[hoveredHighlightRangeIndex]
+      : null;
+  const boldRange =
+    l2Relation && l2Relation.focusCommentEnd > l2Relation.focusCommentStart
+      ? { start: l2Relation.focusCommentStart, end: l2Relation.focusCommentEnd }
+      : null;
+
   // Visual state per segment — same precedence as the full post's cross-highlight.
   const segmentTint = (seg: TextSegment): string | undefined => {
     if (seg.contributors.length === 0) return undefined;
@@ -313,6 +326,26 @@ export default function FocusPostStickyBar({
                 return <React.Fragment key={i}>{text}</React.Fragment>;
               }
               const tint = segmentTint(seg);
+              // Intersect the hovered relation's focusComment with this segment.
+              // The text-shadow faux-bold matches the full post: real font-weight
+              // would reflow the 3-line window and shift the auto-scroll target.
+              const bs = boldRange ? Math.max(seg.start, boldRange.start) : 0;
+              const be = boldRange ? Math.min(seg.end, boldRange.end) : 0;
+              const content =
+                boldRange && be > bs ? (
+                  <>
+                    {plainText.slice(seg.start, bs)}
+                    <span
+                      data-pinned-bold
+                      style={{ textShadow: "0 0 0.7px currentColor, 0 0 0.7px currentColor" }}
+                    >
+                      {plainText.slice(bs, be)}
+                    </span>
+                    {plainText.slice(be, seg.end)}
+                  </>
+                ) : (
+                  text
+                );
               return (
                 <mark
                   key={i}
@@ -328,7 +361,7 @@ export default function FocusPostStickyBar({
                     cursor: "pointer",
                   }}
                 >
-                  {text}
+                  {content}
                 </mark>
               );
             })}
