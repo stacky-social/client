@@ -108,6 +108,16 @@ function pickPreviewFirst(children: PostType[], opAcct?: string): PostType[] {
   return [best, ...children.filter((c) => c !== best)];
 }
 
+const expanderStyle: React.CSSProperties = {
+  background: "none",
+  border: "none",
+  padding: "2px 0",
+  cursor: "pointer",
+  color: "#5a71a8",
+  fontWeight: 600,
+  fontSize: 13,
+};
+
 function renderTree(
   post: PostType,
   depth: number,
@@ -115,6 +125,7 @@ function renderTree(
   renderPost: (p: PostType) => React.ReactNode,
   shownByParent: Record<string, number>,
   onShowMore: (parentId: string) => void,
+  onShowLess: (parentId: string) => void,
   opAcct?: string
 ): React.ReactNode {
   const effectiveDepth = Math.min(depth, MAX_DEPTH);
@@ -122,6 +133,7 @@ function renderTree(
   const shown = shownByParent[post.id] ?? NESTED_PREVIEW;
   const visibleChildren = children.slice(0, shown);
   const remaining = children.length - visibleChildren.length;
+  const isExpanded = visibleChildren.length > NESTED_PREVIEW;
 
   return (
     <div
@@ -140,32 +152,46 @@ function renderTree(
           Preview children apply the same rule to THEIR children, so the default
           view reads as X-style linear chains. */}
       {visibleChildren.map((child) =>
-        renderTree(child, depth + 1, childMap, renderPost, shownByParent, onShowMore, opAcct)
+        renderTree(child, depth + 1, childMap, renderPost, shownByParent, onShowMore, onShowLess, opAcct)
       )}
-      {remaining > 0 && (
-        <button
-          type="button"
-          data-testid={`nested-see-more-${post.id}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onShowMore(post.id);
-          }}
-          aria-label={`Show more replies to this comment (${remaining} hidden, expands in place)`}
+      {(remaining > 0 || isExpanded) && (
+        <div
           style={{
-            display: "block",
+            display: "flex",
+            gap: 16,
             marginLeft: Math.min(depth + 1, MAX_DEPTH) * INDENT_PX,
             marginBottom: "0.75rem",
-            background: "none",
-            border: "none",
-            padding: "2px 0",
-            cursor: "pointer",
-            color: "#5a71a8",
-            fontWeight: 600,
-            fontSize: 13,
           }}
         >
-          Show {remaining} more {remaining === 1 ? "reply" : "replies"}
-        </button>
+          {remaining > 0 && (
+            <button
+              type="button"
+              data-testid={`nested-see-more-${post.id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onShowMore(post.id);
+              }}
+              aria-label={`Show more replies to this comment (${remaining} hidden, expands in place)`}
+              style={expanderStyle}
+            >
+              Show {remaining} more {remaining === 1 ? "reply" : "replies"}
+            </button>
+          )}
+          {isExpanded && (
+            <button
+              type="button"
+              data-testid={`nested-show-less-${post.id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onShowLess(post.id);
+              }}
+              aria-label="Collapse this branch back to its preview reply"
+              style={{ ...expanderStyle, color: "#94a3b8" }}
+            >
+              Show fewer
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -179,6 +205,7 @@ export default function ThreadedReplyList({
   renderPost,
   visibleTopLevelCount,
   topLevelOrder,
+  opAcct,
 }: ThreadedReplyListProps) {
   // Per-parent nested pagination: parentId → children currently shown.
   // Reset when the thread root changes (navigating to a different post).
@@ -188,6 +215,13 @@ export default function ThreadedReplyList({
   }, [rootId]);
   const handleShowMore = (parentId: string) =>
     setShownByParent((prev) => ({ ...prev, [parentId]: (prev[parentId] ?? NESTED_PREVIEW) + NESTED_PAGE }));
+  // Collapse folds the branch back to its one-reply preview. Descendants'
+  // own expansion counts are kept, so re-expanding restores where you were.
+  const handleShowLess = (parentId: string) =>
+    setShownByParent((prev) => {
+      const { [parentId]: _gone, ...rest } = prev;
+      return rest;
+    });
 
   const childMap = buildChildMap(replies);
   let topLevelReplies = childMap.get(rootId) ?? [];
@@ -211,7 +245,7 @@ export default function ThreadedReplyList({
   return (
     <div>
       {visibleReplies.map((post) =>
-        renderTree(post, 0, childMap, renderPost, shownByParent, handleShowMore)
+        renderTree(post, 0, childMap, renderPost, shownByParent, handleShowMore, handleShowLess, opAcct)
       )}
     </div>
   );

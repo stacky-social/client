@@ -707,6 +707,19 @@ export default function MockPostView({ params }: { params: { id: string } }) {
                 {displayedTotal - visibleTopLevelReplies === 1 ? "reply" : "replies"}
               </Button>
             )}
+            {visibleTopLevelReplies > 5 && (
+              <Button
+                onClick={() => setVisibleTopLevelReplies(5)}
+                variant="subtle"
+                color="gray"
+                fullWidth
+                size="compact-sm"
+                style={{ marginTop: 6 }}
+                data-testid="top-level-show-fewer"
+              >
+                Show fewer replies
+              </Button>
+            )}
           </Paper>
         )}
 
