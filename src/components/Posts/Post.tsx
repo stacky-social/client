@@ -15,7 +15,8 @@ import InteractionControl from '../InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../../utils/mastoActions';
 import { getPost, isLiked as storeIsLiked, isBookmarked as storeIsBookmarked } from '../../utils/localStore';
 import { useHighlightStore, setResponseFilter, clearResponseFilter, setPendingResponseFilter } from '../../utils/highlightStore';
-import { CATEGORY_COLORS } from '../../utils/categoryStyles';
+import { CATEGORY_COLORS, CATEGORY_LABELS, categoryIcon, getCategoryColors } from '../../utils/categoryStyles';
+import ReplyHighlightedContent from './ReplyHighlightedContent';
 import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 import type { Relation } from '../../types/PostType';
 import { showTooltip, hideTooltip } from '../HoverTooltip';
@@ -639,6 +640,15 @@ interface PostProps {
   focusRelations?: Relation[];
   /** Collapsed line-clamp before "Read more" (feed uses 5; the full-post view passes more, e.g. 10). */
   clampLines?: number;
+  /** Related-card-style relations whose content offsets index THIS post's own
+   *  text (replies in the thread view). Renders colored category spans. */
+  contentRelations?: Relation[];
+  /** Deduped contribution categories shown as a badge row under the header. */
+  categoryBadges?: string[];
+  /** A contribution span in this post was clicked (rangeIndex into contentRelations). */
+  onContentSpanClick?: (rangeIndex: number) => void;
+  /** Optional cross-pane count for the reply span tooltip ("N more <topic>"). */
+  replyTopicCount?: (topic: string) => number;
 }
 
 function Post({
@@ -662,6 +672,10 @@ function Post({
   onNavigate,
   focusRelations = [],
   clampLines = 5,
+  contentRelations,
+  categoryBadges,
+  onContentSpanClick,
+  replyTopicCount,
 }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
@@ -1087,12 +1101,62 @@ function Post({
           </Group>
         </div>
 
+        {categoryBadges && categoryBadges.length > 0 && (
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', margin: '6px 0 2px 3rem' }}>
+            {categoryBadges.map((cat) => {
+              const tc = getCategoryColors(cat);
+              return (
+                <span
+                  key={cat}
+                  data-reply-badge={cat}
+                  style={{
+                    background: tc.bg, color: tc.text, border: `1px solid ${tc.border}`,
+                    borderRadius: '5px', padding: '2px 7px',
+                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                    fontSize: '10px', fontWeight: 700,
+                  }}
+                >
+                  {categoryIcon(cat, 12, tc.text)}
+                  {CATEGORY_LABELS[cat] ?? cat}
+                </span>
+              );
+            })}
+          </div>
+        )}
+
         <div
           style={{ paddingLeft: '3rem', paddingRight:'3rem', cursor: 'pointer'}}
           onMouseUp={(e) => handleMouseUp(e)}
         >
           <div>
-      {focusRelations.length > 0 ? (
+      {contentRelations && contentRelations.length > 0 ? (
+        // Reply with contributions: colored category spans over its own text
+        // (the left-pane counterpart of a related card). Clamp/Read-more reuse
+        // the same wrapper the plain branch uses.
+        <div
+          ref={textRef}
+          className={isTextExpanded ? undefined : 'postClampedText'}
+          style={{
+            display: isTextExpanded ? 'block' : '-webkit-box',
+            WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: isTextExpanded ? undefined : clampLines,
+            overflow: isTextExpanded ? 'visible' : 'hidden',
+            textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
+            maxHeight: isTextExpanded ? undefined : `calc(1.5em * ${clampLines})`,
+            marginTop: '0px',
+            lineHeight: '1.5',
+            color: '#011445',
+          }}
+        >
+          <ReplyHighlightedContent
+            plainText={stripHtml(text)}
+            relations={contentRelations}
+            replyId={id}
+            onSpanClick={onContentSpanClick}
+            otherCountByTopic={replyTopicCount}
+          />
+        </div>
+      ) : focusRelations.length > 0 ? (
         // Render the interactive spans for EVERY post that has them — not just the
         // focused one — so feed posts get span hover + click-to-focus. active gates
         // the focused-only behaviour (cross-highlight, filter visual, auto-reveal).

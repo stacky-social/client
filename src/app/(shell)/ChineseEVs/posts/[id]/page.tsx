@@ -17,6 +17,7 @@ import {
   getMockRelatedStacks,
   getMockRecommended,
   getMockFocusRelations,
+  getMockReplyRelations,
   getMockPlainText,
   mockHasPost,
   type MockPostType,
@@ -88,6 +89,27 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     [mergedReplies, id]
   );
   const totalTopLevelReplies = filteredReplies.length;
+
+  // Reply contributions: relations + deduped category badges per reply id.
+  // Memoized maps keep prop references stable so React.memo on Post holds.
+  const replyRelationsById = useMemo(() => {
+    const m = new Map<string, Relation[]>();
+    for (const r of mergedReplies) {
+      const rels = getMockReplyRelations(r.id, id);
+      if (rels.length > 0) m.set(r.id, rels);
+    }
+    return m;
+  }, [mergedReplies, id]);
+
+  const replyBadgesById = useMemo(() => {
+    const m = new Map<string, string[]>();
+    replyRelationsById.forEach((rels, rid) => {
+      const cats: string[] = [];
+      for (const r of rels) if (!cats.includes(r.category)) cats.push(r.category);
+      m.set(rid, cats);
+    });
+    return m;
+  }, [replyRelationsById]);
 
   // -------------------- Load mock data --------------------
   useEffect(() => {
@@ -170,7 +192,12 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   };
 
   // Stack icons are hidden on the focused view; related stacks live in the aside.
-  const renderPost = (p: MockPostType, isFocusPost: boolean = false) => (
+  const renderPost = (p: MockPostType, isFocusPost: boolean = false) => {
+    // Replies (incl. dual-role related posts) get contribution spans + badges;
+    // the focus post keeps its grey marks; ancestors stay passive by design.
+    const showReplyContributions =
+      !isFocusPost && flags.replyContributions && replyRelationsById.has(p.id);
+    return (
     <Post
       key={p.id}
       id={p.id}
@@ -192,6 +219,8 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       setActivePostId={setActivePostId}
       activePostId={activePostId}
       focusRelations={isFocusPost ? focusRelations : []}
+      contentRelations={showReplyContributions ? replyRelationsById.get(p.id) : undefined}
+      categoryBadges={showReplyContributions ? replyBadgesById.get(p.id) : undefined}
       clampLines={10}
       // Keep every post/reply on the mock-backed detail route. Without this the
       // Post component falls back to the real /posts/[id] route, which requires a
@@ -201,7 +230,8 @@ export default function MockPostView({ params }: { params: { id: string } }) {
         router.push(`/ChineseEVs/posts/${pid}`);
       }}
     />
-  );
+    );
+  };
 
   if (!mockHasPost(id)) {
     return (
