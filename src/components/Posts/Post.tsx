@@ -241,7 +241,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   /** Non-focused post only: a span was clicked — focus this post then filter. */
   onSpanFocusRequest?: (span: { start: number; end: number; text: string }) => void;
 }>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [], onAutoReveal, active = true, onSpanFocusRequest }, ref) {
-  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, responseFilter } = useHighlightStore();
+  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, responseFilter } = useHighlightStore();
   // Related stacks of the active (focus) post — used to count "N related posts"
   // for the click-to-filter affordance. Mirrored to a ref so the DOM hover
   // handlers read the latest without re-subscribing.
@@ -502,6 +502,12 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     clearFocusCommentBold(el);
     const level2 = (hoveredRelations && hoveredHighlightRangeIndex != null)
       ? hoveredRelations[hoveredHighlightRangeIndex] : null;
+    // Category-badge hover: every hovered-card relation OF THAT CATEGORY gets
+    // the level-2 shade (a badge is "the same relation at category grain"), the
+    // rest stay level-1. A specific span hover still wins over the badge.
+    const level2Cats = (!level2 && hoveredCategory && hoveredRelations)
+      ? hoveredRelations.filter((r) => r.category === hoveredCategory)
+      : null;
     const marks = Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[];
     marks.forEach((m) => {
       const a = parseInt(m.getAttribute('data-fs') || 'NaN', 10);
@@ -511,6 +517,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         // L2 = a stronger shade of the SAME category colour, but only lightly toward
         // the saturated border (0.15, was 0.30 which read as too dark). Still clearly
         // stronger than the L1 faint (blend toward white), still pastel — not dark.
+        m.style.backgroundColor = c ? blendHex(c.bg, c.border, 0.15) : '#cbd5e1';
+        return;
+      }
+      if (level2Cats && level2Cats.some((r) => a < r.focusEnd && r.focusStart < b)) {
+        const c = crossColors(hoveredCategory!);
         m.style.backgroundColor = c ? blendHex(c.bg, c.border, 0.15) : '#cbd5e1';
         return;
       }

@@ -1491,6 +1491,29 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     setHoveredHighlightRangeIndex(null);
   };
 
+  // Badge-hover reveal: after a short dwell, scroll the card so the hovered
+  // category's contribution span is visible (block:'nearest' no-ops when it
+  // already is). The dwell keeps a cursor sweep across badges from scrolljacking.
+  const tagScrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleTagScroll = (cardIndex: number, rangeIndex: number) => {
+    if (tagScrollTimer.current) clearTimeout(tagScrollTimer.current);
+    tagScrollTimer.current = setTimeout(() => {
+      tagScrollTimer.current = null;
+      const paperEl = paperRefs.current[cardIndex];
+      if (!paperEl) return;
+      let markEl = paperEl.querySelector(`mark[data-range-id="${rangeIndex}"]`) as HTMLElement | null;
+      if (!markEl) {
+        // Overlap segments carry the range id in a CSV attribute.
+        markEl = (Array.from(paperEl.querySelectorAll('mark[data-overlap-range-ids]')) as HTMLElement[])
+          .find((m) => (m.getAttribute('data-overlap-range-ids') ?? '').split(',').includes(String(rangeIndex))) ?? null;
+      }
+      (markEl ?? paperEl).scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 150);
+  };
+  const cancelTagScroll = () => {
+    if (tagScrollTimer.current) { clearTimeout(tagScrollTimer.current); tagScrollTimer.current = null; }
+  };
+
   // hoveredIndex: for the stacked-card bottom-edge layer effect only
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   // hoveredCardId: tracks which card the mouse is actually over, BY POST ID (not
@@ -2239,8 +2262,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       return (
                         <div
                           key={cat}
-                          onMouseEnter={(e) => { if (!isTouch) setHoveredCategory(cat); tagHover(e.clientX, e.clientY); }}
-                          onMouseLeave={() => { if (!isTouch) setHoveredCategory(null); hideTooltip(); }}
+                          onMouseEnter={(e) => { if (!isTouch) { setHoveredCategory(cat); scheduleTagScroll(index, indices[0]); } tagHover(e.clientX, e.clientY); }}
+                          onMouseLeave={() => { if (!isTouch) { setHoveredCategory(null); cancelTagScroll(); } hideTooltip(); }}
                           onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; tagHover(e.clientX, e.clientY); }}
                           onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTooltip(); }}
                           onClick={(e) => {
