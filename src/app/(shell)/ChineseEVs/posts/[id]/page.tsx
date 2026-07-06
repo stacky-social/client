@@ -27,6 +27,7 @@ import { getCurrentUser } from "../../../../../utils/getCurrentUser";
 import { useLocalStore, useHydrated, getComments } from "../../../../../utils/localStore";
 import { useExperimentFlags } from "../../../../../utils/experimentFlags";
 import { sortReplies } from "../../../../../utils/replySort.mjs";
+import { allowedTabsFor, coerceTab, defaultTabFor } from "../../../../../utils/replyTabs.mjs";
 import { filterReplies, clusterTopLevel } from "../../../../../utils/threadFilter.mjs";
 import { getMockReplyRank } from "../../../../../utils/mockPostResolver";
 import ReplySummaryCard from "../../../../../components/ReplySummaryCard";
@@ -351,17 +352,14 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     if (Math.abs(delta) > 0.5) window.scrollTo(0, Math.max(0, window.scrollY + delta));
   }, [replyAnchor]);
 
-  // Keep the active tab valid for whichever tab set the flag selects.
+  // Keep the active tab inside whichever tab set the flag selects. Depends on
+  // activeTab too, so a foreign tab arriving AFTER a flag change (URL
+  // hydration of a stale cross-condition link — audit F-1) degrades to the
+  // active set's default instead of selecting a tab with no panel.
   useEffect(() => {
-    if (flags.replySortTabs) {
-      if (activeTab === "recommended" || activeTab === "stacked" || activeTab === "summary") {
-        setActiveTab("top");
-      }
-    } else if (activeTab === "top" || activeTab === "liked") {
-      setActiveTab("time");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flags.replySortTabs]);
+    const coerced = coerceTab(activeTab, flags.replySortTabs);
+    if (coerced !== activeTab) setActiveTab(coerced);
+  }, [flags.replySortTabs, activeTab]);
 
   // -------------------- Load mock data --------------------
   useEffect(() => {
@@ -426,7 +424,8 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     plainPostText,
     // Mock mode: tab switches don't require data fetches (data is already loaded).
     onHydratedTab: () => {},
-    defaultTab: flags.replySortTabs ? "top" : "time",
+    defaultTab: defaultTabFor(flags.replySortTabs),
+    allowedTabs: allowedTabsFor(flags.replySortTabs),
   });
 
   // H5: seed BackButton sessionStorage from ?from= when opening a shared link
