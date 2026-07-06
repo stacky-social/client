@@ -136,6 +136,18 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     [replyRelationsById]
   );
 
+  // Focus-post mark coverage: related-post relations PLUS reply relations.
+  // A reply can connect to a passage no related post covers (bs-011's was the
+  // canary) — without merging, hovering that reply had no mark to light up in
+  // the focus post or the pinned post. Gated with reply contributions: when
+  // replies render plain, their regions don't mark the focus post either.
+  const focusRelationsAll = useMemo(() => {
+    if (!flags.replyContributions) return focusRelations;
+    const merged = [...focusRelations];
+    replyRelationsById.forEach((rels) => merged.push(...rels));
+    return merged;
+  }, [flags.replyContributions, focusRelations, replyRelationsById]);
+
   // Top-level order for the current sort mode (also the pagination order).
   // Only computed under the reply-sort-tabs flag; legacy tabs keep the
   // component-internal newest-first order.
@@ -460,7 +472,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       relatedStacks={[]}
       setActivePostId={setActivePostId}
       activePostId={activePostId}
-      focusRelations={isFocusPost ? focusRelations : []}
+      focusRelations={isFocusPost ? focusRelationsAll : []}
       contentRelations={showReplyContributions ? replyRelationsById.get(p.id) : undefined}
       categoryBadges={showReplyContributions ? replyBadgesById.get(p.id) : undefined}
       onContentSpanClick={
@@ -520,7 +532,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
           author={post.account.username}
           avatar={post.account.avatar}
           plainText={plainPostText}
-          focusRelations={focusRelations}
+          focusRelations={focusRelationsAll}
           anchorRef={focusWrapRef}
           containerRef={columnRef}
         />

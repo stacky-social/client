@@ -55,3 +55,21 @@ export const iconMapping: Record<string, JSX.Element> = {
 export function categoryIcon(cat: string, size = 14, color?: string): JSX.Element {
   return React.cloneElement(iconMapping[cat] ?? iconMapping.default, { size, color });
 }
+
+/** Hex → rgba() string. */
+export function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/** Blend two hex colours by t (0..1) → OPAQUE rgb, so stacked/adjacent marks
+ *  can never compound into darker bands. Level-1 faint = blend toward white;
+ *  level-2 strong = blend the category bg toward its saturated border. */
+export function blendHex(from: string, to: string, t: number): string {
+  const a = [1, 3, 5].map((i) => parseInt(from.slice(i, i + 2), 16));
+  const b = [1, 3, 5].map((i) => parseInt(to.slice(i, i + 2), 16));
+  const m = (x: number, y: number) => Math.round(x + (y - x) * t);
+  return `rgb(${m(a[0], b[0])},${m(a[1], b[1])},${m(a[2], b[2])})`;
+}
