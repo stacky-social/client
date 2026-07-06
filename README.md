@@ -1,6 +1,6 @@
-# Stacky
+# crossweave
 
-Stacky is a Mastodon-compatible social client built with Next.js. Users browse a feed of posts and explore **stacks** — groups of related posts — in a right-hand panel connected to the post they are reading. It also includes a `/ChineseEVs` research feed backed by local mock JSON, which doubles as a zero-setup demo. The stack is Next.js 14 (App Router) with TypeScript, Node 22.x, pnpm, Mantine v7, and axios.
+crossweave is a Mastodon-compatible social client built with Next.js. Users browse a feed of posts and explore **stacks** — groups of related posts — in a right-hand panel connected to the post they are reading. It also includes a `/ChineseEVs` research feed backed by local mock JSON, which doubles as a zero-setup demo. The stack is Next.js 14 (App Router) with TypeScript, Node 22.x, pnpm, Mantine v7, and axios.
 
 ## Quick demo (no credentials needed)
 

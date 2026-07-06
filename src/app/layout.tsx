@@ -6,7 +6,7 @@ import { MantineProvider, ColorSchemeScript } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import { theme } from "../../theme";
 
-export const metadata = { title: "Stacky", description: "Stacky!" };
+export const metadata = { title: "crossweave", description: "AI-Curated Democratic Discourse" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

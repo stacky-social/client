@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Stacky is a Mastodon-compatible social media client built with Next.js. Users browse posts from a Mastodon instance, organize them into "stacks" (categorized discussion threads), and interact via favorites, bookmarks, and annotations.
+crossweave is a Mastodon-compatible social media client built with Next.js. Users browse posts from a Mastodon instance, organize them into "stacks" (categorized discussion threads), and interact via favorites, bookmarks, and annotations.
 
 ## Commands
 

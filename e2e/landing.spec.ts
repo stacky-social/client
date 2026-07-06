@@ -14,9 +14,9 @@ test.describe('Landing page', () => {
     await expect(page.getByLabel('Mastodon Instance')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Login' })).toBeVisible();
 
-    // Two logo images.
-    const logos = page.getByRole('img', { name: 'Logo' });
-    await expect(logos).toHaveCount(2);
+    // Brand lockup: the crossweave mark (one inline SVG) + wordmark.
+    await expect(page.getByRole('img', { name: 'crossweave logo' })).toHaveCount(1);
+    await expect(page.getByText('crossweave', { exact: true })).toBeVisible();
   });
 
   test('rejects an invalid instance domain without navigating', async ({ page }) => {

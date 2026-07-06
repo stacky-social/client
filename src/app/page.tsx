@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Header } from '../components/Header/Header';
 import { Footer } from '../components/Footer/Footer';
+import { CrossweaveLogo } from '../components/NavBar/CrossweaveLogo';
 import classes from './LandingPage.module.css';
 import {BASE_URL} from "../utils/DevMode";
 
@@ -63,11 +64,9 @@ export default function LandingPage() {
       {/* <Header /> */}
       <Center className={classes.landingPageContent}>
         <Container size={400} className={classes.container}>
-          <img src="/stacksLOGO.jpg" alt="Logo" className={classes.logo} />
-          <img src="/stacks.png" alt="Logo" className={classes.logo} />
-          {/* <Text ta="center" mt={10} size={rem(50)} fw="700" className={classes.title}>
-            STACKY
-          </Text> */}
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+            <CrossweaveLogo height={56} />
+          </div>
           <Text c="dimmed" ta="center" size="md" className={classes.subtitle}>
             AI-Curated Democratic Discourse
           </Text>
