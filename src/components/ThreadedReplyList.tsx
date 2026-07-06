@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import styles from "./ThreadedReplyList.module.css";
+import { useExperimentFlags } from "../utils/experimentFlags";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -76,10 +77,15 @@ function buildChildMap(replies: PostType[]): Map<string, PostType[]> {
     }
     map.get(parentId)!.push(post);
   }
-  // Sort each bucket newest-first so the conversation reads top-to-bottom
+  // Sort each bucket newest-first so the conversation reads top-to-bottom.
+  // Numeric timestamp compare with an id tiebreak keeps the order deterministic
+  // across locales and for same-second replies (reproducible study orderings).
   // Use Array.from instead of for-of on Map.values() due to es5 target.
   Array.from(map.values()).forEach((bucket) => {
-    bucket.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    bucket.sort(
+      (a, b) =>
+        Date.parse(b.created_at) - Date.parse(a.created_at) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+    );
   });
   return map;
 }
@@ -126,14 +132,19 @@ function renderTree(
   shownByParent: Record<string, number>,
   onShowMore: (parentId: string) => void,
   onShowLess: (parentId: string) => void,
-  opAcct?: string
+  opAcct?: string,
+  previewsEnabled: boolean = true
 ): React.ReactNode {
   const effectiveDepth = Math.min(depth, MAX_DEPTH);
-  const children = pickPreviewFirst(childMap.get(post.id) ?? [], opAcct);
-  const shown = shownByParent[post.id] ?? NESTED_PREVIEW;
+  // Control condition (branchPreviews flag off): pure chronological order,
+  // every child visible, no expanders — the flat "traditional" thread.
+  const children = previewsEnabled
+    ? pickPreviewFirst(childMap.get(post.id) ?? [], opAcct)
+    : childMap.get(post.id) ?? [];
+  const shown = previewsEnabled ? shownByParent[post.id] ?? NESTED_PREVIEW : children.length;
   const visibleChildren = children.slice(0, shown);
   const remaining = children.length - visibleChildren.length;
-  const isExpanded = visibleChildren.length > NESTED_PREVIEW;
+  const isExpanded = previewsEnabled && visibleChildren.length > NESTED_PREVIEW;
 
   return (
     <div
@@ -152,9 +163,9 @@ function renderTree(
           Preview children apply the same rule to THEIR children, so the default
           view reads as X-style linear chains. */}
       {visibleChildren.map((child) =>
-        renderTree(child, depth + 1, childMap, renderPost, shownByParent, onShowMore, onShowLess, opAcct)
+        renderTree(child, depth + 1, childMap, renderPost, shownByParent, onShowMore, onShowLess, opAcct, previewsEnabled)
       )}
-      {(remaining > 0 || isExpanded) && (
+      {previewsEnabled && (remaining > 0 || isExpanded) && (
         <div
           style={{
             display: "flex",
@@ -209,6 +220,7 @@ export default function ThreadedReplyList({
 }: ThreadedReplyListProps) {
   // Per-parent nested pagination: parentId → children currently shown.
   // Reset when the thread root changes (navigating to a different post).
+  const { branchPreviews } = useExperimentFlags();
   const [shownByParent, setShownByParent] = useState<Record<string, number>>({});
   useEffect(() => {
     setShownByParent({});
@@ -245,7 +257,7 @@ export default function ThreadedReplyList({
   return (
     <div>
       {visibleReplies.map((post) =>
-        renderTree(post, 0, childMap, renderPost, shownByParent, handleShowMore, handleShowLess, opAcct)
+        renderTree(post, 0, childMap, renderPost, shownByParent, handleShowMore, handleShowLess, opAcct, branchPreviews)
       )}
     </div>
   );
