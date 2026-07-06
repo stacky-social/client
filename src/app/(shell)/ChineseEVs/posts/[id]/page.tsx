@@ -687,6 +687,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
               renderPost={renderPost as any}
               visibleTopLevelCount={visibleTopLevelReplies}
               topLevelOrder={topLevelOrder}
+              opAcct={post?.account?.acct || post?.account?.username}
             />
             {displayedTotal === 0 && (
               <Text size="sm" c="dimmed" p="md" data-testid="no-matching-replies">
