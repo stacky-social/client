@@ -22,6 +22,43 @@ All params are managed by [`useUrlSync`](../../../utils/useUrlSync.ts) unless no
 | `fs` | `start-end` (numeric offsets into focus-post plaintext) | none | deferred until post content loads | yes | Focus-span filter from clicking a mark on the focus post |
 | `from` | `{post-id}` | none | one-shot on mount (seeds `previousPath`) | no | Back-link source — sets `sessionStorage['previousPath:/.../posts/{current}']` so BackButton can render |
 | `stackId` | `{stack-id}` | none | pass-through | pass-through | Preserved across navigation; not modified by `useUrlSync` |
+| `related` | `{post-id}` | none | one-shot on page mount | no — ⚠️ dropped by the first debounced write (see below) | Shared-pairing emphasis: the matching related card in the aside is emphasised and scrolled into view |
+
+### `tab` — label ↔ value mapping (for log readers)
+
+The flagged sort tabs render as **Top / Newest / Most liked** but write partly
+**legacy internal values**, kept for URL back-compat — don't be confused when
+reading logs or shared URLs:
+
+| UI label | URL value |
+|---|---|
+| Top | `tab=top` |
+| Newest | `tab=time` (legacy value — *not* `newest`) |
+| Most liked | `tab=liked` |
+
+The legacy tab set (rendered when the reply-sort-tabs experiment flag is off)
+uses its internal values directly: `time`, `recommended`, `stacked`, `summary`.
+
+### `related` — shared pairing (one-shot; known limitation)
+
+Written by the aside's **"Share pairing"** action, which copies
+`…/ChineseEVs/posts/{focusId}?related={relatedId}` to the clipboard (sharing the
+focus post itself omits the param). On page mount the detail route reads
+`related` once and passes it to the aside as `highlightPostId`: the matching
+related card is emphasised and smooth-scrolled into view. If the id isn't among
+the post's related responses (stale/invalid link, or the post was suppressed
+into the thread) the page still renders normally and shows a "Pairing
+unavailable" notice.
+
+> ⚠️ **Known limitation — the param is currently one-shot.** `related` is
+> **not** in `useUrlSync`'s pass-through set (only `from` and `stackId` are
+> preserved on write), so the first debounced `router.replace` (~300 ms after
+> mount) rewrites the URL without it. The emphasis still applies — it was read
+> at mount — but **re-copying the visible URL loses the pairing**.
+>
+> **TODO (audit F-46):** add `related` to the pass-through set alongside
+> `from`/`stackId`, after the in-flight tab-validation change (audit F-1) lands
+> in `useUrlSync`.
 
 ### Reserved (not yet wired)
 
