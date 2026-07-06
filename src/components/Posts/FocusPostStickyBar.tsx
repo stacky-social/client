@@ -181,9 +181,18 @@ export default function FocusPostStickyBar({
       if (!mark) return;
       const boxRect = box.getBoundingClientRect();
       const markRect = mark.getBoundingClientRect();
-      // Center the mark in the 3-line window.
-      const top = box.scrollTop + (markRect.top - boxRect.top) - boxRect.height / 2 + markRect.height / 2;
-      animateScrollTo(box, Math.max(0, top));
+      // Snap to whole lines — the window must always show exactly 3 full lines,
+      // never a clipped one. Top-align regions of 3+ lines (their start is the
+      // point of the highlight); shorter regions sit centered on line grid, so
+      // anything that fits the window is fully in view.
+      const markTopInContent = markRect.top - boxRect.top + box.scrollTop;
+      const startLine = Math.round(markTopInContent / LINE_HEIGHT_PX);
+      const markLines = Math.max(1, Math.round(markRect.height / LINE_HEIGHT_PX));
+      const lead = markLines >= VISIBLE_LINES ? 0 : Math.floor((VISIBLE_LINES - markLines) / 2);
+      const maxTop =
+        Math.floor(Math.max(0, box.scrollHeight - box.clientHeight) / LINE_HEIGHT_PX) * LINE_HEIGHT_PX;
+      const top = Math.max(0, Math.min(maxTop, (startLine - lead) * LINE_HEIGHT_PX));
+      animateScrollTo(box, top);
     }, 120);
 
     return () => {
