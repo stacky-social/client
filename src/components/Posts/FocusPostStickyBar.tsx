@@ -128,17 +128,28 @@ export default function FocusPostStickyBar({
     return () => io.disconnect();
   }, [anchorRef]);
 
-  // Track the center column's box for the fixed bar.
+  // Track the center column's box for the fixed bar. A ResizeObserver on the
+  // column itself (not just window resize) keeps the fixed bar aligned when the
+  // feed/related ratio slider moves the column without any window resize.
   useEffect(() => {
+    const el = containerRef.current;
     const measure = () => {
-      const el = containerRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
+      const node = containerRef.current;
+      if (!node) return;
+      const rect = node.getBoundingClientRect();
       setBounds({ left: rect.left, width: rect.width });
     };
     measure();
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    let ro: ResizeObserver | null = null;
+    if (el && typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(measure);
+      ro.observe(el);
+    }
+    return () => {
+      window.removeEventListener("resize", measure);
+      ro?.disconnect();
+    };
   }, [containerRef, visible]);
 
   const segments = useMemo(
@@ -273,18 +284,29 @@ export default function FocusPostStickyBar({
     setResponseFilter(span);
   };
 
+  // Return-to-post must land BELOW the sticky top nav — scrollIntoView aligns
+  // to y=0, which the nav covers. scroll-margin-top on the anchor fixes it at
+  // the source; set it just-in-time so the anchor element needs no prop change.
+  const returnToPost = () => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    anchor.style.scrollMarginTop = `${TOP_NAV_HEIGHT + 8}px`;
+    anchor.scrollIntoView({ block: "start", behavior: "smooth" });
+  };
+
   return (
     <div
       role="button"
       tabIndex={0}
       aria-label="Return to focused post"
       data-testid="focus-sticky-bar"
-      title="Pinned post — click to return to it"
-      onClick={() => anchorRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })}
+      // NB: no native `title` here — it fought the app's single tooltip portal
+      // and showed "click to return" over marks whose click actually filters.
+      onClick={returnToPost}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          anchorRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+          returnToPost();
         }
       }}
       style={{
