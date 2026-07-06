@@ -14,7 +14,9 @@ import { PreviewCardType } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../../utils/mastoActions';
 import { getPost, isLiked as storeIsLiked, isBookmarked as storeIsBookmarked } from '../../utils/localStore';
-import { useHighlightStore, setResponseFilter, clearResponseFilter, setPendingResponseFilter } from '../../utils/highlightStore';
+import { useHighlightStore, setResponseFilter, clearResponseFilter, setPendingResponseFilter, setFilterCategories } from '../../utils/highlightStore';
+import { CATEGORY_COLORS, CATEGORY_LABELS, categoryIcon, getCategoryColors } from '../../utils/categoryStyles';
+import ReplyHighlightedContent from './ReplyHighlightedContent';
 import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 import type { Relation } from '../../types/PostType';
 import { showTooltip, hideTooltip } from '../HoverTooltip';
@@ -26,20 +28,13 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
 }
 
-const CROSS_HIGHLIGHT_CATEGORY_COLORS: Record<string, { bg: string; border: string }> = {
-  agree:              { bg: "#d4f9d3", border: "#4caf50" },
-  disagree:           { bg: "#ffe0e0", border: "#f44336" },
-  predictions:        { bg: "#fff3cd", border: "#ff9800" },
-  evidence_public:    { bg: "#e3f2fd", border: "#2196f3" },
-  evidence_personal:  { bg: "#f3e5f5", border: "#9c27b0" },
-  connections:        { bg: "#e0f2f1", border: "#009688" },
-  questions:          { bg: "#fce4ec", border: "#e91e63" },
-  humor:              { bg: "#fff8e1", border: "#ffc107" },
-  values:             { bg: "#ede7f6", border: "#673ab7" },
-  framing:            { bg: "#e0f7fa", border: "#00bcd4" },
-  proposals:          { bg: "#e8eaf6", border: "#3f51b5" },
-  pointers:           { bg: "#e8eaf6", border: "#3f51b5" },
-};
+/** Category colors for the aside→focus cross-highlight — the shared table, minus
+ *  `uncategorized`: relations with an unknown/uncategorized category are dropped
+ *  from the focus post's marks (the guard below relies on undefined). */
+function crossColors(category: string): { bg: string; border: string } | undefined {
+  if (category === 'uncategorized') return undefined;
+  return CATEGORY_COLORS[category];
+}
 
 /** Convert hex color to rgba string */
 function hexToRgba(hex: string, alpha: number): string {
@@ -126,7 +121,7 @@ function renderMultiHighlightHtml(
   if (relations.length === 0) return displayHtml;
 
   const entries = relations.map((r, i) => {
-    const catColors = CROSS_HIGHLIGHT_CATEGORY_COLORS[r.category];
+    const catColors = crossColors(r.category);
     if (!catColors) return null;
 
     const snippet = focusPlainText.slice(r.focusStart, r.focusEnd);
@@ -245,8 +240,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   active?: boolean;
   /** Non-focused post only: a span was clicked — focus this post then filter. */
   onSpanFocusRequest?: (span: { start: number; end: number; text: string }) => void;
-}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [], onAutoReveal, active = true, onSpanFocusRequest }, ref) {
-  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, responseFilter } = useHighlightStore();
+  /** Count of THIS post's related posts linked to the hovered span union — for
+   *  the dwell tooltip on non-focused posts (whose stacks aren't in context). */
+  relatedCountForSpans?: (ranges: Array<{ fs: number; fe: number }>) => number;
+}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [], onAutoReveal, active = true, onSpanFocusRequest, relatedCountForSpans }, ref) {
+  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, responseFilter, filterCategories } = useHighlightStore();
   // Related stacks of the active (focus) post — used to count "N related posts"
   // for the click-to-filter affordance. Mirrored to a ref so the DOM hover
   // handlers read the latest without re-subscribing.
@@ -271,6 +269,8 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   activeRef.current = active;
   const onSpanFocusRequestRef = useRef(onSpanFocusRequest);
   onSpanFocusRequestRef.current = onSpanFocusRequest;
+  const relatedCountForSpansRef = useRef(relatedCountForSpans);
+  relatedCountForSpansRef.current = relatedCountForSpans;
 
   // Refs mirror reactive state so the deferred dwell-timer callback always reads
   // the latest values (otherwise its closure would freeze at timer setup time).
@@ -278,6 +278,8 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   responseFilterRef.current = responseFilter;
   const focusRelationsRef = useRef(focusRelations);
   focusRelationsRef.current = focusRelations;
+  const filterCategoriesRef = useRef(filterCategories);
+  filterCategoriesRef.current = filterCategories;
 
   // Cleanup dwell timer on unmount
   useEffect(() => {
@@ -375,7 +377,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // Spec hover model (CSS-driven via classes — never re-parses the article):
   //  · enter the post       → faint ALL its spans (.fp-hovering on the container)
   //  · over a span          → DARKEN the union of spans covering the cursor
-  //  · dwell 1.5s on a span → tooltip "Click to focus on N related posts"
+  //  · dwell 1.5s on a span → tooltip "Click to show/focus on N related posts"
   //  · click a span         → filter to those posts (post is already focused)
   //  · click a non-span     → falls through to the card-level navigate handler
   useEffect(() => {
@@ -442,12 +444,19 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       cancelDwell();
       dwellTimerRef.current = setTimeout(() => {
         dwellTimerRef.current = null;
-        // On the focused post the count is its related stacks; on a non-focused
-        // feed post we don't have its stacks loaded, so the tooltip just invites
-        // focusing it (the click will focus + filter).
+        // Verb encodes the click's effect: the FOCUSED post's span click SHOWS
+        // (filters to) its linked responses; a non-focused post's click FOCUSES
+        // that post first. Both carry the count — the focused post counts from
+        // the context's stacks, a non-focused post through the counter its page
+        // supplies (its stacks aren't in context).
         const content = activeRef.current
-          ? (() => { const n = countRelated(ranges); return <>Click to focus on <strong>{n} related {n === 1 ? 'post' : 'posts'}</strong></>; })()
-          : <>Click to <strong>focus this post</strong></>;
+          ? (() => { const n = countRelated(ranges); return <>Click to show <strong>{n} related {n === 1 ? 'post' : 'posts'}</strong></>; })()
+          : (() => {
+              const counter = relatedCountForSpansRef.current;
+              if (!counter) return <>Click to <strong>focus this post</strong></>;
+              const n = counter(ranges);
+              return <>Click to focus on <strong>{n} related {n === 1 ? 'post' : 'posts'}</strong></>;
+            })();
         showTooltip({
           content,
           colors: { text: '#334155', border: '#cbd5e1' },
@@ -470,6 +479,21 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       if (!activeRef.current) { onSpanFocusRequestRef.current?.(span); return; }
       const ff = responseFilterRef.current;
       if (ff && ff.start === fs && ff.end === fe) { clearResponseFilter(); return; }
+      // A passage click with category chips active can compose into an empty
+      // result (the chips have their own stack/switch logic, but this path had
+      // none). Mirror it: keep chips that can coexist with the passage, drop
+      // them when no responding post satisfies them — never a dead-end panel.
+      const cats = filterCategoriesRef.current;
+      if (cats && cats.size > 0) {
+        const compatible = (relatedStacksRef.current || []).some((s: any) => {
+          const rels = s?.topPost?.relations ?? [];
+          const responds = rels.some((r: any) => r.focusStart < fe && fs < r.focusEnd);
+          if (!responds) return false;
+          const own = new Set(rels.map((r: any) => r.category));
+          return Array.from(cats).every((c) => own.has(c));
+        });
+        if (!compatible) setFilterCategories(new Set());
+      }
       setResponseFilter(span);
     };
 
@@ -507,23 +531,33 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     clearFocusCommentBold(el);
     const level2 = (hoveredRelations && hoveredHighlightRangeIndex != null)
       ? hoveredRelations[hoveredHighlightRangeIndex] : null;
+    // Category-badge hover: every hovered-card relation OF THAT CATEGORY gets
+    // the level-2 shade (a badge is "the same relation at category grain"), the
+    // rest stay level-1. A specific span hover still wins over the badge.
+    const level2Cats = (!level2 && hoveredCategory && hoveredRelations)
+      ? hoveredRelations.filter((r) => r.category === hoveredCategory)
+      : null;
     const marks = Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[];
     marks.forEach((m) => {
       const a = parseInt(m.getAttribute('data-fs') || 'NaN', 10);
       const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
       if (level2 && a < level2.focusEnd && level2.focusStart < b) {
-        const c = CROSS_HIGHLIGHT_CATEGORY_COLORS[level2.category];
+        const c = crossColors(level2.category);
         // L2 = a stronger shade of the SAME category colour, but only lightly toward
         // the saturated border (0.15, was 0.30 which read as too dark). Still clearly
         // stronger than the L1 faint (blend toward white), still pastel — not dark.
         m.style.backgroundColor = c ? blendHex(c.bg, c.border, 0.15) : '#cbd5e1';
         return;
       }
+      if (level2Cats && level2Cats.some((r) => a < r.focusEnd && r.focusStart < b)) {
+        const c = crossColors(hoveredCategory!);
+        m.style.backgroundColor = c ? blendHex(c.bg, c.border, 0.15) : '#cbd5e1';
+        return;
+      }
       const matched = hoveredRelations?.find((r) => a < r.focusEnd && r.focusStart < b);
+      const matchedColors = matched ? crossColors(matched.category) : undefined;
       m.style.backgroundColor = matched
-        ? (CROSS_HIGHLIGHT_CATEGORY_COLORS[matched.category]
-            ? blendHex(CROSS_HIGHLIGHT_CATEGORY_COLORS[matched.category].bg, '#ffffff', 0.35)
-            : '#eef0f3')
+        ? (matchedColors ? blendHex(matchedColors.bg, '#ffffff', 0.35) : '#eef0f3')
         : '';
     });
     // Level 2: bold ONLY the data's optional bold sub-span, not the whole region.
@@ -646,6 +680,18 @@ interface PostProps {
   focusRelations?: Relation[];
   /** Collapsed line-clamp before "Read more" (feed uses 5; the full-post view passes more, e.g. 10). */
   clampLines?: number;
+  /** Related-card-style relations whose content offsets index THIS post's own
+   *  text (replies in the thread view). Renders colored category spans. */
+  contentRelations?: Relation[];
+  /** Deduped contribution categories shown as a badge row under the header. */
+  categoryBadges?: string[];
+  /** A contribution span in this post was clicked (rangeIndex into contentRelations). */
+  onContentSpanClick?: (rangeIndex: number) => void;
+  /** Optional cross-pane count for the reply span tooltip ("N more <topic>"). */
+  replyTopicCount?: (topic: string) => number;
+  /** Count of THIS post's related posts linked to a span union — feeds the
+   *  dwell tooltip on non-focused posts, whose stacks aren't in context. */
+  relatedCountForSpans?: (ranges: Array<{ fs: number; fe: number }>) => number;
 }
 
 function Post({
@@ -669,6 +715,11 @@ function Post({
   onNavigate,
   focusRelations = [],
   clampLines = 5,
+  contentRelations,
+  categoryBadges,
+  onContentSpanClick,
+  replyTopicCount,
+  relatedCountForSpans,
 }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
@@ -1034,6 +1085,7 @@ function Post({
       <Paper
         ref={paperRef}
         data-testid="post"
+        data-post-id={id}
         data-active={isActive ? 'true' : 'false'}
         style={{
           position: 'relative',
@@ -1094,12 +1146,62 @@ function Post({
           </Group>
         </div>
 
+        {categoryBadges && categoryBadges.length > 0 && (
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', margin: '6px 0 2px 3rem' }}>
+            {categoryBadges.map((cat) => {
+              const tc = getCategoryColors(cat);
+              return (
+                <span
+                  key={cat}
+                  data-reply-badge={cat}
+                  style={{
+                    background: tc.bg, color: tc.text, border: `1px solid ${tc.border}`,
+                    borderRadius: '5px', padding: '2px 7px',
+                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                    fontSize: '10px', fontWeight: 700,
+                  }}
+                >
+                  {categoryIcon(cat, 12, tc.text)}
+                  {CATEGORY_LABELS[cat] ?? cat}
+                </span>
+              );
+            })}
+          </div>
+        )}
+
         <div
           style={{ paddingLeft: '3rem', paddingRight:'3rem', cursor: 'pointer'}}
           onMouseUp={(e) => handleMouseUp(e)}
         >
           <div>
-      {focusRelations.length > 0 ? (
+      {contentRelations && contentRelations.length > 0 ? (
+        // Reply with contributions: colored category spans over its own text
+        // (the left-pane counterpart of a related card). Clamp/Read-more reuse
+        // the same wrapper the plain branch uses.
+        <div
+          ref={textRef}
+          className={isTextExpanded ? undefined : 'postClampedText'}
+          style={{
+            display: isTextExpanded ? 'block' : '-webkit-box',
+            WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: isTextExpanded ? undefined : clampLines,
+            overflow: isTextExpanded ? 'visible' : 'hidden',
+            textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
+            maxHeight: isTextExpanded ? undefined : `calc(1.5em * ${clampLines})`,
+            marginTop: '0px',
+            lineHeight: '1.5',
+            color: '#011445',
+          }}
+        >
+          <ReplyHighlightedContent
+            plainText={stripHtml(text)}
+            relations={contentRelations}
+            replyId={id}
+            onSpanClick={onContentSpanClick}
+            otherCountByTopic={replyTopicCount}
+          />
+        </div>
+      ) : focusRelations.length > 0 ? (
         // Render the interactive spans for EVERY post that has them — not just the
         // focused one — so feed posts get span hover + click-to-focus. active gates
         // the focused-only behaviour (cross-highlight, filter visual, auto-reveal).
@@ -1111,6 +1213,7 @@ function Post({
           focusRelations={focusRelations}
           active={isActive}
           onSpanFocusRequest={handleSpanFocusRequest}
+          relatedCountForSpans={relatedCountForSpans}
           onAutoReveal={handleAutoReveal}
           className={isTextExpanded ? undefined : 'postClampedText'}
           style={{

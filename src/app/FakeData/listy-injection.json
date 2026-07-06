@@ -229,7 +229,8 @@
         "favourites_count": 0,
         "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "inReplyToId": "112880124583497150"
       },
       {
         "id": "112880110824825811",
@@ -475,7 +476,8 @@
         "favourites_count": 0,
         "replies_count": 2,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "inReplyToId": "112880124583497150"
       },
       {
         "id": "112880114216355334",
@@ -646,7 +648,34 @@
         "favourites_count": 12,
         "replies_count": 2,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 166,
+            "focusEnd": 198,
+            "focusCommentStart": 181,
+            "focusCommentEnd": 197,
+            "contentStart": 18,
+            "contentEnd": 83,
+            "contentCommentStart": 63,
+            "contentCommentEnd": 83,
+            "category": "framing",
+            "topic": "Manufacturing"
+          },
+          {
+            "focusStart": 1072,
+            "focusEnd": 1132,
+            "focusCommentStart": 1072,
+            "focusCommentEnd": 1072,
+            "contentStart": 126,
+            "contentEnd": 158,
+            "contentCommentStart": 126,
+            "contentCommentEnd": 126,
+            "category": "values",
+            "topic": "Affordable EV access"
+          }
+        ],
+        "rank": 4
       },
       {
         "id": "bs-002",
@@ -662,7 +691,22 @@
         "favourites_count": 4,
         "replies_count": 1,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 538,
+            "focusEnd": 616,
+            "focusCommentStart": 538,
+            "focusCommentEnd": 538,
+            "contentStart": 22,
+            "contentEnd": 53,
+            "contentCommentStart": 38,
+            "contentCommentEnd": 52,
+            "category": "questions",
+            "topic": "Industrial policy"
+          }
+        ],
+        "rank": 9
       },
       {
         "id": "bs-002a",
@@ -710,7 +754,22 @@
         "favourites_count": 7,
         "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 971,
+            "focusEnd": 1071,
+            "focusCommentStart": 986,
+            "focusCommentEnd": 1024,
+            "contentStart": 33,
+            "contentEnd": 72,
+            "contentCommentStart": 33,
+            "contentCommentEnd": 33,
+            "category": "connections",
+            "topic": "Climate and tradeoffs"
+          }
+        ],
+        "rank": 7
       },
       {
         "id": "bs-004",
@@ -726,7 +785,22 @@
         "favourites_count": 18,
         "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 617,
+            "focusEnd": 678,
+            "focusCommentStart": 617,
+            "focusCommentEnd": 617,
+            "contentStart": 48,
+            "contentEnd": 131,
+            "contentCommentStart": 48,
+            "contentCommentEnd": 48,
+            "category": "evidence_personal",
+            "topic": "Manufacturing"
+          }
+        ],
+        "rank": 6
       },
       {
         "id": "bs-005",
@@ -742,7 +816,22 @@
         "favourites_count": 22,
         "replies_count": 1,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 16,
+            "focusEnd": 68,
+            "focusCommentStart": 16,
+            "focusCommentEnd": 16,
+            "contentStart": 26,
+            "contentEnd": 87,
+            "contentCommentStart": 44,
+            "contentCommentEnd": 55,
+            "category": "evidence_public",
+            "topic": "Industrial policy"
+          }
+        ],
+        "rank": 3
       },
       {
         "id": "bs-006",
@@ -774,7 +863,34 @@
         "favourites_count": 31,
         "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 227,
+            "focusEnd": 288,
+            "focusCommentStart": 227,
+            "focusCommentEnd": 227,
+            "contentStart": 0,
+            "contentEnd": 32,
+            "contentCommentStart": 0,
+            "contentCommentEnd": 0,
+            "category": "framing",
+            "topic": "Climate and tradeoffs"
+          },
+          {
+            "focusStart": 1107,
+            "focusEnd": 1211,
+            "focusCommentStart": 1107,
+            "focusCommentEnd": 1107,
+            "contentStart": 34,
+            "contentEnd": 117,
+            "contentCommentStart": 83,
+            "contentCommentEnd": 94,
+            "category": "proposals",
+            "topic": "Affordable EV access"
+          }
+        ],
+        "rank": 2
       },
       {
         "id": "bs-008",
@@ -790,7 +906,22 @@
         "favourites_count": 26,
         "replies_count": 2,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 94,
+            "focusEnd": 162,
+            "focusCommentStart": 120,
+            "focusCommentEnd": 143,
+            "contentStart": 27,
+            "contentEnd": 135,
+            "contentCommentStart": 31,
+            "contentCommentEnd": 51,
+            "category": "evidence_personal",
+            "topic": "Manufacturing"
+          }
+        ],
+        "rank": 1
       },
       {
         "id": "bs-009",
@@ -806,7 +937,22 @@
         "favourites_count": 8,
         "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 753,
+            "focusEnd": 820,
+            "focusCommentStart": 753,
+            "focusCommentEnd": 753,
+            "contentStart": 28,
+            "contentEnd": 75,
+            "contentCommentStart": 28,
+            "contentCommentEnd": 28,
+            "category": "evidence_personal",
+            "topic": "Build quality"
+          }
+        ],
+        "rank": 11
       },
       {
         "id": "bs-010",
@@ -822,7 +968,22 @@
         "favourites_count": 9,
         "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 538,
+            "focusEnd": 616,
+            "focusCommentStart": 538,
+            "focusCommentEnd": 538,
+            "contentStart": 0,
+            "contentEnd": 46,
+            "contentCommentStart": 32,
+            "contentCommentEnd": 46,
+            "category": "framing",
+            "topic": "Build quality"
+          }
+        ],
+        "rank": 10
       },
       {
         "id": "bs-011",
@@ -838,7 +999,22 @@
         "favourites_count": 14,
         "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 824,
+            "focusEnd": 877,
+            "focusCommentStart": 824,
+            "focusCommentEnd": 824,
+            "contentStart": 131,
+            "contentEnd": 167,
+            "contentCommentStart": 131,
+            "contentCommentEnd": 131,
+            "category": "connections",
+            "topic": "Industrial policy"
+          }
+        ],
+        "rank": 5
       },
       {
         "id": "bs-012",
@@ -854,7 +1030,34 @@
         "favourites_count": 6,
         "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 1072,
+            "focusEnd": 1132,
+            "focusCommentStart": 1072,
+            "focusCommentEnd": 1072,
+            "contentStart": 0,
+            "contentEnd": 74,
+            "contentCommentStart": 0,
+            "contentCommentEnd": 0,
+            "category": "questions",
+            "topic": "Tariffs"
+          },
+          {
+            "focusStart": 327,
+            "focusEnd": 415,
+            "focusCommentStart": 327,
+            "focusCommentEnd": 327,
+            "contentStart": 75,
+            "contentEnd": 140,
+            "contentCommentStart": 75,
+            "contentCommentEnd": 75,
+            "category": "predictions",
+            "topic": "Industrial policy"
+          }
+        ],
+        "rank": 8
       },
       {
         "id": "bs-013",
@@ -868,6 +1071,118 @@
         },
         "created_at": "2024-07-31T12:15:00.000Z",
         "favourites_count": 3,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-002a-r1",
+        "inReplyToId": "bs-002a",
+        "content": "<p>TAA take-up rates hover around a quarter of eligible workers. The program design is the failure mode, not the concept.</p>",
+        "plainText": "TAA take-up rates hover around a quarter of eligible workers. The program design is the failure mode, not the concept.",
+        "account": {
+          "display_name": "Econ PhD",
+          "acct": "econ_phd",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T13:50:00.000Z",
+        "favourites_count": 6,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-002a-r2",
+        "inReplyToId": "bs-002a",
+        "content": "<p>Design AND funding. Every renewal cycle it gets trimmed before it reaches a single shop floor.</p>",
+        "plainText": "Design AND funding. Every renewal cycle it gets trimmed before it reaches a single shop floor.",
+        "account": {
+          "display_name": "Union Rep",
+          "acct": "union_rep",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T13:56:00.000Z",
+        "favourites_count": 4,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-002a-r3",
+        "inReplyToId": "bs-002a",
+        "content": "<p>Retraining a 55-year-old machinist into \"software\" was always a brochure fantasy.</p>",
+        "plainText": "Retraining a 55-year-old machinist into \"software\" was always a brochure fantasy.",
+        "account": {
+          "display_name": "Garage Skeptic",
+          "acct": "garage_skeptic",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T14:02:00.000Z",
+        "favourites_count": 2,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-002a-r4",
+        "inReplyToId": "bs-002a",
+        "content": "<p>Denmark manages it with flexicurity. It is not impossible, it is just not what we fund.</p>",
+        "plainText": "Denmark manages it with flexicurity. It is not impossible, it is just not what we fund.",
+        "account": {
+          "display_name": "Jane Dev",
+          "acct": "jane_dev",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T14:11:00.000Z",
+        "favourites_count": 3,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-002a-r5",
+        "inReplyToId": "bs-002a",
+        "content": "<p>Denmark is five million people with sectoral bargaining. Scale matters.</p>",
+        "plainText": "Denmark is five million people with sectoral bargaining. Scale matters.",
+        "account": {
+          "display_name": "Tony P",
+          "acct": "tony_p",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T14:19:00.000Z",
+        "favourites_count": 1,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-002a-r6",
+        "inReplyToId": "bs-002a",
+        "content": "<p>Following this thread.</p>",
+        "plainText": "Following this thread.",
+        "account": {
+          "display_name": "Quietreader",
+          "acct": "quietreader",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T14:24:00.000Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-002a-r7",
+        "inReplyToId": "bs-002a",
+        "content": "<p>Wage insurance pilots polled better than retraining in every evaluation I have seen.</p>",
+        "plainText": "Wage insurance pilots polled better than retraining in every evaluation I have seen.",
+        "account": {
+          "display_name": "Analyst B",
+          "acct": "analyst_b",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T14:31:00.000Z",
+        "favourites_count": 2,
         "replies_count": 0,
         "favourited": false,
         "bookmarked": false
@@ -1440,6 +1755,56 @@
         "created_at": "2024-07-31T08:16:29.838Z",
         "favourites_count": 0,
         "replies_count": 108,
+        "favourited": false,
+        "bookmarked": false
+      }
+    ],
+    "replies": [
+      {
+        "id": "bs2-001",
+        "inReplyToId": "112880110824825811",
+        "content": "<p>The Ford numbers get repeated a lot but they fold fixed R&D into per-unit loss. Still bad, just not 50k-per-car bad.</p>",
+        "plainText": "The Ford numbers get repeated a lot but they fold fixed R&D into per-unit loss. Still bad, just not 50k-per-car bad.",
+        "account": {
+          "display_name": "Garage Skeptic",
+          "acct": "garage_skeptic",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T13:05:00.000Z",
+        "favourites_count": 2,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs2-002",
+        "inReplyToId": "112880110824825811",
+        "content": "<p>Point 4 is the sleeper issue. No sales tax parity means the incentives push in opposite directions.</p>",
+        "plainText": "Point 4 is the sleeper issue. No sales tax parity means the incentives push in opposite directions.",
+        "account": {
+          "display_name": "Tony P",
+          "acct": "tony_p",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T13:22:00.000Z",
+        "favourites_count": 1,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs2-003",
+        "inReplyToId": "112880110824825811",
+        "content": "<p>Same.</p>",
+        "plainText": "Same.",
+        "account": {
+          "display_name": "Quietreader",
+          "acct": "quietreader",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T13:41:00.000Z",
+        "favourites_count": 0,
+        "replies_count": 0,
         "favourited": false,
         "bookmarked": false
       }

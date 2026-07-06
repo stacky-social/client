@@ -10,6 +10,7 @@ import {
 } from "@tabler/icons-react";
 import { useRouter, usePathname } from "next/navigation";
 import CrossweaveLogo from "./CrossweaveLogo";
+import { ExperimentPanel } from "./ExperimentPanel";
 
 const MastodonInstanceUrl = "https://beta.stacky.social";
 const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
@@ -109,6 +110,8 @@ export function TopNav() {
                         </Tooltip>
                     );
                 })}
+
+                <ExperimentPanel />
 
                 <Tooltip label="Logout" withArrow>
                     <ActionIcon

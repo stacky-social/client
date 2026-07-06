@@ -34,6 +34,20 @@ interface HighlightState {
    * compute the shortest-common phrase without the full focus post text.
    */
   responseFilter: { start: number; end: number; text: string } | null;
+  /**
+   * Left-pane anchor: the thread reply whose contribution span was clicked.
+   * Reranks the reply list in place (mirrors reRankAnchorIds for the aside).
+   * Topic grouping is SYMMETRIC: one topic groups BOTH panes (each reranks in
+   * place around its own anchor) — the panes' anchors are kept in sync by the
+   * thread page, and neither pane is ever filtered by a topic.
+   */
+  replyAnchor: { replyId: string; rangeIndex: number } | null;
+  /**
+   * Topic → count of currently displayed thread replies carrying that topic.
+   * Published by the thread page so the related panel's "N more <topic>"
+   * tooltips can count across both panes.
+   */
+  replyTopicCounts: Record<string, number>;
 }
 
 const INITIAL: HighlightState = {
@@ -47,6 +61,8 @@ const INITIAL: HighlightState = {
   reRankAnchorIds: [],
   anchoredRangeByPost: {},
   responseFilter: null,
+  replyAnchor: null,
+  replyTopicCounts: {},
 };
 
 // ─── Module-level store ─────────────────────────────────────────────────────
@@ -121,9 +137,59 @@ export function toggleReRankAnchor(postId: string, rangeIndex?: number): void {
   notify();
 }
 
+/** Non-toggle setter: make `postId` THE anchor (used by the thread page to sync
+ *  the related panel's grouping to a reply-initiated topic group). */
+export function setReRankAnchor(postId: string, rangeIndex: number): void {
+  if (
+    state.reRankAnchorIds.length === 1 &&
+    state.reRankAnchorIds[0] === postId &&
+    state.anchoredRangeByPost[postId] === rangeIndex
+  ) return;
+  state = { ...state, reRankAnchorIds: [postId], anchoredRangeByPost: { [postId]: rangeIndex } };
+  notify();
+}
+
 export function clearReRankAnchors(): void {
   if (state.reRankAnchorIds.length === 0) return;
   state = { ...state, reRankAnchorIds: [], anchoredRangeByPost: {} };
+  notify();
+}
+
+/** Toggle a thread reply as the left-pane anchor (reranks replies in place). */
+export function toggleReplyAnchor(replyId: string, rangeIndex: number): void {
+  if (state.replyAnchor?.replyId === replyId && state.replyAnchor.rangeIndex === rangeIndex) {
+    state = { ...state, replyAnchor: null };
+  } else {
+    state = { ...state, replyAnchor: { replyId, rangeIndex } };
+  }
+  notify();
+}
+
+/** Non-toggle setter for the reply anchor (thread-page grouping sync). */
+export function setReplyAnchor(anchor: { replyId: string; rangeIndex: number } | null): void {
+  const same =
+    (anchor === null && state.replyAnchor === null) ||
+    (anchor !== null &&
+      state.replyAnchor?.replyId === anchor.replyId &&
+      state.replyAnchor.rangeIndex === anchor.rangeIndex);
+  if (same) return;
+  state = { ...state, replyAnchor: anchor };
+  notify();
+}
+
+export function clearReplyAnchor(): void {
+  if (state.replyAnchor === null) return;
+  state = { ...state, replyAnchor: null };
+  notify();
+}
+
+/** Publish reply-topic counts (thread page → related panel tooltips). */
+export function setReplyTopicCounts(counts: Record<string, number>): void {
+  const prev = state.replyTopicCounts;
+  const prevKeys = Object.keys(prev);
+  const nextKeys = Object.keys(counts);
+  if (prevKeys.length === nextKeys.length && nextKeys.every((k) => prev[k] === counts[k])) return;
+  state = { ...state, replyTopicCounts: counts };
   notify();
 }
 
@@ -170,6 +236,7 @@ interface PanelSnapshot {
   reRankAnchorIds: string[];
   anchoredRangeByPost: Record<string, number>;
   responseFilter: { start: number; end: number; text: string } | null;
+  replyAnchor: { replyId: string; rangeIndex: number } | null;
 }
 
 const panelStateByFocus = new Map<string, PanelSnapshot>();
@@ -197,6 +264,7 @@ function snapshotPanel(): PanelSnapshot {
     reRankAnchorIds: [...state.reRankAnchorIds],
     anchoredRangeByPost: { ...state.anchoredRangeByPost },
     responseFilter: state.responseFilter,
+    replyAnchor: state.replyAnchor,
   };
 }
 
@@ -228,6 +296,9 @@ export function setPanelFocus(focusId: string | null): void {
     reRankAnchorIds: saved ? [...saved.reRankAnchorIds] : [],
     anchoredRangeByPost: saved ? { ...saved.anchoredRangeByPost } : {},
     responseFilter: incomingResponseFilter,
+    replyAnchor: saved ? saved.replyAnchor : null,
+    // reply-topic counts are re-published by the incoming thread page
+    replyTopicCounts: {},
     // transient view state never persists across a focus switch
     hoveredPostId: null,
     hoveredRelations: null,

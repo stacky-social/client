@@ -6,6 +6,7 @@ import type {
   ListyInjectionEntry,
   FocusPostMock,
   RelatedPostMock,
+  ReplyMock,
   CategoryKey,
   Relation,
 } from "../types/PostType";
@@ -57,7 +58,7 @@ function toMockPostType(p: FocusPostMock | RelatedPostMock, relatedStacks: any[]
 
 const entryByFocusId = new Map<string, ListyInjectionEntry>();
 const relatedById = new Map<string, { rp: RelatedPostMock; parent: ListyInjectionEntry }>();
-const replyById = new Map<string, { reply: FocusPostMock; parent: ListyInjectionEntry }>();
+const replyById = new Map<string, { reply: ReplyMock; parent: ListyInjectionEntry }>();
 const allPostsById = new Map<string, FocusPostMock | RelatedPostMock>();
 /** child id → parent id (inherent thread hierarchy) */
 const parentMap = new Map<string, string>();
@@ -239,6 +240,31 @@ export function getMockRecommended(id: string): MockPostType[] {
   const entry = entryByFocusId.get(id);
   if (!entry) return [];
   return entry.relatedPosts.map((rp) => toMockPostType(rp));
+}
+
+/** Relations for a reply rendered inside the thread of `focusId`. Covers both
+ *  seeded replies and dual-role related posts (posts that are simultaneously a
+ *  related response and a thread reply). Scoped by focus: a reply's relations
+ *  connect to its OWN entry's focus post, so they only apply when that post is
+ *  the one on screen — rendering them under a different focus would put marks
+ *  at offsets belonging to someone else's text. */
+export function getMockReplyRelations(id: string, focusId?: string): Relation[] {
+  const fromReply = replyById.get(id);
+  if (fromReply && (!focusId || fromReply.parent.focusPost.id === focusId)) {
+    return fromReply.reply.relations ?? [];
+  }
+  const fromRelated = relatedById.get(id);
+  if (fromRelated && (!focusId || fromRelated.parent.focusPost.id === focusId)) {
+    return fromRelated.rp.relations ?? [];
+  }
+  return [];
+}
+
+/** Quality/diversity rank for the Top reply tab. Only seeded replies carry a
+ *  reply rank; dual-role related posts' `rank` field is a within-category rank
+ *  with different semantics, so it is deliberately NOT consulted here. */
+export function getMockReplyRank(id: string): number | undefined {
+  return replyById.get(id)?.reply.rank;
 }
 
 /** True if the id exists anywhere in the mock data. */

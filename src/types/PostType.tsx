@@ -119,6 +119,19 @@ export interface RelatedPostMock {
   };
 }
 
+/** A reply in the thread. Extends the base post shape with optional NLP output. */
+export interface ReplyMock extends FocusPostMock {
+  /**
+   * Offset-based relations mirroring RelatedPostMock: `content*` offsets index
+   * THIS reply's plainText, `focus*` offsets index the parent entry's
+   * focusPost.plainText. Absent/empty = a reply with no contributions
+   * (e.g. "me too"), which renders plain.
+   */
+  relations?: Relation[];
+  /** Quality/diversity rank for the Top reply tab (1 = best). Optional. */
+  rank?: number;
+}
+
 export interface ListyInjectionEntry {
   focusPost: FocusPostMock;
   relatedPosts: RelatedPostMock[];
@@ -127,7 +140,7 @@ export interface ListyInjectionEntry {
    * is the immediate parent of `focusPost`. See LISTY-INJECTION-SCHEMA.md.
    */
   ancestors?: FocusPostMock[];
-  replies?: FocusPostMock[];
+  replies?: ReplyMock[];
 }
 
 export type ListyInjectionData = ListyInjectionEntry[];

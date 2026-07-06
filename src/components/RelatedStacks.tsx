@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Anchor } from '@mantine/core';
-import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook, IconMoodSmile, IconFrame, IconUser, IconThumbUp, IconThumbDown } from '@tabler/icons-react';
-import { Layers } from 'lucide-react';
+import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare } from '@tabler/icons-react';
+import { CATEGORY_COLORS, CATEGORY_LABELS, iconMapping, getCategoryColors, type CategoryStyle } from '../utils/categoryStyles';
 import { formatPostDate } from '../utils/formatPostDate';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
@@ -12,6 +12,7 @@ import { notifications } from '@mantine/notifications';
 import { copyLink } from '../utils/share';
 import { useRelatedStacks } from '../app/(shell)/related-stacks-context';
 import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, clearResponseFilter, setPanelFocus, savePanelScroll, getPanelScroll, useHighlightStore } from '../utils/highlightStore';
+import { useExperimentFlags } from '../utils/experimentFlags';
 import { reorderForAnchor } from '../utils/reorderForAnchor';
 import type { Relation } from '../types/PostType';
 import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
@@ -60,46 +61,8 @@ interface RelatedStacksProps {
 }
 
 // ─── Category colors ─────────────────────────────────────────────────────────
-
-interface CategoryStyle { bg: string; border: string; text: string }
-
-const CATEGORY_COLORS: Record<string, CategoryStyle> = {
-  agree:              { bg: "#d4f9d3", border: "#4caf50", text: "#1b5e20" },
-  disagree:           { bg: "#ffe0e0", border: "#f44336", text: "#b71c1c" },
-  predictions:        { bg: "#fff3cd", border: "#ff9800", text: "#e65100" },
-  evidence_public:    { bg: "#e3f2fd", border: "#2196f3", text: "#0d47a1" },
-  evidence_personal:  { bg: "#f3e5f5", border: "#9c27b0", text: "#4a148c" },
-  connections:        { bg: "#e0f2f1", border: "#009688", text: "#004d40" },
-  questions:          { bg: "#fce4ec", border: "#e91e63", text: "#880e4f" },
-  humor:              { bg: "#fff8e1", border: "#ffc107", text: "#ff6f00" },
-  values:             { bg: "#ede7f6", border: "#673ab7", text: "#311b92" },
-  framing:            { bg: "#e0f7fa", border: "#00bcd4", text: "#006064" },
-  proposals:          { bg: "#e8eaf6", border: "#3f51b5", text: "#1a237e" },
-  pointers:           { bg: "#e8eaf6", border: "#3f51b5", text: "#1a237e" },
-  uncategorized:      { bg: "#f5f5f5", border: "#9e9e9e", text: "#424242" },
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  agree: "Agree", disagree: "Disagree", predictions: "Predictions",
-  evidence_public: "Evidence (Public)", evidence_personal: "Evidence (Personal)",
-  connections: "Connections", questions: "Questions", humor: "Humor",
-  values: "Values", framing: "Framing", proposals: "Proposals",
-  pointers: "Pointers", uncategorized: "Uncategorized",
-};
-
-const iconMapping: Record<string, JSX.Element> = {
-  uncategorized: <Layers size={14} />, predictions: <IconBulb size={14} />,
-  evidence_public: <IconQuote size={14} />, evidence_personal: <IconUser size={14} />,
-  connections: <IconLink size={14} />, pointers: <IconPointer size={14} />,
-  proposals: <IconBook size={14} />, humor: <IconMoodSmile size={14} />,
-  values: <IconHeart size={14} />, framing: <IconFrame size={14} />,
-  questions: <IconQuestionMark size={14} />, default: <Layers size={14} />,
-  agree: <IconThumbUp size={14} />, disagree: <IconThumbDown size={14} />,
-};
-
-function getCategoryColors(rel: string): CategoryStyle {
-  return CATEGORY_COLORS[rel] ?? CATEGORY_COLORS.uncategorized;
-}
+// Shared with Post (focus cross-highlight), reply badges, and the experiment
+// panel via src/utils/categoryStyles — keep presentation in one place.
 
 // ─── Eye cursor — indicates "click to see more like this" ───────────────────
 // Small 20x20 SVG eye, encoded inline as the cursor image. Fallback: pointer.
@@ -794,7 +757,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const [favouritedOverride, setFavouritedOverride] = useState<Record<string, boolean>>({});
   const [bookmarkedOverride, setBookmarkedOverride] = useState<Record<string, boolean>>({});
   const [favouritesCountOverride, setFavouritesCountOverride] = useState<Record<string, number>>({});
-  const { filterCategories, responseFilter, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, reRankAnchorIds, anchoredRangeByPost } = useHighlightStore();
+  const { filterCategories, responseFilter, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, reRankAnchorIds, anchoredRangeByPost, replyTopicCounts } = useHighlightStore();
+  const flags = useExperimentFlags();
   // C2: hover preview state for filter chips
   const [chipHovered, setChipHovered] = useState<string | null>(null);
   // Interaction mode: hover (mouse/pen) vs tap (touch). Adaptive — the most
@@ -986,8 +950,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     realTopicTotal.forEach((count, topic) => {
       topicTotal.set(topic, getSyntheticTopicCount(topic, count));
     });
+    // Cross-pane counts: fold in the thread page's displayed-reply topic counts
+    // so "N more <topic>" reflects both panes (suppression keeps ids disjoint).
+    if (flags.crossPaneFiltering) {
+      for (const [topic, n] of Object.entries(replyTopicCounts)) {
+        topicTotal.set(topic, (topicTotal.get(topic) ?? 0) + n);
+      }
+    }
     return { postTopics, topicTotal };
-  }, [relatedStacks]);
+  }, [relatedStacks, replyTopicCounts, flags.crossPaneFiltering]);
 
   const SIMILARITY_THRESHOLD = 0.15;
   const SHOWN_INCREMENT = 3;
@@ -1226,6 +1197,23 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     prevDisplayStacksRef.current = displayStacks;
   }, [displayStacks]);
 
+  // Robustness: sweep away residual FLIP transforms whenever the visible list
+  // changes for a reason the FLIP effect does not run for (filters, cross-pane
+  // updates, data refresh). An interrupted FLIP could otherwise leave a card
+  // frozen at translateY(...) — rendering it ON TOP of its neighbours.
+  useLayoutEffect(() => {
+    if (flipFirstTopsRef.current) return; // a FLIP is in flight — its effect owns cleanup
+    const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+    if (!aside) return;
+    aside.querySelectorAll('[data-related-card]').forEach((el) => {
+      const h = el as HTMLElement;
+      if (h.style.transform) {
+        h.style.transition = 'none';
+        h.style.transform = '';
+      }
+    });
+  }, [displayStacks]);
+
   const handleShowMore = (anchorId: string) => {
     setShownByAnchor(prev => ({ ...prev, [anchorId]: (prev[anchorId] ?? SHOWN_INCREMENT) + SHOWN_INCREMENT }));
   };
@@ -1370,6 +1358,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     });
     flipFirstTopsRef.current = firstTops;
 
+    // Topic grouping is symmetric across panes: the thread page watches this
+    // anchor's topic and mirrors the grouping onto the replies (see the sync
+    // effect in ChineseEVs/posts/[id]/page.tsx). No filtering happens here.
     toggleReRankAnchor(postId, rangeIndex);
   };
 
@@ -1494,6 +1485,29 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     setTapped(postId, null);
     setHoveredSidebarPost(postId, relatedStacks.find(s => s.topPost.id === postId)?.topPost.relations);
     setHoveredHighlightRangeIndex(null);
+  };
+
+  // Badge-hover reveal: after a short dwell, scroll the card so the hovered
+  // category's contribution span is visible (block:'nearest' no-ops when it
+  // already is). The dwell keeps a cursor sweep across badges from scrolljacking.
+  const tagScrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleTagScroll = (cardIndex: number, rangeIndex: number) => {
+    if (tagScrollTimer.current) clearTimeout(tagScrollTimer.current);
+    tagScrollTimer.current = setTimeout(() => {
+      tagScrollTimer.current = null;
+      const paperEl = paperRefs.current[cardIndex];
+      if (!paperEl) return;
+      let markEl = paperEl.querySelector(`mark[data-range-id="${rangeIndex}"]`) as HTMLElement | null;
+      if (!markEl) {
+        // Overlap segments carry the range id in a CSV attribute.
+        markEl = (Array.from(paperEl.querySelectorAll('mark[data-overlap-range-ids]')) as HTMLElement[])
+          .find((m) => (m.getAttribute('data-overlap-range-ids') ?? '').split(',').includes(String(rangeIndex))) ?? null;
+      }
+      (markEl ?? paperEl).scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 150);
+  };
+  const cancelTagScroll = () => {
+    if (tagScrollTimer.current) { clearTimeout(tagScrollTimer.current); tagScrollTimer.current = null; }
   };
 
   // hoveredIndex: for the stacked-card bottom-edge layer effect only
@@ -1674,7 +1688,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               maxWidth: '140px', fontStyle: 'italic',
             }}>
-              "{responseFilter.text.length > 35 ? responseFilter.text.slice(0, 35) + '…' : responseFilter.text}"
+              &ldquo;{responseFilter.text.length > 35 ? responseFilter.text.slice(0, 35) + '…' : responseFilter.text}&rdquo;
             </Text>
             <button
               type="button"
@@ -1994,9 +2008,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               key={`header-${anchorForThisCard}`}
               style={{
                 position: 'relative',
-                display: 'flex', alignItems: 'center', gap: '6px',
+                display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap',
                 marginLeft: `${indentPx}px`,
-                padding: '2px 0 4px 2px',
+                padding: '6px 0 4px 2px',
               }}
             >
               <div aria-hidden style={{
@@ -2164,7 +2178,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 }}
                 style={{
                   position: 'relative', width: '100%', backgroundColor: '#ffffff', zIndex: isHighlighted ? 6 : 5,
-                  borderRadius: '10px', margin: '0 auto', paddingTop: '40px',
+                  borderRadius: '10px', margin: '0 auto', paddingTop: '10px',
                   border: isHighlighted ? `2px solid #1c2b4a` : `2px solid #e2e8f0`,
                   boxShadow: isHighlighted
                     ? '0 0 0 3px rgba(28,43,74,0.18), 0 4px 16px rgba(0,0,0,0.10)'
@@ -2173,8 +2187,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   cursor: 'pointer',
                 }}
               >
-                {/* Category tags — one per unique relation category, dims/brightens with highlight hover */}
-                <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '4px', alignItems: 'center', zIndex: 10, flexWrap: 'wrap' }}>
+                {/* Card header row — category tags (left, wrapping) and the F relation
+                    indicator (right), in NORMAL FLOW. The old absolute positioning over
+                    a fixed 40px reserve overlapped the author header and the indicator
+                    as soon as tags wrapped or labels ran long; a flow row just grows. */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px', padding: '0 10px 6px' }}>
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap', flex: '1 1 auto', minWidth: 0 }}>
                   {(() => {
                     // Dedupe categories from relations, preserving order
                     const rels = stack.topPost.relations ?? [];
@@ -2208,8 +2226,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       return (
                         <div
                           key={cat}
-                          onMouseEnter={(e) => { if (!isTouch) setHoveredCategory(cat); tagHover(e.clientX, e.clientY); }}
-                          onMouseLeave={() => { if (!isTouch) setHoveredCategory(null); hideTooltip(); }}
+                          onMouseEnter={(e) => { if (!isTouch) { setHoveredCategory(cat); scheduleTagScroll(index, indices[0]); } tagHover(e.clientX, e.clientY); }}
+                          onMouseLeave={() => { if (!isTouch) { setHoveredCategory(null); cancelTagScroll(); } hideTooltip(); }}
                           onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; tagHover(e.clientX, e.clientY); }}
                           onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTooltip(); }}
                           onClick={(e) => {
@@ -2284,7 +2302,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   // Always show the category color so the chip is recognizable
                   // as the topic-anchor for that highlight color.
                   const indicatorColor = indicatorColors.text;
-                  const clusterCount = topicTotal.get(indicatorTopic) ?? 0;
+                  // PANE-LOCAL count: how many cards in THIS panel share the topic.
+                  // (topicTotal folds in reply counts for tooltips; using it here
+                  // showed "(8)" over a visible 5-card cluster — confusing.)
+                  let clusterCount = 0;
+                  postTopics.forEach((topics) => { if (topics.has(indicatorTopic)) clusterCount++; });
                   const baseOpacity = isCurrentAnchor ? 1 : 0.75;
                   return (
                     <button
@@ -2296,10 +2318,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       aria-label={`Show more posts about ${indicatorTopic}`}
                       aria-pressed={isCurrentAnchor}
                       style={{
-                        position: 'absolute',
-                        top: '10px',
-                        right: '10px',
-                        zIndex: 10,
+                        marginLeft: 'auto',
+                        alignSelf: 'flex-start',
+                        flexShrink: 0,
                         background: isCurrentAnchor ? indicatorColors.bg : 'transparent',
                         border: isCurrentAnchor ? `1px solid ${indicatorColors.border}55` : 'none',
                         borderRadius: '4px',
@@ -2333,6 +2354,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                     </button>
                   );
                 })()}
+                </div>
 
                 <UnstyledButton onClick={(e) => { e.stopPropagation(); handleNavigate(stack.topPost.id, stack.stackId); }} style={{ width: '100%' }}>
                   <Group style={{ paddingLeft: '1rem' }}>
@@ -2367,7 +2389,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         fontStyle: 'italic',
                       }}>
-                        "{shortestCommonText}"
+                        &ldquo;{shortestCommonText}&rdquo;
                       </Text>
                     </div>
                   )}

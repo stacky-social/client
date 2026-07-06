@@ -17,7 +17,7 @@ All params are managed by [`useUrlSync`](../../../utils/useUrlSync.ts) unless no
 
 | Param | Type / format | Default | Hydration | Write | Purpose |
 |---|---|---|---|---|---|
-| `tab` | `time \| recommended \| stacked \| summary` | `time` (omitted from URL) | yes | yes | Active reply tab |
+| `tab` | `time \| recommended \| stacked \| summary \| top \| liked` | `top` when the reply-sort-tabs experiment flag is on (its default), else `time`; the default is omitted from the URL | yes | yes | Active reply tab. `top`/`liked` belong to the flagged Top / Newest / Most liked set; `recommended`/`stacked`/`summary` to the legacy set — an out-of-set value is coerced on mount |
 | `fc` | CSV of category keys, sorted alpha | empty | yes | yes | Active filter chips (AND semantics) |
 | `fs` | `start-end` (numeric offsets into focus-post plaintext) | none | deferred until post content loads | yes | Focus-span filter from clicking a mark on the focus post |
 | `from` | `{post-id}` | none | one-shot on mount (seeds `previousPath`) | no | Back-link source — sets `sessionStorage['previousPath:/.../posts/{current}']` so BackButton can render |

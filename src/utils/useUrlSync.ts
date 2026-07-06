@@ -23,9 +23,14 @@ export interface UrlSyncOptions {
    * Use this to trigger the tab's data fetch (e.g., fetchRecommended).
    */
   onHydratedTab?: (tab: string) => void;
+  /**
+   * The tab treated as default (omitted from the URL). "time" for the legacy
+   * tab set; the thread page passes "top" when the reply-sort-tabs flag is on.
+   */
+  defaultTab?: string;
 }
 
-const VALID_TABS = ["time", "recommended", "stacked", "summary"] as const;
+const VALID_TABS = ["time", "recommended", "stacked", "summary", "top", "liked"] as const;
 type ValidTab = (typeof VALID_TABS)[number];
 
 function isValidTab(v: string): v is ValidTab {
@@ -50,6 +55,7 @@ export function useUrlSync({
   setActiveTab,
   plainPostText,
   onHydratedTab,
+  defaultTab = "time",
 }: UrlSyncOptions): void {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -162,8 +168,8 @@ export function useUrlSync({
 
     const params = new URLSearchParams();
 
-    // Only encode non-default tab (default is "time")
-    if (activeTab && activeTab !== "time") {
+    // Only encode a non-default tab
+    if (activeTab && activeTab !== defaultTab) {
       params.set("tab", activeTab);
     }
 
@@ -187,7 +193,10 @@ export function useUrlSync({
 
     debounceRef.current = setTimeout(() => {
       const newUrl = pathname + (newSearch ? "?" + newSearch : "");
-      router.replace(newUrl);
+      // scroll:false — this replace fires 300ms after every tab/filter change;
+      // the App Router's default scroll-to-top would yank the user away from
+      // the replies they are sorting/filtering.
+      router.replace(newUrl, { scroll: false });
     }, 300);
 
     return () => {
@@ -196,5 +205,5 @@ export function useUrlSync({
         debounceRef.current = null;
       }
     };
-  }, [activeTab, filterCategories, responseFilter, pathname, searchParams, router]);
+  }, [activeTab, defaultTab, filterCategories, responseFilter, pathname, searchParams, router]);
 }
