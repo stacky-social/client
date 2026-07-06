@@ -34,6 +34,24 @@ interface HighlightState {
    * compute the shortest-common phrase without the full focus post text.
    */
   responseFilter: { start: number; end: number; text: string } | null;
+  /**
+   * Left-pane anchor: the thread reply whose contribution span was clicked.
+   * Reranks the reply list in place (mirrors reRankAnchorIds for the aside).
+   */
+  replyAnchor: { replyId: string; rangeIndex: number } | null;
+  /**
+   * Cross-pane topic filter, set by an anchor in the OTHER pane. source
+   * 'related' → the reply list filters by it; source 'reply' → the related
+   * panel filters by it. The anchoring pane reranks, the other pane filters —
+   * never both in the same pane.
+   */
+  topicFilter: { topic: string; source: 'related' | 'reply' } | null;
+  /**
+   * Topic → count of currently displayed thread replies carrying that topic.
+   * Published by the thread page so the related panel's "N more <topic>"
+   * tooltips can count across both panes.
+   */
+  replyTopicCounts: Record<string, number>;
 }
 
 const INITIAL: HighlightState = {
@@ -47,6 +65,9 @@ const INITIAL: HighlightState = {
   reRankAnchorIds: [],
   anchoredRangeByPost: {},
   responseFilter: null,
+  replyAnchor: null,
+  topicFilter: null,
+  replyTopicCounts: {},
 };
 
 // ─── Module-level store ─────────────────────────────────────────────────────
@@ -106,24 +127,88 @@ export function clearTapped(): void {
  * - Selecting a different anchor while one is active replaces the old one entirely;
  *   the old anchor and its anchoredRangeByPost entry are removed before the new one
  *   is added. reRankAnchorIds.length is therefore always 0 or 1.
+ *
+ * `topic` (cross-pane filtering): the anchor's topic. Non-null activates the
+ * related-sourced topic filter (the reply list filters by it); clearing the
+ * anchor clears that filter. Pass null/undefined to leave replies untouched.
  */
-export function toggleReRankAnchor(postId: string, rangeIndex?: number): void {
+export function toggleReRankAnchor(postId: string, rangeIndex?: number, topic?: string | null): void {
   const idx = state.reRankAnchorIds.indexOf(postId);
+  const relatedTopicCleared =
+    state.topicFilter?.source === 'related' ? null : state.topicFilter;
   if (idx >= 0) {
-    // Same anchor toggled again — clear it.
+    // Same anchor toggled again — clear it (and its cross-pane topic filter).
     const { [postId]: _, ...rest } = state.anchoredRangeByPost;
-    state = { ...state, reRankAnchorIds: [], anchoredRangeByPost: rest };
+    state = { ...state, reRankAnchorIds: [], anchoredRangeByPost: rest, topicFilter: relatedTopicCleared };
   } else {
     // New anchor selected — replace any existing anchor entirely.
     const newAnchored = rangeIndex !== undefined ? { [postId]: rangeIndex } : {};
-    state = { ...state, reRankAnchorIds: [postId], anchoredRangeByPost: newAnchored };
+    state = {
+      ...state,
+      reRankAnchorIds: [postId],
+      anchoredRangeByPost: newAnchored,
+      topicFilter: topic ? { topic, source: 'related' } : relatedTopicCleared,
+    };
   }
   notify();
 }
 
 export function clearReRankAnchors(): void {
   if (state.reRankAnchorIds.length === 0) return;
-  state = { ...state, reRankAnchorIds: [], anchoredRangeByPost: {} };
+  state = {
+    ...state,
+    reRankAnchorIds: [],
+    anchoredRangeByPost: {},
+    topicFilter: state.topicFilter?.source === 'related' ? null : state.topicFilter,
+  };
+  notify();
+}
+
+/**
+ * Toggle a thread reply as the left-pane anchor (reranks replies in place).
+ * `topic` non-null activates the reply-sourced topic filter — the related
+ * panel filters by it while the reply list reranks.
+ */
+export function toggleReplyAnchor(replyId: string, rangeIndex: number, topic?: string | null): void {
+  const replyTopicCleared =
+    state.topicFilter?.source === 'reply' ? null : state.topicFilter;
+  if (state.replyAnchor?.replyId === replyId && state.replyAnchor.rangeIndex === rangeIndex) {
+    state = { ...state, replyAnchor: null, topicFilter: replyTopicCleared };
+  } else {
+    state = {
+      ...state,
+      replyAnchor: { replyId, rangeIndex },
+      topicFilter: topic ? { topic, source: 'reply' } : replyTopicCleared,
+    };
+  }
+  notify();
+}
+
+export function clearReplyAnchor(): void {
+  if (state.replyAnchor === null && state.topicFilter?.source !== 'reply') return;
+  state = {
+    ...state,
+    replyAnchor: null,
+    topicFilter: state.topicFilter?.source === 'reply' ? null : state.topicFilter,
+  };
+  notify();
+}
+
+/** Clear the cross-pane topic filter — optionally only when set by `source`. */
+export function clearTopicFilter(source?: 'related' | 'reply'): void {
+  if (state.topicFilter === null) return;
+  if (source && state.topicFilter.source !== source) return;
+  state = { ...state, topicFilter: null };
+  notify();
+}
+
+/** Publish reply-topic counts (thread page → related panel tooltips). */
+export function setReplyTopicCounts(counts: Record<string, number>): void {
+  const prev = state.replyTopicCounts;
+  const prevKeys = Object.keys(prev);
+  const nextKeys = Object.keys(counts);
+  if (prevKeys.length === nextKeys.length && nextKeys.every((k) => prev[k] === counts[k])) return;
+  state = { ...state, replyTopicCounts: counts };
   notify();
 }
 
@@ -170,6 +255,8 @@ interface PanelSnapshot {
   reRankAnchorIds: string[];
   anchoredRangeByPost: Record<string, number>;
   responseFilter: { start: number; end: number; text: string } | null;
+  replyAnchor: { replyId: string; rangeIndex: number } | null;
+  topicFilter: { topic: string; source: 'related' | 'reply' } | null;
 }
 
 const panelStateByFocus = new Map<string, PanelSnapshot>();
@@ -197,6 +284,8 @@ function snapshotPanel(): PanelSnapshot {
     reRankAnchorIds: [...state.reRankAnchorIds],
     anchoredRangeByPost: { ...state.anchoredRangeByPost },
     responseFilter: state.responseFilter,
+    replyAnchor: state.replyAnchor,
+    topicFilter: state.topicFilter,
   };
 }
 
@@ -228,6 +317,10 @@ export function setPanelFocus(focusId: string | null): void {
     reRankAnchorIds: saved ? [...saved.reRankAnchorIds] : [],
     anchoredRangeByPost: saved ? { ...saved.anchoredRangeByPost } : {},
     responseFilter: incomingResponseFilter,
+    replyAnchor: saved ? saved.replyAnchor : null,
+    topicFilter: saved ? saved.topicFilter : null,
+    // reply-topic counts are re-published by the incoming thread page
+    replyTopicCounts: {},
     // transient view state never persists across a focus switch
     hoveredPostId: null,
     hoveredRelations: null,

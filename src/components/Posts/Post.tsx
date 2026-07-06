@@ -1041,6 +1041,7 @@ function Post({
       <Paper
         ref={paperRef}
         data-testid="post"
+        data-post-id={id}
         data-active={isActive ? 'true' : 'false'}
         style={{
           position: 'relative',

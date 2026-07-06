@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
@@ -27,8 +27,20 @@ import { getCurrentUser } from "../../../../../utils/getCurrentUser";
 import { useLocalStore, useHydrated, getComments } from "../../../../../utils/localStore";
 import { useExperimentFlags } from "../../../../../utils/experimentFlags";
 import { sortReplies } from "../../../../../utils/replySort.mjs";
+import { filterReplies, clusterTopLevel } from "../../../../../utils/threadFilter.mjs";
 import { getMockReplyRank } from "../../../../../utils/mockPostResolver";
 import ReplySummaryCard from "../../../../../components/ReplySummaryCard";
+import ReplyFilterBar from "../../../../../components/ReplyFilterBar";
+import { getCategoryColors } from "../../../../../utils/categoryStyles";
+import {
+  useHighlightStore,
+  setFilterCategories,
+  clearResponseFilter,
+  clearTopicFilter,
+  toggleReplyAnchor,
+  clearReplyAnchor,
+  setReplyTopicCounts,
+} from "../../../../../utils/highlightStore";
 
 // Thread connector line style — mirrors /posts/[id]
 const THREAD_LINE_COLOR = "#ccd1dc";
@@ -49,8 +61,9 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   const router = useRouter();
   const searchParamsObj = useSearchParams();
   const { id } = params;
-  const { setFromPost } = useRelatedStacks();
+  const { setFromPost, relatedStacks: ctxRelatedStacks } = useRelatedStacks();
   const flags = useExperimentFlags();
+  const { filterCategories, responseFilter, topicFilter, replyAnchor } = useHighlightStore();
 
   const [post, setPost] = useState<MockPostType | null>(null);
   const [ancestors, setAncestors] = useState<MockPostType[]>([]);
@@ -130,11 +143,127 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     }),
     [replyRelationsById]
   );
-  const topLevelOrder = useMemo(() => {
-    if (!flags.replySortTabs) return undefined;
+  // ── Cross-pane filtering + reply reranking (Task 7) ───────────────────────
+  // The reply list applies the shared filters (categories, passage, and a
+  // related-anchor's topic) and wears them visibly in ReplyFilterBar. A reply
+  // anchor reranks THIS list in place while its topic filters the OTHER pane.
+  const crossFilterActive = flags.crossPaneFiltering && flags.replySortTabs;
+  const relatedTopicForReplies =
+    crossFilterActive && topicFilter?.source === "related" ? topicFilter.topic : null;
+
+  const displayedTopLevel = useMemo(() => {
+    if (!crossFilterActive) return filteredReplies;
+    return filterReplies(
+      filteredReplies,
+      (r: MockPostType) => replyRelationsById.get(r.id) ?? [],
+      { filterCategories, responseFilter, topicFilter: relatedTopicForReplies }
+    );
+  }, [crossFilterActive, filteredReplies, replyRelationsById, filterCategories, responseFilter, relatedTopicForReplies]);
+
+  const replyAnchorTopic = useMemo(() => {
+    if (!replyAnchor) return null;
+    const rels = replyRelationsById.get(replyAnchor.replyId) ?? [];
+    return rels[replyAnchor.rangeIndex]?.topic ?? null;
+  }, [replyAnchor, replyRelationsById]);
+
+  const replyCluster =
+    flags.replyReranking && flags.replySortTabs && replyAnchor && replyAnchorTopic
+      ? { anchorId: replyAnchor.replyId, topic: replyAnchorTopic, rangeIndex: replyAnchor.rangeIndex }
+      : null;
+  const replyClusterColor = replyCluster
+    ? getCategoryColors(
+        (replyRelationsById.get(replyCluster.anchorId) ?? [])[replyCluster.rangeIndex]?.category ?? "uncategorized"
+      )
+    : null;
+
+  const { topLevelOrder, clusterMemberIds } = useMemo(() => {
+    if (!flags.replySortTabs) return { topLevelOrder: undefined, clusterMemberIds: null as Set<string> | null };
     const mode = activeTab === "top" || activeTab === "liked" ? activeTab : "time";
-    return sortReplies(filteredReplies, mode, sortOpts).map((r: MockPostType) => r.id);
-  }, [flags.replySortTabs, activeTab, filteredReplies, sortOpts]);
+    let order = sortReplies(displayedTopLevel, mode, sortOpts).map((r: MockPostType) => r.id);
+    let memberIds: Set<string> | null = null;
+    if (replyCluster) {
+      const res = clusterTopLevel(
+        order,
+        (rid: string) => replyRelationsById.get(rid) ?? [],
+        replyCluster.anchorId,
+        replyCluster.topic
+      );
+      order = res.order;
+      memberIds = res.memberIds;
+    }
+    return { topLevelOrder: order, clusterMemberIds: memberIds };
+  }, [flags.replySortTabs, activeTab, displayedTopLevel, sortOpts, replyCluster, replyRelationsById]);
+  const displayedTotal = topLevelOrder ? topLevelOrder.length : totalTopLevelReplies;
+
+  // Topic → displayed-reply count, published to the store so the related
+  // panel's "N more <topic>" tooltips count across both panes.
+  const replyTopicCountsMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of displayedTopLevel) {
+      const topics = new Set(
+        (replyRelationsById.get(r.id) ?? []).map((x) => x.topic).filter(Boolean) as string[]
+      );
+      topics.forEach((t) => m.set(t, (m.get(t) ?? 0) + 1));
+    }
+    return m;
+  }, [displayedTopLevel, replyRelationsById]);
+
+  useEffect(() => {
+    if (!crossFilterActive) {
+      setReplyTopicCounts({});
+      return;
+    }
+    const obj: Record<string, number> = {};
+    replyTopicCountsMap.forEach((n, t) => {
+      obj[t] = n;
+    });
+    setReplyTopicCounts(obj);
+  }, [crossFilterActive, replyTopicCountsMap]);
+  useEffect(() => () => setReplyTopicCounts({}), []);
+
+  // Cross-pane tooltip count for reply spans: related posts + displayed replies
+  // sharing the topic, minus the hovered reply itself. Related side counts
+  // explicit topics only (the curated entries always carry them).
+  const relatedTopicCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of ctxRelatedStacks ?? []) {
+      const topics = new Set(
+        (((s as any)?.topPost?.relations ?? []) as Relation[]).map((r) => r.topic).filter(Boolean) as string[]
+      );
+      topics.forEach((t) => m.set(t, (m.get(t) ?? 0) + 1));
+    }
+    return m;
+  }, [ctxRelatedStacks]);
+  const replyTopicCountFn = useCallback(
+    (topic: string) =>
+      Math.max(0, (relatedTopicCounts.get(topic) ?? 0) + (replyTopicCountsMap.get(topic) ?? 0) - 1),
+    [relatedTopicCounts, replyTopicCountsMap]
+  );
+
+  // Reply span click: rerank in place. The clicked card is scroll-pinned so the
+  // user never loses their place (same contract as the related panel's anchors).
+  const replyPinRef = useRef<{ id: string; top: number } | null>(null);
+  const handleReplySpanClick = useCallback(
+    (replyId: string, rangeIndex: number) => {
+      if (!flags.replyReranking) return;
+      const rels = replyRelationsById.get(replyId) ?? [];
+      const topic = rels[rangeIndex]?.topic ?? null;
+      const el = document.querySelector(`[data-post-id="${replyId}"]`) as HTMLElement | null;
+      replyPinRef.current = el ? { id: replyId, top: el.getBoundingClientRect().top } : null;
+      toggleReplyAnchor(replyId, rangeIndex, flags.crossPaneFiltering ? topic : null);
+    },
+    [flags.replyReranking, flags.crossPaneFiltering, replyRelationsById]
+  );
+
+  useLayoutEffect(() => {
+    const pin = replyPinRef.current;
+    replyPinRef.current = null;
+    if (!pin) return;
+    const el = document.querySelector(`[data-post-id="${pin.id}"]`) as HTMLElement | null;
+    if (!el) return;
+    const delta = el.getBoundingClientRect().top - pin.top;
+    if (Math.abs(delta) > 0.5) window.scrollTo(0, Math.max(0, window.scrollY + delta));
+  }, [replyAnchor]);
 
   // Keep the active tab valid for whichever tab set the flag selects.
   useEffect(() => {
@@ -235,7 +364,8 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     // the focus post keeps its grey marks; ancestors stay passive by design.
     const showReplyContributions =
       !isFocusPost && flags.replyContributions && replyRelationsById.has(p.id);
-    return (
+    const inCluster = !!clusterMemberIds?.has(p.id) && !!replyClusterColor;
+    const postEl = (
     <Post
       key={p.id}
       id={p.id}
@@ -259,6 +389,14 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       focusRelations={isFocusPost ? focusRelations : []}
       contentRelations={showReplyContributions ? replyRelationsById.get(p.id) : undefined}
       categoryBadges={showReplyContributions ? replyBadgesById.get(p.id) : undefined}
+      onContentSpanClick={
+        showReplyContributions && flags.replyReranking && flags.replySortTabs
+          ? (ri: number) => handleReplySpanClick(p.id, ri)
+          : undefined
+      }
+      replyTopicCount={
+        showReplyContributions && flags.crossPaneFiltering ? replyTopicCountFn : undefined
+      }
       clampLines={10}
       // Keep every post/reply on the mock-backed detail route. Without this the
       // Post component falls back to the real /posts/[id] route, which requires a
@@ -268,6 +406,19 @@ export default function MockPostView({ params }: { params: { id: string } }) {
         router.push(`/ChineseEVs/posts/${pid}`);
       }}
     />
+    );
+    // Reply-cluster members carry a rail in the anchor's category color so the
+    // grouped block reads as one thread (mirrors the related panel's rail).
+    return inCluster && replyClusterColor ? (
+      <div
+        key={`cluster-${p.id}`}
+        data-reply-cluster-member
+        style={{ borderLeft: `3px solid ${replyClusterColor.border}`, borderRadius: 0, paddingLeft: 8 }}
+      >
+        {postEl}
+      </div>
+    ) : (
+      postEl
     );
   };
 
@@ -340,11 +491,36 @@ export default function MockPostView({ params }: { params: { id: string } }) {
 
         {showThread && <ReplySection postId={id} currentUser={currentUser} fetchPostAndReplies={() => {}} />}
 
+        {/* Visible filter state for the replies list — cross-pane filters only
+            act when they are worn by the list they hide posts from. */}
+        {showThread && crossFilterActive && (
+          <ReplyFilterBar
+            filterCategories={filterCategories}
+            responseFilter={responseFilter}
+            relatedTopic={relatedTopicForReplies}
+            shown={displayedTotal}
+            total={totalTopLevelReplies}
+            onRemoveCategory={(cat) => {
+              const next = new Set(filterCategories);
+              next.delete(cat);
+              setFilterCategories(next);
+            }}
+            onClearResponse={clearResponseFilter}
+            onClearTopic={() => clearTopicFilter("related")}
+            onClearAll={() => {
+              setFilterCategories(new Set());
+              clearResponseFilter();
+              clearTopicFilter("related");
+            }}
+          />
+        )}
+
         {/* Summary follows the same small-thread suppression as the sort tabs:
-            with a handful of replies, a digest is noise (Jason's <=5 rule). */}
-        {showThread && flags.summaryCard && totalTopLevelReplies > 5 && filteredReplies.length > 0 && (
-          <div style={{ marginTop: "1rem" }}>
-            <ReplySummaryCard replies={filteredReplies as any} relationsOf={relationsOfReply} />
+            with a handful of replies, a digest is noise (Jason's <=5 rule).
+            It digests the CURRENTLY DISPLAYED (post-filter) replies. */}
+        {showThread && flags.summaryCard && totalTopLevelReplies > 5 && displayedTopLevel.length > 0 && (
+          <div style={{ marginTop: crossFilterActive ? 0 : "1rem" }}>
+            <ReplySummaryCard replies={displayedTopLevel as any} relationsOf={relationsOfReply} />
           </div>
         )}
 
@@ -358,6 +534,37 @@ export default function MockPostView({ params }: { params: { id: string } }) {
               width: "100%",
             }}
           >
+            {/* Reply grouping pill — dismissing clears the reply anchor AND the
+                topic filter it pushed onto the related panel. */}
+            {replyCluster && replyClusterColor && (
+              <div
+                data-testid="reply-cluster-pill"
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  background: replyClusterColor.bg, border: `1px solid ${replyClusterColor.border}55`,
+                  borderRadius: 6, padding: "4px 8px", marginBottom: "0.5rem",
+                }}
+              >
+                <Text size="xs" fw={600} c={replyClusterColor.text} style={{ fontSize: 11 }}>
+                  Replies grouped by:
+                </Text>
+                <button
+                  type="button"
+                  onClick={() => clearReplyAnchor()}
+                  aria-label={`Remove ${replyCluster.topic} reply grouping`}
+                  style={{
+                    background: "#ffffffaa", borderRadius: 4, padding: "2px 8px",
+                    fontSize: 10, fontWeight: 600, color: replyClusterColor.text,
+                    cursor: "pointer", border: "none",
+                    display: "inline-flex", alignItems: "center", gap: 4, minHeight: 22,
+                  }}
+                >
+                  <span>{replyCluster.topic}</span>
+                  <span aria-hidden style={{ fontSize: 13, lineHeight: 1 }}>×</span>
+                </button>
+              </div>
+            )}
+
             {/* Tabs are suppressed for small threads (<=5 top-level replies):
                 with a handful of comments a sort control is noise — show the
                 thread newest-first, as a traditional interface would. */}
@@ -385,17 +592,22 @@ export default function MockPostView({ params }: { params: { id: string } }) {
               visibleTopLevelCount={visibleTopLevelReplies}
               topLevelOrder={topLevelOrder}
             />
-            {visibleTopLevelReplies < totalTopLevelReplies && (
+            {displayedTotal === 0 && (
+              <Text size="sm" c="dimmed" p="md" data-testid="no-matching-replies">
+                No replies match the active filters.
+              </Text>
+            )}
+            {visibleTopLevelReplies < displayedTotal && (
               <Button
                 onClick={() =>
-                  setVisibleTopLevelReplies((v) => Math.min(v + 5, totalTopLevelReplies))
+                  setVisibleTopLevelReplies((v) => Math.min(v + 5, displayedTotal))
                 }
                 variant="outline"
                 fullWidth
                 style={{ marginTop: 10 }}
               >
-                {totalTopLevelReplies - visibleTopLevelReplies} more{" "}
-                {totalTopLevelReplies - visibleTopLevelReplies === 1 ? "reply" : "replies"}
+                {displayedTotal - visibleTopLevelReplies} more{" "}
+                {displayedTotal - visibleTopLevelReplies === 1 ? "reply" : "replies"}
               </Button>
             )}
           </Paper>
