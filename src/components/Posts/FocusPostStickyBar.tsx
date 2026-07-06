@@ -10,6 +10,7 @@ import {
   setHoveredHighlightRangeIndex,
   setResponseFilter,
   clearResponseFilter,
+  setFilterCategories,
 } from "../../utils/highlightStore";
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { TOP_NAV_HEIGHT } from "../NavBar/TopNav";
@@ -88,7 +89,7 @@ export default function FocusPostStickyBar({
 }: FocusPostStickyBarProps) {
   const [visible, setVisible] = useState(false);
   const [bounds, setBounds] = useState<{ left: number; width: number } | null>(null);
-  const { hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, responseFilter } = useHighlightStore();
+  const { hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, responseFilter, filterCategories } = useHighlightStore();
   const { relatedStacks: ctxRelatedStacks } = useRelatedStacks();
   const asideScrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -195,6 +196,18 @@ export default function FocusPostStickyBar({
       clearResponseFilter();
       return;
     }
+    // Same dead-end guard as the full post's span click: category chips that
+    // cannot coexist with this passage are dropped instead of composing to zero.
+    if (filterCategories.size > 0) {
+      const compatible = (ctxRelatedStacks ?? []).some((s: any) => {
+        const rels: Relation[] = ((s?.topPost?.relations ?? []) as Relation[]);
+        const responds = rels.some((r) => r.focusStart < seg.end && seg.start < r.focusEnd);
+        if (!responds) return false;
+        const own = new Set<string>(rels.map((r) => r.category));
+        return Array.from(filterCategories).every((c) => own.has(c));
+      });
+      if (!compatible) setFilterCategories(new Set());
+    }
     setResponseFilter({ start: seg.start, end: seg.end, text: plainText.slice(seg.start, seg.end) });
   };
 
@@ -253,6 +266,7 @@ export default function FocusPostStickyBar({
       {strip.length > 0 && (
         <div
           data-testid="contribution-strip"
+          title="Contribution map — hover to preview in the related panel, click to filter to that passage"
           style={{ display: "flex", gap: 2, marginTop: 8, height: 11 }}
         >
           {strip.map((seg, i) => {
@@ -261,6 +275,9 @@ export default function FocusPostStickyBar({
             }
             const tc = getCategoryColors(seg.category);
             const state = segmentState(seg);
+            // Idle segments show their category color solid (the same shade the
+            // contribution spans use in posts) so the strip reads as a minimap
+            // of the post's contributions, not as washed-out decoration.
             return (
               <span
                 key={i}
@@ -279,9 +296,9 @@ export default function FocusPostStickyBar({
                     state === "strong"
                       ? tc.border
                       : state === "faint"
-                        ? tc.bg
-                        : hexToRgba(tc.bg, 0.55),
-                  outline: state === "strong" ? `1px solid ${tc.border}` : `1px solid ${hexToRgba(tc.border, 0.25)}`,
+                        ? hexToRgba(tc.border, 0.45)
+                        : tc.bg,
+                  outline: `1px solid ${hexToRgba(tc.border, state === "strong" ? 1 : 0.35)}`,
                   transition: "background 150ms ease",
                 }}
               />

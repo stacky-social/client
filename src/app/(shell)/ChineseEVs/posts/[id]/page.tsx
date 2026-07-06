@@ -37,9 +37,11 @@ import {
   useHighlightStore,
   setFilterCategories,
   clearResponseFilter,
-  clearTopicFilter,
   toggleReplyAnchor,
+  setReplyAnchor,
   clearReplyAnchor,
+  setReRankAnchor,
+  clearReRankAnchors,
   setReplyTopicCounts,
 } from "../../../../../utils/highlightStore";
 
@@ -64,7 +66,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   const { id } = params;
   const { setFromPost, relatedStacks: ctxRelatedStacks } = useRelatedStacks();
   const flags = useExperimentFlags();
-  const { filterCategories, responseFilter, topicFilter, replyAnchor } = useHighlightStore();
+  const { filterCategories, responseFilter, replyAnchor, reRankAnchorIds, anchoredRangeByPost } = useHighlightStore();
 
   const [post, setPost] = useState<MockPostType | null>(null);
   const [ancestors, setAncestors] = useState<MockPostType[]>([]);
@@ -144,28 +146,60 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     }),
     [replyRelationsById]
   );
-  // ── Cross-pane filtering + reply reranking (Task 7) ───────────────────────
-  // The reply list applies the shared filters (categories, passage, and a
-  // related-anchor's topic) and wears them visibly in ReplyFilterBar. A reply
-  // anchor reranks THIS list in place while its topic filters the OTHER pane.
+  // ── Cross-pane filtering + symmetric topic grouping (Task 7, revised) ─────
+  // FILTERS (categories + passage) apply to both panes and are worn visibly in
+  // ReplyFilterBar. TOPIC interactions never filter: one topic GROUPS BOTH
+  // panes — each pane reranks in place around its own anchor, and the two
+  // anchors are kept in sync below. One concept, one pill per pane.
   const crossFilterActive = flags.crossPaneFiltering && flags.replySortTabs;
-  const relatedTopicForReplies =
-    crossFilterActive && topicFilter?.source === "related" ? topicFilter.topic : null;
 
   const displayedTopLevel = useMemo(() => {
     if (!crossFilterActive) return filteredReplies;
     return filterReplies(
       filteredReplies,
       (r: MockPostType) => replyRelationsById.get(r.id) ?? [],
-      { filterCategories, responseFilter, topicFilter: relatedTopicForReplies }
+      { filterCategories, responseFilter }
     );
-  }, [crossFilterActive, filteredReplies, replyRelationsById, filterCategories, responseFilter, relatedTopicForReplies]);
+  }, [crossFilterActive, filteredReplies, replyRelationsById, filterCategories, responseFilter]);
 
   const replyAnchorTopic = useMemo(() => {
     if (!replyAnchor) return null;
     const rels = replyRelationsById.get(replyAnchor.replyId) ?? [];
     return rels[replyAnchor.rangeIndex]?.topic ?? null;
   }, [replyAnchor, replyRelationsById]);
+
+  // Topic of the related panel's active anchor (explicit topics only — the
+  // curated dataset always carries them).
+  const relatedAnchorTopic = useMemo(() => {
+    const aid = reRankAnchorIds.length > 0 ? reRankAnchorIds[reRankAnchorIds.length - 1] : null;
+    if (!aid) return null;
+    const stack = (ctxRelatedStacks ?? []).find((s: any) => s?.topPost?.id === aid);
+    const ri = anchoredRangeByPost[aid] ?? 0;
+    return ((stack as any)?.topPost?.relations?.[ri]?.topic as string | undefined) ?? null;
+  }, [reRankAnchorIds, anchoredRangeByPost, ctxRelatedStacks]);
+
+  // Grouping sync, related → replies: when the right pane groups by a topic,
+  // cluster the replies around their first post on that topic; when the right
+  // grouping clears, the reply cluster clears with it. (The reply → related
+  // direction is handled synchronously in handleReplySpanClick.) Converges in
+  // one pass: once the reply anchor's topic matches, this effect no-ops.
+  useEffect(() => {
+    if (!crossFilterActive || !flags.replyReranking) return;
+    if (relatedAnchorTopic === null) {
+      if (replyAnchor) setReplyAnchor(null);
+      return;
+    }
+    if (replyAnchorTopic === relatedAnchorTopic) return;
+    for (const r of displayedTopLevel) {
+      const rels = replyRelationsById.get(r.id) ?? [];
+      const idx = rels.findIndex((x) => x.topic === relatedAnchorTopic);
+      if (idx >= 0) {
+        setReplyAnchor({ replyId: r.id, rangeIndex: idx });
+        return;
+      }
+    }
+    setReplyAnchor(null);
+  }, [crossFilterActive, flags.replyReranking, relatedAnchorTopic, replyAnchorTopic, replyAnchor, displayedTopLevel, replyRelationsById]);
 
   const replyCluster =
     flags.replyReranking && flags.replySortTabs && replyAnchor && replyAnchorTopic
@@ -269,9 +303,30 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       const topic = rels[rangeIndex]?.topic ?? null;
       const el = document.querySelector(`[data-post-id="${replyId}"]`) as HTMLElement | null;
       replyPinRef.current = el ? { id: replyId, top: el.getBoundingClientRect().top } : null;
-      toggleReplyAnchor(replyId, rangeIndex, flags.crossPaneFiltering ? topic : null);
+
+      const isSame = replyAnchor?.replyId === replyId && replyAnchor.rangeIndex === rangeIndex;
+      if (isSame) {
+        // Dismissing the topic group clears BOTH panes' grouping.
+        clearReplyAnchor();
+        if (flags.crossPaneFiltering) clearReRankAnchors();
+        return;
+      }
+      toggleReplyAnchor(replyId, rangeIndex);
+      // Mirror the grouping onto the related panel: anchor its first card that
+      // carries the same topic. No topic match over there → no grouping there.
+      if (flags.crossPaneFiltering && topic) {
+        const stack = (ctxRelatedStacks ?? []).find((s: any) =>
+          ((s?.topPost?.relations ?? []) as Relation[]).some((x) => x.topic === topic)
+        );
+        if (stack) {
+          const ri = ((stack as any).topPost.relations as Relation[]).findIndex((x) => x.topic === topic);
+          setReRankAnchor((stack as any).topPost.id, ri);
+        } else {
+          clearReRankAnchors();
+        }
+      }
     },
-    [flags.replyReranking, flags.crossPaneFiltering, replyRelationsById]
+    [flags.replyReranking, flags.crossPaneFiltering, replyRelationsById, replyAnchor, ctxRelatedStacks]
   );
 
   useLayoutEffect(() => {
@@ -526,7 +581,6 @@ export default function MockPostView({ params }: { params: { id: string } }) {
           <ReplyFilterBar
             filterCategories={filterCategories}
             responseFilter={responseFilter}
-            relatedTopic={relatedTopicForReplies}
             shown={displayedTotal}
             total={totalTopLevelReplies}
             onRemoveCategory={(cat) => {
@@ -535,11 +589,9 @@ export default function MockPostView({ params }: { params: { id: string } }) {
               setFilterCategories(next);
             }}
             onClearResponse={clearResponseFilter}
-            onClearTopic={() => clearTopicFilter("related")}
             onClearAll={() => {
               setFilterCategories(new Set());
               clearResponseFilter();
-              clearTopicFilter("related");
             }}
           />
         )}
@@ -563,8 +615,8 @@ export default function MockPostView({ params }: { params: { id: string } }) {
               width: "100%",
             }}
           >
-            {/* Reply grouping pill — dismissing clears the reply anchor AND the
-                topic filter it pushed onto the related panel. */}
+            {/* Reply grouping pill — dismissing clears the topic group in BOTH
+                panes (the grouping is one concept shared across them). */}
             {replyCluster && replyClusterColor && (
               <div
                 data-testid="reply-cluster-pill"
@@ -579,7 +631,10 @@ export default function MockPostView({ params }: { params: { id: string } }) {
                 </Text>
                 <button
                   type="button"
-                  onClick={() => clearReplyAnchor()}
+                  onClick={() => {
+                    clearReplyAnchor();
+                    if (flags.crossPaneFiltering) clearReRankAnchors();
+                  }}
                   aria-label={`Remove ${replyCluster.topic} reply grouping`}
                   style={{
                     background: "#ffffffaa", borderRadius: 4, padding: "2px 8px",

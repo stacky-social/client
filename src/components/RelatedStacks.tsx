@@ -11,7 +11,7 @@ import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import { notifications } from '@mantine/notifications';
 import { copyLink } from '../utils/share';
 import { useRelatedStacks } from '../app/(shell)/related-stacks-context';
-import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, clearResponseFilter, clearTopicFilter, setPanelFocus, savePanelScroll, getPanelScroll, useHighlightStore } from '../utils/highlightStore';
+import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, toggleReRankAnchor, clearReRankAnchors, setFilterCategories, clearResponseFilter, setPanelFocus, savePanelScroll, getPanelScroll, useHighlightStore } from '../utils/highlightStore';
 import { useExperimentFlags } from '../utils/experimentFlags';
 import { reorderForAnchor } from '../utils/reorderForAnchor';
 import type { Relation } from '../types/PostType';
@@ -757,11 +757,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const [favouritedOverride, setFavouritedOverride] = useState<Record<string, boolean>>({});
   const [bookmarkedOverride, setBookmarkedOverride] = useState<Record<string, boolean>>({});
   const [favouritesCountOverride, setFavouritesCountOverride] = useState<Record<string, number>>({});
-  const { filterCategories, responseFilter, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, reRankAnchorIds, anchoredRangeByPost, topicFilter, replyTopicCounts } = useHighlightStore();
+  const { filterCategories, responseFilter, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, reRankAnchorIds, anchoredRangeByPost, replyTopicCounts } = useHighlightStore();
   const flags = useExperimentFlags();
-  // Reply-sourced cross-pane topic filter: a reply anchor in the thread filters
-  // THIS panel by its topic (the anchoring pane reranks, the other pane filters).
-  const replyTopicFilter = flags.crossPaneFiltering && topicFilter?.source === 'reply' ? topicFilter.topic : null;
   // C2: hover preview state for filter chips
   const [chipHovered, setChipHovered] = useState<string | null>(null);
   // Interaction mode: hover (mouse/pen) vs tap (touch). Adaptive — the most
@@ -1061,11 +1058,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           (s.topPost.relations ?? []).some(r =>
             r.focusStart < responseFilter!.end && responseFilter!.start < r.focusEnd));
       }
-      // Cross-pane: a reply anchor in the thread filters this panel by topic.
-      if (replyTopicFilter !== null) {
-        result = result.filter(s =>
-          (s.topPost.relations ?? []).some((r, ri) => topicOf(r, s.stackId, ri) === replyTopicFilter));
-      }
       return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic, groupMemberIds };
     }
 
@@ -1196,21 +1188,30 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       );
     }
 
-    // Cross-pane: a reply anchor in the thread filters this panel by topic
-    // (the anchor card stays visible — it defines the right-pane grouping).
-    if (replyTopicFilter !== null) {
-      result = result.filter(s =>
-        s.topPost.id === anchorId ||
-        (s.topPost.relations ?? []).some((r, ri) => topicOf(r, s.stackId, ri) === replyTopicFilter));
-    }
-
     return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic, groupMemberIds };
-  }, [relatedStacks, filterCategories, responseFilter, replyTopicFilter, reRankAnchorIds, shownByAnchor, anchoredRangeByPost]);
+  }, [relatedStacks, filterCategories, responseFilter, reRankAnchorIds, shownByAnchor, anchoredRangeByPost]);
 
   // E: keep prevDisplayStacksRef up-to-date so the next anchor activation can
   // capture the order the user currently sees as the new baseOrder.
   useEffect(() => {
     prevDisplayStacksRef.current = displayStacks;
+  }, [displayStacks]);
+
+  // Robustness: sweep away residual FLIP transforms whenever the visible list
+  // changes for a reason the FLIP effect does not run for (filters, cross-pane
+  // updates, data refresh). An interrupted FLIP could otherwise leave a card
+  // frozen at translateY(...) — rendering it ON TOP of its neighbours.
+  useLayoutEffect(() => {
+    if (flipFirstTopsRef.current) return; // a FLIP is in flight — its effect owns cleanup
+    const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+    if (!aside) return;
+    aside.querySelectorAll('[data-related-card]').forEach((el) => {
+      const h = el as HTMLElement;
+      if (h.style.transform) {
+        h.style.transition = 'none';
+        h.style.transform = '';
+      }
+    });
   }, [displayStacks]);
 
   const handleShowMore = (anchorId: string) => {
@@ -1357,15 +1358,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     });
     flipFirstTopsRef.current = firstTops;
 
-    // Cross-pane filtering: publish the anchor's topic so the reply list can
-    // filter by it (this pane reranks, the other pane filters — Jason's rule).
-    const anchorStackForTopic = relatedStacks.find(s => s.topPost.id === postId);
-    const relForTopic = anchorStackForTopic?.topPost.relations?.[rangeIndex ?? 0];
-    const topicForFilter =
-      flags.crossPaneFiltering && anchorStackForTopic && relForTopic
-        ? topicOf(relForTopic, anchorStackForTopic.stackId, rangeIndex ?? 0)
-        : null;
-    toggleReRankAnchor(postId, rangeIndex, topicForFilter);
+    // Topic grouping is symmetric across panes: the thread page watches this
+    // anchor's topic and mirrors the grouping onto the replies (see the sync
+    // effect in ChineseEVs/posts/[id]/page.tsx). No filtering happens here.
+    toggleReRankAnchor(postId, rangeIndex);
   };
 
   // Compensate scroll BEFORE paint so the clicked card never visually moves on a
@@ -1710,42 +1706,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#475569'; (e.currentTarget as HTMLElement).style.background = '#e2e8f0'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#94a3b8'; (e.currentTarget as HTMLElement).style.background = 'none'; }}
               aria-label="Clear responses-to filter"
-            >×</button>
-          </div>
-        )}
-
-        {/* Cross-pane indicator: a reply anchor in the thread is filtering this
-            panel by topic. Dismissing lifts only THIS pane's filter — the reply
-            cluster itself is dismissed at its own pill above the replies. */}
-        {replyTopicFilter !== null && (
-          <div data-testid="reply-topic-pill" style={{
-            display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px',
-            background: '#eef7f2', borderRadius: '6px', marginBottom: '0.5rem',
-            border: '1px solid #bfdccb', flexWrap: 'wrap',
-          }}>
-            <Text size="xs" c="#2f6b4f" fw={600} style={{ fontSize: '11px', flexShrink: 0 }}>
-              Reply topic:
-            </Text>
-            <Text size="xs" c="#3e7a5e" style={{
-              fontSize: '10px', fontWeight: 600,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '150px',
-            }}>
-              {replyTopicFilter}
-            </Text>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); clearTopicFilter('reply'); }}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: '#94a3b8', fontSize: '16px', lineHeight: 1,
-                padding: '6px 8px', marginLeft: 'auto',
-                minWidth: 24, minHeight: 24,
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                borderRadius: 4,
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#475569'; (e.currentTarget as HTMLElement).style.background = '#dceee3'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#94a3b8'; (e.currentTarget as HTMLElement).style.background = 'none'; }}
-              aria-label="Clear reply topic filter"
             >×</button>
           </div>
         )}
@@ -2342,7 +2302,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   // Always show the category color so the chip is recognizable
                   // as the topic-anchor for that highlight color.
                   const indicatorColor = indicatorColors.text;
-                  const clusterCount = topicTotal.get(indicatorTopic) ?? 0;
+                  // PANE-LOCAL count: how many cards in THIS panel share the topic.
+                  // (topicTotal folds in reply counts for tooltips; using it here
+                  // showed "(8)" over a visible 5-card cluster — confusing.)
+                  let clusterCount = 0;
+                  postTopics.forEach((topics) => { if (topics.has(indicatorTopic)) clusterCount++; });
                   const baseOpacity = isCurrentAnchor ? 1 : 0.75;
                   return (
                     <button

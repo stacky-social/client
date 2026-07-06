@@ -7,13 +7,10 @@ import { CATEGORY_LABELS, getCategoryColors, categoryIcon } from "../utils/categ
 interface ReplyFilterBarProps {
   filterCategories: Set<string>;
   responseFilter: { start: number; end: number; text: string } | null;
-  /** Topic pushed onto the replies by a related-panel anchor (source 'related'). */
-  relatedTopic: string | null;
   shown: number;
   total: number;
   onRemoveCategory: (category: string) => void;
   onClearResponse: () => void;
-  onClearTopic: () => void;
   onClearAll: () => void;
 }
 
@@ -31,16 +28,14 @@ const chipX: React.CSSProperties = {
 export default function ReplyFilterBar({
   filterCategories,
   responseFilter,
-  relatedTopic,
   shown,
   total,
   onRemoveCategory,
   onClearResponse,
-  onClearTopic,
   onClearAll,
 }: ReplyFilterBarProps) {
   const cats = Array.from(filterCategories);
-  const anyActive = cats.length > 0 || responseFilter !== null || relatedTopic !== null;
+  const anyActive = cats.length > 0 || responseFilter !== null;
   if (!anyActive) return null;
 
   return (
@@ -93,23 +88,6 @@ export default function ReplyFilterBar({
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontStyle: "italic" }}>
             &ldquo;{responseFilter.text.length > 28 ? responseFilter.text.slice(0, 28) + "…" : responseFilter.text}&rdquo;
           </span>
-          <span aria-hidden style={chipX}>×</span>
-        </button>
-      )}
-
-      {relatedTopic !== null && (
-        <button
-          type="button"
-          onClick={onClearTopic}
-          aria-label={`Remove ${relatedTopic} topic filter from replies`}
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 4,
-            background: "#eef7f2", color: "#2f6b4f", border: "1px solid #bfdccb",
-            borderRadius: 12, padding: "2px 8px", cursor: "pointer",
-            fontSize: 11, fontWeight: 600, maxWidth: 200,
-          }}
-        >
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{relatedTopic}</span>
           <span aria-hidden style={chipX}>×</span>
         </button>
       )}

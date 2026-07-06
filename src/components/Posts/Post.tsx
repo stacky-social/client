@@ -14,7 +14,7 @@ import { PreviewCardType } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../../utils/mastoActions';
 import { getPost, isLiked as storeIsLiked, isBookmarked as storeIsBookmarked } from '../../utils/localStore';
-import { useHighlightStore, setResponseFilter, clearResponseFilter, setPendingResponseFilter } from '../../utils/highlightStore';
+import { useHighlightStore, setResponseFilter, clearResponseFilter, setPendingResponseFilter, setFilterCategories } from '../../utils/highlightStore';
 import { CATEGORY_COLORS, CATEGORY_LABELS, categoryIcon, getCategoryColors } from '../../utils/categoryStyles';
 import ReplyHighlightedContent from './ReplyHighlightedContent';
 import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
@@ -241,7 +241,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   /** Non-focused post only: a span was clicked — focus this post then filter. */
   onSpanFocusRequest?: (span: { start: number; end: number; text: string }) => void;
 }>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [], onAutoReveal, active = true, onSpanFocusRequest }, ref) {
-  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, responseFilter } = useHighlightStore();
+  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, responseFilter, filterCategories } = useHighlightStore();
   // Related stacks of the active (focus) post — used to count "N related posts"
   // for the click-to-filter affordance. Mirrored to a ref so the DOM hover
   // handlers read the latest without re-subscribing.
@@ -273,6 +273,8 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   responseFilterRef.current = responseFilter;
   const focusRelationsRef = useRef(focusRelations);
   focusRelationsRef.current = focusRelations;
+  const filterCategoriesRef = useRef(filterCategories);
+  filterCategoriesRef.current = filterCategories;
 
   // Cleanup dwell timer on unmount
   useEffect(() => {
@@ -465,6 +467,21 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       if (!activeRef.current) { onSpanFocusRequestRef.current?.(span); return; }
       const ff = responseFilterRef.current;
       if (ff && ff.start === fs && ff.end === fe) { clearResponseFilter(); return; }
+      // A passage click with category chips active can compose into an empty
+      // result (the chips have their own stack/switch logic, but this path had
+      // none). Mirror it: keep chips that can coexist with the passage, drop
+      // them when no responding post satisfies them — never a dead-end panel.
+      const cats = filterCategoriesRef.current;
+      if (cats && cats.size > 0) {
+        const compatible = (relatedStacksRef.current || []).some((s: any) => {
+          const rels = s?.topPost?.relations ?? [];
+          const responds = rels.some((r: any) => r.focusStart < fe && fs < r.focusEnd);
+          if (!responds) return false;
+          const own = new Set(rels.map((r: any) => r.category));
+          return Array.from(cats).every((c) => own.has(c));
+        });
+        if (!compatible) setFilterCategories(new Set());
+      }
       setResponseFilter(span);
     };
 
