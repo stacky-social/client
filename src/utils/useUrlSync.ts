@@ -181,7 +181,7 @@ export function useUrlSync({
 
   // ── WRITE: debounced URL update when UI state changes ────────────────────
   // Uses router.replace (not push) so filter toggles don't pollute history.
-  // Preserves ?stackId and ?from (set by other parts of the app).
+  // Preserves ?stackId, ?from and ?related (set by other parts of the app).
   useEffect(() => {
     // Clear any pending debounce up front so a stale router.replace can't fire
     // against an out-of-date path, even if this effect early-returns below.
@@ -214,6 +214,11 @@ export function useUrlSync({
     if (stackId) params.set("stackId", stackId);
     const from = searchParams.get("from");
     if (from) params.set("from", from);
+    // `related` (Share-pairing links): without this pass-through the first
+    // debounced replace silently stripped it, so re-copying the visible URL
+    // lost the pairing (audit F-46).
+    const related = searchParams.get("related");
+    if (related) params.set("related", related);
 
     const newSearch = params.toString();
     const currentSearch = searchParams.toString();
