@@ -3,6 +3,7 @@
 import { Group, ActionIcon, Tooltip, Box } from "@mantine/core";
 import {
     IconHome,
+    IconMessages,
     IconSearch,
     IconBookmark,
     IconHeart,
@@ -21,6 +22,7 @@ export const TOP_NAV_HEIGHT = 56;
 
 const LINKS = [
     { link: "/home", label: "Home", Icon: IconHome },
+    { link: "/ChineseEVs", label: "Demo feed", Icon: IconMessages },
     { link: "/search", label: "Search", Icon: IconSearch },
     { link: "/bookmarks", label: "Bookmarks", Icon: IconBookmark },
     { link: "/liked", label: "Liked", Icon: IconHeart },
@@ -38,24 +40,30 @@ export function TopNav() {
     const handleLogOut = async () => {
         const accessToken =
             typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-        if (!accessToken) {
-            router.push("/");
-            return;
-        }
         try {
-            await fetch(`${MastodonInstanceUrl}/oauth/revoke`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    client_id: clientId,
-                    client_secret: clientSecret,
-                    token: accessToken,
-                }),
-            });
+            if (accessToken) {
+                await fetch(`${MastodonInstanceUrl}/oauth/revoke`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        client_id: clientId,
+                        client_secret: clientSecret,
+                        token: accessToken,
+                    }),
+                });
+            }
         } catch (error) {
             console.error("Failed to log out:", error);
         } finally {
+            // Clear the auth/user keys, but keep the intentionally-persistent
+            // local demo state (stacky:localStore:v1, stacky:experimentFlags:v1,
+            // stacky:feedRatio) — it survives logout by design.
             localStorage.removeItem("accessToken");
+            localStorage.removeItem("currentUser");
+            localStorage.removeItem("authCode");
+            // Session-scoped scroll/back-navigation keys shouldn't outlive the
+            // login either.
+            sessionStorage.clear();
             router.push("/");
         }
     };

@@ -16,7 +16,7 @@ function labelFromPath(path: string): string | null {
 }
 
 // 'unchecked' = haven't read sessionStorage yet, 'none' = checked but no previous path
-type BackButtonState = 'unchecked' | 'none' | { label: string | null };
+type BackButtonState = 'unchecked' | 'none' | { label: string | null; path: string };
 
 export default function BackButton() {
   const router = useRouter();
@@ -25,7 +25,7 @@ export default function BackButton() {
   useEffect(() => {
     const prev = sessionStorage.getItem(`previousPath:${window.location.pathname}`);
     if (prev) {
-      setState({ label: labelFromPath(prev) });
+      setState({ label: labelFromPath(prev), path: prev });
     } else {
       setState('none');
     }
@@ -35,10 +35,29 @@ export default function BackButton() {
   if (state === 'unchecked' || state === 'none') return null;
 
   const displayLabel = state.label;
+  const previousPath = state.path;
+
+  // On a cold deep-link there is no in-app history, so router.back() is a
+  // silent no-op — or, with an external referrer, exits the SPA. Only go back
+  // when the previous history entry is ours; otherwise push the recorded
+  // previous path (F-25).
+  const handleBack = () => {
+    if (
+      typeof window !== 'undefined' &&
+      window.history.length > 1 &&
+      document.referrer.startsWith(window.location.origin)
+    ) {
+      router.back();
+    } else if (previousPath) {
+      router.push(previousPath);
+    } else {
+      router.push('/ChineseEVs');
+    }
+  };
 
   return (
     <UnstyledButton
-      onClick={() => router.back()}
+      onClick={handleBack}
       style={{ marginBottom: '1rem' }}
     >
       <Group gap={6}>

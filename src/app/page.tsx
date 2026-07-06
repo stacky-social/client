@@ -1,10 +1,11 @@
 'use client';
 
 import {useEffect, useState} from 'react';
-import { Title, Text, Button, TextInput, Box, Center, Container, rem, Paper } from '@mantine/core';
+import { Title, Text, Button, TextInput, Box, Center, Container, rem, Paper, Anchor } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Header } from '../components/Header/Header';
 import { Footer } from '../components/Footer/Footer';
 import classes from './LandingPage.module.css';
@@ -89,6 +90,19 @@ export default function LandingPage() {
               </Button>
             </form>
           </Paper>
+
+          <Anchor
+            component={Link}
+            href="/ChineseEVs"
+            data-testid="landing-demo-link"
+            size="sm"
+            fw={600}
+            display="block"
+            ta="center"
+            mt="lg"
+          >
+            Explore the demo — no login required
+          </Anchor>
         </Container>
       </Center>
       {/* <Footer /> */}
