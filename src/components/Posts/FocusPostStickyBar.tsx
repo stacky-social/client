@@ -5,7 +5,13 @@ import { Avatar, Text } from "@mantine/core";
 import { IconArrowUp } from "@tabler/icons-react";
 import type { Relation } from "../../types/PostType";
 import { getCategoryColors } from "../../utils/categoryStyles";
-import { useHighlightStore, setHoveredHighlightRangeIndex } from "../../utils/highlightStore";
+import {
+  useHighlightStore,
+  setHoveredHighlightRangeIndex,
+  setResponseFilter,
+  clearResponseFilter,
+} from "../../utils/highlightStore";
+import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { TOP_NAV_HEIGHT } from "../NavBar/TopNav";
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -64,12 +70,13 @@ interface FocusPostStickyBarProps {
 }
 
 /**
- * Collapsed focus-post bar (D9): a ~56px fixed bar with the author, one line of
- * text, and the contribution strip — a minimap of the focus post's relation
- * regions in category colors. It exists so cross-highlights from reply/related
- * hovers always have a visible landing zone: the strip segments light up from
- * the same hover store the full post uses, on stable nodes (no re-parsing).
- * Click returns to the post.
+ * Collapsed focus-post bar (D9): a compact fixed bar with the author, two lines
+ * of the post, and the contribution strip — a minimap of the focus post's
+ * relation regions in category colors. It is the landing zone for cross-
+ * highlights while the post is off-screen, AND a controller for the related
+ * panel: hovering a strip segment scrolls the panel to the first linked card,
+ * clicking a segment filters both panes to that passage (same semantics as
+ * clicking the span in the full post). Clicking the bar body returns to the post.
  */
 export default function FocusPostStickyBar({
   author,
@@ -81,7 +88,9 @@ export default function FocusPostStickyBar({
 }: FocusPostStickyBarProps) {
   const [visible, setVisible] = useState(false);
   const [bounds, setBounds] = useState<{ left: number; width: number } | null>(null);
-  const { hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory } = useHighlightStore();
+  const { hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, responseFilter } = useHighlightStore();
+  const { relatedStacks: ctxRelatedStacks } = useRelatedStacks();
+  const asideScrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Show the bar only while the focus post is fully scrolled above the nav.
   useEffect(() => {
@@ -111,6 +120,12 @@ export default function FocusPostStickyBar({
     return () => window.removeEventListener("resize", measure);
   }, [containerRef, visible]);
 
+  useEffect(() => {
+    return () => {
+      if (asideScrollTimer.current) clearTimeout(asideScrollTimer.current);
+    };
+  }, []);
+
   const strip = useMemo(
     () => buildStrip(focusRelations, plainText.length),
     [focusRelations, plainText.length]
@@ -122,6 +137,7 @@ export default function FocusPostStickyBar({
 
   const segmentState = (seg: StripSegment): "off" | "faint" | "strong" => {
     if (!seg.category) return "off";
+    if (responseFilter && responseFilter.start < seg.end && seg.start < responseFilter.end) return "strong";
     if (hoveredHighlightRangeIndex != null && hoveredRelations) {
       const l2 = hoveredRelations[hoveredHighlightRangeIndex];
       if (l2 && l2.focusStart < seg.end && seg.start < l2.focusEnd) return "strong";
@@ -136,6 +152,50 @@ export default function FocusPostStickyBar({
     }
     if (hoveredRelations?.some((r) => r.focusStart < seg.end && seg.start < r.focusEnd)) return "faint";
     return "off";
+  };
+
+  /** First related card whose relations overlap the segment's focus region. */
+  const firstLinkedCardId = (seg: StripSegment): string | null => {
+    for (const s of ctxRelatedStacks ?? []) {
+      const rels: Relation[] = (((s as any)?.topPost?.relations ?? []) as Relation[]);
+      if (rels.some((r) => r.focusStart < seg.end && seg.start < r.focusEnd)) {
+        return (s as any).topPost.id as string;
+      }
+    }
+    return null;
+  };
+
+  const handleSegmentEnter = (seg: StripSegment) => {
+    if (seg.rangeIndexes.length === 1) setHoveredHighlightRangeIndex(seg.rangeIndexes[0]);
+    // Reveal the related section for this passage: after a short dwell, scroll
+    // the aside to the first card linked to the hovered region.
+    if (asideScrollTimer.current) clearTimeout(asideScrollTimer.current);
+    asideScrollTimer.current = setTimeout(() => {
+      asideScrollTimer.current = null;
+      const cardId = firstLinkedCardId(seg);
+      if (!cardId) return;
+      const aside = document.querySelector('[data-testid="col-aside"]');
+      const cardEl = (aside ?? document).querySelector(`[data-post-id="${cardId}"]`);
+      cardEl?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }, 150);
+  };
+
+  const handleSegmentLeave = () => {
+    setHoveredHighlightRangeIndex(null);
+    if (asideScrollTimer.current) {
+      clearTimeout(asideScrollTimer.current);
+      asideScrollTimer.current = null;
+    }
+  };
+
+  const handleSegmentClick = (e: React.MouseEvent, seg: StripSegment) => {
+    if (!seg.category) return;
+    e.stopPropagation(); // segment click filters; it must not trigger the bar's return-to-post
+    if (responseFilter && responseFilter.start === seg.start && responseFilter.end === seg.end) {
+      clearResponseFilter();
+      return;
+    }
+    setResponseFilter({ start: seg.start, end: seg.end, text: plainText.slice(seg.start, seg.end) });
   };
 
   return (
@@ -162,57 +222,66 @@ export default function FocusPostStickyBar({
         borderTop: "none",
         borderRadius: "0 0 10px 10px",
         boxShadow: "0 6px 16px rgba(0,0,0,0.08)",
-        padding: "7px 12px 8px",
+        padding: "10px 14px 11px",
         cursor: "pointer",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-        <Avatar src={avatar} alt={author} radius="xl" size={22} style={{ flexShrink: 0 }} />
-        <Text size="xs" fw={700} c="#011445" style={{ flexShrink: 0 }}>
-          {author}
-        </Text>
-        <Text
-          size="xs"
-          c="#475569"
-          style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-        >
-          {oneLine}
-        </Text>
-        <span style={{ marginLeft: "auto", flexShrink: 0, display: "inline-flex", color: "#94a3b8" }}>
-          <IconArrowUp size={14} />
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, minWidth: 0 }}>
+        <Avatar src={avatar} alt={author} radius="xl" size={30} style={{ flexShrink: 0, marginTop: 1 }} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <Text size="sm" fw={700} c="#011445" style={{ lineHeight: 1.3 }}>
+            {author}
+          </Text>
+          <Text
+            size="xs"
+            c="#475569"
+            style={{
+              display: "-webkit-box",
+              WebkitBoxOrient: "vertical",
+              WebkitLineClamp: 2,
+              overflow: "hidden",
+              lineHeight: 1.45,
+            }}
+          >
+            {oneLine}
+          </Text>
+        </div>
+        <span style={{ flexShrink: 0, display: "inline-flex", color: "#94a3b8", marginTop: 2 }}>
+          <IconArrowUp size={15} />
         </span>
       </div>
       {strip.length > 0 && (
         <div
           data-testid="contribution-strip"
-          style={{ display: "flex", gap: 2, marginTop: 6, height: 8 }}
-          aria-hidden
+          style={{ display: "flex", gap: 2, marginTop: 8, height: 11 }}
         >
           {strip.map((seg, i) => {
             if (!seg.category) {
-              return <span key={i} style={{ flexGrow: seg.end - seg.start, minWidth: 0 }} />;
+              return <span key={i} aria-hidden style={{ flexGrow: seg.end - seg.start, minWidth: 0 }} />;
             }
             const tc = getCategoryColors(seg.category);
             const state = segmentState(seg);
             return (
               <span
                 key={i}
+                role="button"
+                aria-label="Filter to responses for this passage"
                 data-strip-state={state}
-                onMouseEnter={() => {
-                  if (seg.rangeIndexes.length === 1) setHoveredHighlightRangeIndex(seg.rangeIndexes[0]);
-                }}
-                onMouseLeave={() => setHoveredHighlightRangeIndex(null)}
+                onMouseEnter={() => handleSegmentEnter(seg)}
+                onMouseLeave={handleSegmentLeave}
+                onClick={(e) => handleSegmentClick(e, seg)}
                 style={{
                   flexGrow: seg.end - seg.start,
-                  minWidth: 3,
+                  minWidth: 4,
                   borderRadius: 2,
+                  cursor: "pointer",
                   background:
                     state === "strong"
                       ? tc.border
                       : state === "faint"
                         ? tc.bg
                         : hexToRgba(tc.bg, 0.55),
-                  outline: state === "strong" ? `1px solid ${tc.border}` : "none",
+                  outline: state === "strong" ? `1px solid ${tc.border}` : `1px solid ${hexToRgba(tc.border, 0.25)}`,
                   transition: "background 150ms ease",
                 }}
               />

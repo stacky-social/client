@@ -193,7 +193,10 @@ export function useUrlSync({
 
     debounceRef.current = setTimeout(() => {
       const newUrl = pathname + (newSearch ? "?" + newSearch : "");
-      router.replace(newUrl);
+      // scroll:false — this replace fires 300ms after every tab/filter change;
+      // the App Router's default scroll-to-top would yank the user away from
+      // the replies they are sorting/filtering.
+      router.replace(newUrl, { scroll: false });
     }, 300);
 
     return () => {

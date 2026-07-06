@@ -2048,9 +2048,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               key={`header-${anchorForThisCard}`}
               style={{
                 position: 'relative',
-                display: 'flex', alignItems: 'center', gap: '6px',
+                display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap',
                 marginLeft: `${indentPx}px`,
-                padding: '2px 0 4px 2px',
+                padding: '6px 0 4px 2px',
               }}
             >
               <div aria-hidden style={{
@@ -2218,7 +2218,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 }}
                 style={{
                   position: 'relative', width: '100%', backgroundColor: '#ffffff', zIndex: isHighlighted ? 6 : 5,
-                  borderRadius: '10px', margin: '0 auto', paddingTop: '40px',
+                  borderRadius: '10px', margin: '0 auto', paddingTop: '10px',
                   border: isHighlighted ? `2px solid #1c2b4a` : `2px solid #e2e8f0`,
                   boxShadow: isHighlighted
                     ? '0 0 0 3px rgba(28,43,74,0.18), 0 4px 16px rgba(0,0,0,0.10)'
@@ -2227,8 +2227,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   cursor: 'pointer',
                 }}
               >
-                {/* Category tags — one per unique relation category, dims/brightens with highlight hover */}
-                <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '4px', alignItems: 'center', zIndex: 10, flexWrap: 'wrap' }}>
+                {/* Card header row — category tags (left, wrapping) and the F relation
+                    indicator (right), in NORMAL FLOW. The old absolute positioning over
+                    a fixed 40px reserve overlapped the author header and the indicator
+                    as soon as tags wrapped or labels ran long; a flow row just grows. */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px', padding: '0 10px 6px' }}>
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap', flex: '1 1 auto', minWidth: 0 }}>
                   {(() => {
                     // Dedupe categories from relations, preserving order
                     const rels = stack.topPost.relations ?? [];
@@ -2350,10 +2354,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       aria-label={`Show more posts about ${indicatorTopic}`}
                       aria-pressed={isCurrentAnchor}
                       style={{
-                        position: 'absolute',
-                        top: '10px',
-                        right: '10px',
-                        zIndex: 10,
+                        marginLeft: 'auto',
+                        alignSelf: 'flex-start',
+                        flexShrink: 0,
                         background: isCurrentAnchor ? indicatorColors.bg : 'transparent',
                         border: isCurrentAnchor ? `1px solid ${indicatorColors.border}55` : 'none',
                         borderRadius: '4px',
@@ -2387,6 +2390,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                     </button>
                   );
                 })()}
+                </div>
 
                 <UnstyledButton onClick={(e) => { e.stopPropagation(); handleNavigate(stack.topPost.id, stack.stackId); }} style={{ width: '100%' }}>
                   <Group style={{ paddingLeft: '1rem' }}>
