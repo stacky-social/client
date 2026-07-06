@@ -196,6 +196,12 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   // ReplyFilterBar. TOPIC interactions never filter: one topic GROUPS BOTH
   // panes — each pane reranks in place around its own anchor, and the two
   // anchors are kept in sync below. One concept, one pill per pane.
+  //
+  // Permanence (ratified 2026-07-06, audit F-11): the reply cluster is
+  // TRANSIENT — dismissing the pill restores the tab's sort order — while the
+  // aside's grouping stays permanent (R-REORDER-5). Deliberate asymmetry: a
+  // sorted reply list has a canonical order to return to; the aside's curated
+  // order does not.
   const crossFilterActive = flags.crossPaneFiltering && flags.replySortTabs;
 
   const displayedTopLevel = useMemo(() => {

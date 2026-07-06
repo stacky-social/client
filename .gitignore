@@ -144,7 +144,9 @@ package-lock.json
 /graphify-out/
 /.claude/launch.json
 /.playwright-mcp/
-/docs/superpowers/
+# All of docs/ stays private (team decision 2026-07-06, closes the #182 item):
+# it holds internal specs (with colleague attributions) and audit working docs.
+/docs/
 /firebase-debug.log
 
 # TestSprite run artifacts: regenerated per run, and config.json holds an API key.
