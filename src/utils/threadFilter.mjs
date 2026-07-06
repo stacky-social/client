@@ -8,11 +8,18 @@
  * @param replies    top-level reply objects
  * @param relationsOf (reply) => Relation[]
  * @param filters    { filterCategories?: Set|Array, responseFilter?: {start,end}|null, topicFilter?: string|null }
+ * @param branchRelationsOf optional (reply) => Relation[] returning the UNION of
+ *   the whole branch's relations (top-level reply + every descendant). When
+ *   provided, a branch survives if ANY reply in it matches — "show the
+ *   responses about X" must not silently hide a matching nested reply just
+ *   because its branch root doesn't match (the root stays as context).
+ *   Omitted → own-relations-only matching (back-compatible).
  */
-export function filterReplies(replies, relationsOf, { filterCategories, responseFilter, topicFilter } = {}) {
+export function filterReplies(replies, relationsOf, { filterCategories, responseFilter, topicFilter } = {}, branchRelationsOf) {
   const cats = filterCategories ? Array.from(filterCategories) : [];
+  const matchRels = branchRelationsOf ?? relationsOf;
   return replies.filter((reply) => {
-    const rels = relationsOf(reply) ?? [];
+    const rels = matchRels(reply) ?? [];
     if (cats.length > 0) {
       const own = new Set(rels.map((r) => r.category));
       if (!cats.every((c) => own.has(c))) return false;

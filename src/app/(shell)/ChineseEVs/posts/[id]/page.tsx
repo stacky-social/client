@@ -2,7 +2,8 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
+import { Anchor, Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
+import Link from "next/link";
 import { notifications } from "@mantine/notifications";
 import Post from "../../../../../components/Posts/Post";
 import ReplySection from "../../../../../components/ReplySection";
@@ -137,6 +138,37 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     [replyRelationsById]
   );
 
+  // Branch-union relations: a top-level reply's own relations plus every
+  // descendant's. Filters match against the whole branch, so a matching nested
+  // reply keeps its branch visible (root as context) instead of being silently
+  // hidden when only the root is inspected.
+  const branchRelationsById = useMemo(() => {
+    const childIds = new Map<string, string[]>();
+    for (const r of mergedReplies) {
+      const pid = r.in_reply_to_id;
+      if (!pid) continue;
+      const arr = childIds.get(pid) ?? [];
+      arr.push(r.id);
+      childIds.set(pid, arr);
+    }
+    const m = new Map<string, Relation[]>();
+    for (const r of mergedReplies) {
+      if (r.in_reply_to_id !== id) continue;
+      const union: Relation[] = [];
+      const stack = [r.id];
+      const seen = new Set<string>();
+      while (stack.length) {
+        const rid = stack.pop()!;
+        if (seen.has(rid)) continue;
+        seen.add(rid);
+        union.push(...(replyRelationsById.get(rid) ?? []));
+        for (const cid of childIds.get(rid) ?? []) stack.push(cid);
+      }
+      if (union.length > 0) m.set(r.id, union);
+    }
+    return m;
+  }, [mergedReplies, id, replyRelationsById]);
+
   // Focus-post mark coverage: related-post relations PLUS reply relations.
   // A reply can connect to a passage no related post covers (bs-011's was the
   // canary) — without merging, hovering that reply had no mark to light up in
@@ -171,9 +203,10 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     return filterReplies(
       filteredReplies,
       (r: MockPostType) => replyRelationsById.get(r.id) ?? [],
-      { filterCategories, responseFilter }
+      { filterCategories, responseFilter },
+      (r: MockPostType) => branchRelationsById.get(r.id) ?? []
     );
-  }, [crossFilterActive, filteredReplies, replyRelationsById, filterCategories, responseFilter]);
+  }, [crossFilterActive, filteredReplies, replyRelationsById, branchRelationsById, filterCategories, responseFilter]);
 
   const replyAnchorTopic = useMemo(() => {
     if (!replyAnchor) return null;
@@ -243,6 +276,20 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   }, [flags.replySortTabs, activeTab, displayedTopLevel, sortOpts, replyCluster, replyRelationsById]);
   const displayedTotal = topLevelOrder ? topLevelOrder.length : totalTopLevelReplies;
 
+  // A cluster must form IN VIEW (visibility of system status): grow the visible
+  // top-level window to cover the anchor plus at least its first 3 below-matches,
+  // so the grouping pill never points at an off-screen block. Grows only —
+  // Math.max keeps the effect convergent and never shrinks a user's expansion.
+  useEffect(() => {
+    if (!replyCluster || !topLevelOrder || !clusterMemberIds) return;
+    const anchorIdx = topLevelOrder.indexOf(replyCluster.anchorId);
+    if (anchorIdx < 0) return;
+    const below = topLevelOrder.slice(anchorIdx + 1).filter((rid) => clusterMemberIds.has(rid));
+    const needed = anchorIdx + 1 + Math.min(3, below.length);
+    setVisibleTopLevelReplies((v) => Math.max(v, needed));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replyCluster?.anchorId, replyCluster?.topic, topLevelOrder, clusterMemberIds]);
+
   // Topic → displayed-reply count, published to the store so the related
   // panel's "N more <topic>" tooltips count across both panes. Counts every
   // reply in the displayed branches — nested replies carry contributions too.
@@ -303,6 +350,25 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     [relatedTopicCounts, replyTopicCountsMap]
   );
 
+  // Dwell-tooltip reply counts for the FOCUS post: how many displayed top-level
+  // branches respond to the hovered span union. Merged into "Click to show
+  // N related posts · M replies" so a reply-only span never reads a misleading
+  // "0 related posts" (honest counts across both panes).
+  const replyCountForSpans = useCallback(
+    (ranges: Array<{ fs: number; fe: number }>) => {
+      if (!crossFilterActive) return 0;
+      let n = 0;
+      for (const r of displayedTopLevel) {
+        // Branch-union match — the same rule the passage filter applies, so the
+        // promised count equals exactly what the click reveals.
+        const rels = branchRelationsById.get(r.id) ?? [];
+        if (rels.some((rel) => ranges.some((u) => rel.focusStart < u.fe && u.fs < rel.focusEnd))) n++;
+      }
+      return n;
+    },
+    [crossFilterActive, displayedTopLevel, branchRelationsById]
+  );
+
   // Reply span click: rerank in place. The clicked card is scroll-pinned so the
   // user never loses their place (same contract as the related panel's anchors).
   const replyPinRef = useRef<{ id: string; top: number } | null>(null);
@@ -324,6 +390,11 @@ export default function MockPostView({ params }: { params: { id: string } }) {
         if (flags.crossPaneFiltering) clearReRankAnchors();
         return;
       }
+      // R-REORDER-9 parity with the aside: re-picking the ALREADY-GROUPED topic
+      // from any other span is a no-op (its tooltip reads "(shown)") — the block
+      // must not jump to a different anchor. Only the active anchor span toggles
+      // the group off (handled above).
+      if (topic !== null && topic === replyAnchorTopic) return;
       toggleReplyAnchor(replyId, rangeIndex);
       // Mirror the grouping onto the related panel: anchor its first card that
       // carries the same topic. No topic match over there → no grouping there.
@@ -339,7 +410,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
         }
       }
     },
-    [flags.replyReranking, flags.crossPaneFiltering, replyRelationsById, replyAnchor, ctxRelatedStacks]
+    [flags.replyReranking, flags.crossPaneFiltering, replyRelationsById, replyAnchor, replyAnchorTopic, ctxRelatedStacks]
   );
 
   useLayoutEffect(() => {
@@ -482,6 +553,8 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       replyTopicCount={
         showReplyContributions && flags.crossPaneFiltering ? replyTopicCountFn : undefined
       }
+      activeClusterTopic={showReplyContributions ? replyCluster?.topic ?? null : undefined}
+      replyCountForSpans={isFocusPost ? replyCountForSpans : undefined}
       clampLines={10}
       // Keep every post/reply on the mock-backed detail route. Without this the
       // Post component falls back to the real /posts/[id] route, which requires a
@@ -514,8 +587,11 @@ export default function MockPostView({ params }: { params: { id: string } }) {
           Post <code>{id}</code> not found in mock data.
         </Text>
         <Text size="xs" c="dimmed" mt="xs">
-          This route is the mock-backed mirror of <code>/posts/[id]</code> for H/G verification.
-          Try a post id that exists in <code>FakeData/listy-injection.json</code>.
+          This demo thread runs on bundled sample data. Head back to the{" "}
+          <Anchor component={Link} href="/ChineseEVs" size="xs">
+            demo feed
+          </Anchor>{" "}
+          to pick a post that exists.
         </Text>
       </Paper>
     );
@@ -627,8 +703,10 @@ export default function MockPostView({ params }: { params: { id: string } }) {
             }}
           >
             {/* Reply grouping pill — dismissing clears the topic group in BOTH
-                panes (the grouping is one concept shared across them). */}
-            {replyCluster && replyClusterColor && (
+                panes (the grouping is one concept shared across them). Hidden
+                when the anchor itself is filtered out of the displayed list: a
+                state chip must describe visible state, never a ghost group. */}
+            {replyCluster && replyClusterColor && topLevelOrder?.includes(replyCluster.anchorId) && (
               <div
                 data-testid="reply-cluster-pill"
                 style={{

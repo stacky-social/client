@@ -59,3 +59,25 @@ test('buildReplySummary extracts a first sentence', () => {
   const s = buildReplySummary([r], { relationsOf: () => [] });
   assert.equal(s.sample[0].firstSentence, 'First point here.');
 });
+
+// ── Determinism (audit F-4): equal (likes, timestamp) pairs must order by id —
+// reproducible study orderings, independent of input order and locale. ────────
+
+test('full ties fall to ascending id, regardless of input order', () => {
+  const mkT = (id) => ({ id, created_at: '2024-07-31T10:00:00Z', favourites_count: 3, account: { username: id } });
+  const [p, q, r] = [mkT('p'), mkT('q'), mkT('r')];
+  const noOpts = { rankOf: () => undefined, relationsOf: () => [] };
+  for (const input of [[p, q, r], [r, q, p], [q, r, p]]) {
+    assert.deepEqual(sortReplies(input, 'liked', noOpts).map((x) => x.id), ['p', 'q', 'r']);
+    assert.deepEqual(sortReplies(input, 'time', noOpts).map((x) => x.id), ['p', 'q', 'r']);
+    assert.deepEqual(sortReplies(input, 'top', noOpts).map((x) => x.id), ['p', 'q', 'r']);
+  }
+});
+
+test('timestamps compare numerically (offset notation equals Z notation)', () => {
+  const x = { id: 'x', created_at: '2024-07-31T10:00:00+00:00', favourites_count: 0, account: { username: 'x' } };
+  const y = { id: 'y', created_at: '2024-07-31T10:00:00Z', favourites_count: 0, account: { username: 'y' } };
+  // Same instant in two notations: lexicographic compare would misorder ('+' < 'Z');
+  // numeric compare ties them, so the id tiebreak decides.
+  assert.deepEqual(sortReplies([y, x], 'time', { rankOf: () => undefined, relationsOf: () => [] }).map((r) => r.id), ['x', 'y']);
+});

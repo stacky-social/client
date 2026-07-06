@@ -62,3 +62,32 @@ test('clusterTopLevel tolerates an anchor missing from the list', () => {
   const { order } = clusterTopLevel(['x', 'y'], () => [], 'ghost', 'T');
   assert.deepEqual(order, ['x', 'y']);
 });
+
+// ── Branch propagation (audit F-15): a branch survives when ANY reply in it
+// matches — the root stays visible as context for a matching descendant. ──────
+
+test('branchRelationsOf keeps a branch whose descendant matches the category', () => {
+  // root c has no contributions of its own, but its branch union carries one.
+  const branchRels = (r) =>
+    r.id === 'c' ? [{ category: 'framing', topic: 'X', focusStart: 10, focusEnd: 40 }] : r.rels;
+  const out = filterReplies([a, b, c, d], relsOf, { filterCategories: new Set(['framing']) }, branchRels);
+  assert.deepEqual(out.map((r) => r.id), ['a', 'b', 'c']);
+});
+
+test('branchRelationsOf drops a branch when neither root nor descendants match', () => {
+  const branchRels = (r) => r.rels; // no descendants add anything
+  const out = filterReplies([a, b, c, d], relsOf, { responseFilter: { start: 5, end: 15 } }, branchRels);
+  assert.deepEqual(out.map((r) => r.id), ['a', 'b']);
+});
+
+test('omitting branchRelationsOf keeps own-relations-only matching (back-compat)', () => {
+  const out = filterReplies([a, b, c, d], relsOf, { filterCategories: new Set(['framing']) });
+  assert.deepEqual(out.map((r) => r.id), ['a', 'b']);
+});
+
+test('passage filter via branch union counts a nested reply toward the branch', () => {
+  const branchRels = (r) =>
+    r.id === 'd' ? [...r.rels, { category: 'agree', topic: 'W', focusStart: 12, focusEnd: 20 }] : r.rels;
+  const out = filterReplies([a, b, c, d], relsOf, { responseFilter: { start: 5, end: 15 } }, branchRels);
+  assert.deepEqual(out.map((r) => r.id), ['a', 'b', 'd']);
+});
