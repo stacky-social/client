@@ -1074,6 +1074,118 @@
         "replies_count": 0,
         "favourited": false,
         "bookmarked": false
+      },
+      {
+        "id": "bs-002a-r1",
+        "inReplyToId": "bs-002a",
+        "content": "<p>TAA take-up rates hover around a quarter of eligible workers. The program design is the failure mode, not the concept.</p>",
+        "plainText": "TAA take-up rates hover around a quarter of eligible workers. The program design is the failure mode, not the concept.",
+        "account": {
+          "display_name": "Econ PhD",
+          "acct": "econ_phd",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T13:50:00.000Z",
+        "favourites_count": 6,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-002a-r2",
+        "inReplyToId": "bs-002a",
+        "content": "<p>Design AND funding. Every renewal cycle it gets trimmed before it reaches a single shop floor.</p>",
+        "plainText": "Design AND funding. Every renewal cycle it gets trimmed before it reaches a single shop floor.",
+        "account": {
+          "display_name": "Union Rep",
+          "acct": "union_rep",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T13:56:00.000Z",
+        "favourites_count": 4,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-002a-r3",
+        "inReplyToId": "bs-002a",
+        "content": "<p>Retraining a 55-year-old machinist into \"software\" was always a brochure fantasy.</p>",
+        "plainText": "Retraining a 55-year-old machinist into \"software\" was always a brochure fantasy.",
+        "account": {
+          "display_name": "Garage Skeptic",
+          "acct": "garage_skeptic",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T14:02:00.000Z",
+        "favourites_count": 2,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-002a-r4",
+        "inReplyToId": "bs-002a",
+        "content": "<p>Denmark manages it with flexicurity. It is not impossible, it is just not what we fund.</p>",
+        "plainText": "Denmark manages it with flexicurity. It is not impossible, it is just not what we fund.",
+        "account": {
+          "display_name": "Jane Dev",
+          "acct": "jane_dev",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T14:11:00.000Z",
+        "favourites_count": 3,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-002a-r5",
+        "inReplyToId": "bs-002a",
+        "content": "<p>Denmark is five million people with sectoral bargaining. Scale matters.</p>",
+        "plainText": "Denmark is five million people with sectoral bargaining. Scale matters.",
+        "account": {
+          "display_name": "Tony P",
+          "acct": "tony_p",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T14:19:00.000Z",
+        "favourites_count": 1,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-002a-r6",
+        "inReplyToId": "bs-002a",
+        "content": "<p>Following this thread.</p>",
+        "plainText": "Following this thread.",
+        "account": {
+          "display_name": "Quietreader",
+          "acct": "quietreader",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T14:24:00.000Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
+      },
+      {
+        "id": "bs-002a-r7",
+        "inReplyToId": "bs-002a",
+        "content": "<p>Wage insurance pilots polled better than retraining in every evaluation I have seen.</p>",
+        "plainText": "Wage insurance pilots polled better than retraining in every evaluation I have seen.",
+        "account": {
+          "display_name": "Analyst B",
+          "acct": "analyst_b",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2024-07-31T14:31:00.000Z",
+        "favourites_count": 2,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false
       }
     ]
   },

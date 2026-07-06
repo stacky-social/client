@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import styles from "./ThreadedReplyList.module.css";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -80,14 +80,23 @@ function buildChildMap(replies: PostType[]): Map<string, PostType[]> {
 
 // ── Sub-renderer ─────────────────────────────────────────────────────────────
 
+/** Nested children shown per parent before the "see more" pagination kicks in,
+ *  and the increment each click reveals (mirrors the top-level 5-at-a-time). */
+const NESTED_PAGE = 5;
+
 function renderTree(
   post: PostType,
   depth: number,
   childMap: Map<string, PostType[]>,
-  renderPost: (p: PostType) => React.ReactNode
+  renderPost: (p: PostType) => React.ReactNode,
+  shownByParent: Record<string, number>,
+  onShowMore: (parentId: string) => void
 ): React.ReactNode {
   const effectiveDepth = Math.min(depth, MAX_DEPTH);
   const children = childMap.get(post.id) ?? [];
+  const shown = shownByParent[post.id] ?? NESTED_PAGE;
+  const visibleChildren = children.slice(0, shown);
+  const remaining = children.length - visibleChildren.length;
 
   return (
     <div
@@ -101,9 +110,35 @@ function renderTree(
       {/* The post card itself */}
       {renderPost(post)}
 
-      {/* Recursively render children */}
-      {children.map((child) =>
-        renderTree(child, depth + 1, childMap, renderPost)
+      {/* Recursively render children — paginated per parent so a branch with
+          many nested descendants doesn't dump its whole subtree at once. */}
+      {visibleChildren.map((child) =>
+        renderTree(child, depth + 1, childMap, renderPost, shownByParent, onShowMore)
+      )}
+      {remaining > 0 && (
+        <button
+          type="button"
+          data-testid={`nested-see-more-${post.id}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onShowMore(post.id);
+          }}
+          aria-label={`Show more replies to this comment (${remaining} hidden)`}
+          style={{
+            display: "block",
+            marginLeft: Math.min(depth + 1, MAX_DEPTH) * INDENT_PX,
+            marginBottom: "0.75rem",
+            background: "none",
+            border: "none",
+            padding: "2px 0",
+            cursor: "pointer",
+            color: "#5a71a8",
+            fontWeight: 600,
+            fontSize: 13,
+          }}
+        >
+          See {remaining} more {remaining === 1 ? "reply" : "replies"}
+        </button>
       )}
     </div>
   );
@@ -118,6 +153,15 @@ export default function ThreadedReplyList({
   visibleTopLevelCount,
   topLevelOrder,
 }: ThreadedReplyListProps) {
+  // Per-parent nested pagination: parentId → children currently shown.
+  // Reset when the thread root changes (navigating to a different post).
+  const [shownByParent, setShownByParent] = useState<Record<string, number>>({});
+  useEffect(() => {
+    setShownByParent({});
+  }, [rootId]);
+  const handleShowMore = (parentId: string) =>
+    setShownByParent((prev) => ({ ...prev, [parentId]: (prev[parentId] ?? NESTED_PAGE) + NESTED_PAGE }));
+
   const childMap = buildChildMap(replies);
   let topLevelReplies = childMap.get(rootId) ?? [];
   if (topLevelOrder) {
@@ -140,7 +184,7 @@ export default function ThreadedReplyList({
   return (
     <div>
       {visibleReplies.map((post) =>
-        renderTree(post, 0, childMap, renderPost)
+        renderTree(post, 0, childMap, renderPost, shownByParent, handleShowMore)
       )}
     </div>
   );

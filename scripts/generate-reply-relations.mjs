@@ -228,8 +228,50 @@ for (const r of SMALL_REPLIES) {
   });
 }
 
+// ─── Nested-thread depth: 7 extra children under bs-002a ─────────────────────
+// Exercises the per-parent "See N more replies" pagination (5 shown at a time)
+// inside a branch: bs-002a ends up with 8 children (bs-002a1 + these).
+
+const NESTED_PARENT = 'bs-002a';
+const NESTED_REPLIES = [
+  { id: 'bs-002a-r1', display_name: 'Econ PhD', acct: 'econ_phd', created_at: '2024-07-31T13:50:00.000Z', favourites_count: 6,
+    text: 'TAA take-up rates hover around a quarter of eligible workers. The program design is the failure mode, not the concept.' },
+  { id: 'bs-002a-r2', display_name: 'Union Rep', acct: 'union_rep', created_at: '2024-07-31T13:56:00.000Z', favourites_count: 4,
+    text: 'Design AND funding. Every renewal cycle it gets trimmed before it reaches a single shop floor.' },
+  { id: 'bs-002a-r3', display_name: 'Garage Skeptic', acct: 'garage_skeptic', created_at: '2024-07-31T14:02:00.000Z', favourites_count: 2,
+    text: 'Retraining a 55-year-old machinist into "software" was always a brochure fantasy.' },
+  { id: 'bs-002a-r4', display_name: 'Jane Dev', acct: 'jane_dev', created_at: '2024-07-31T14:11:00.000Z', favourites_count: 3,
+    text: 'Denmark manages it with flexicurity. It is not impossible, it is just not what we fund.' },
+  { id: 'bs-002a-r5', display_name: 'Tony P', acct: 'tony_p', created_at: '2024-07-31T14:19:00.000Z', favourites_count: 1,
+    text: 'Denmark is five million people with sectoral bargaining. Scale matters.' },
+  { id: 'bs-002a-r6', display_name: 'Quietreader', acct: 'quietreader', created_at: '2024-07-31T14:24:00.000Z', favourites_count: 0,
+    text: 'Following this thread.' },
+  { id: 'bs-002a-r7', display_name: 'Analyst B', acct: 'analyst_b', created_at: '2024-07-31T14:31:00.000Z', favourites_count: 2,
+    text: 'Wage insurance pilots polled better than retraining in every evaluation I have seen.' },
+];
+if (!(entry.replies ?? []).some((x) => x.id === NESTED_PARENT)) {
+  throw new Error(`nested parent ${NESTED_PARENT} not found`);
+}
+for (const r of NESTED_REPLIES) {
+  if (entry.replies.some((x) => x.id === r.id)) continue;
+  entry.replies.push({
+    id: r.id,
+    inReplyToId: NESTED_PARENT,
+    content: wrapsHtml ? `<p>${r.text}</p>` : r.text,
+    plainText: r.text,
+    account: { ...templateAccount, display_name: r.display_name, acct: r.acct },
+    created_at: r.created_at,
+    favourites_count: r.favourites_count,
+    replies_count: 0,
+    favourited: false,
+    bookmarked: false,
+  });
+}
+
 writeFileSync(DATA_PATH, JSON.stringify(data, null, 2) + '\n');
 
+const nestedCount = entry.replies.filter((r) => r.inReplyToId === NESTED_PARENT).length;
 const relCount = (entry.replies ?? []).reduce((n, r) => n + (r.relations?.length ?? 0), 0);
 console.log(`ok: ${REPLY_DEFS.length} replies annotated (${relCount} relations), ` +
-  `${DUAL_ROLE_RELATED_IDS.length} dual-role posts, small entry has ${small.replies.length} replies`);
+  `${DUAL_ROLE_RELATED_IDS.length} dual-role posts, small entry has ${small.replies.length} replies, ` +
+  `${NESTED_PARENT} has ${nestedCount} children`);
