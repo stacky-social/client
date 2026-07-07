@@ -216,14 +216,15 @@ function cleanPostHtml(html: string, card: PreviewCard | null | undefined): Clea
 // Dwell duration (ms) before focus-post marks become visible on hover.
 const FOCUS_HOVER_DWELL_MS = 1500;
 
-// D-EXPAND (R-EXPAND-2): the auto-reveal is BOUNDED — the box grows to at most
-// this many lines (or 40vh, whichever is smaller) and scrolls internally to the
-// highlighted span, so a hover-preview never balloons the post to full height
-// or shoves the feed below it. Manual "Read more" still fully expands.
-const AUTO_REVEAL_CAP_LINES = 12;
-const AUTO_REVEAL_MAX_HEIGHT = `min(calc(1.5em * ${AUTO_REVEAL_CAP_LINES}), 40vh)`;
-/** One line of context kept above the span the reveal scrolls to. */
-const AUTO_REVEAL_SCROLL_CONTEXT_PX = 24;
+// Fixed-window focus post (decision 2026-07-06; supersedes the bounded-GROW
+// reveal, which read as layout instability): the box NEVER changes height or
+// line count on hover. While a cross-highlight/filter is active the clamped box
+// becomes a programmatically-scrolled window AT THE SAME HEIGHT and scrolls to
+// the whole span union. Scroll offsets snap to whole LINES so the window never
+// shows a clipped half-line (a half-line's span was being mistaken for "shown",
+// so semi-visible spans didn't scroll — the bug this replaces). Manual "Read
+// more" still fully expands; that's the only way to grow the post.
+const POST_LINE_HEIGHT_EM = 1.5;
 
 // Renders the interactive highlight spans for ANY post that has relations, not
 // just the focused one, so feed posts get span hover + click-to-focus. It
@@ -237,14 +238,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   style: React.CSSProperties;
   className?: string;
   isTextExpanded: boolean;
-  /** Bounded auto-reveal is active: the box is capped (AUTO_REVEAL_MAX_HEIGHT)
-   *  and this component scrolls it internally to the highlighted span. */
-  autoRevealed?: boolean;
   focusRelations?: Relation[];
-  /** Ask the parent to open/close the BOUNDED reveal (capped box + internal
-   *  scroll-to-span) when a highlight sits below the clamp. The parent only
-   *  auto-collapses what it auto-opened; manual Read-more is independent. */
-  onAutoReveal?: (reveal: boolean) => void;
   /** Whether this is the focused post. Non-focused feed posts still render the
    *  spans + direct-hover darkening, but skip the store-driven cross-highlight,
    *  the response-filter visual, and the auto-reveal; a span click on them
@@ -261,7 +255,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
    *  counts across both panes). Supplied by the detail page; feeds without a
    *  reply pane simply omit it. */
   replyCountForSpans?: (ranges: Array<{ fs: number; fe: number }>) => number;
-}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, autoRevealed = false, focusRelations = [], onAutoReveal, active = true, onSpanFocusRequest, relatedCountForSpans, replyCountForSpans }, ref) {
+}>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [], active = true, onSpanFocusRequest, relatedCountForSpans, replyCountForSpans }, ref) {
   const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, responseFilter, filterCategories } = useHighlightStore();
   // Related stacks of the active (focus) post — used to count "N related posts"
   // for the click-to-filter affordance. Mirrored to a ref so the DOM hover
@@ -347,26 +341,28 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // Strip non-alphanumerics so the id stays valid inside the `#${id}` CSS rules below.
   const containerIdRef = useRef<string>(`ahc-${useId().replace(/[^a-zA-Z0-9]/g, '')}`);
 
-  // ── Expand-to-reveal (collapsed fold) ─────────────────────────────────────
-  // When a highlighted mark sits below the "Read more" clamp, ask the PARENT to
-  // expand the post via its existing isTextExpanded (Read-more) render. We drive
-  // that state instead of measuring a target height ourselves: lifting the clamp
-  // to measure mis-reports height badly here because nested <mark>s under
-  // display:block inflate the scrollHeight (~6×), so the old manual revealHeight
-  // overshot. The Read-more layout already renders the natural expanded height
-  // correctly, so reuse it. The parent only auto-collapses what WE auto-expanded;
-  // a manual Read-more is left untouched (see handleAutoReveal in the parent).
+  // ── Fixed-window scroll-to-span ───────────────────────────────────────────
+  // The focus post NEVER changes height or line count on hover — any growth
+  // shoves the layout and reads as instability. While a cross-highlight/filter
+  // is active the clamped box becomes a scrolled window at the SAME height (see
+  // mergedStyle) and this effect scrolls it to the WHOLE span union, snapped to
+  // whole lines. Line-snapping is what makes it robust: the window can only ever
+  // rest on whole-line boundaries, so it never shows a clipped half-line and a
+  // half-line's span can never be mistaken for "already shown" (the semi-visible
+  // = no-scroll bug). Everything is computed from the DOM each time, so there is
+  // no expand/collapse state to race on rapid card-to-card hovers.
+  const scrollMode = active && !isTextExpanded && anyMarkVisuallyActive;
 
-  // EXPAND: when a relevant mark is clipped below the fold, request the bounded reveal.
   useLayoutEffect(() => {
     const el = innerRef.current;
-    // Auto-reveal is a FOCUSED-post affordance: anyMarkVisuallyActive reflects the
-    // focus post's filter/cross-highlight, so non-focused feed posts must not react.
-    if (!el || !active || isTextExpanded || autoRevealed || !anyMarkVisuallyActive || !onAutoReveal) return;
-
-    // Only consider the marks we're actually lighting up: every region the hovered
-    // related card links to (by overlap), else the filter/dwell mark. Avoids
-    // expanding the whole article on every sidebar hover.
+    if (!el) return;
+    if (!scrollMode) {
+      // Rest state: park the window back at the top of the clamp.
+      if (el.scrollTop > 0) el.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    // Only the marks we're actually lighting up: every region the hovered
+    // related card links to (by overlap), else the filter/dwell mark.
     let marks: HTMLElement[];
     if (crossActive && hoveredRelations) {
       const rels = hoveredRelations;
@@ -380,57 +376,43 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     } else {
       marks = Array.from(el.querySelectorAll('mark'));
     }
-    if (marks.length === 0) return;
-
-    // A mark whose bottom falls past the clamped box bottom is hidden by the fold.
-    const boxBottom = el.getBoundingClientRect().bottom;
-    const clipped = marks.some((m) => m.getBoundingClientRect().bottom > boxBottom + 1);
-    if (clipped) onAutoReveal(true);
-  }, [html, isTextExpanded, autoRevealed, anyMarkVisuallyActive, crossActive, hoveredRelations, visibleMarkIdx, onAutoReveal, active]);
-
-  // SCROLL-TO-SPAN (D-EXPAND): once the bounded reveal is open, scroll the capped
-  // box so the first relevant mark is visible (one line of context above it). If
-  // the span already fits inside the cap, nothing moves. Layout truth comes from
-  // getBoundingClientRect, so the nested-mark scrollHeight inflation that broke
-  // the old measured reveal doesn't apply here.
-  useLayoutEffect(() => {
-    const el = innerRef.current;
-    if (!el || !active || isTextExpanded || !autoRevealed || !anyMarkVisuallyActive) return;
-    let marks: HTMLElement[];
-    if (crossActive && hoveredRelations) {
-      const rels = hoveredRelations;
-      marks = (Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[]).filter((m) => {
-        const a = parseInt(m.getAttribute('data-fs') || 'NaN', 10);
-        const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
-        return rels.some((r) => a < r.focusEnd && r.focusStart < b);
-      });
-    } else if (visibleMarkIdx !== null) {
-      marks = Array.from(el.querySelectorAll(`mark[data-range-id="${visibleMarkIdx}"]`));
-    } else {
-      marks = Array.from(el.querySelectorAll('mark'));
+    // Union of the target marks, as offsets into the scrollable content. Client
+    // rects are the layout truth (immune to the nested-mark scrollHeight
+    // inflation that broke the old measured reveal).
+    const box = el.getBoundingClientRect();
+    let unionTop = Infinity;
+    let unionBottom = -Infinity;
+    for (const m of marks) {
+      const r = m.getBoundingClientRect();
+      if (r.height === 0) continue;
+      unionTop = Math.min(unionTop, el.scrollTop + (r.top - box.top));
+      unionBottom = Math.max(unionBottom, el.scrollTop + (r.bottom - box.top));
     }
-    if (marks.length === 0) return;
-    const target = marks.reduce((top, m) =>
-      m.getBoundingClientRect().top < top.getBoundingClientRect().top ? m : top
-    );
-    const boxRect = el.getBoundingClientRect();
-    const markRect = target.getBoundingClientRect();
-    const fullyVisible = markRect.top >= boxRect.top && markRect.bottom <= boxRect.bottom;
-    if (fullyVisible) return;
-    const top = Math.max(0, el.scrollTop + (markRect.top - boxRect.top) - AUTO_REVEAL_SCROLL_CONTEXT_PX);
-    el.scrollTo({ top, behavior: 'smooth' });
-  }, [autoRevealed, isTextExpanded, anyMarkVisuallyActive, crossActive, hoveredRelations, visibleMarkIdx, active, html]);
+    if (unionTop === Infinity) return;
 
-  // COLLAPSE: when nothing is highlighted anymore, restore the collapsed state —
-  // but only if WE auto-opened it (the parent guards a manual Read-more). Reset
-  // the internal scroll so the next reveal starts from the top of the box.
-  useEffect(() => {
-    if (!anyMarkVisuallyActive && onAutoReveal) {
-      onAutoReveal(false);
-      const el = innerRef.current;
-      if (el) el.scrollTop = 0;
-    }
-  }, [anyMarkVisuallyActive, onAutoReveal]);
+    // The clamp is `1.5em` per line and the box is an integer number of those,
+    // so a scrollTop that is a multiple of the line height keeps whole lines top
+    // AND bottom. Work entirely in line indices to guarantee that.
+    const fontPx = parseFloat(getComputedStyle(el).fontSize) || 16;
+    const lineH = POST_LINE_HEIGHT_EM * fontPx;
+    const linesInBox = Math.max(1, Math.round(el.clientHeight / lineH));
+    const firstLine = Math.floor((unionTop + 1) / lineH); // line the span starts on
+    const lastLine = Math.floor((unionBottom - 1) / lineH); // line the span ends on
+    const unionLines = lastLine - firstLine + 1;
+
+    // Choose the window's top line (line-aligned by construction):
+    //  · union fits → center it, leaving whole-line context above and below.
+    //  · union taller than the window → pin its first line to the top.
+    const topLine =
+      unionLines <= linesInBox
+        ? firstLine - Math.floor((linesInBox - unionLines) / 2)
+        : firstLine;
+    const maxLine = Math.max(0, Math.round((el.scrollHeight - el.clientHeight) / lineH));
+    const target = Math.min(maxLine, Math.max(0, topLine)) * lineH;
+
+    if (Math.abs(target - el.scrollTop) < 1) return; // already at the canonical spot
+    el.scrollTo({ top: target, behavior: 'smooth' });
+  }, [scrollMode, crossActive, hoveredRelations, visibleMarkIdx, html]);
 
   // Spec hover model (CSS-driven via classes — never re-parses the article):
   //  · enter the post       → faint ALL its spans (.fp-hovering on the container)
@@ -707,9 +689,23 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     };
   }, []);
 
-  // Expansion is now owned by the parent's isTextExpanded (Read-more) render —
-  // which already supplies the correct clamp/expanded style via the `style` prop.
-  const mergedStyle = style;
+  // Expansion is owned by the parent's isTextExpanded (Read-more) render, which
+  // supplies the clamp/expanded style via the `style` prop. In scroll mode we
+  // keep the SAME box height (maxHeight from the clamp style is preserved) and
+  // only drop the line-clamp so the full text lays out inside the fixed window;
+  // overflow stays HIDDEN (the effect above scrolls it programmatically), so no
+  // scrollbar pops in and nothing shifts but the text. The rendered height
+  // cannot change. (.postClampedText only styles paragraph margins, so the
+  // class stays on in both modes.)
+  const mergedStyle: React.CSSProperties = scrollMode
+    ? {
+        ...style,
+        display: 'block',
+        WebkitLineClamp: 'unset',
+        textOverflow: 'unset',
+        overflow: 'hidden',
+      }
+    : style;
 
   return (
     <div
@@ -821,11 +817,8 @@ function Post({
   const isActive = activePostId === id;
   const [isExpanded, setIsExpanded] = useState(isActive);
   const [isTextExpanded, setIsTextExpanded] = useState(false);
-  // Bounded auto-reveal (D-EXPAND): capped box + internal scroll-to-span,
-  // driven by the highlight layer; independent of the manual Read-more.
-  const [isAutoRevealed, setIsAutoRevealed] = useState(false);
-  // Mirror for handleAutoReveal so it can read the latest without a stale closure
-  // or impure state-updater (see the note there).
+  // NB: the highlight layer's scroll-to-span is fully self-contained inside
+  // ActiveHighlightedContent (fixed-window mode) — no reveal state lives here.
   const isTextExpandedRef = useRef(isTextExpanded);
   isTextExpandedRef.current = isTextExpanded;
   const [hovered, setHovered] = useState(false);
@@ -1088,19 +1081,6 @@ function Post({
     onStackIconClick(newRelatedStacks, id, adjustedPosition);
   };
 
-  // Auto-reveal (D-EXPAND, bounded): the active post's highlight layer asks us to
-  // open the CAPPED reveal box when a highlighted span sits below the Read-more
-  // fold — a separate state from the manual Read-more, which still fully expands.
-  // setState with a boolean is idempotent, so this stays StrictMode-safe without
-  // ref bookkeeping; a manual Read-more simply wins in the style computation.
-  const handleAutoReveal = useCallback((reveal: boolean) => {
-    if (reveal) {
-      if (!isTextExpandedRef.current) setIsAutoRevealed(true);
-    } else {
-      setIsAutoRevealed(false);
-    }
-  }, []);
-
   // Span clicked on a NON-focused feed post: make this post the focus (scroll it
   // to the viewport centre, which is the active-post criterion, and lock it), then
   // apply the "Responses to" filter. The filter is stashed as pending so it
@@ -1124,9 +1104,6 @@ function Post({
   const handleExpandText = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     event.preventDefault();
-    // User now owns the expanded state; the bounded reveal yields to it (and
-    // will re-open from its effect if a cross-highlight is still active later).
-    setIsAutoRevealed(false);
     setIsTextExpanded(true);
     setIsOverflowing(false);
   };
@@ -1134,7 +1111,6 @@ function Post({
   const handleCollapseText = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     event.preventDefault();
-    setIsAutoRevealed(false);
     setIsTextExpanded(false);
     // isOverflowing will be recalculated by the useEffect on next render
   };
@@ -1287,14 +1263,12 @@ function Post({
           displayText={displayText}
           rawText={text}
           isTextExpanded={isTextExpanded}
-          autoRevealed={isAutoRevealed && !isTextExpanded}
           focusRelations={focusRelations}
           active={isActive}
           onSpanFocusRequest={handleSpanFocusRequest}
           relatedCountForSpans={relatedCountForSpans}
           replyCountForSpans={replyCountForSpans}
-          onAutoReveal={handleAutoReveal}
-          className={isTextExpanded || isAutoRevealed ? undefined : 'postClampedText'}
+          className={isTextExpanded ? undefined : 'postClampedText'}
           style={
             isTextExpanded
               ? {
@@ -1306,20 +1280,10 @@ function Post({
                   lineHeight: '1.5',
                   color: '#011445',
                 }
-              : isAutoRevealed
-              ? {
-                  // Bounded auto-reveal (D-EXPAND): grow to the cap, scroll
-                  // internally to the span — never full height, minimal shove.
-                  display: 'block',
-                  overflowY: 'auto',
-                  overflowX: 'hidden',
-                  textOverflow: 'unset',
-                  maxHeight: AUTO_REVEAL_MAX_HEIGHT,
-                  marginTop: '0px',
-                  lineHeight: '1.5',
-                  color: '#011445',
-                }
               : {
+                  // Clamp. The highlight layer switches this box to an
+                  // internally-scrollable mode AT THIS SAME maxHeight while a
+                  // cross-highlight is active (fixed window — never grows).
                   display: '-webkit-box',
                   WebkitBoxOrient: 'vertical',
                   WebkitLineClamp: clampLines,

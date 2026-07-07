@@ -114,67 +114,90 @@ test.describe('Focus-post highlighting', () => {
     expect(ch[0] + ch[1] + ch[2], 'L2 fill should stay pastel/light').toBeGreaterThan(600);
   });
 
-  test('#4 a below-fold highlight opens the BOUNDED reveal (capped + scrolled to the span), then collapses on leave', async ({ page }) => {
+  test('#4 card hover scrolls the FIXED-SIZE focus post to the whole span; height never changes; restores on leave', async ({ page }) => {
     await page.goto(DETAIL_URL);
     const focus = page.locator('[data-testid="focus-reveal"]');
     await expect(focus).toBeVisible();
     await expect(page.getByText('Read more').first()).toBeVisible();
 
     const count = (await page.evaluate(DRIVER)) as number;
-    const collapsedH = await focus.evaluate((el) => Math.round(el.getBoundingClientRect().height));
+    const baselineH = await focus.evaluate((el) => Math.round(el.getBoundingClientRect().height));
 
-    // Drive card hover until one links to a region below the fold and the post
-    // opens the bounded reveal.
-    let hoveredCard = -1;
-    let expandedH = collapsedH;
-    for (let i = 0; i < Math.min(count, 12); i++) {
+    // Union-of-painted-marks visibility: the WHOLE span must be visible when it
+    // fits the box, or pinned to the top of the box when it is taller than the
+    // box. Checking only the first mark is exactly the bug this test pins.
+    // lineAligned pins the no-partial-line guarantee: the window may only rest on
+    // whole-line boundaries, so a clipped half-line can never be shown (nor
+    // mistaken for a fully-visible span).
+    const spanState = () =>
+      focus.evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        const lineH = 1.5 * (parseFloat(getComputedStyle(el).fontSize) || 16);
+        const painted = (Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[]).filter(
+          (m) => m.style.backgroundColor
+        );
+        let minTop = Infinity;
+        let maxBottom = -Infinity;
+        for (const m of painted) {
+          const r = m.getBoundingClientRect();
+          if (r.height === 0) continue;
+          if (r.top < minTop) minTop = r.top;
+          if (r.bottom > maxBottom) maxBottom = r.bottom;
+        }
+        const unionH = maxBottom - minTop;
+        return {
+          h: Math.round(box.height),
+          scrollTop: Math.round(el.scrollTop),
+          painted: painted.length,
+          lineAligned: Math.abs(el.scrollTop / lineH - Math.round(el.scrollTop / lineH)) < 0.06,
+          spanShown:
+            painted.length > 0 &&
+            (unionH <= el.clientHeight - 2
+              ? minTop >= box.top - 1.5 && maxBottom <= box.bottom + 1.5 // fits → fully visible
+              : minTop >= box.top - 1.5 && minTop <= box.top + lineH), // taller → start pinned to top line
+        };
+      });
+
+    let anyScrolled = false;
+    for (let i = 0; i < Math.min(count, 10); i++) {
       await page.evaluate((idx: number) => (window as any).__hl.enter(idx, false), i);
-      await page.waitForTimeout(300);
-      expandedH = await focus.evaluate((el) => Math.round(el.getBoundingClientRect().height));
-      if (expandedH > collapsedH + 20) { hoveredCard = i; break; }
+      // Wait for the smooth scroll to SETTLE: the whole span visible AND resting
+      // on a whole-line boundary (mid-animation scrollTop is not line-aligned).
+      await expect
+        .poll(
+          async () => {
+            const s = await spanState();
+            return s.spanShown && s.lineAligned;
+          },
+          {
+            timeout: 5000,
+            message: `card ${i}: the full span union must settle, line-aligned, inside the box`,
+          }
+        )
+        .toBe(true);
+      const st = await spanState();
+      // THE core contract: the box NEVER changes size on hover.
+      expect(st.h, `card ${i}: focus post height must not change on hover`).toBeGreaterThanOrEqual(baselineH - 2);
+      expect(st.h, `card ${i}: focus post height must not change on hover`).toBeLessThanOrEqual(baselineH + 2);
+      if (st.scrollTop > 0) anyScrolled = true;
       await page.evaluate((idx: number) => (window as any).__hl.leave(idx), i);
+      await page.waitForTimeout(200);
     }
-    expect(expandedH, 'a below-fold highlight should open the reveal').toBeGreaterThan(collapsedH + 20);
 
-    // D-EXPAND / R-EXPAND-2: the reveal is BOUNDED — at most ~12 lines / 40vh,
-    // never the full article height (the pre-fix behavior this test used to pin).
-    const capPx = await focus.evaluate(() => {
-      const fs = parseFloat(getComputedStyle(document.querySelector('[data-testid="focus-reveal"]')!).fontSize);
-      return Math.min(1.5 * fs * 12, window.innerHeight * 0.4);
-    });
-    expect(expandedH, 'the reveal must stay within the cap').toBeLessThanOrEqual(Math.ceil(capPx) + 8);
+    // At least one card's span sits below the fold, so internal scrolling must
+    // have engaged somewhere — otherwise the mechanism is dead, not just idle.
+    expect(anyScrolled, 'internal scroll-to-span should engage for below-fold spans').toBe(true);
 
-    // Manual Read-more stays available and independent (no forced full expand).
+    // Manual Read-more stays available and independent throughout.
     await expect(page.getByText('Read more').first()).toBeVisible();
 
-    // Scroll-to-span: the highlighted (inline-painted) mark ends up visible
-    // inside the capped, internally-scrolled box.
+    // After the last leave the box rests where it started: same height,
+    // scrolled back to the top.
     await expect
-      .poll(
-        async () =>
-          focus.evaluate((el) => {
-            const box = el.getBoundingClientRect();
-            const marks = Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[];
-            const painted = marks.filter((m) => m.style.backgroundColor);
-            if (painted.length === 0) return 'no-painted-mark';
-            return painted.some((m) => {
-              const r = m.getBoundingClientRect();
-              return r.top >= box.top - 1 && r.top < box.bottom - 1;
-            })
-              ? 'visible'
-              : 'hidden';
-          }),
-        { timeout: 8000 }
-      )
-      .toBe('visible');
-
-    // Leaving the card restores the collapsed clamp (we only auto-collapse what
-    // we auto-opened).
-    await page.evaluate((idx: number) => (window as any).__hl.leave(idx), hoveredCard);
-    await expect
-      .poll(async () => focus.evaluate((el) => Math.round(el.getBoundingClientRect().height)), { timeout: 8000 })
-      .toBeLessThanOrEqual(collapsedH + 20);
-    await expect(page.getByText('Read more').first()).toBeVisible();
+      .poll(async () => (await spanState()).scrollTop, { timeout: 8000 })
+      .toBeLessThanOrEqual(1);
+    const finalH = await focus.evaluate((el) => Math.round(el.getBoundingClientRect().height));
+    expect(finalH).toBe(baselineH);
   });
 
   test('#5 related-card span click groups the panel (anchor) — distinct from the focus-post filter', async ({ page }) => {
