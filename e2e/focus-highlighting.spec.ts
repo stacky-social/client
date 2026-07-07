@@ -226,4 +226,88 @@ test.describe('Focus-post highlighting', () => {
       .poll(async () => page.locator(focusMarks).first().evaluate((el) => getComputedStyle(el).backgroundColor))
       .toBe(DARK);
   });
+
+  test('#6 Level-2: hovering a specific contribution scrolls to THAT span, not the card’s largest passage', async ({ page }) => {
+    await page.goto(DETAIL_URL);
+    const focus = page.locator('[data-testid="focus-reveal"]');
+    await expect(focus).toBeVisible();
+    await expect(page.locator('[data-related-card]').first()).toBeVisible();
+    await page.evaluate(DRIVER);
+
+    // Map the aside's marks (same order __hl.cardFor uses) to their owning card,
+    // so we can drive TWO contributions on the SAME card and prove the focus post
+    // follows the specific hovered span. Deterministic: no cursor hovering.
+    const grouped = (await page.evaluate(() => {
+      const aside = document.querySelector('aside') || document.querySelector('[class*="aside" i]');
+      const marks = Array.from(aside!.querySelectorAll('mark'));
+      const byCard = new Map<Element, number[]>();
+      marks.forEach((m, i) => {
+        const card = m.closest('[data-related-card]');
+        if (!card) return;
+        const arr = byCard.get(card) ?? [];
+        arr.push(i);
+        byCard.set(card, arr);
+      });
+      // cards with ≥2 contribution marks, as arrays of global mark indices
+      return Array.from(byCard.values()).filter((a) => a.length >= 2);
+    })) as number[][];
+
+    expect(grouped.length, 'need a card with ≥2 contributions').toBeGreaterThan(0);
+
+    // Settled focus-window state. #6 is about SPECIFICITY (a specific hovered
+    // span drives the scroll), so it asserts line-alignment + that a passage is
+    // shown — the target-span no-half-peek guarantee is #4's job. (At Level 2 the
+    // card's OTHER, dimmed spans are still painted and may sit at an edge, so a
+    // global no-straddle check would wrongly fail here.)
+    const state = () =>
+      focus.evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        const lineH = 1.5 * (parseFloat(getComputedStyle(el).fontSize) || 16);
+        const painted = (Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[]).filter(
+          (m) => m.style.backgroundColor
+        );
+        const anyIn = painted.some((m) => {
+          const r = m.getBoundingClientRect();
+          return r.height > 0 && r.top >= box.top - 1.5 && r.bottom <= box.bottom + 1.5;
+        });
+        return {
+          scrollTop: Math.round(el.scrollTop),
+          lineAligned: Math.abs(el.scrollTop / lineH - Math.round(el.scrollTop / lineH)) < 0.06,
+          anyIn,
+        };
+      });
+
+    const settledScrollTop = async (globalMarkIdx: number) => {
+      // reset, then drive card + specific-mark (Level-2) hover synchronously
+      await page.evaluate((i: number) => (window as any).__hl.leave(i), globalMarkIdx);
+      await page.waitForTimeout(250);
+      await page.evaluate((i: number) => (window as any).__hl.enter(i, true), globalMarkIdx);
+      // Wait for the smooth scroll to STABILIZE: two consecutive equal reads that
+      // are line-aligned with a passage shown. Requiring stability rules out
+      // sampling the pre-scroll (old) position, which was the flake.
+      let prev: number | null = null;
+      for (let t = 0; t < 30; t++) {
+        await page.waitForTimeout(200);
+        const s = await state();
+        if (s.lineAligned && s.anyIn && prev !== null && s.scrollTop === prev) return s.scrollTop;
+        prev = s.scrollTop;
+      }
+      throw new Error(`mark ${globalMarkIdx}: focus window never stabilized`);
+    };
+
+    // For at least one card, two of its contributions must settle the focus post
+    // at DIFFERENT line-aligned positions — proving the scroll follows the
+    // SPECIFIC hovered span, not the card's largest passage (the reported bug).
+    let proven = false;
+    for (const markIdxs of grouped) {
+      const tops = new Set<number>();
+      for (const gi of markIdxs.slice(0, 4)) tops.add(await settledScrollTop(gi));
+      if (tops.size >= 2) { proven = true; break; }
+    }
+
+    expect(
+      proven,
+      'two contributions on one card must scroll the focus post to different (line-aligned) spans'
+    ).toBe(true);
+  });
 });

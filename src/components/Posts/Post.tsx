@@ -361,11 +361,21 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       if (el.scrollTop > 0) el.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    // Only the marks we're actually lighting up: every region the hovered
-    // related card links to (by overlap), else the filter/dwell mark.
+    // Only the marks we're actually lighting up: the regions the hovered card
+    // links to, else the filter/dwell mark. When the cursor is on a SPECIFIC
+    // contribution within the card (Level 2 — a single range, or a category
+    // tag), scroll to THAT relation's focus span, not the whole card's largest
+    // passage — otherwise hovering the red span but scrolling to the green one.
+    // Mirrors the paint path's level2/level2Cats selection (see below).
     let marks: HTMLElement[];
     if (crossActive && hoveredRelations) {
-      const rels = hoveredRelations;
+      let rels = hoveredRelations;
+      if (hoveredHighlightRangeIndex != null && hoveredRelations[hoveredHighlightRangeIndex]) {
+        rels = [hoveredRelations[hoveredHighlightRangeIndex]];
+      } else if (hoveredCategory) {
+        const byCat = hoveredRelations.filter((r) => r.category === hoveredCategory);
+        if (byCat.length > 0) rels = byCat;
+      }
       marks = (Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[]).filter((m) => {
         const a = parseInt(m.getAttribute('data-fs') || 'NaN', 10);
         const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
@@ -424,7 +434,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
 
     if (Math.abs(target - el.scrollTop) < 1) return; // already at the canonical spot
     el.scrollTo({ top: target, behavior: 'smooth' });
-  }, [scrollMode, crossActive, hoveredRelations, visibleMarkIdx, html]);
+  }, [scrollMode, crossActive, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, visibleMarkIdx, html]);
 
   // Spec hover model (CSS-driven via classes — never re-parses the article):
   //  · enter the post       → faint ALL its spans (.fp-hovering on the container)
