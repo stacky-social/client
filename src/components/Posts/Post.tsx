@@ -376,36 +376,48 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     } else {
       marks = Array.from(el.querySelectorAll('mark'));
     }
-    // Union of the target marks, as offsets into the scrollable content. Client
-    // rects are the layout truth (immune to the nested-mark scrollHeight
-    // inflation that broke the old measured reveal).
+    // Target marks as content-offset segments (client rects are the layout
+    // truth, immune to the nested-mark scrollHeight inflation that broke the old
+    // measured reveal), sorted top-to-bottom.
     const box = el.getBoundingClientRect();
-    let unionTop = Infinity;
-    let unionBottom = -Infinity;
-    for (const m of marks) {
-      const r = m.getBoundingClientRect();
-      if (r.height === 0) continue;
-      unionTop = Math.min(unionTop, el.scrollTop + (r.top - box.top));
-      unionBottom = Math.max(unionBottom, el.scrollTop + (r.bottom - box.top));
-    }
-    if (unionTop === Infinity) return;
-
-    // The clamp is `1.5em` per line and the box is an integer number of those,
-    // so a scrollTop that is a multiple of the line height keeps whole lines top
-    // AND bottom. Work entirely in line indices to guarantee that.
     const fontPx = parseFloat(getComputedStyle(el).fontSize) || 16;
     const lineH = POST_LINE_HEIGHT_EM * fontPx;
     const linesInBox = Math.max(1, Math.round(el.clientHeight / lineH));
-    const firstLine = Math.floor((unionTop + 1) / lineH); // line the span starts on
-    const lastLine = Math.floor((unionBottom - 1) / lineH); // line the span ends on
-    const unionLines = lastLine - firstLine + 1;
+    const segs: Array<[number, number]> = [];
+    for (const m of marks) {
+      const r = m.getBoundingClientRect();
+      if (r.height === 0) continue;
+      segs.push([el.scrollTop + (r.top - box.top), el.scrollTop + (r.bottom - box.top)]);
+    }
+    if (segs.length === 0) return;
+    segs.sort((a, b) => a[0] - b[0]);
 
-    // Choose the window's top line (line-aligned by construction):
-    //  · union fits → center it, leaving whole-line context above and below.
-    //  · union taller than the window → pin its first line to the top.
+    // A card can relate to several passages scattered across the post; no fixed
+    // window can show passages that are lines apart. Merge the marks into
+    // contiguous passages (a gap under ~0.6 line = wrapped text of one passage;
+    // a whole blank line between = a separate passage) and scroll to the LARGEST
+    // passage so the most related content shows whole. Centering it pushes the
+    // other passages cleanly past the window edges instead of half-peeking there
+    // (the "By resorting to…" fragment clipped at the bottom).
+    const runs: Array<[number, number]> = [];
+    for (const s of segs) {
+      const last = runs[runs.length - 1];
+      if (last && s[0] - last[1] < lineH * 0.6) last[1] = Math.max(last[1], s[1]);
+      else runs.push([s[0], s[1]]);
+    }
+    let run = runs[0];
+    for (const r of runs) if (r[1] - r[0] > run[1] - run[0]) run = r;
+
+    // Line indices → the window can only ever rest on whole-line boundaries, so
+    // it never shows a clipped half-line (top or bottom).
+    const firstLine = Math.floor((run[0] + 1) / lineH); // line the passage starts on
+    const lastLine = Math.floor((run[1] - 1) / lineH); // line the passage ends on
+    const runLines = lastLine - firstLine + 1;
+    //  · passage fits → center it, whole-line context above and below.
+    //  · passage alone taller than the window → pin its first line to the top.
     const topLine =
-      unionLines <= linesInBox
-        ? firstLine - Math.floor((linesInBox - unionLines) / 2)
+      runLines <= linesInBox
+        ? firstLine - Math.floor((linesInBox - runLines) / 2)
         : firstLine;
     const maxLine = Math.max(0, Math.round((el.scrollHeight - el.clientHeight) / lineH));
     const target = Math.min(maxLine, Math.max(0, topLine)) * lineH;
