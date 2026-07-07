@@ -114,7 +114,7 @@ test.describe('Focus-post highlighting', () => {
     expect(ch[0] + ch[1] + ch[2], 'L2 fill should stay pastel/light').toBeGreaterThan(600);
   });
 
-  test('#4 card hover scrolls the FIXED-SIZE focus post to the whole span; height never changes; restores on leave', async ({ page }) => {
+  test('#4 card hover scrolls the FIXED-SIZE post to a whole passage; no half-peek; height never changes; restores on leave', async ({ page }) => {
     await page.goto(DETAIL_URL);
     const focus = page.locator('[data-testid="focus-reveal"]');
     await expect(focus).toBeVisible();
@@ -123,12 +123,13 @@ test.describe('Focus-post highlighting', () => {
     const count = (await page.evaluate(DRIVER)) as number;
     const baselineH = await focus.evaluate((el) => Math.round(el.getBoundingClientRect().height));
 
-    // Union-of-painted-marks visibility: the WHOLE span must be visible when it
-    // fits the box, or pinned to the top of the box when it is taller than the
-    // box. Checking only the first mark is exactly the bug this test pins.
-    // lineAligned pins the no-partial-line guarantee: the window may only rest on
-    // whole-line boundaries, so a clipped half-line can never be shown (nor
-    // mistaken for a fully-visible span).
+    // Per-mark classification against the window. A card can relate to several
+    // passages scattered across the post; a fixed window can't show ones that are
+    // lines apart, so the contract is: at least one painted mark is fully visible
+    // (a passage IS shown), NO painted mark half-peeks at an edge (straddles it —
+    // the "By resorting to…" clip this test pins), and the window rests on a whole
+    // line. A single passage taller than the whole box is the one legitimate
+    // straddle (unavoidable) and is excepted.
     const spanState = () =>
       focus.evaluate((el) => {
         const box = el.getBoundingClientRect();
@@ -136,42 +137,39 @@ test.describe('Focus-post highlighting', () => {
         const painted = (Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[]).filter(
           (m) => m.style.backgroundColor
         );
-        let minTop = Infinity;
-        let maxBottom = -Infinity;
+        let anyFullyIn = false;
+        let straddlers = 0;
         for (const m of painted) {
           const r = m.getBoundingClientRect();
           if (r.height === 0) continue;
-          if (r.top < minTop) minTop = r.top;
-          if (r.bottom > maxBottom) maxBottom = r.bottom;
+          const fullyIn = r.top >= box.top - 1.5 && r.bottom <= box.bottom + 1.5;
+          const fullyOut = r.bottom <= box.top + 1.5 || r.top >= box.bottom - 1.5;
+          if (fullyIn) anyFullyIn = true;
+          else if (!fullyOut && r.height <= box.height + 1) straddlers++; // half-peek (not a too-tall passage)
         }
-        const unionH = maxBottom - minTop;
         return {
           h: Math.round(box.height),
           scrollTop: Math.round(el.scrollTop),
           painted: painted.length,
           lineAligned: Math.abs(el.scrollTop / lineH - Math.round(el.scrollTop / lineH)) < 0.06,
-          spanShown:
-            painted.length > 0 &&
-            (unionH <= el.clientHeight - 2
-              ? minTop >= box.top - 1.5 && maxBottom <= box.bottom + 1.5 // fits → fully visible
-              : minTop >= box.top - 1.5 && minTop <= box.top + lineH), // taller → start pinned to top line
+          shownCleanly: painted.length > 0 && anyFullyIn && straddlers === 0,
         };
       });
 
     let anyScrolled = false;
     for (let i = 0; i < Math.min(count, 10); i++) {
       await page.evaluate((idx: number) => (window as any).__hl.enter(idx, false), i);
-      // Wait for the smooth scroll to SETTLE: the whole span visible AND resting
-      // on a whole-line boundary (mid-animation scrollTop is not line-aligned).
+      // Wait for the smooth scroll to SETTLE: a passage shown cleanly (no
+      // half-peek) AND resting on a whole line (mid-animation isn't line-aligned).
       await expect
         .poll(
           async () => {
             const s = await spanState();
-            return s.spanShown && s.lineAligned;
+            return s.shownCleanly && s.lineAligned;
           },
           {
             timeout: 5000,
-            message: `card ${i}: the full span union must settle, line-aligned, inside the box`,
+            message: `card ${i}: a whole passage must settle line-aligned with no half-peek`,
           }
         )
         .toBe(true);
