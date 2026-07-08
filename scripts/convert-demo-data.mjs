@@ -75,13 +75,16 @@ function acctSlug(displayName) {
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
   return slug || 'anon';
 }
+/** "Tony Hartnett (Ireland)" → "Tony Hartnett" — drop the trailing location paren
+ *  for display. The acct slug already strips it, so acct is unaffected. */
+function stripLocation(handle) {
+  return handle.replace(/\s*\([^)]*\)\s*$/, '').trim() || handle;
+}
 function accountFromHandle(handle) {
-  return { display_name: handle, acct: `${acctSlug(handle)}@stacky-nyt.com`, avatar: AVATAR };
+  return { display_name: stripLocation(handle), acct: `${acctSlug(handle)}@stacky-nyt.com`, avatar: AVATAR };
 }
 function accountFromAuthor(author) {
-  const name = author?.name || 'Anonymous';
-  const display = author?.location ? `${name} (${author.location})` : name;
-  return accountFromHandle(display);
+  return accountFromHandle(author?.name || 'Anonymous');
 }
 
 // ─── Load src_data: real counts + reply threads, keyed by comment id ─────────
