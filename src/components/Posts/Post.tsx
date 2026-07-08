@@ -16,6 +16,7 @@ import { toggleFavourite, toggleBookmark } from '../../utils/mastoActions';
 import { getPost, isLiked as storeIsLiked, isBookmarked as storeIsBookmarked } from '../../utils/localStore';
 import { useHighlightStore, setResponseFilter, clearResponseFilter, setPendingResponseFilter, setFilterCategories } from '../../utils/highlightStore';
 import { CATEGORY_COLORS, CATEGORY_LABELS, categoryIcon, getCategoryColors } from '../../utils/categoryStyles';
+import { renderMultiHighlightHtml } from '../../utils/focusHighlightHtml.mjs';
 import ReplyHighlightedContent from './ReplyHighlightedContent';
 import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 import type { Relation } from '../../types/PostType';
@@ -66,103 +67,52 @@ function clearFocusCommentBold(container: HTMLElement): void {
 }
 
 /** Bold the focus-comment sub-range [fcStart,fcEnd] (focus-plain offsets) inside
- *  the focus post — the data's OPTIONAL "bold span". Anchored on the smallest mark
- *  that contains it (a mark's text is exactly focusText.slice(data-fs,data-fe), so
- *  offsets are valid even though displayText != focusPlain). Skips gracefully when
- *  the range crosses a nested-mark boundary. */
+ *  the focus post — the data's OPTIONAL "bold span". Marks are now FLAT and split
+ *  at every relation boundary, so the crux can span several adjacent marks; bold
+ *  the intersection inside EACH mark it touches (a flat mark holds a single text
+ *  node, so surroundContents can't cross an element boundary — the old
+ *  smallest-containing-mark approach silently failed on the deeply-nested real
+ *  data). */
 function boldFocusCommentRange(container: HTMLElement, fcStart: number, fcEnd: number): void {
   const marks = Array.from(container.querySelectorAll('mark[data-fs]')) as HTMLElement[];
-  let host: HTMLElement | null = null, hostSpan = Infinity, hostA = 0;
   for (const m of marks) {
     const a = parseInt(m.getAttribute('data-fs') || 'NaN', 10);
     const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
-    if (a <= fcStart && b >= fcEnd && (b - a) < hostSpan) { host = m; hostSpan = b - a; hostA = a; }
-  }
-  if (!host) return;
-  const relStart = fcStart - hostA, relEnd = fcEnd - hostA;
-  const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
-  let pos = 0, sN: Text | null = null, sO = 0, eN: Text | null = null, eO = 0;
-  let node: Node | null;
-  while ((node = walker.nextNode())) {
-    const len = (node.textContent || '').length;
-    if (sN === null && pos + len > relStart) { sN = node as Text; sO = relStart - pos; }
-    if (pos + len >= relEnd) { eN = node as Text; eO = relEnd - pos; break; }
-    pos += len;
-  }
-  if (!sN || !eN) return;
-  try {
-    const range = document.createRange();
-    range.setStart(sN, sO);
-    range.setEnd(eN, eO);
-    const b = document.createElement('span');
-    b.setAttribute('data-fc', '');
-    // Non-reflowing faux-bold: matches the related cards' technique exactly so the
-    // emphasis never changes the glyph metrics (real font-weight widens the text and
-    // reflows the surrounding article on hover). text-shadow thickens in place.
-    b.style.textShadow = '0 0 0.7px currentColor, 0 0 0.7px currentColor';
-    range.surroundContents(b);
-  } catch { /* range crosses an element boundary — skip the bold */ }
-}
-
-/** Hex → "R,G,B" triple for use in a CSS variable (so CSS can vary the alpha per
- *  hover state without re-rendering the mark). */
-/** Render multi-range focus highlights into HTML using offset-based Relations.
- *  Highlights are neutral grey (the category guard below just drops unknown
- *  categories); colour lives on the related cards, not the focus article.
- *  Level 2: when hoveredRangeIndex is set, non-active highlights dim their BACKGROUND only.
- *  When dimmed=true, all marks render at low alpha (always-visible default state). */
-function renderMultiHighlightHtml(
-  displayHtml: string,
-  focusPlainText: string,
-  relations: Relation[],
-  hoveredRangeIndex: number | null,
-  dimmed?: boolean,
-): string {
-  if (relations.length === 0) return displayHtml;
-
-  const entries = relations.map((r, i) => {
-    const catColors = crossColors(r.category);
-    if (!catColors) return null;
-
-    const snippet = focusPlainText.slice(r.focusStart, r.focusEnd);
-    // Guard: an empty/invalid focus span yields an empty snippet. Below we build
-    // `new RegExp('', 'g')` and drive it with exec() in a while loop — an empty
-    // pattern matches zero-width, lastIndex never advances, and the loop spins
-    // FOREVER (the page-freeze: hovering a related post with such a relation
-    // cross-highlights the focus post and hangs the thread). Skip empty snippets.
-    if (!snippet) return null;
-    // The mark renders invisible by default; CSS varies the alpha per hover state
-    // (faint on post hover, dark on span hover) WITHOUT re-rendering. The focus
-    // post's highlights are neutral grey — not category-coloured — so the article
-    // text stays calm; category colour lives only on the related cards.
-    return { snippet, index: i, fs: r.focusStart, fe: r.focusEnd };
-  }).filter(Boolean) as Array<{ snippet: string; index: number; fs: number; fe: number }>;
-
-  // Sort by longest snippet first to avoid partial matches
-  entries.sort((a, b) => b.snippet.length - a.snippet.length);
-
-  let result = displayHtml;
-  const usedPositions = new Set<number>();
-
-  for (const entry of entries) {
-    if (!entry.snippet) continue; // defensive: never build a zero-width regex
-    const escaped = entry.snippet.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(escaped, 'g');
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(result)) !== null) {
-      // Defensive: a zero-width match would not advance lastIndex → infinite loop.
-      if (match.index === regex.lastIndex) { regex.lastIndex++; continue; }
-      if (!usedPositions.has(match.index)) {
-        usedPositions.add(match.index);
-        const markHtml = `<mark data-range-id="${entry.index}" data-fs="${entry.fs}" data-fe="${entry.fe}" style="padding:1px 0;color:inherit">${entry.snippet}</mark>`;
-        result = result.slice(0, match.index) + markHtml + result.slice(match.index + entry.snippet.length);
-        break;
-      }
+    if (Number.isNaN(a) || Number.isNaN(b)) continue;
+    const s = Math.max(a, fcStart), e = Math.min(b, fcEnd);
+    if (e <= s) continue; // crux doesn't touch this mark
+    const relStart = s - a, relEnd = e - a;
+    const walker = document.createTreeWalker(m, NodeFilter.SHOW_TEXT);
+    let pos = 0, sN: Text | null = null, sO = 0, eN: Text | null = null, eO = 0;
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+      const len = (node.textContent || '').length;
+      if (sN === null && pos + len > relStart) { sN = node as Text; sO = relStart - pos; }
+      if (pos + len >= relEnd) { eN = node as Text; eO = relEnd - pos; break; }
+      pos += len;
     }
+    if (!sN || !eN) continue;
+    try {
+      const range = document.createRange();
+      range.setStart(sN, sO);
+      range.setEnd(eN, eO);
+      const span = document.createElement('span');
+      span.setAttribute('data-fc', '');
+      // Non-reflowing faux-bold: matches the related cards' technique exactly so the
+      // emphasis never changes the glyph metrics (real font-weight widens the text
+      // and reflows the surrounding article on hover). text-shadow thickens in place.
+      span.style.textShadow = '0 0 0.7px currentColor, 0 0 0.7px currentColor';
+      range.surroundContents(span);
+    } catch { /* skip this mark if the range can't be cleanly wrapped */ }
   }
-
-  return result;
 }
+
+// The focus-post highlight renderer (offset-based flat segmentation) lives in
+// utils/focusHighlightHtml.mjs so it is unit-testable without a DOM. Each emitted
+// <mark> is FLAT (never nested) and carries data-fs/data-fe (segment bounds) plus
+// data-range-ids — the space-separated list of relation indices covering it.
+// `isFocusCategory` mirrors crossColors: uncategorized/unknown relations are dropped.
+const isFocusCategory = (category: string) => !!crossColors(category);
 
 type PreviewCard = PreviewCardType;
 
@@ -325,7 +275,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // ~300ms-per-hover cost behind the page-freeze.
   const html = useMemo(() => {
     if (!focusRelations || focusRelations.length === 0) return displayText;
-    return renderMultiHighlightHtml(displayText, stripHtml(rawText), focusRelations, null, /* dimmed */ false);
+    return renderMultiHighlightHtml(displayText, stripHtml(rawText), focusRelations, isFocusCategory);
   }, [displayText, rawText, focusRelations]);
 
   const innerRef = useRef<HTMLDivElement | null>(null);
@@ -382,7 +332,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         return rels.some((r) => a < r.focusEnd && r.focusStart < b);
       });
     } else if (visibleMarkIdx !== null) {
-      marks = Array.from(el.querySelectorAll(`mark[data-range-id="${visibleMarkIdx}"]`));
+      marks = Array.from(el.querySelectorAll(`mark[data-range-ids~="${visibleMarkIdx}"]`));
     } else {
       marks = Array.from(el.querySelectorAll('mark'));
     }
@@ -452,16 +402,30 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       if (dwellTimerRef.current) { clearTimeout(dwellTimerRef.current); dwellTimerRef.current = null; }
       if (tooltipShownByMeRef.current) { hideTooltip(); tooltipShownByMeRef.current = false; }
     };
-    // Full spans overlapping the hovered mark = the union (never a partial span).
+    // The FULL relation spans covering the hovered segment = the union (never a
+    // partial segment). A hovered mark is now a flat SEGMENT; its data-range-ids
+    // map back to the relations whose whole focus spans pass through the cursor.
+    // We darken every segment those relations touch — reproducing the old "union
+    // of full spans" from the flat model. `ranges` (relation spans) feed the
+    // related-post counts, so they must be the full spans, not the segment.
     const unionFor = (mark: HTMLElement) => {
-      const fs = parseInt(mark.getAttribute('data-fs') || 'NaN', 10);
-      const fe = parseInt(mark.getAttribute('data-fe') || 'NaN', 10);
+      const rels = focusRelationsRef.current || [];
+      const ranges: Array<{ fs: number; fe: number }> = (mark.getAttribute('data-range-ids') || '')
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((s) => rels[parseInt(s, 10)])
+        .filter(Boolean)
+        .map((r) => ({ fs: r.focusStart, fe: r.focusEnd }));
+      if (ranges.length === 0) {
+        const a = parseInt(mark.getAttribute('data-fs') || 'NaN', 10);
+        const b = parseInt(mark.getAttribute('data-fe') || 'NaN', 10);
+        if (!Number.isNaN(a) && !Number.isNaN(b)) ranges.push({ fs: a, fe: b });
+      }
       const marks: HTMLElement[] = [];
-      const ranges: Array<{ fs: number; fe: number }> = [];
       el.querySelectorAll('mark[data-fs]').forEach((m) => {
         const a = parseInt((m as HTMLElement).getAttribute('data-fs') || 'NaN', 10);
         const b = parseInt((m as HTMLElement).getAttribute('data-fe') || 'NaN', 10);
-        if (a < fe && fs < b) { marks.push(m as HTMLElement); ranges.push({ fs: a, fe: b }); }
+        if (ranges.some((u) => a < u.fe && u.fs < b)) marks.push(m as HTMLElement);
       });
       return { marks, ranges };
     };
@@ -496,13 +460,15 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       el.classList.add('fp-hovering');
       const mark = (e.target as HTMLElement).closest('mark') as HTMLElement | null;
       if (!mark) { hoverRangeRef.current = null; clearDark(); cancelDwell(); return; }
-      const fsHover = parseInt(mark.getAttribute('data-fs') || 'NaN', 10);
-      const feHover = parseInt(mark.getAttribute('data-fe') || 'NaN', 10);
-      hoverRangeRef.current = (Number.isNaN(fsHover) || Number.isNaN(feHover)) ? null : { fs: fsHover, fe: feHover };
       if (mark.classList.contains('fp-dark')) return; // already the active union
       clearDark();
       const { marks, ranges } = unionFor(mark);
       marks.forEach((m) => m.classList.add('fp-dark'));
+      // hoverRangeRef = the union's bounding box so a post-commit re-apply
+      // re-darkens the whole union, not just the hovered segment.
+      hoverRangeRef.current = ranges.length
+        ? { fs: Math.min(...ranges.map((r) => r.fs)), fe: Math.max(...ranges.map((r) => r.fe)) }
+        : null;
       cancelDwell();
       dwellTimerRef.current = setTimeout(() => {
         dwellTimerRef.current = null;
@@ -541,9 +507,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     const onClick = (e: MouseEvent) => {
       const mark = (e.target as HTMLElement).closest('mark') as HTMLElement | null;
       if (!mark) return; // non-span pixel → let the card-level navigate handler run
-      const fs = parseInt(mark.getAttribute('data-fs') || 'NaN', 10);
-      const fe = parseInt(mark.getAttribute('data-fe') || 'NaN', 10);
-      if (Number.isNaN(fs) || Number.isNaN(fe)) return;
+      // Filter by the FULL union under the cursor, not the tiny segment: a flat
+      // segment is only a slice of its relations' spans, so the passage filter
+      // spans the whole highlighted region the way clicking one relation used to.
+      const { ranges } = unionFor(mark);
+      if (ranges.length === 0) return;
+      const fs = Math.min(...ranges.map((r) => r.fs));
+      const fe = Math.max(...ranges.map((r) => r.fe));
       e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
       const plain = stripHtml(rawText);
       const span = { start: fs, end: fe, text: plain.slice(fs, fe) };
@@ -698,7 +668,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     // through. This injected rule is ONLY the persistent filter mark for the
     // focused post's clicked span (per-instance because it targets a data-range-id).
     styleEl.textContent = active && visibleMarkIdx !== null
-      ? `#${id} mark[data-range-id="${visibleMarkIdx}"] { background: rgb(193,199,209) !important; }`
+      ? `#${id} mark[data-range-ids~="${visibleMarkIdx}"] { background: rgb(193,199,209) !important; }`
       : '';
   }, [visibleMarkIdx, active]);
 

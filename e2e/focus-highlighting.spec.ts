@@ -42,7 +42,7 @@ const DRIVER = `
         while (div) { const p = findProps(div); if (p && p.onMouseEnter && p.onMouseLeave && div !== mark) { cp = p; break; } div = div.parentElement; }
         return { mark, div, cp, mp: findProps(mark) };
       },
-      enter: (i, withMark) => { const c = window.__hl.cardFor(i); if (c.cp && c.cp.onMouseEnter) c.cp.onMouseEnter(mkEvt(c.div)); if (withMark && c.mp && c.mp.onMouseEnter) c.mp.onMouseEnter(mkEvt(c.mark)); return !!c.cp; },
+      enter: (i, withMark) => { const c = window.__hl.cardFor(i); if (c.cp && c.cp.onMouseEnter) c.cp.onMouseEnter(mkEvt(c.div)); if (withMark && c.mp) { const r = c.mark.getBoundingClientRect(); const ev = { currentTarget: c.mark, target: c.mark, relatedTarget: document.body, clientX: r.left + 2, clientY: r.top + r.height / 2, pointerType: 'mouse', preventDefault(){}, stopPropagation(){}, nativeEvent: {} }; /* single-contributor marks resolve on enter; overlap marks resolve the hovered band via mouse MOVE (Y position) */ if (c.mp.onMouseEnter) c.mp.onMouseEnter(ev); if (c.mp.onMouseMove) c.mp.onMouseMove(ev); if (c.mp.onPointerMove) c.mp.onPointerMove(ev); } return !!c.cp; },
       leave: (i) => { const c = window.__hl.cardFor(i); if (c.mp && c.mp.onMouseLeave) c.mp.onMouseLeave(mkEvt(c.div)); if (c.cp && c.cp.onMouseLeave) c.cp.onMouseLeave(mkEvt(c.div)); },
       clickCardSpan: (i) => { const mark = aside.querySelectorAll('mark')[i]; const r = mark.getBoundingClientRect(); mark.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: r.left + 2, clientY: r.top + 2 })); },
     };
