@@ -63,11 +63,21 @@ function mapCategory(label) {
 function esc(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
-/** Plain text → Mastodon-style HTML (display only; offsets index plainText, not this). */
+/** Plain text → Mastodon-style HTML for display. CRITICAL: the focus highlight
+ *  offsets index the plain text, and the FE renders the marks by walking this HTML
+ *  and stripping tags — so `stripHtml(toHtml(text))` MUST equal `text` exactly, or
+ *  every highlight drifts. We therefore keep ALL newlines as LITERAL text (the
+ *  `\n\n` separators live between the block <p> tags, where the browser collapses
+ *  them so paragraphs still render separated; intra-paragraph newlines stay literal
+ *  and render as a space). A <br> or trimmed paragraph would be dropped by stripHtml
+ *  and shift the offsets — hence neither is used. */
 function toHtml(text) {
-  const paras = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
-  if (paras.length === 0) return `<p>${esc(text)}</p>`;
-  return paras.map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
+  if (!text) return `<p>${esc(text)}</p>`;
+  // split on paragraph breaks, KEEPING the separators (capture group) as literal text
+  return text
+    .split(/(\n{2,})/)
+    .map((part) => (/^\n{2,}$/.test(part) ? part : part ? `<p>${esc(part)}</p>` : ''))
+    .join('');
 }
 /** "Tony Hartnett (Ireland)" → stable acct slug "tony_hartnett". */
 function acctSlug(displayName) {
@@ -150,7 +160,9 @@ function buildAncestors(ancestors, counts) {
       const id = `article-${(a.source_file ?? 'nyt').replace(/\.json$/, '')}`;
       return {
         id,
-        content: `<p><strong>${esc(headline)}</strong></p>` + (summary ? `<p>${esc(summary)}</p>` : ''),
+        // keep the '\n\n' between the blocks as literal text so stripHtml(content)
+        // === plainText (same round-trip invariant as toHtml).
+        content: `<p><strong>${esc(headline)}</strong></p>` + (summary ? `\n\n<p>${esc(summary)}</p>` : ''),
         plainText: plain,
         account: { display_name: a.author_handle || 'The New York Times', acct: 'nytimes@stacky-nyt.com', avatar: AVATAR },
         created_at: a.created_at,
