@@ -48,6 +48,7 @@ export type CategoryKey =
   | 'values'
   | 'framing'
   | 'proposals'
+  | 'pointers'
   | 'uncategorized';
 
 /** A single relation between a substring in the focus post and a substring in the related post. */

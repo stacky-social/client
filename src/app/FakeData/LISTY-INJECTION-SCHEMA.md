@@ -4,6 +4,15 @@
 
 Data format for the `/ChineseEVs` research feed (the former listy-injection prototype). Describes the contract between backend and frontend for focus posts, related posts, and their NLP-derived relations.
 
+> **Provenance:** this fixture is generated from the crossweave NYT demo corpus by
+> [`scripts/convert-demo-data.mjs`](../../../scripts/convert-demo-data.mjs). It maps
+> the crossweave `prepared_data/` (focused posts + MMR-ranked candidate side posts)
+> onto this schema and joins `src_data/` for real like/reply counts and reply
+> threads. Regenerate with
+> `CROSSWEAVE_DEMO_DIR=/path/to/crossweave/demo_data node scripts/convert-demo-data.mjs`
+> (set `MAX_CANDIDATES=N` to cap side posts per focus; unset keeps all). Do not
+> hand-edit the JSON.
+
 ## Top-level structure
 
 ```typescript
@@ -201,8 +210,13 @@ type CategoryKey =
   | 'values'
   | 'framing'
   | 'proposals'
+  | 'pointers'
   | 'uncategorized';
 ```
+
+`pointers` maps from the crossweave `Pointers` contribution type (R points to
+external knowledge/articles). It is distinct from `connections`, which the source
+also emits.
 
 ## Validation rules
 
