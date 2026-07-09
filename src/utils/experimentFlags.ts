@@ -34,6 +34,7 @@ export interface ExperimentFlags {
   summaryCard: boolean;
   stickyFocusBar: boolean;
   branchPreviews: boolean;
+  filterStacking: boolean;
 }
 
 /** UI metadata for the TopNav experiment panel. `dependsOn` mirrors
@@ -52,6 +53,7 @@ export const FLAG_META: Array<{
   { key: "summaryCard", label: "Summary card", description: "Collapsible summary of the currently displayed replies, above the list." },
   { key: "stickyFocusBar", label: "Sticky focus post", description: "Collapsed focus-post bar with the contribution strip once you scroll into the replies." },
   { key: "branchPreviews", label: "Branch previews", description: "Each reply branch shows one inline preview and expands in place (off = branches render fully expanded)." },
+  { key: "filterStacking", label: "Filter stacking", description: "Filters stack (AND-combined categories, additive passage/topic) instead of replacing on each new selection." },
 ];
 
 const SERVER_SNAPSHOT: ExperimentFlags = effectiveFlags(mergeFlags(null)) as ExperimentFlags;

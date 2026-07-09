@@ -7,9 +7,10 @@ import type { Relation } from "../../types/PostType";
 import { getCategoryColors, blendHex } from "../../utils/categoryStyles";
 import {
   useHighlightStore,
-  setResponseFilter,
+  setPassageFilter,
   clearResponseFilter,
   setFilterCategories,
+  beginUndoablePanelInteractionIfDetail,
 } from "../../utils/highlightStore";
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { TOP_NAV_HEIGHT } from "../NavBar/TopNav";
@@ -265,6 +266,10 @@ export default function FocusPostStickyBar({
     e.stopPropagation(); // a highlight click filters; it must not trigger return-to-post
     const rel = focusRelations[seg.contributors[0]];
     const span = { start: rel.focusStart, end: rel.focusEnd, text: plainText.slice(rel.focusStart, rel.focusEnd) };
+    // WS6: the sticky bar is always the current focus post on the detail route, so
+    // its passage clicks (apply or toggle-off clear) are undoable — record the
+    // pre-interaction snapshot before mutating.
+    beginUndoablePanelInteractionIfDetail();
     if (responseFilter && responseFilter.start === span.start && responseFilter.end === span.end) {
       clearResponseFilter();
       return;
@@ -281,7 +286,9 @@ export default function FocusPostStickyBar({
       });
       if (!compatible) setFilterCategories(new Set());
     }
-    setResponseFilter(span);
+    // Atomic setter → replace-not-stack: a passage click clears any topic
+    // grouping (+ category) in one transition.
+    setPassageFilter(span);
   };
 
   // Return-to-post must land BELOW the sticky top nav — scrollIntoView aligns

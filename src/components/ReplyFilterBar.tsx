@@ -3,21 +3,21 @@
 import React from "react";
 import { Text } from "@mantine/core";
 import { CATEGORY_LABELS, getCategoryColors, categoryIcon } from "../utils/categoryStyles";
+import FilterByChip from "./FilterByChip";
 
 interface ReplyFilterBarProps {
   filterCategories: Set<string>;
   responseFilter: { start: number; end: number; text: string } | null;
+  /** Cross-pane topic filter key (aside-origin interaction). Mutually exclusive
+   *  with the category/passage filters under replace-not-stack. */
+  topicFilter?: string | null;
   shown: number;
   total: number;
   onRemoveCategory: (category: string) => void;
   onClearResponse: () => void;
+  onClearTopic?: () => void;
   onClearAll: () => void;
 }
-
-const chipX: React.CSSProperties = {
-  background: "none", border: "none", cursor: "pointer", lineHeight: 1,
-  fontSize: 13, padding: "0 0 0 2px", color: "inherit",
-};
 
 /**
  * Visible filter state for the replies list. Cross-pane filtering only works
@@ -28,14 +28,16 @@ const chipX: React.CSSProperties = {
 export default function ReplyFilterBar({
   filterCategories,
   responseFilter,
+  topicFilter,
   shown,
   total,
   onRemoveCategory,
   onClearResponse,
+  onClearTopic,
   onClearAll,
 }: ReplyFilterBarProps) {
   const cats = Array.from(filterCategories);
-  const anyActive = cats.length > 0 || responseFilter !== null;
+  const anyActive = cats.length > 0 || responseFilter !== null || !!topicFilter;
   if (!anyActive) return null;
 
   return (
@@ -54,42 +56,33 @@ export default function ReplyFilterBar({
       {cats.map((cat) => {
         const tc = getCategoryColors(cat);
         return (
-          <button
+          <FilterByChip
             key={cat}
-            type="button"
-            onClick={() => onRemoveCategory(cat)}
-            aria-label={`Remove ${CATEGORY_LABELS[cat] ?? cat} filter from replies`}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 4,
-              background: tc.bg, color: tc.text, border: `1px solid ${tc.border}`,
-              borderRadius: 12, padding: "2px 8px", cursor: "pointer",
-              fontSize: 11, fontWeight: 600,
-            }}
-          >
-            {categoryIcon(cat, 12, tc.text)}
-            {CATEGORY_LABELS[cat] ?? cat}
-            <span aria-hidden style={chipX}>×</span>
-          </button>
+            kind="category"
+            label={CATEGORY_LABELS[cat] ?? cat}
+            colors={tc}
+            icon={categoryIcon(cat, 12, tc.text)}
+            onClear={() => onRemoveCategory(cat)}
+          />
         );
       })}
 
       {responseFilter !== null && (
-        <button
-          type="button"
-          onClick={onClearResponse}
-          aria-label="Remove passage filter from replies"
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 4,
-            background: "#f1f5f9", color: "#475569", border: "1px solid #cbd5e1",
-            borderRadius: 12, padding: "2px 8px", cursor: "pointer",
-            fontSize: 11, fontWeight: 600, maxWidth: 220,
-          }}
-        >
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontStyle: "italic" }}>
-            &ldquo;{responseFilter.text.length > 28 ? responseFilter.text.slice(0, 28) + "…" : responseFilter.text}&rdquo;
-          </span>
-          <span aria-hidden style={chipX}>×</span>
-        </button>
+        <FilterByChip
+          kind="response"
+          label={responseFilter.text}
+          maxChars={28}
+          onClear={onClearResponse}
+        />
+      )}
+
+      {topicFilter && (
+        <FilterByChip
+          kind="topic"
+          label={topicFilter}
+          onClear={onClearTopic ?? onClearAll}
+          testId="reply-topic-filter"
+        />
       )}
 
       <Text size="xs" c="#64748b" style={{ fontSize: 11, marginLeft: "auto", flexShrink: 0 }}>

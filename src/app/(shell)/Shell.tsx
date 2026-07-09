@@ -82,6 +82,11 @@ export default function Shell({
                     data-testid="feed"
                     style={{
                         paddingTop: 16,
+                        // Container-query context so the shared Post card can react
+                        // to the feed column's own width (set by the resize divider),
+                        // not the viewport — mirrors the aside. Lets category tags on
+                        // the focus/feed cards compress to icon-only when narrow.
+                        containerType: "inline-size",
                         // With an aside, take the slider-controlled share of the row.
                         // Without one (home / liked / bookmarks / search), render a
                         // single centered reading column instead of a too-wide

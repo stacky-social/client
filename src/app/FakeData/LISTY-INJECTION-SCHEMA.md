@@ -6,12 +6,13 @@ Data format for the `/ChineseEVs` research feed (the former listy-injection prot
 
 > **Provenance:** this fixture is generated from the crossweave NYT demo corpus by
 > [`scripts/convert-demo-data.mjs`](../../../scripts/convert-demo-data.mjs). It maps
-> the crossweave `prepared_data/` (focused posts + MMR-ranked candidate side posts)
-> onto this schema and joins `src_data/` for real like/reply counts and reply
-> threads. Regenerate with
+> the crossweave `prepared_data_with_descendants/` (focused posts + MMR-ranked
+> candidate side posts + annotated nested replies) onto this schema and joins
+> `src_data/` (+ `src_data/descendants/`) for real like/reply counts. Regenerate with
 > `CROSSWEAVE_DEMO_DIR=/path/to/crossweave/demo_data node scripts/convert-demo-data.mjs`
 > (set `MAX_CANDIDATES=N` to cap side posts per focus; unset keeps all). Do not
-> hand-edit the JSON.
+> hand-edit the JSON. (Older `prepared_data/` checkouts without descendants still
+> work — replies then fall back to the flat, relation-free `src_data` threads.)
 
 ## Top-level structure
 
@@ -22,7 +23,7 @@ interface ListyInjectionEntry {
   focusPost: FocusPost;
   relatedPosts: RelatedPost[];
   ancestors?: FocusPost[];     // optional ancestor chain (root → immediate parent)
-  replies?: FocusPost[];       // optional direct replies
+  replies?: Reply[];           // flat list of the thread's replies, nested via inReplyToId
 }
 ```
 
@@ -101,6 +102,34 @@ interface RelatedPost {
   bookmarked: boolean;
 }
 ```
+
+## Reply
+
+A reply in the focus post's thread. Same shape as `FocusPost` plus threading and
+optional relations. Replies form a tree via `inReplyToId` and nest up to depth 3
+(grandchildren). Each shown reply is an annotated crossweave descendant.
+
+```typescript
+interface Reply {
+  id: string;
+  inReplyToId: string;      // parent id: the focus post (top-level) or another reply
+  content: string;          // HTML (offset-invariant: stripHtml(content) === plainText)
+  plainText: string;        // plain text — the offset base for this reply's relations
+  account: { display_name: string; acct: string; avatar: string };
+  created_at: string;
+  favourites_count: number;
+  replies_count: number;    // number of this reply's children actually present
+  favourited: boolean;
+  bookmarked: boolean;
+  relations?: Relation[];   // reply→focus relations; content* index THIS reply's plainText
+}
+```
+
+A reply's `relations` use the same `Relation` shape as a related post: `focus*`
+offsets index `focusPost.plainText` and `content*` offsets index the **reply's**
+`plainText`. As with related posts, a reply may carry more than one relation (one
+per contribution type) sharing a single highlight span. Replies whose annotation
+topic also appears on the related pane drive the cross-pane grouping/filter.
 
 ## Relation
 

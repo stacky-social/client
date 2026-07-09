@@ -14,13 +14,19 @@ import { PreviewCardType } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../../utils/mastoActions';
 import { getPost, isLiked as storeIsLiked, isBookmarked as storeIsBookmarked } from '../../utils/localStore';
-import { useHighlightStore, setResponseFilter, clearResponseFilter, setPendingResponseFilter, setFilterCategories } from '../../utils/highlightStore';
+import { useHighlightStore, setPassageFilter, clearResponseFilter, setPendingResponseFilter, setFilterCategories, beginUndoablePanelInteractionIfDetail } from '../../utils/highlightStore';
 import { CATEGORY_COLORS, CATEGORY_LABELS, categoryIcon, getCategoryColors } from '../../utils/categoryStyles';
 import { renderMultiHighlightHtml } from '../../utils/focusHighlightHtml.mjs';
 import ReplyHighlightedContent from './ReplyHighlightedContent';
 import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 import type { Relation } from '../../types/PostType';
 import { showTooltip, hideTooltip } from '../HoverTooltip';
+
+/** X-style left-pane indent (px): avatar (Mantine md = 38px) + the header row's
+ *  `gap="xs"` (10px) = 48px, i.e. where the username's left edge sits. The post
+ *  body, media, divider, and action row all indent by this so content aligns
+ *  under the USERNAME (not the avatar), matching the aside's related cards. */
+const BODY_INDENT_PX = 48;
 
 // ─── Focus post cross-highlight helpers ──────────────────────────────────────
 
@@ -520,6 +526,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       // Non-focused feed post: clicking a span focuses this post (scroll + filter)
       // rather than filtering the wrong post's panel.
       if (!activeRef.current) { onSpanFocusRequestRef.current?.(span); return; }
+      // WS6: a focus-post passage click is an undoable filter action on the detail
+      // route (both the APPLY and the toggle-off CLEAR). Record the pre-interaction
+      // snapshot BEFORE any mutation below. This branch only runs for the ACTIVE
+      // post (guarded above), which on the detail route IS the focus, so the
+      // detail-pathname guard is the right scope; the feed span-focus path
+      // returned above stays non-undoable. Null order — passage doesn't rebase.
+      beginUndoablePanelInteractionIfDetail();
       const ff = responseFilterRef.current;
       if (ff && ff.start === fs && ff.end === fe) { clearResponseFilter(); return; }
       // A passage click with category chips active can compose into an empty
@@ -537,7 +550,9 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         });
         if (!compatible) setFilterCategories(new Set());
       }
-      setResponseFilter(span);
+      // Atomic setter → replace-not-stack: a passage click is the active
+      // interaction, clearing any topic grouping (+ category) in one transition.
+      setPassageFilter(span);
     };
 
     el.addEventListener('mouseenter', onEnter);
@@ -1125,7 +1140,7 @@ function Post({
   };
 
   return (
-    <div style={{ position: 'relative', marginBottom: '3rem'}}>
+    <div style={{ position: 'relative', marginBottom: '1rem'}}>
       <Paper
         ref={paperRef}
         data-testid="post"
@@ -1169,52 +1184,70 @@ function Post({
           tabIndex={0}
           style={{ width: '100%', cursor: 'pointer' }}
         >
-          <Group>
+          <Group wrap="nowrap" gap="xs" style={{ alignItems: 'center' }}>
             <UnstyledButton onClick={handleNavigateToUser} className="avatarHoverDim">
               <Avatar src={avatar} alt={author} radius="xl" />
             </UnstyledButton>
-            <div>
-              <Anchor
-                component="button"
-                onClick={(e: React.MouseEvent) => {
-                  e.stopPropagation();
-                  handleNavigateToUser(e);
-                }}
-                underline="hover"
-                style={{ color: '#011445', fontWeight: 700, fontSize: 'var(--mantine-font-size-md)' }}
-              >
-                {author}
-              </Anchor>
-              <Text size="xs" c="dimmed">{formatPostDate(createdAt)}</Text>
-            </div>
+            <Anchor
+              component="button"
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation();
+                handleNavigateToUser(e);
+              }}
+              underline="hover"
+              // Username at body-text size (weight/colour carry the hierarchy,
+              // not size) so the header reads denser — `inherit` tracks the card's
+              // own font size (14px reply / 16px focus) so it always equals the
+              // body text, X/YouTube-style. Truncate rather than push the inline
+              // date/badges off the row.
+              style={{
+                color: '#011445', fontWeight: 700, minWidth: 0, fontSize: 'inherit',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}
+            >
+              {author}
+            </Anchor>
+            <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+              · {formatPostDate(createdAt)}
+            </Text>
+
+            {categoryBadges && categoryBadges.length > 0 && (
+              // Category tags live in the header row, pushed right. They compress
+              // to icon-only when the card's container gets narrow (the
+              // `.post-tag-text` label hides via a CSS @container query — see
+              // globals.css); `title`/`aria-label` keep the meaning available.
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', justifyContent: 'flex-end', marginLeft: 'auto', flexShrink: 0 }}>
+                {categoryBadges.map((cat) => {
+                  const tc = getCategoryColors(cat);
+                  const label = CATEGORY_LABELS[cat] ?? cat;
+                  return (
+                    <span
+                      key={cat}
+                      data-reply-badge={cat}
+                      title={label}
+                      aria-label={label}
+                      style={{
+                        background: tc.bg, color: tc.text, border: `1px solid ${tc.border}`,
+                        borderRadius: '5px', padding: '2px 7px',
+                        display: 'inline-flex', alignItems: 'center', gap: '4px',
+                        fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {categoryIcon(cat, 12, tc.text)}
+                      <span className="post-tag-text">{label}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </Group>
         </div>
 
-        {categoryBadges && categoryBadges.length > 0 && (
-          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', margin: '6px 0 2px 3rem' }}>
-            {categoryBadges.map((cat) => {
-              const tc = getCategoryColors(cat);
-              return (
-                <span
-                  key={cat}
-                  data-reply-badge={cat}
-                  style={{
-                    background: tc.bg, color: tc.text, border: `1px solid ${tc.border}`,
-                    borderRadius: '5px', padding: '2px 7px',
-                    display: 'inline-flex', alignItems: 'center', gap: '4px',
-                    fontSize: '10px', fontWeight: 700,
-                  }}
-                >
-                  {categoryIcon(cat, 12, tc.text)}
-                  {CATEGORY_LABELS[cat] ?? cat}
-                </span>
-              );
-            })}
-          </div>
-        )}
-
         <div
-          style={{ paddingLeft: '3rem', paddingRight:'3rem', cursor: 'pointer'}}
+          // X-style: the body + media indent to align under the USERNAME, past the
+          // avatar (avatar 38px + the header row's 10px gap = 48px) — matching the
+          // aside's related cards. The action row below uses the same indent.
+          style={{ paddingLeft: `${BODY_INDENT_PX}px`, paddingRight: '0', cursor: 'pointer'}}
           onMouseUp={(e) => handleMouseUp(e)}
         >
           <div>
@@ -1333,7 +1366,7 @@ function Post({
       )}
     </div>
           {mediaAttachments.length > 0 && (
-            <div style={{ paddingLeft: '3rem', paddingRight: '4rem', paddingTop: '1rem' }}>
+            <div style={{ paddingLeft: '0', paddingRight: '0', paddingTop: '1rem' }}>
               {mediaAttachments.map((url, index) => (
                 <img key={index} src={url} alt={`Attachment ${index + 1}`} loading="lazy" decoding="async" style={{ width: '100%', marginBottom: '10px' }} />
               ))}
@@ -1368,8 +1401,8 @@ function Post({
           )}
         </div>
 
-        <Divider style={{ marginTop:'1.5rem'}}/>
-        <div style={{ paddingLeft: '3rem', paddingRight: '3rem' }}>
+        <Divider style={{ marginTop:'1rem', marginLeft: BODY_INDENT_PX }}/>
+        <div style={{ paddingLeft: `${BODY_INDENT_PX}px`, paddingRight: '0' }}>
           <Group style={{ display: 'flex', justifyContent: 'space-between', paddingTop:'0.1rem', paddingBottom:'0.1rem', marginBottom: stackCount !== null && stackCount > 1 ? '0px' : '0px' }}>
             <InteractionControl
               icon={<IconMessageCircle size={20} />}

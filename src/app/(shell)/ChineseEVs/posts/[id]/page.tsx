@@ -34,17 +34,24 @@ import { getMockReplyRank } from "../../../../../utils/mockPostResolver";
 import ReplySummaryCard from "../../../../../components/ReplySummaryCard";
 import ReplyFilterBar from "../../../../../components/ReplyFilterBar";
 import FocusPostStickyBar from "../../../../../components/Posts/FocusPostStickyBar";
+import { TOP_NAV_HEIGHT } from "../../../../../components/NavBar/TopNav";
 import { getCategoryColors } from "../../../../../utils/categoryStyles";
 import {
   useHighlightStore,
   setFilterCategories,
   clearResponseFilter,
-  toggleReplyAnchor,
-  setReplyAnchor,
-  clearReplyAnchor,
-  setReRankAnchor,
-  clearReRankAnchors,
+  activateReplyTopic,
+  clearTopicInteraction,
   setReplyTopicCounts,
+  registerReplyTopicResolver,
+  topicKeyOf,
+  replyGrouping,
+  replyTopicFilter,
+  beginPanelInteraction,
+  beginUndoablePanelInteractionIfDetail,
+  currentPanelScope,
+  consumePanelUndo,
+  navigateFromPanelScope,
 } from "../../../../../utils/highlightStore";
 
 // Thread connector line style — mirrors /posts/[id]
@@ -52,6 +59,21 @@ const THREAD_LINE_COLOR = "#ccd1dc";
 // Avatar center x = Paper.border (2) + paddingLeft (16) + half-avatar (19) = 37.
 // Subtract 1 (half line width) so the 2px line is centered on the avatar.
 const THREAD_LINE_LEFT = 36;
+
+// WS3/T2 — X-style click-to-focus arrival animation. A reply/ancestor click
+// stashes this intent (keyed by the DESTINATION post id) right before navigating;
+// the destination consumes it on mount to pin the clicked post under the nav and
+// play a brief settle/fade. Keyed so a stale intent never animates an unrelated
+// load (deep link / browser Back never carry it).
+const ANIMATE_INTENT_KEY = "stacky:focusAnimateIntent";
+// Where the pinned focus post lands: just under the fixed top nav (matches
+// FocusPostStickyBar.returnToPost's TOP_NAV_HEIGHT + 8 convention).
+const FOCUS_PIN_OFFSET = TOP_NAV_HEIGHT + 8;
+// The arrival fade: rise from 6px below its resting spot, fading in.
+const FOCUS_ENTER_TRANSLATE = 6;
+const FOCUS_ENTER_OPACITY = 0.4;
+const FOCUS_ENTER_TRANSITION =
+  "transform 240ms ease-out, opacity 240ms ease-out";
 
 function stripHtmlToPlain(html: string): string {
   if (typeof document !== "undefined") {
@@ -68,7 +90,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   const { id } = params;
   const { setFromPost, relatedStacks: ctxRelatedStacks } = useRelatedStacks();
   const flags = useExperimentFlags();
-  const { filterCategories, responseFilter, replyAnchor, reRankAnchorIds, anchoredRangeByPost } = useHighlightStore();
+  const { filterCategories, responseFilter, topicInteraction } = useHighlightStore();
 
   const [post, setPost] = useState<MockPostType | null>(null);
   const [ancestors, setAncestors] = useState<MockPostType[]>([]);
@@ -191,71 +213,119 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     }),
     [replyRelationsById]
   );
-  // ── Cross-pane filtering + symmetric topic grouping (Task 7, revised) ─────
-  // FILTERS (categories + passage) apply to both panes and are worn visibly in
-  // ReplyFilterBar. TOPIC interactions never filter: one topic GROUPS BOTH
-  // panes — each pane reranks in place around its own anchor, and the two
-  // anchors are kept in sync below. One concept, one pill per pane.
+  // Publish a resolver so the aside's `setPanelFocus` restore-validation can
+  // resolve a restored REPLY-origin interaction against THIS thread's reply
+  // relations — the aside owns the single setPanelFocus call but only knows
+  // related-card anchors. Registered during render (not in an effect) so it is
+  // current before the aside's setPanelFocus layout-effect runs on a focus
+  // switch; cross-slot effect order between the @aside slot and this page is
+  // otherwise unguaranteed, and a stale resolver would wrongly drop the
+  // interaction. Cleared on unmount below.
+  registerReplyTopicResolver((anchor) => {
+    const rels = replyRelationsById.get(anchor.postId) ?? [];
+    return rels[anchor.rangeIndex]?.topic ?? null;
+  });
+  useEffect(() => () => registerReplyTopicResolver(null), []);
+
+  // ── Cross-pane grouping / filtering (T7) ─────────────────────────────────
+  // The reply pane's role is DERIVED from the single shared `topicInteraction`:
+  // a reply-origin interaction CLUSTERS this pane (replyGrouping → the cluster
+  // rail below), an aside-origin interaction FILTERS it (replyTopicFilter → the
+  // "Filtered by" chip). One primitive, one origin — never both at once. This
+  // replaces the legacy local `replyAnchor` rerank (converted in
+  // handleReplySpanClick) and the symmetric related→replies mirror (deleted in
+  // T4). Category/passage FILTERS still apply to both panes via ReplyFilterBar.
   //
-  // Permanence (ratified 2026-07-06, audit F-11): the reply cluster is
-  // TRANSIENT — dismissing the pill restores the tab's sort order — while the
-  // aside's grouping stays permanent (R-REORDER-5). Deliberate asymmetry: a
-  // sorted reply list has a canonical order to return to; the aside's curated
-  // order does not.
+  // The filter half is gated by `crossPaneFiltering` (mirrors the aside's
+  // filter branch in T4); reply-origin clustering stays gated by the reply
+  // flags only, so it degrades to in-pane clustering when cross-pane is off.
   const crossFilterActive = flags.crossPaneFiltering && flags.replySortTabs;
+
+  const replyGroupingInteraction = useMemo(
+    () => replyGrouping(topicInteraction),
+    [topicInteraction]
+  );
+  const replyGroupTopic = useMemo(() => {
+    if (!replyGroupingInteraction) return null;
+    const rels = replyRelationsById.get(replyGroupingInteraction.anchor.postId) ?? [];
+    return rels[replyGroupingInteraction.anchor.rangeIndex]?.topic ?? null;
+  }, [replyGroupingInteraction, replyRelationsById]);
+
+  // Aside-origin topic that would filter this reply list. Gated on the cross-pane
+  // flag so it never acts when cross-pane filtering is off.
+  const replyFilterKey = useMemo(() => {
+    if (!crossFilterActive) return null;
+    return replyTopicFilter(topicInteraction)?.topicKey ?? null;
+  }, [crossFilterActive, topicInteraction]);
+
+  // Precompute matches before applying the topic filter: if NO displayed branch
+  // carries the topic, leave the list unfiltered and show no chip — an empty
+  // reply list reads as "no replies" when the truth is "no replies on that
+  // topic". Mirrors the aside's fail-safe (RelatedStacks displayStacks branch).
+  const activeReplyTopicFilter = useMemo(() => {
+    if (!replyFilterKey) return null;
+    const hasMatch = filteredReplies.some((r) =>
+      (branchRelationsById.get(r.id) ?? replyRelationsById.get(r.id) ?? []).some(
+        (rel) => rel.topic === replyFilterKey
+      )
+    );
+    return hasMatch ? replyFilterKey : null;
+  }, [replyFilterKey, filteredReplies, branchRelationsById, replyRelationsById]);
 
   const displayedTopLevel = useMemo(() => {
     if (!crossFilterActive) return filteredReplies;
     return filterReplies(
       filteredReplies,
       (r: MockPostType) => replyRelationsById.get(r.id) ?? [],
-      { filterCategories, responseFilter },
+      { filterCategories, responseFilter, topicFilter: activeReplyTopicFilter },
       (r: MockPostType) => branchRelationsById.get(r.id) ?? []
     );
-  }, [crossFilterActive, filteredReplies, replyRelationsById, branchRelationsById, filterCategories, responseFilter]);
+  }, [crossFilterActive, filteredReplies, replyRelationsById, branchRelationsById, filterCategories, responseFilter, activeReplyTopicFilter]);
 
-  const replyAnchorTopic = useMemo(() => {
-    if (!replyAnchor) return null;
-    const rels = replyRelationsById.get(replyAnchor.replyId) ?? [];
-    return rels[replyAnchor.rangeIndex]?.topic ?? null;
-  }, [replyAnchor, replyRelationsById]);
-
-  // Topic of the related panel's active anchor (explicit topics only — the
-  // curated dataset always carries them).
-  const relatedAnchorTopic = useMemo(() => {
-    const aid = reRankAnchorIds.length > 0 ? reRankAnchorIds[reRankAnchorIds.length - 1] : null;
-    if (!aid) return null;
-    const stack = (ctxRelatedStacks ?? []).find((s: any) => s?.topPost?.id === aid);
-    const ri = anchoredRangeByPost[aid] ?? 0;
-    return ((stack as any)?.topPost?.relations?.[ri]?.topic as string | undefined) ?? null;
-  }, [reRankAnchorIds, anchoredRangeByPost, ctxRelatedStacks]);
-
-  // Grouping sync, related → replies: when the right pane groups by a topic,
-  // cluster the replies around their first post on that topic; when the right
-  // grouping clears, the reply cluster clears with it. (The reply → related
-  // direction is handled synchronously in handleReplySpanClick.) Converges in
-  // one pass: once the reply anchor's topic matches, this effect no-ops.
-  useEffect(() => {
-    if (!crossFilterActive || !flags.replyReranking) return;
-    if (relatedAnchorTopic === null) {
-      if (replyAnchor) setReplyAnchor(null);
-      return;
-    }
-    if (replyAnchorTopic === relatedAnchorTopic) return;
-    for (const r of displayedTopLevel) {
-      const rels = replyRelationsById.get(r.id) ?? [];
-      const idx = rels.findIndex((x) => x.topic === relatedAnchorTopic);
-      if (idx >= 0) {
-        setReplyAnchor({ replyId: r.id, rangeIndex: idx });
-        return;
+  // T8 filter auto-reveal: grandchildren (depth >= 2) are collapsed by default,
+  // but a nested reply that MATCHES the active reply-list filter must not stay
+  // hidden behind the collapsed count. Find every nested reply whose OWN
+  // relations satisfy the active filter (mirrors filterReplies' per-reply test)
+  // and force-reveal its ancestor chain so the match surfaces (root as context).
+  const forceRevealParentIds = useMemo(() => {
+    const anyFilter =
+      crossFilterActive && (filterCategories.size > 0 || !!responseFilter || !!activeReplyTopicFilter);
+    if (!anyFilter) return undefined;
+    const cats = Array.from(filterCategories);
+    const matches = (rid: string) => {
+      const rels = replyRelationsById.get(rid) ?? [];
+      if (cats.length > 0) {
+        const own = new Set<string>(rels.map((r) => r.category));
+        if (!cats.every((c) => own.has(c))) return false;
+      }
+      if (responseFilter && !rels.some((r) => r.focusStart < responseFilter.end && responseFilter.start < r.focusEnd)) {
+        return false;
+      }
+      if (activeReplyTopicFilter && !rels.some((r) => r.topic === activeReplyTopicFilter)) return false;
+      return true;
+    };
+    const parentOf = new Map(mergedReplies.map((r) => [r.id, r.in_reply_to_id]));
+    const reveal = new Set<string>();
+    for (const r of mergedReplies) {
+      if (r.in_reply_to_id === id) continue; // top-level already visible
+      if (!matches(r.id)) continue;
+      let cur: string | null | undefined = r.in_reply_to_id;
+      const seen = new Set<string>();
+      while (cur && cur !== id && !seen.has(cur)) {
+        seen.add(cur);
+        reveal.add(cur);
+        cur = parentOf.get(cur);
       }
     }
-    setReplyAnchor(null);
-  }, [crossFilterActive, flags.replyReranking, relatedAnchorTopic, replyAnchorTopic, replyAnchor, displayedTopLevel, replyRelationsById]);
+    return reveal.size > 0 ? reveal : undefined;
+  }, [crossFilterActive, filterCategories, responseFilter, activeReplyTopicFilter, mergedReplies, id, replyRelationsById]);
 
+  // Reply-origin cluster (rail + growth). Gated on the reply flags AND
+  // origin==='replies' (replyGrouping is null otherwise), so an aside-origin
+  // interaction never grows a rail here — that pane is filtered, not grouped.
   const replyCluster =
-    flags.replyReranking && flags.replySortTabs && replyAnchor && replyAnchorTopic
-      ? { anchorId: replyAnchor.replyId, topic: replyAnchorTopic, rangeIndex: replyAnchor.rangeIndex }
+    flags.replyReranking && flags.replySortTabs && replyGroupingInteraction && replyGroupTopic
+      ? { anchorId: replyGroupingInteraction.anchor.postId, topic: replyGroupTopic, rangeIndex: replyGroupingInteraction.anchor.rangeIndex }
       : null;
   const replyClusterColor = replyCluster
     ? getCategoryColors(
@@ -295,6 +365,23 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     setVisibleTopLevelReplies((v) => Math.max(v, needed));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replyCluster?.anchorId, replyCluster?.topic, topLevelOrder, clusterMemberIds]);
+
+  // T5/WS5b: the first and last cluster member ACTUALLY RENDERED (top-level order
+  // sliced to the visible window) bound the reply cluster block. renderPost tags
+  // each member with a horizontal top rule (on the first) and bottom rule (on the
+  // last) so the block reads as one delimited unit, mirroring the aside.
+  const { clusterFirstId, clusterLastId } = useMemo(() => {
+    if (!replyCluster || !topLevelOrder || !clusterMemberIds) {
+      return { clusterFirstId: null as string | null, clusterLastId: null as string | null };
+    }
+    const visibleMembers = topLevelOrder
+      .slice(0, visibleTopLevelReplies)
+      .filter((rid) => clusterMemberIds.has(rid));
+    return {
+      clusterFirstId: visibleMembers[0] ?? null,
+      clusterLastId: visibleMembers[visibleMembers.length - 1] ?? null,
+    };
+  }, [replyCluster, topLevelOrder, clusterMemberIds, visibleTopLevelReplies]);
 
   // Topic → displayed-reply count, published to the store so the related
   // panel's "N more <topic>" tooltips count across both panes. Counts every
@@ -385,38 +472,44 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     (replyId: string, rangeIndex: number) => {
       if (!flags.replyReranking) return;
       const rels = replyRelationsById.get(replyId) ?? [];
-      const topic = rels[rangeIndex]?.topic ?? null;
+      // Topic key computed at the click site (the store can't derive it).
+      const clickTopicKey = topicKeyOf(rels[rangeIndex]);
       const el = document.querySelector(`[data-post-id="${replyId}"]`) as HTMLElement | null;
       replyPinRef.current = el ? { id: replyId, top: el.getBoundingClientRect().top } : null;
 
-      const isSame = replyAnchor?.replyId === replyId && replyAnchor.rangeIndex === rangeIndex;
-      if (isSame) {
-        // Dismissing the topic group clears BOTH panes' grouping.
-        clearReplyAnchor();
-        if (flags.crossPaneFiltering) clearReRankAnchors();
+      const active = replyGroupingInteraction;
+      const isSameSpan =
+        active !== null &&
+        active.anchor.postId === replyId &&
+        active.anchor.rangeIndex === rangeIndex;
+      if (isSameSpan) {
+        // Re-clicking the active span clears the interaction — BOTH panes reset
+        // (clearTopicInteraction is the single primitive now: the reply cluster
+        // dissolves here and the aside's "Filtered by" chip clears with it).
+        // WS6: undoable — record the pre-clear snapshot first (null: reply
+        // clustering doesn't rebase the aside base order).
+        const scope = currentPanelScope();
+        if (scope) beginPanelInteraction(scope, null);
+        clearTopicInteraction();
         return;
       }
+      // Topicless span → cannot start a topic interaction (grouping and the
+      // cross-pane filter must key identically). Leave state as-is.
+      if (clickTopicKey === null) return;
       // R-REORDER-9 parity with the aside: re-picking the ALREADY-GROUPED topic
-      // from any other span is a no-op (its tooltip reads "(shown)") — the block
-      // must not jump to a different anchor. Only the active anchor span toggles
-      // the group off (handled above).
-      if (topic !== null && topic === replyAnchorTopic) return;
-      toggleReplyAnchor(replyId, rangeIndex);
-      // Mirror the grouping onto the related panel: anchor its first card that
-      // carries the same topic. No topic match over there → no grouping there.
-      if (flags.crossPaneFiltering && topic) {
-        const stack = (ctxRelatedStacks ?? []).find((s: any) =>
-          ((s?.topPost?.relations ?? []) as Relation[]).some((x) => x.topic === topic)
-        );
-        if (stack) {
-          const ri = ((stack as any).topPost.relations as Relation[]).findIndex((x) => x.topic === topic);
-          setReRankAnchor((stack as any).topPost.id, ri);
-        } else {
-          clearReRankAnchors();
-        }
-      }
+      // from a different span is a no-op — the block must not jump anchors. Only
+      // the active anchor span toggles the group off (handled above).
+      if (active !== null && clickTopicKey === replyGroupTopic) return;
+      // Convert to the shared primitive: a reply-origin topic interaction
+      // CLUSTERS this reply list (replyGrouping) and, under crossPaneFiltering,
+      // FILTERS the aside to the same topic (asideTopicFilter, consumed in T4).
+      // Replaces any active aside grouping (replace-not-stack, in the store).
+      // WS6: undoable — snapshot the prior view before the mutation.
+      const scope = currentPanelScope();
+      if (scope) beginPanelInteraction(scope, null);
+      activateReplyTopic({ topicKey: clickTopicKey, anchor: { postId: replyId, rangeIndex } });
     },
-    [flags.replyReranking, flags.crossPaneFiltering, replyRelationsById, replyAnchor, replyAnchorTopic, ctxRelatedStacks]
+    [flags.replyReranking, replyRelationsById, replyGroupingInteraction, replyGroupTopic]
   );
 
   useLayoutEffect(() => {
@@ -427,7 +520,50 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     if (!el) return;
     const delta = el.getBoundingClientRect().top - pin.top;
     if (Math.abs(delta) > 0.5) window.scrollTo(0, Math.max(0, window.scrollY + delta));
-  }, [replyAnchor]);
+  }, [topicInteraction]);
+
+  // ── X-style click-to-focus: arrival pin + fade (WS3/T2) ──────────────────
+  // When we land here from a reply/ancestor click, an animate-intent keyed to
+  // this focus id is waiting in sessionStorage. Consume it (single-fire), pin
+  // the focus wrapper just under the nav — OVERRIDING the route's normal scroll
+  // position for this one navigation — and play a brief rise+fade. A deep link,
+  // browser Back, or any other load has no matching intent, so it neither pins
+  // nor animates and keeps the browser's default scroll behaviour.
+  const [focusEnter, setFocusEnter] = useState<"idle" | "from" | "to">("idle");
+  const animatedForIdRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (!post) return;
+    if (animatedForIdRef.current === id) return;
+    let intent: { postId?: string } | null = null;
+    try {
+      const raw = sessionStorage.getItem(ANIMATE_INTENT_KEY);
+      if (raw) intent = JSON.parse(raw);
+    } catch {
+      intent = null;
+    }
+    if (!intent || intent.postId !== id) return;
+    // Consume so it fires exactly once (and never on a later Back to this id).
+    sessionStorage.removeItem(ANIMATE_INTENT_KEY);
+    animatedForIdRef.current = id;
+    const anchor = focusWrapRef.current;
+    if (!anchor) return;
+    // Pin the focus post under the nav (scroll-compensation pattern, mirrors the
+    // reply-pin useLayoutEffect above): translate the wrapper's current viewport
+    // top to FOCUS_PIN_OFFSET, so ancestors sit above and replies below.
+    const y = window.scrollY + anchor.getBoundingClientRect().top - FOCUS_PIN_OFFSET;
+    window.scrollTo(0, Math.max(0, y));
+    // Start from the pre-fade state; the effect below flips to "to" one frame
+    // later so the CSS transition actually runs.
+    setFocusEnter("from");
+  }, [post, id]);
+
+  // Flip to the resting state after the "from" frame has painted so the fade
+  // transition plays (useEffect fires post-paint; the rAF adds a safety frame).
+  useEffect(() => {
+    if (focusEnter !== "from") return;
+    const raf = requestAnimationFrame(() => setFocusEnter("to"));
+    return () => cancelAnimationFrame(raf);
+  }, [focusEnter]);
 
   // Keep the active tab inside whichever tab set the flag selects. Depends on
   // activeTab too, so a foreign tab arriving AFTER a flag change (URL
@@ -505,6 +641,19 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     allowedTabs: allowedTabsFor(flags.replySortTabs),
   });
 
+  // WS6: route-owned popstate listener for panel Back-undo. Installed in a client
+  // effect (never at module import) so it is SSR-safe and lives only while the
+  // detail route is mounted. On Back, consumePanelUndo undoes one panel step iff
+  // the ring's top matches the current {pathname, focus} (in-memory detection);
+  // otherwise it is a no-op and the browser navigation proceeds normally.
+  useEffect(() => {
+    const onPopState = () => {
+      consumePanelUndo();
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   // H5: seed BackButton sessionStorage from ?from= when opening a shared link
   useEffect(() => {
     const fromId = searchParamsObj?.get("from");
@@ -526,7 +675,6 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     // the focus post keeps its grey marks; ancestors stay passive by design.
     const showReplyContributions =
       !isFocusPost && flags.replyContributions && replyRelationsById.has(p.id);
-    const inCluster = !!clusterMemberIds?.has(p.id) && !!replyClusterColor;
     const postEl = (
     <Post
       key={p.id}
@@ -567,23 +715,34 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       // Mastodon access token and renders a blank "Access token is missing" screen.
       onNavigate={(pid: string) => {
         sessionStorage.setItem(`previousPath:/ChineseEVs/posts/${pid}`, window.location.pathname + window.location.search);
-        router.push(`/ChineseEVs/posts/${pid}`);
+        // WS3/T2: stash the arrival animation intent BEFORE navigating so the
+        // destination pins this clicked post to the top and plays the fade
+        // (X-style click-to-focus). Keyed by the destination id — a stale intent
+        // never animates an unrelated load. The clicked card's current viewport
+        // top is recorded for potential from-anchored motion (the fade itself is
+        // a fixed rise; the top keeps the intent self-describing).
+        try {
+          const clicked = document.querySelector(`[data-post-id="${pid}"]`) as HTMLElement | null;
+          sessionStorage.setItem(
+            ANIMATE_INTENT_KEY,
+            JSON.stringify({ postId: pid, top: clicked ? clicked.getBoundingClientRect().top : null })
+          );
+        } catch {
+          /* sessionStorage unavailable — fall back to a normal (unanimated) nav */
+        }
+        // WS6: route through navigateFromPanelScope so a stranded undo sentinel is
+        // collapsed (replace OVER it when it is the current entry, else push) —
+        // Back from the destination returns here without a phantom extra Back.
+        navigateFromPanelScope(`/ChineseEVs/posts/${pid}`, router);
       }}
     />
     );
-    // Reply-cluster members carry a rail in the anchor's category color so the
-    // grouped block reads as one thread (mirrors the related panel's rail).
-    return inCluster && replyClusterColor ? (
-      <div
-        key={`cluster-${p.id}`}
-        data-reply-cluster-member
-        style={{ borderLeft: `3px solid ${replyClusterColor.border}`, borderRadius: 0, paddingLeft: 8 }}
-      >
-        {postEl}
-      </div>
-    ) : (
-      postEl
-    );
+    // Reply-cluster members render inside a connected rounded bracket, but that
+    // bracket now lives in ThreadedReplyList (the clusterRail prop on the list
+    // below), applied at the BRANCH level so the rail wraps each member's whole
+    // subtree — post + its "Show N more" expander + any expanded children — and
+    // never breaks at the expander. renderPost just returns the bare post.
+    return postEl;
   };
 
   if (!mockHasPost(id)) {
@@ -658,8 +817,23 @@ export default function MockPostView({ params }: { params: { id: string } }) {
             </div>
           )}
 
-          {/* Focus post */}
-          <div style={{ position: "relative" }} ref={focusWrapRef}>
+          {/* Focus post — WS3/T2 arrival fade: on a click-to-focus nav the
+              wrapper rises from FOCUS_ENTER_TRANSLATE px + FOCUS_ENTER_OPACITY
+              to its resting spot. "from"/"to" are only set when the animate
+              intent fired; "idle" leaves it untouched for normal loads. */}
+          <div
+            style={{
+              position: "relative",
+              transform:
+                focusEnter === "from"
+                  ? `translateY(${FOCUS_ENTER_TRANSLATE}px)`
+                  : "translateY(0)",
+              opacity: focusEnter === "from" ? FOCUS_ENTER_OPACITY : 1,
+              transition: focusEnter === "to" ? FOCUS_ENTER_TRANSITION : undefined,
+              willChange: focusEnter === "idle" ? undefined : "transform, opacity",
+            }}
+            ref={focusWrapRef}
+          >
             {renderPost(post, /* isFocusPost */ true)}
           </div>
         </div>
@@ -674,17 +848,32 @@ export default function MockPostView({ params }: { params: { id: string } }) {
           <ReplyFilterBar
             filterCategories={filterCategories}
             responseFilter={responseFilter}
+            topicFilter={activeReplyTopicFilter}
             shown={displayedTotal}
             total={totalTopLevelReplies}
             onRemoveCategory={(cat) => {
+              // WS6: a chip REMOVE is an undoable filter action — snapshot before
+              // the mutation so Back re-adds the removed category.
+              beginUndoablePanelInteractionIfDetail(id);
               const next = new Set(filterCategories);
               next.delete(cat);
               setFilterCategories(next);
             }}
-            onClearResponse={clearResponseFilter}
+            onClearResponse={() => {
+              beginUndoablePanelInteractionIfDetail(id);
+              clearResponseFilter();
+            }}
+            onClearTopic={() => {
+              beginUndoablePanelInteractionIfDetail(id);
+              clearTopicInteraction();
+            }}
             onClearAll={() => {
+              // One snapshot before clearing every dimension → one undo step
+              // restores category + passage + topic together.
+              beginUndoablePanelInteractionIfDetail(id);
               setFilterCategories(new Set());
               clearResponseFilter();
+              clearTopicInteraction();
             }}
           />
         )}
@@ -701,6 +890,10 @@ export default function MockPostView({ params }: { params: { id: string } }) {
         {showThread && mergedReplies.length > 0 && flags.replySortTabs && (
           <Paper
             style={{
+              // Transparent so the cream page background (body #FCFBF5) shows
+              // through around the white reply cards, matching the aside pane —
+              // the left column read as a solid white block before.
+              backgroundColor: "transparent",
               borderRadius: "0 0 8px 8px",
               fontFamily: "Roboto, sans-serif",
               fontSize: 14,
@@ -708,41 +901,9 @@ export default function MockPostView({ params }: { params: { id: string } }) {
               width: "100%",
             }}
           >
-            {/* Reply grouping pill — dismissing clears the topic group in BOTH
-                panes (the grouping is one concept shared across them). Hidden
-                when the anchor itself is filtered out of the displayed list: a
-                state chip must describe visible state, never a ghost group. */}
-            {replyCluster && replyClusterColor && topLevelOrder?.includes(replyCluster.anchorId) && (
-              <div
-                data-testid="reply-cluster-pill"
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  background: replyClusterColor.bg, border: `1px solid ${replyClusterColor.border}55`,
-                  borderRadius: 6, padding: "4px 8px", marginBottom: "0.5rem",
-                }}
-              >
-                <Text size="xs" fw={600} c={replyClusterColor.text} style={{ fontSize: 11 }}>
-                  Replies grouped by:
-                </Text>
-                <button
-                  type="button"
-                  onClick={() => {
-                    clearReplyAnchor();
-                    if (flags.crossPaneFiltering) clearReRankAnchors();
-                  }}
-                  aria-label={`Remove ${replyCluster.topic} reply grouping`}
-                  style={{
-                    background: "#ffffffaa", borderRadius: 4, padding: "2px 8px",
-                    fontSize: 10, fontWeight: 600, color: replyClusterColor.text,
-                    cursor: "pointer", border: "none",
-                    display: "inline-flex", alignItems: "center", gap: 4, minHeight: 22,
-                  }}
-                >
-                  <span>{replyCluster.topic}</span>
-                  <span aria-hidden style={{ fontSize: 13, lineHeight: 1 }}>×</span>
-                </button>
-              </div>
-            )}
+            {/* T4: the top-of-thread "Replies grouped by:" pill is removed — reply
+                grouping (legacy, local) is shown by the inline cluster rail only.
+                T7 owns the shared "Filtered by" chip for reply-origin topics. */}
 
             {/* Tabs are suppressed for small threads (<=5 top-level replies):
                 with a handful of comments a sort control is noise — show the
@@ -771,6 +932,20 @@ export default function MockPostView({ params }: { params: { id: string } }) {
               visibleTopLevelCount={visibleTopLevelReplies}
               topLevelOrder={topLevelOrder}
               opAcct={post?.account?.acct || post?.account?.username}
+              forceRevealParentIds={forceRevealParentIds}
+              clusterRail={
+                replyCluster && replyClusterColor
+                  ? {
+                      memberIds: clusterMemberIds ?? new Set<string>(),
+                      firstId: clusterFirstId,
+                      lastId: clusterLastId,
+                      color: replyClusterColor,
+                      topic: replyCluster.topic,
+                      count: clusterMemberIds ? clusterMemberIds.size : 0,
+                      onDismiss: clearTopicInteraction,
+                    }
+                  : undefined
+              }
             />
             {displayedTotal === 0 && (
               <Text size="sm" c="dimmed" p="md" data-testid="no-matching-replies">
@@ -809,6 +984,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
         {showThread && mergedReplies.length > 0 && !flags.replySortTabs && (
           <Paper
             style={{
+              backgroundColor: "transparent",
               borderRadius: "0 0 8px 8px",
               fontFamily: "Roboto, sans-serif",
               fontSize: 14,

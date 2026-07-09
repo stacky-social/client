@@ -204,24 +204,26 @@ test.describe('Focus-post highlighting', () => {
     await page.evaluate(DRIVER);
 
     // The two span clicks must do DIFFERENT things:
-    //   - related-card span  → toggle a TOPIC ANCHOR (panel groups, "Grouped by:" pill)
+    //   - related-card span  → toggle a TOPIC ANCHOR (panel groups; the active
+    //     anchor card shows the inline grouping indicator, data-testid
+    //     "active-group-anchor" — the "Grouped by:" pill was removed in T4)
     //   - focus-post span     → apply the overlap FILTER (clicked span turns dark)
     // The regression collapsed both onto the focus-post filter.
-    const groupedBy = page.getByText('Grouped by:');
-    await expect(groupedBy).toHaveCount(0);
+    const groupIndicator = page.getByTestId('active-group-anchor');
+    await expect(groupIndicator).toHaveCount(0);
 
-    // Related-card span click → panel groups.
+    // Related-card span click → panel groups (inline grouping indicator appears).
     await page.evaluate(() => (window as any).__hl.clickCardSpan(0));
-    await expect(groupedBy.first()).toBeVisible();
+    await expect(groupIndicator.first()).toBeVisible();
 
     // Clicking the same span again toggles the grouping off.
     await page.evaluate(() => (window as any).__hl.clickCardSpan(0));
-    await expect(groupedBy).toHaveCount(0);
+    await expect(groupIndicator).toHaveCount(0);
 
     // The focus-post span click is the OTHER mechanism: it must NOT group, and it
     // turns the clicked span dark (the filter).
     await page.locator(focusMarks).first().click();
-    await expect(groupedBy).toHaveCount(0);
+    await expect(groupIndicator).toHaveCount(0);
     await expect
       .poll(async () => page.locator(focusMarks).first().evaluate((el) => getComputedStyle(el).backgroundColor))
       .toBe(DARK);

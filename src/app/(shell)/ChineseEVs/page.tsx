@@ -890,7 +890,7 @@ export default function ListyInjectionPage() {
             key={post.postId}
             data-post-id={post.postId}
             ref={(el) => { postRefs.current[index] = el; }}
-            style={{ marginBottom: "2rem" }}
+            style={{ marginBottom: "0.5rem" }}
           >
             {renderPost(post)}
           </div>

@@ -98,19 +98,25 @@ export default function ReplyHighlightedContent({
     hideOwnTooltip();
   };
 
-  // Sorted, validated segments. Overlap would mean corrupt data — render plain
-  // rather than mis-highlighting.
-  const sorted = relations
+  // Sorted, non-overlapping segments. A real descendant reply carries MORE THAN
+  // ONE contribution type on the SAME span (coincident ranges that share the same
+  // topic), and this renderer draws one mark per span — so collapse overlaps
+  // greedily: keep the first relation covering a region and skip any later one that
+  // overlaps an already-kept span. Coincident duplicates thus render as a single
+  // mark in the first type's colour; the reply's category tags still surface every
+  // type. (Previously ANY overlap bailed the whole reply to plain text, which the
+  // real 2-type-per-span data tripped on every reply.)
+  const inRange = relations
     .map((r, i) => [i, r] as [number, Relation])
-    .sort((a, b) => a[1].contentStart - b[1].contentStart);
-  let valid = true;
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i][1].contentStart < sorted[i - 1][1].contentEnd) valid = false;
+    .filter(([, r]) => r.contentStart >= 0 && r.contentEnd <= plainText.length && r.contentEnd > r.contentStart)
+    .sort((a, b) => a[1].contentStart - b[1].contentStart || a[1].contentEnd - b[1].contentEnd);
+  const sorted: [number, Relation][] = [];
+  for (const entry of inRange) {
+    const prev = sorted[sorted.length - 1];
+    if (prev && entry[1].contentStart < prev[1].contentEnd) continue; // overlaps a kept span
+    sorted.push(entry);
   }
-  for (const [, r] of sorted) {
-    if (r.contentStart < 0 || r.contentEnd > plainText.length || r.contentEnd <= r.contentStart) valid = false;
-  }
-  if (!valid || sorted.length === 0) {
+  if (sorted.length === 0) {
     return <span>{plainText}</span>;
   }
 

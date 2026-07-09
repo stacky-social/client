@@ -12,7 +12,29 @@ const INDENT_PX = 28;
  *  Level 4+ is capped at MAX_DEPTH (same visual indent as level 3). */
 const MAX_DEPTH = 3;
 
+/** Reply-cluster bracket geometry — matches the aside (RelatedStacks
+ *  GROUP_LINE_WIDTH / GROUP_CORNER_R) so both panes read identically. */
+const RAIL_W = 2;
+const RAIL_R = 12;
+
 // ── Types ────────────────────────────────────────────────────────────────────
+
+/**
+ * Active reply-cluster bracket. The grouped top-level members render inside a
+ * single continuous rail whose top-left / bottom-left corners are rounded and
+ * whose first member carries the topic tag. Applied at the BRANCH level (the
+ * depth-0 wrapper) so the rail spans each member's whole subtree — post + its
+ * "Show N more" expander + any expanded children — and never breaks.
+ */
+interface ClusterRail {
+  memberIds: Set<string>;
+  firstId: string | null;
+  lastId: string | null;
+  color: { border: string; bg: string; text: string };
+  topic: string;
+  count: number;
+  onDismiss: () => void;
+}
 
 interface PostType {
   id: string;
@@ -58,6 +80,20 @@ interface ThreadedReplyListProps {
    * first), before falling back to the most-liked child.
    */
   opAcct?: string;
+  /**
+   * Parent reply ids whose nested subtree must be force-revealed (all children
+   * shown, no collapse / no expander). page.tsx populates this with the branches
+   * that contain a reply matching the active filter, so a matching grandchild is
+   * not hidden behind the default collapsed count. Omit for default collapse.
+   */
+  forceRevealParentIds?: Set<string>;
+  /**
+   * Active reply-cluster bracket. When present, the grouped top-level members
+   * render inside a continuous rail (rounded corners + topic tag) that wraps each
+   * member's whole branch, so it never breaks at a member's "Show N more" expander
+   * the way a per-post wrapper did. Mirrors the aside's related-card grouping.
+   */
+  clusterRail?: ClusterRail;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -92,10 +128,13 @@ function buildChildMap(replies: PostType[]): Map<string, PostType[]> {
 
 // ── Sub-renderer ─────────────────────────────────────────────────────────────
 
-/** X-style branch preview: each parent shows ONE nested reply inline by
- *  default (the OP's reply if there is one, else the most-liked child) — the
- *  rest collapse behind "Show N more replies", which expands in place. */
-const NESTED_PREVIEW = 1;
+/** X-style branch preview: nested replies (replies-to-replies, i.e. depth >= 2
+ *  from the focus post) are HIDDEN by default — each parent collapses its whole
+ *  subtree behind "Show N more replies", which expands in place. When a reply
+ *  filter is active, page.tsx passes the matching branches' parent ids in
+ *  `forceRevealParentIds` so a matching grandchild surfaces instead of staying
+ *  hidden behind the collapsed count. */
+const NESTED_PREVIEW = 0;
 /** Children revealed per "show more" click (mirrors the top-level 5-at-a-time). */
 const NESTED_PAGE = 5;
 
@@ -133,7 +172,9 @@ function renderTree(
   onShowMore: (parentId: string) => void,
   onShowLess: (parentId: string) => void,
   opAcct?: string,
-  previewsEnabled: boolean = true
+  previewsEnabled: boolean = true,
+  forceRevealParentIds?: Set<string>,
+  clusterRail?: ClusterRail
 ): React.ReactNode {
   const effectiveDepth = Math.min(depth, MAX_DEPTH);
   // Control condition (branchPreviews flag off): pure chronological order,
@@ -141,19 +182,85 @@ function renderTree(
   const children = previewsEnabled
     ? pickPreviewFirst(childMap.get(post.id) ?? [], opAcct)
     : childMap.get(post.id) ?? [];
-  const shown = previewsEnabled ? shownByParent[post.id] ?? NESTED_PREVIEW : children.length;
+  // A filter-matched branch is force-revealed (all children, no expander); else
+  // the default is NESTED_PREVIEW (0 → grandchildren collapsed) plus whatever the
+  // user has manually expanded via "Show N more replies".
+  const forced = forceRevealParentIds?.has(post.id) ?? false;
+  const shown = forced
+    ? children.length
+    : previewsEnabled
+    ? shownByParent[post.id] ?? NESTED_PREVIEW
+    : children.length;
   const visibleChildren = children.slice(0, shown);
   const remaining = children.length - visibleChildren.length;
-  const isExpanded = previewsEnabled && visibleChildren.length > NESTED_PREVIEW;
+  const isExpanded = previewsEnabled && !forced && visibleChildren.length > NESTED_PREVIEW;
+
+  // Cluster bracket (depth 0 only): when this top-level branch is a reply-cluster
+  // member, its WHOLE .replyGroup — post + "Show N more" expander + any expanded
+  // children — sits inside the continuous rail, so the bracket never breaks at the
+  // expander the way a per-post wrapper did. The first member caps the top (rule +
+  // rounded corner + topic tag), the last caps the bottom. Mirrors the aside.
+  const inCluster = depth === 0 && !!clusterRail?.memberIds.has(post.id);
+  const isFirstMember = inCluster && post.id === clusterRail!.firstId;
+  const isLastMember = inCluster && post.id === clusterRail!.lastId;
+  const bracketStyle: React.CSSProperties = inCluster
+    ? {
+        borderLeft: `${RAIL_W}px solid ${clusterRail!.color.border}`,
+        borderTop: isFirstMember ? `${RAIL_W}px solid ${clusterRail!.color.border}` : undefined,
+        borderBottom: isLastMember ? `${RAIL_W}px solid ${clusterRail!.color.border}` : undefined,
+        borderTopLeftRadius: isFirstMember ? RAIL_R : undefined,
+        borderBottomLeftRadius: isLastMember ? RAIL_R : undefined,
+        paddingLeft: 8,
+        // flow-root establishes a BFC so the post card's OWN bottom margin is
+        // CONTAINED inside this bordered wrapper instead of protruding below it.
+        // Without it that margin sits outside the border-box and the left rail
+        // stops ~12px short of the next member, breaking the rail between cards.
+        display: "flow-root",
+        // Breathing room between the closed bracket and the next (ungrouped) reply.
+        marginBottom: isLastMember ? "0.9rem" : undefined,
+      }
+    : {};
 
   return (
     <div
       key={post.id}
       className={styles.replyGroup}
-      style={{ marginLeft: effectiveDepth * INDENT_PX }}
+      // Stable hook for the cluster (present only on a grouped member's branch).
+      data-reply-cluster-member={inCluster ? "" : undefined}
+      style={{ marginLeft: effectiveDepth * INDENT_PX, ...bracketStyle }}
     >
       {/* Thread line — only shown when this node is itself a child (depth > 0) */}
       {depth > 0 && <div className={styles.threadLine} aria-hidden="true" />}
+
+      {/* Topic tag riding the top rule — the left pane's counterpart of the aside
+          header, shown only on the first cluster member. */}
+      {isFirstMember && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px 4px 4px" }}>
+          <span
+            style={{
+              fontSize: "11px", fontWeight: 600, color: clusterRail!.color.text,
+              background: clusterRail!.color.bg, border: `1px solid ${clusterRail!.color.border}55`,
+              borderRadius: "4px", padding: "1px 6px",
+              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "220px",
+            }}
+          >
+            {clusterRail!.topic} ({clusterRail!.count})
+          </span>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); clusterRail!.onDismiss(); }}
+            aria-label={`Dismiss ${clusterRail!.topic} group`}
+            style={{
+              background: "none", border: "none", cursor: "pointer", color: "#94a3b8",
+              fontSize: "16px", lineHeight: 1, padding: "4px 6px",
+              minWidth: 24, minHeight: 24,
+              display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 4,
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* The post card itself */}
       {renderPost(post)}
@@ -163,14 +270,18 @@ function renderTree(
           Preview children apply the same rule to THEIR children, so the default
           view reads as X-style linear chains. */}
       {visibleChildren.map((child) =>
-        renderTree(child, depth + 1, childMap, renderPost, shownByParent, onShowMore, onShowLess, opAcct, previewsEnabled)
+        renderTree(child, depth + 1, childMap, renderPost, shownByParent, onShowMore, onShowLess, opAcct, previewsEnabled, forceRevealParentIds, clusterRail)
       )}
-      {previewsEnabled && (remaining > 0 || isExpanded) && (
+      {previewsEnabled && !forced && (remaining > 0 || isExpanded) && (
         <div
           style={{
             display: "flex",
             gap: 16,
             marginLeft: Math.min(depth + 1, MAX_DEPTH) * INDENT_PX,
+            // Pull up close to the parent card (whose wrapper adds a 1rem bottom
+            // gap): the expander belongs to that comment, so the space BEFORE it
+            // should be tight; the 0.75rem below keeps a normal gap to the next reply.
+            marginTop: "-0.6rem",
             marginBottom: "0.75rem",
           }}
         >
@@ -217,6 +328,8 @@ export default function ThreadedReplyList({
   visibleTopLevelCount,
   topLevelOrder,
   opAcct,
+  forceRevealParentIds,
+  clusterRail,
 }: ThreadedReplyListProps) {
   // Per-parent nested pagination: parentId → children currently shown.
   // Reset when the thread root changes (navigating to a different post).
@@ -257,7 +370,7 @@ export default function ThreadedReplyList({
   return (
     <div>
       {visibleReplies.map((post) =>
-        renderTree(post, 0, childMap, renderPost, shownByParent, handleShowMore, handleShowLess, opAcct, branchPreviews)
+        renderTree(post, 0, childMap, renderPost, shownByParent, handleShowMore, handleShowLess, opAcct, branchPreviews, forceRevealParentIds, clusterRail)
       )}
     </div>
   );
