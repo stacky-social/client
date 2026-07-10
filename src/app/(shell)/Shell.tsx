@@ -56,6 +56,38 @@ export default function Shell({
         return () => mo.disconnect();
     }, []);
 
+    useEffect(() => {
+        if (!hasAside) return;
+        const routeRightGutterWheel = (event: WheelEvent) => {
+            const aside = asideRef.current;
+            if (!aside || event.defaultPrevented || event.clientY < TOP_NAV_HEIGHT) return;
+
+            const rect = aside.getBoundingClientRect();
+            const viewportRight = document.documentElement.clientWidth;
+            const inRightGutter = event.clientX >= rect.right && event.clientX <= viewportRight;
+            if (!inRightGutter) return;
+
+            const unit =
+                event.deltaMode === WheelEvent.DOM_DELTA_LINE
+                    ? 16
+                    : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+                    ? aside.clientHeight
+                    : 1;
+            const deltaY = event.deltaY * unit;
+            if (deltaY === 0) return;
+
+            const maxScrollTop = Math.max(0, aside.scrollHeight - aside.clientHeight);
+            const nextScrollTop = Math.min(maxScrollTop, Math.max(0, aside.scrollTop + deltaY));
+            if (nextScrollTop === aside.scrollTop) return;
+
+            event.preventDefault();
+            aside.scrollTop = nextScrollTop;
+        };
+
+        window.addEventListener("wheel", routeRightGutterWheel, { passive: false });
+        return () => window.removeEventListener("wheel", routeRightGutterWheel);
+    }, [hasAside]);
+
     const onSliderResize = (deltaPx: number) => {
         const inner = groupInnerRef.current || 1;
         setRatio((prev) => prev + deltaPx / inner);
