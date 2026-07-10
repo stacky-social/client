@@ -6,9 +6,10 @@ import type { ComposerFeedbackData } from "../../app/(shell)/related-stacks-cont
 /**
  * Pick a stacky emotion face for a simulated reply from light sentiment cues —
  * gives the "how people might reply" list a bit of emotional variety.
+ * Exported so ReplySection's inline feedback block shares the same faces.
  */
 type Mood = { Icon: typeof IconMoodSmile; color: string; label: string };
-function pickMood(text: string): Mood {
+export function pickMood(text: string): Mood {
   const raw = text || "";
   const t = raw.toLowerCase();
   if (/\?/.test(raw) || /\b(how|why|what|would|could|wonder|curious)\b/.test(t))

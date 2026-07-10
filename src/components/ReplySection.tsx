@@ -1,22 +1,26 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Avatar, Group, Button, Text, Stack, Paper, Badge, Loader, TextInput } from "@mantine/core";
+import { Avatar, Group, Button, Text, Stack, Paper, Loader, TextInput, ThemeIcon } from "@mantine/core";
 import { notifications } from '@mantine/notifications';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
-import { pickAvatarForText } from '../utils/sentimentAvatar';
+import { pickMood } from './SubmitPost/ComposerFeedback';
 import { addComment } from '../utils/localStore';
 
 interface ReplySectionProps {
     postId: string;
     currentUser: any;
     fetchPostAndReplies: (postId: string) => void;
+    /** Reports whether a draft is in progress (non-empty reply box). The demo
+     *  thread gates the composer's sticky pinning on this, so an idle composer
+     *  scrolls away with the page instead of following the reader. */
+    onDraftActiveChange?: (active: boolean) => void;
 }
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
-const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchPostAndReplies }) => {
+const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchPostAndReplies, onDraftActiveChange }) => {
     const [replyContent, setReplyContent] = useState<string>('');
     const [buttonLabel, setButtonLabel] = useState('Submit');
     const [advice, setAdvice] = useState<string | null>(null);
@@ -61,6 +65,13 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
         };
     }, []);
 
+    // Draft-in-progress signal, derived from the single source of truth
+    // (replyContent) so every path reports — typing, deleting back to empty,
+    // and the post-submit reset alike.
+    useEffect(() => {
+        onDraftActiveChange?.(replyContent.trim().length > 0);
+    }, [replyContent, onDraftActiveChange]);
+
     /** Drop any visible/in-flight feedback — the draft no longer exists. */
     const clearFeedback = () => {
         reqIdRef.current++; // invalidate any in-flight request
@@ -100,14 +111,16 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
     };
 
     const fetchRealTimeFeedback = async (inputContent: string) => {
-        // Local/demo mode: the mock thread route has no live backend, so the
-        // draft-feedback POST would only ever fail silently — skip it entirely.
-        if (window.location.pathname.startsWith('/ChineseEVs')) {
-            return;
-        }
         if (inputContent.trim().length < 10) {
             return;
         }
+
+        // The demo (/ChineseEVs) is served from local mock data, so its post ids
+        // don't exist on the live feedback backend — passing one as parentPostID
+        // makes the backend 500. Send null there (generic draft feedback derived
+        // from the draft text, same as the /home composer) so simulated replies
+        // still generate; live surfaces keep postId for real thread context.
+        const onDemo = window.location.pathname.startsWith('/ChineseEVs');
 
         const myReqId = ++reqIdRef.current;
         setLoading(true);
@@ -115,7 +128,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
         try {
             const response = await axios.post('https://beta.stacky.social:3002/posts/feedback', {
                 draftID: draftIdRef.current,
-                parentPostID: postId,
+                parentPostID: onDemo ? null : postId,
                 draftText: inputContent
             });
 
@@ -135,7 +148,11 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
         }
         catch (error) {
             console.error('Failed to fetch real-time feedback:', error);
-            if (myReqId === reqIdRef.current) {
+            // The offline demo (/ChineseEVs) isn't guaranteed a backend, so degrade
+            // silently there — showing nothing beats firing a red error toast on
+            // every keystroke when the presenter has no internet. On the live
+            // surfaces a failed feedback call is worth surfacing to the user.
+            if (myReqId === reqIdRef.current && !onDemo) {
                 notifications.show({
                     title: 'Error',
                     message: 'Could not fetch writing feedback. Please try again.',
@@ -199,74 +216,56 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                 </Button>
             </Group>
 
+            {/* Live draft feedback — same visual language as the /home composer's
+                aside panel (ComposerFeedback): small label, tinted praise, plain
+                advice, and compact mood rows for the simulated replies under an
+                uppercase caption so they still read as simulated, not real. */}
             {(advice || praise || simulatedReplies.length > 0 || loading) && (
-                <Paper
-                    style={{
-                        padding: '10px',
-                        backgroundColor: '#f9f9f9',
-                        borderRadius: '8px',
-                        fontFamily: 'Roboto, sans-serif',
-                        fontSize: '14px',
-                    }}
-                >
+                <div role="status" aria-live="polite">
+                    <Text size="sm" fw={700} c="#374151" mb={6}>Writing feedback</Text>
                     {loading ? (
-                        <Loader size="sm" />
+                        <Group gap={8}>
+                            <Loader size="xs" />
+                            <Text size="xs" c="dimmed">Analyzing your draft…</Text>
+                        </Group>
                     ) : (
                         <>
-                            {(advice || praise) && (
-                                <div style={{ marginBottom: '10px' }}>
-                                    <Text fw="900" size="xl">Feedback</Text>
-                                    {praise && <Text mt={4}>{praise}</Text>}
-                                    {advice && <Text mt={4}>{advice}</Text>}
-                                </div>
+                            {praise && (
+                                <Paper withBorder p="sm" radius="md" mb={6} style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
+                                    <Text size="xs" c="#15803d">{praise}</Text>
+                                </Paper>
+                            )}
+                            {advice && (
+                                <Paper withBorder p="sm" radius="md" style={{ background: '#fff' }}>
+                                    <Text size="xs" c="#374151">{advice}</Text>
+                                </Paper>
                             )}
 
                             {simulatedReplies.length > 0 && (
-                                <Stack>
-                                    {simulatedReplies.map((reply, index) => (
-                                        <div key={reply.id ?? reply.content} style={{ position: 'relative' }}>
-                                            <Paper
-                                                style={{
-                                                    position: 'relative',
-                                                    width: "100%",
-                                                    backgroundColor: '#fff',
-                                                    zIndex: 5,
-                                                    boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-                                                    borderRadius: '8px',
-                                                    padding: '10px',
-                                                    fontFamily: 'Roboto, sans-serif',
-                                                    fontSize: '14px',
-                                                }}
-                                            >
-                                                <Group>
-                                                    <Avatar src={pickAvatarForText(reply.content)} radius="xl" />
-                                                    <div>
-                                                        <Text fw="700" size="sm">Robot {index + 1}</Text>
-                                                    </div>
-                                                </Group>
-                                                <Text>{reply.content}</Text>
-                                                <Badge
-                                                    color="gray"
-                                                    variant="outline"
-                                                    tt="uppercase"
-                                                    fw={700}
-                                                    style={{
-                                                        position: 'absolute',
-                                                        top: '10px',
-                                                        right: '10px',
-                                                        fontSize: '10px',
-                                                    }}
-                                                >
-                                                    Simulated
-                                                </Badge>
-                                            </Paper>
-                                        </div>
-                                    ))}
-                                </Stack>
+                                <>
+                                    <Text size="xs" c="dimmed" fw={600} mt={8} mb={6} tt="uppercase">
+                                        How people might reply
+                                    </Text>
+                                    <Stack gap={6}>
+                                        {simulatedReplies.map((reply) => {
+                                            const mood = pickMood(reply.content);
+                                            return (
+                                                <Paper key={reply.id ?? reply.content} withBorder p="sm" radius="md" style={{ background: '#fff' }}>
+                                                    <Group gap={8} align="flex-start" wrap="nowrap">
+                                                        <ThemeIcon size={26} radius="xl" variant="light" color={mood.color} title={mood.label}>
+                                                            <mood.Icon size={16} />
+                                                        </ThemeIcon>
+                                                        <Text size="xs" c="#374151" style={{ flex: 1 }}>{reply.content}</Text>
+                                                    </Group>
+                                                </Paper>
+                                            );
+                                        })}
+                                    </Stack>
+                                </>
                             )}
                         </>
                     )}
-                </Paper>
+                </div>
             )}
         </div>
     );

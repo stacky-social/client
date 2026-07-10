@@ -6,6 +6,7 @@ import { TopNav, TOP_NAV_HEIGHT } from "../../components/NavBar/TopNav";
 import { RelatedStacksProvider } from "./related-stacks-context";
 import { ResizableDivider } from "./ResizableDivider";
 import { useFeedRatio } from "./useFeedRatio";
+import { useHighlightStore, asideGrouping, replyGrouping } from "../../utils/highlightStore";
 
 /**
  * Max width of the centered (feed + related) group on wide screens — ~13in,
@@ -14,6 +15,12 @@ import { useFeedRatio } from "./useFeedRatio";
  */
 const MAX_CONTENT_WIDTH = 1280;
 const SLIDER_W = 8;
+// Horizontal footprint the grouping bracket adds to each card: a 2px rail hugging
+// each side (no gutter, so the card content doesn't shift). When grouped the panel
+// widens by exactly this into ITS margin — the panel's inner edge (next to the
+// feed) stays put and the cards keep both their size AND their position; only the
+// outer edge moves, purely to seat the two rails.
+const GROUP_RAIL_FOOTPRINT = 4;
 
 export default function Shell({
     children,
@@ -23,12 +30,54 @@ export default function Shell({
     aside: React.ReactNode;
 }) {
     const { ratio, setRatio, reset } = useFeedRatio();
+    // Grouping widens whichever panel gained a wrap-around bracket into the empty
+    // page margin on its side (relaxing MAX_CONTENT_WIDTH while grouped, per product
+    // decision) so that panel's cards keep their width and the rails have room. Read
+    // the global topic-interaction store directly (Shell owns the layout).
+    const { topicInteraction } = useHighlightStore();
 
     const groupRef = useRef<HTMLDivElement | null>(null);
     // Live width of the group minus the slider, so px drag-deltas map to ratio.
     const groupInnerRef = useRef<number>(1);
     const asideRef = useRef<HTMLDivElement | null>(null);
     const [hasAside, setHasAside] = useState(false);
+    // Viewport width (excl. scrollbar) — drives how far the grouped aside reaches.
+    const [viewportW, setViewportW] = useState(MAX_CONTENT_WIDTH);
+    useEffect(() => {
+        const measure = () => setViewportW(document.documentElement.clientWidth);
+        measure();
+        window.addEventListener("resize", measure);
+        return () => window.removeEventListener("resize", measure);
+    }, []);
+
+    // Which panel is grouped decides which side of the group widens: aside grouping
+    // grows the group RIGHT into the right margin (feed frozen); a reply cluster
+    // grows it LEFT into the left margin (aside frozen). Mutually exclusive — one
+    // topicInteraction, keyed by origin.
+    const asideExpanded = hasAside && !!asideGrouping(topicInteraction);
+    const feedExpanded = hasAside && !!replyGrouping(topicInteraction);
+    const anyExpanded = asideExpanded || feedExpanded;
+
+    // Freeze each column's NORMAL width (measured while neither panel is expanded)
+    // so the GROWING side absorbs the whole rail footprint and the frozen side
+    // never moves or reflows. Measured, not computed, to match the layout exactly.
+    const feedRef = useRef<HTMLDivElement | null>(null);
+    const [frozenFeedW, setFrozenFeedW] = useState<number | null>(null);
+    const [frozenAsideW, setFrozenAsideW] = useState<number | null>(null);
+    useEffect(() => {
+        if (anyExpanded) return; // hold the last un-expanded measurements
+        const feed = feedRef.current;
+        const aside = asideRef.current;
+        const measure = () => {
+            if (feed) setFrozenFeedW(feed.getBoundingClientRect().width);
+            if (aside) setFrozenAsideW(aside.getBoundingClientRect().width);
+        };
+        measure();
+        const ro = new ResizeObserver(measure);
+        if (feed) ro.observe(feed);
+        if (aside) ro.observe(aside);
+        return () => ro.disconnect();
+    }, [anyExpanded, hasAside, ratio, viewportW]);
 
     // Measure the content group for the slider's px → ratio conversion.
     useEffect(() => {
@@ -61,6 +110,16 @@ export default function Shell({
         setRatio((prev) => prev + deltaPx / inner);
     };
 
+    // The group widens by the rail footprint toward the grouped panel's side; the
+    // opposite edge stays put so the frozen column never moves. `anchoredLeft` /
+    // `normalRight` are the un-expanded (centered-1280) edges; clamped to the
+    // viewport so a narrow screen with no margin degrades gracefully.
+    const anchoredLeft = Math.max(0, (viewportW - MAX_CONTENT_WIDTH) / 2);
+    const normalRight = anchoredLeft + MAX_CONTENT_WIDTH;
+    const gLeft = feedExpanded ? Math.max(0, anchoredLeft - GROUP_RAIL_FOOTPRINT) : anchoredLeft;
+    const gRight = asideExpanded ? Math.min(viewportW, normalRight + GROUP_RAIL_FOOTPRINT) : normalRight;
+    const gWidth = gRight - gLeft;
+
     return (
         <RelatedStacksProvider>
             <TopNav />
@@ -69,17 +128,22 @@ export default function Shell({
                 data-testid="content-group"
                 ref={groupRef}
                 style={{
-                    maxWidth: MAX_CONTENT_WIDTH,
-                    width: "100%",
-                    margin: "0 auto",
                     padding: "0 16px",
                     boxSizing: "border-box",
                     display: "flex",
                     alignItems: "stretch",
+                    // Grouped: place the group at its computed left edge and width
+                    // (widened by the rail footprint toward the grouped side).
+                    // Otherwise: the normal centered, reading-capped group.
+                    ...(anyExpanded
+                        ? { marginLeft: gLeft, marginRight: 0, maxWidth: "none", width: gWidth }
+                        : { maxWidth: MAX_CONTENT_WIDTH, width: "100%", margin: "0 auto" }),
+                    transition: "margin-left 220ms ease",
                 }}
             >
                 <div
                     data-testid="feed"
+                    ref={feedRef}
                     style={{
                         paddingTop: 16,
                         // Container-query context so the shared Post card can react
@@ -92,8 +156,13 @@ export default function Shell({
                         // single centered reading column instead of a too-wide
                         // full-bleed feed — keeps the composer and posts aligned and
                         // consistent with the feed width when the aside is present.
+                        // Aside grouped → FREEZE the feed (the aside takes the extra).
+                        // Reply clustered → the feed GROWS (flex-grow:1) to absorb the
+                        // left-margin space so its reply cards keep their width.
                         ...(hasAside
-                            ? { flexGrow: ratio, flexBasis: 0, minWidth: 0 }
+                            ? asideExpanded && frozenFeedW != null
+                                ? { flexGrow: 0, flexShrink: 0, flexBasis: `${frozenFeedW}px`, minWidth: 0 }
+                                : { flexGrow: feedExpanded ? 1 : ratio, flexBasis: 0, minWidth: 0 }
                             : { width: "100%", maxWidth: 760, margin: "0 auto" }),
                     }}
                 >
@@ -121,8 +190,14 @@ export default function Shell({
                     className="aside-scroll"
                     ref={asideRef}
                     style={{
-                        flexGrow: hasAside ? 1 - ratio : 0,
-                        flexBasis: 0,
+                        // Aside grouped → grow (absorb the widened row). Reply
+                        // clustered → FREEZE at normal width (the feed grows instead).
+                        // Otherwise the slider-controlled share.
+                        ...(hasAside
+                            ? feedExpanded && frozenAsideW != null
+                                ? { flexGrow: 0, flexShrink: 0, flexBasis: `${frozenAsideW}px` }
+                                : { flexGrow: asideExpanded ? 1 : 1 - ratio, flexBasis: 0 }
+                            : { flexGrow: 0, flexBasis: 0 }),
                         minWidth: 0,
                         display: hasAside ? "block" : "none",
                         alignSelf: "flex-start",

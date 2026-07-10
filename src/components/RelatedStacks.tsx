@@ -1993,15 +1993,16 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 position: 'relative',
                 display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap',
                 marginLeft: `${blockIndentPx}px`,
-                // Top of the group bracket. This row itself carries the top rule
-                // (border-top), the rail's start (border-left) and the rounded
-                // top-left corner — so the tag rides a CONNECTED corner instead of
-                // sitting between two detached lines. The first card's connector
-                // (below) bridges the flex gap up to this row so the rail stays
-                // continuous; paddingLeft insets the tag off the rail.
+                // Top of the group bracket, now a full wrap-around box: this row
+                // carries the top rule (border-top) plus BOTH side rails' starts
+                // (border-left/right) and both rounded top corners — the tag rides
+                // the connected top edge. The first card's connector (below) bridges
+                // the flex gap up to this row so the rails stay continuous.
                 borderTop: `${GROUP_LINE_WIDTH}px solid ${anchorColors.border}`,
                 borderLeft: `${GROUP_LINE_WIDTH}px solid ${anchorColors.border}`,
+                borderRight: `${GROUP_LINE_WIDTH}px solid ${anchorColors.border}`,
                 borderTopLeftRadius: GROUP_CORNER_R,
+                borderTopRightRadius: GROUP_CORNER_R,
                 // Extra bottom padding extends the header's border-left DOWN over the
                 // flex gap to the first card's top edge; the cancelling negative
                 // marginBottom keeps the card's position unchanged. This makes the
@@ -2082,10 +2083,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 // card boundary; the header and bottom rule supply the rounded end
                 // corners. Consecutive cards sit flush (paddingBottom + negative
                 // marginBottom below), so their border-lefts join into one rail.
-                borderRadius: anchorForThisCard ? (isLastInBlock ? `0 0 0 ${GROUP_CORNER_R}px` : 0) : '10px',
+                borderRadius: anchorForThisCard ? (isLastInBlock ? `0 0 ${GROUP_CORNER_R}px ${GROUP_CORNER_R}px` : 0) : '10px',
                 borderLeft: anchorForThisCard ? `${GROUP_LINE_WIDTH}px solid ${anchorColors.border}` : undefined,
-                // The LAST card closes the bracket with its own bottom rule + rounded
-                // bottom-left corner (replacing the old separate bottomRuleEl).
+                // Both side rails run down every grouped card (wrap-around box).
+                borderRight: anchorForThisCard ? `${GROUP_LINE_WIDTH}px solid ${anchorColors.border}` : undefined,
+                // The LAST card closes the bracket with its own bottom rule + BOTH
+                // rounded bottom corners (replacing the old separate bottomRuleEl).
                 borderBottom: anchorForThisCard && isLastInBlock ? `${GROUP_LINE_WIDTH}px solid ${anchorColors.border}` : undefined,
                 ...cardDimStyle,
                 // Every card in the active topic block sits alongside a continuous
@@ -2093,7 +2096,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 // padding leaves room for it; the line itself bridges the flex gap
                 // above so the whole block — including the anchor — reads as one
                 // continuous thread.
-                paddingLeft: anchorForThisCard ? '8px' : undefined,
+                // No side gutters: the rails hug the card's own edges so grouping
+                // never shifts the card content sideways — the panel just widens by
+                // the rail width (see GROUP_RAIL_FOOTPRINT in Shell). The card's own
+                // inner padding already keeps text off the rails.
+                paddingLeft: anchorForThisCard ? '0px' : undefined,
+                paddingRight: anchorForThisCard ? '0px' : undefined,
                 // Grouped cards (except the last, which the bottom rule closes) extend
                 // their box DOWN over the flex gap via paddingBottom + a cancelling
                 // negative marginBottom, so the rail (top:0→bottom:0 above) spans that
@@ -2213,8 +2221,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>· {formatPostDate(stack.topPost.created_at)}</Text>
                 </div>
                 {/* Category tags — pushed right; collapse to icon-only when the panel
-                    is narrow (.related-tag-text @container rule in globals.css). */}
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', marginLeft: 'auto', minWidth: 0 }}>
+                    is narrow (.related-tag-text @container rule in globals.css). Kept on
+                    ONE line (nowrap + no shrink): the contribution icons must never
+                    stack vertically — the author name (minWidth:0, below) yields space
+                    instead, and the group indicator truncates. */}
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'nowrap', justifyContent: 'flex-end', marginLeft: 'auto', flexShrink: 0 }}>
                   {(() => {
                     // Dedupe categories from relations, preserving order
                     const rels = stack.topPost.relations ?? [];
@@ -2331,7 +2342,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   const indicatorRel = matchIdx >= 0 ? rels[matchIdx] : rels[0];
                   const indicatorRangeIdx = matchIdx >= 0 ? matchIdx : 0;
                   const indicatorTopic = activeAnchorTopic ?? topicOf(rels[0], stack.stackId, 0);
-                  const indicatorColors = getCategoryColors(indicatorRel.category);
+                  // Color-match the bracket: the group rail + header use the ANCHOR's
+                  // category color (anchorColors). A member card that expresses the SAME
+                  // topic through a different category (e.g. Evidence-Personal/purple vs
+                  // the anchor's green) would otherwise show a mismatched indicator. Use
+                  // the anchor color whenever this card sits in a bracket block; fall back
+                  // to its own category only for a lone anchor (no block — colors equal).
+                  const indicatorColors = anchorForThisCard ? anchorColors : getCategoryColors(indicatorRel.category);
                   // Always show the category color so the chip is recognizable
                   // as the topic-anchor for that highlight color.
                   const indicatorColor = indicatorColors.text;
@@ -2368,7 +2385,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                         fontSize: '11px',
                         fontWeight: 600,
                         lineHeight: 1.3,
-                        maxWidth: '160px',
+                        maxWidth: '124px',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -2385,9 +2402,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                         (e.currentTarget as HTMLButtonElement).style.opacity = String(baseOpacity);
                       }}
                     >
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '130px' }}>
-                        {indicatorTopic} ({clusterCount})
+                      {/* Truncate ONLY the topic; keep the (count) and chevron always
+                          visible so a narrower pill never hides the group size. */}
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                        {indicatorTopic}
                       </span>
+                      <span style={{ flexShrink: 0 }}>({clusterCount})</span>
                       <span aria-hidden style={{ flexShrink: 0, fontSize: '10px', marginLeft: '1px' }}>&#x203A;</span>
                     </button>
                   );

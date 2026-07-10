@@ -468,6 +468,14 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   // Sticky focus bar anchors: the focus post wrapper + the center column.
   const focusWrapRef = useRef<HTMLDivElement | null>(null);
   const columnRef = useRef<HTMLDivElement | null>(null);
+  // Bottom viewport-Y of the pinned focus-post bar while shown (null otherwise).
+  // Drives the reply composer to stick right beneath the collapsed post so the
+  // comment bar stays visible for the whole scroll, mirroring the post itself.
+  const [composerStickyTop, setComposerStickyTop] = useState<number | null>(null);
+  // Whether the reply box holds a draft (reported by ReplySection). The composer
+  // only earns its sticky pinning while the user is actually writing — an empty
+  // composer scrolls away with the page like any other element.
+  const [composerDraftActive, setComposerDraftActive] = useState(false);
   const handleReplySpanClick = useCallback(
     (replyId: string, rangeIndex: number) => {
       if (!flags.replyReranking) return;
@@ -775,6 +783,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
           focusRelations={focusRelationsAll}
           anchorRef={focusWrapRef}
           containerRef={columnRef}
+          onStickyChange={setComposerStickyTop}
         />
       )}
       <div>
@@ -840,7 +849,38 @@ export default function MockPostView({ params }: { params: { id: string } }) {
 
         <Divider my="md" />
 
-        {showThread && <ReplySection postId={id} currentUser={currentUser} fetchPostAndReplies={() => {}} />}
+        {showThread && (
+          // While the focus post is collapsed into the pinned bar AND the user is
+          // mid-draft, keep the reply composer visible by sticking it directly
+          // beneath that bar (top = reported bar-bottom). Sticky keeps the
+          // composer in flow, so the reply list below never jumps; replies just
+          // scroll under the pinned composer. An empty composer never pins —
+          // it renders inline and scrolls away like the rest of the thread.
+          <div
+            style={
+              composerStickyTop != null && composerDraftActive
+                ? {
+                    position: "sticky",
+                    top: composerStickyTop,
+                    zIndex: 140,
+                    background: "#ffffff",
+                    border: "1px solid #dbe2ea",
+                    borderTop: "none",
+                    borderRadius: "0 0 10px 10px",
+                    boxShadow: "0 6px 16px rgba(0,0,0,0.08)",
+                    padding: "10px 14px",
+                  }
+                : undefined
+            }
+          >
+            <ReplySection
+              postId={id}
+              currentUser={currentUser}
+              fetchPostAndReplies={() => {}}
+              onDraftActiveChange={setComposerDraftActive}
+            />
+          </div>
+        )}
 
         {/* Visible filter state for the replies list — cross-pane filters only
             act when they are worn by the list they hide posts from. */}

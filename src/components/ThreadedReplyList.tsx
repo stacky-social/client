@@ -205,16 +205,24 @@ function renderTree(
   const isLastMember = inCluster && post.id === clusterRail!.lastId;
   const bracketStyle: React.CSSProperties = inCluster
     ? {
+        // Wrap-around box (mirrors the aside): both side rails run down every
+        // member; the first member caps the top with both rounded corners, the
+        // last caps the bottom. The feed widens by the rail footprint (see Shell)
+        // so the reply cards keep their size instead of shrinking.
         borderLeft: `${RAIL_W}px solid ${clusterRail!.color.border}`,
+        borderRight: `${RAIL_W}px solid ${clusterRail!.color.border}`,
         borderTop: isFirstMember ? `${RAIL_W}px solid ${clusterRail!.color.border}` : undefined,
         borderBottom: isLastMember ? `${RAIL_W}px solid ${clusterRail!.color.border}` : undefined,
         borderTopLeftRadius: isFirstMember ? RAIL_R : undefined,
+        borderTopRightRadius: isFirstMember ? RAIL_R : undefined,
         borderBottomLeftRadius: isLastMember ? RAIL_R : undefined,
+        borderBottomRightRadius: isLastMember ? RAIL_R : undefined,
         paddingLeft: 8,
+        paddingRight: 8,
         // flow-root establishes a BFC so the post card's OWN bottom margin is
         // CONTAINED inside this bordered wrapper instead of protruding below it.
-        // Without it that margin sits outside the border-box and the left rail
-        // stops ~12px short of the next member, breaking the rail between cards.
+        // Without it that margin sits outside the border-box and the rails
+        // stop ~12px short of the next member, breaking them between cards.
         display: "flow-root",
         // Breathing room between the closed bracket and the next (ungrouped) reply.
         marginBottom: isLastMember ? "0.9rem" : undefined,
