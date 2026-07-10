@@ -31,7 +31,6 @@ import { sortReplies } from "../../../../../utils/replySort.mjs";
 import { allowedTabsFor, coerceTab, defaultTabFor } from "../../../../../utils/replyTabs.mjs";
 import { filterReplies, clusterTopLevel } from "../../../../../utils/threadFilter.mjs";
 import { getMockReplyRank } from "../../../../../utils/mockPostResolver";
-import ReplySummaryCard from "../../../../../components/ReplySummaryCard";
 import ReplyFilterBar from "../../../../../components/ReplyFilterBar";
 import FocusPostStickyBar from "../../../../../components/Posts/FocusPostStickyBar";
 import { TOP_NAV_HEIGHT } from "../../../../../components/NavBar/TopNav";
@@ -154,11 +153,6 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     });
     return m;
   }, [replyRelationsById]);
-
-  const relationsOfReply = useCallback(
-    (rid: string) => replyRelationsById.get(rid) ?? [],
-    [replyRelationsById]
-  );
 
   // Branch-union relations: a top-level reply's own relations plus every
   // descendant's. Filters match against the whole branch, so a matching nested
@@ -878,6 +872,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
               currentUser={currentUser}
               fetchPostAndReplies={() => {}}
               onDraftActiveChange={setComposerDraftActive}
+              stickyMode={composerStickyTop != null && composerDraftActive}
             />
           </div>
         )}
@@ -918,15 +913,6 @@ export default function MockPostView({ params }: { params: { id: string } }) {
           />
         )}
 
-        {/* Summary follows the same small-thread suppression as the sort tabs:
-            with a handful of replies, a digest is noise (Jason's <=5 rule).
-            It digests the CURRENTLY DISPLAYED (post-filter) replies. */}
-        {showThread && flags.summaryCard && totalTopLevelReplies > 5 && displayedTopLevel.length > 0 && (
-          <div style={{ marginTop: crossFilterActive ? 0 : "1rem" }}>
-            <ReplySummaryCard replies={displayedTopLevel as any} relationsOf={relationsOfReply} />
-          </div>
-        )}
-
         {showThread && mergedReplies.length > 0 && flags.replySortTabs && (
           <Paper
             style={{
@@ -937,7 +923,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
               borderRadius: "0 0 8px 8px",
               fontFamily: "Roboto, sans-serif",
               fontSize: 14,
-              marginTop: flags.summaryCard ? 0 : "1rem",
+              marginTop: "1rem",
               width: "100%",
             }}
           >

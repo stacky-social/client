@@ -1996,6 +1996,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 position: 'relative',
                 display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap',
                 marginLeft: `${blockIndentPx}px`,
+                marginRight: -GROUP_LINE_WIDTH * 2,
                 // Top of the group bracket, now a full wrap-around box: this row
                 // carries the top rule (border-top) plus BOTH side rails' starts
                 // (border-left/right) and both rounded top corners — the tag rides
@@ -2079,32 +2080,16 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 // it doesn't need subtracting.
                 width: blockIndentPx > 0 ? `calc(100% - ${blockIndentPx}px)` : '100%',
                 boxSizing: 'border-box',
-                // Grouped cards carry the block rail as a straight border-left. A real
-                // border paints on the element's OWN edge, so — unlike an absolute
-                // segment — it can't be hidden by the scroll container's background
-                // (that was the broken-rail bug). radius 0 keeps it from curving at each
-                // card boundary; the header and bottom rule supply the rounded end
-                // corners. Consecutive cards sit flush (paddingBottom + negative
-                // marginBottom below), so their border-lefts join into one rail.
-                borderRadius: anchorForThisCard ? (isLastInBlock ? `0 0 ${GROUP_CORNER_R}px ${GROUP_CORNER_R}px` : 0) : '10px',
-                borderLeft: anchorForThisCard ? `${GROUP_LINE_WIDTH}px solid ${anchorColors.border}` : undefined,
-                // Both side rails run down every grouped card (wrap-around box).
-                borderRight: anchorForThisCard ? `${GROUP_LINE_WIDTH}px solid ${anchorColors.border}` : undefined,
-                // The LAST card closes the bracket with its own bottom rule + BOTH
-                // rounded bottom corners (replacing the old separate bottomRuleEl).
-                borderBottom: anchorForThisCard && isLastInBlock ? `${GROUP_LINE_WIDTH}px solid ${anchorColors.border}` : undefined,
+                // Grouped-card rails are drawn by an absolute frame below, not by
+                // layout borders. The card wrapper keeps the same width, and the
+                // right rail can extend outward without moving the divider.
+                borderRadius: anchorForThisCard ? 0 : '10px',
                 ...cardDimStyle,
                 // Every card in the active topic block sits alongside a continuous
                 // group connector line (rendered as an absolute child below). The
                 // padding leaves room for it; the line itself bridges the flex gap
                 // above so the whole block — including the anchor — reads as one
                 // continuous thread.
-                // No side gutters: the rails hug the card's own edges so grouping
-                // never shifts the card content sideways — the panel just widens by
-                // the rail width (see GROUP_RAIL_FOOTPRINT in Shell). The card's own
-                // inner padding already keeps text off the rails.
-                paddingLeft: anchorForThisCard ? '0px' : undefined,
-                paddingRight: anchorForThisCard ? '0px' : undefined,
                 // Grouped cards (except the last, which the bottom rule closes) extend
                 // their box DOWN over the flex gap via paddingBottom + a cancelling
                 // negative marginBottom, so the rail (top:0→bottom:0 above) spans that
@@ -2143,16 +2128,27 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               }}
               onPointerDown={(e) => handleCardTap(e, stack.topPost.id, stack.stackId)}
             >
-              {/* The block rail is a real border-left on each grouped card (see the
-                  cardEl style above) rather than an absolutely-positioned segment: a
-                  border always paints on its element's OWN edge, so it can't be hidden
-                  by the scroll container's background the way an absolute overflow
-                  segment was. Consecutive cards sit flush (the paddingBottom + negative
-                  marginBottom trick above), so their border-lefts join into one
-                  continuous rail; the header caps the top corner and the last card's
-                  own border-bottom + rounded bottom-left corner caps the bottom. All
-                  grouped cards share one left edge (blockIndentPx) so the rail stays a
-                  single straight line instead of jogging at each member. */}
+              {anchorForThisCard && (
+                <div
+                  aria-hidden
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    right: -GROUP_LINE_WIDTH * 2,
+                    pointerEvents: 'none',
+                    borderLeft: `${GROUP_LINE_WIDTH}px solid ${anchorColors.border}`,
+                    borderRight: `${GROUP_LINE_WIDTH}px solid ${anchorColors.border}`,
+                    borderBottom: isLastInBlock ? `${GROUP_LINE_WIDTH}px solid ${anchorColors.border}` : undefined,
+                    borderBottomLeftRadius: isLastInBlock ? GROUP_CORNER_R : undefined,
+                    borderBottomRightRadius: isLastInBlock ? GROUP_CORNER_R : undefined,
+                    zIndex: 7,
+                  }}
+                />
+              )}
+              {/* The block rail is an absolute visual frame, not a layout border:
+                  grouping must not change card width or move the shell divider. */}
               <Paper
                 ref={(el) => { paperRefs.current[index] = el; if (isHighlighted) highlightCardRef.current = el; }}
                 data-post-id={stack.topPost.id}

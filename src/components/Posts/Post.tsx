@@ -273,6 +273,20 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // actually visible. Transient direct hover on this post stays CSS-only.
   const crossActive = hoveredRelations !== null && hoveredRelations.length > 0;
   const anyMarkVisuallyActive = (responseFilter !== null && filterIdx >= 0) || crossActive;
+  const revealKey = active && !isTextExpanded && anyMarkVisuallyActive
+    ? crossActive
+      ? [
+          'cross',
+          hoveredPostId ?? '',
+          hoveredHighlightRangeIndex ?? 'all',
+          hoveredCategory ?? '',
+          hoveredRelations.length,
+        ].join(':')
+      : visibleMarkIdx !== null
+      ? `mark:${visibleMarkIdx}`
+      : null
+    : null;
+  const [scrollWindow, setScrollWindow] = useState<{ key: string; height: number } | null>(null);
 
   // PERF: the marks are rendered ONCE from this post's own spans (focusRelations)
   // and never re-parsed on hover. Hover/cross-highlight states are applied as CSS
@@ -298,42 +312,23 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   const containerIdRef = useRef<string>(`ahc-${useId().replace(/[^a-zA-Z0-9]/g, '')}`);
 
   // ── Fixed-window scroll-to-span ───────────────────────────────────────────
-  // The focus post NEVER changes height or line count on hover — any growth
-  // shoves the layout and reads as instability. While a cross-highlight/filter
-  // is active the clamped box becomes a scrolled window at the SAME height (see
-  // mergedStyle) and this effect scrolls it to the WHOLE span union, snapped to
-  // whole lines. Line-snapping is what makes it robust: the window can only ever
-  // rest on whole-line boundaries, so it never shows a clipped half-line and a
-  // half-line's span can never be mistaken for "already shown" (the semi-visible
-  // = no-scroll bug). Everything is computed from the DOM each time, so there is
-  // no expand/collapse state to race on rapid card-to-card hovers.
-  const scrollMode = active && !isTextExpanded && anyMarkVisuallyActive;
-
-  // The fixed-window height = the clamp's RENDERED height, measured in the rest
-  // state (the line-clamp includes any paragraph gaps inside the window; the old
-  // static calc(1.5em * N) maxHeight didn't, cropping the last line in half).
-  // While unmeasured (first paint straight into scroll mode, e.g. a ?fs= deep
-  // link), mergedStyle below keeps the clamp for one frame so THIS effect can
-  // measure it, then the re-render switches to the fixed window.
-  const [clampHeightPx, setClampHeightPx] = useState<number | null>(null);
-  useLayoutEffect(() => {
-    if (isTextExpanded) return;
-    const el = innerRef.current;
-    if (!el) return;
-    if (!scrollMode || clampHeightPx === null) {
-      const h = el.clientHeight;
-      if (h > 0 && h !== clampHeightPx) setClampHeightPx(h);
-    }
-  }, [scrollMode, isTextExpanded, html, clampHeightPx]);
+  // The focus post NEVER changes height or line count on hover. First measure the
+  // target while the post is still in its normal line-clamped layout; only if the
+  // target is actually clipped do we switch to a fixed-height internal scroll
+  // window. A visible span must not force `-webkit-box` -> `block`, because that
+  // display-mode swap exposes fractional next-lines in Chromium/WebKit.
+  const scrollMode = revealKey !== null && scrollWindow?.key === revealKey;
 
   useLayoutEffect(() => {
     const el = innerRef.current;
     if (!el) return;
-    if (!scrollMode) {
+    if (!revealKey) {
+      setScrollWindow((prev) => (prev === null ? prev : null));
       // Rest state: park the window back at the top of the clamp.
-      if (el.scrollTop > 0) el.scrollTo({ top: 0, behavior: 'smooth' });
+      if (el.scrollTop > 0) el.scrollTop = 0;
       return;
     }
+    if (!scrollMode && el.scrollTop > 0) el.scrollTop = 0;
     // Only the marks we're actually lighting up: the regions the hovered card
     // links to, else the filter/dwell mark. When the cursor is on a SPECIFIC
     // contribution within the card (Level 2 — a single range, or a category
@@ -391,6 +386,24 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     let run = runs[0];
     for (const r of runs) if (r[1] - r[0] > run[1] - run[0]) run = r;
 
+    const visibleTop = el.scrollTop;
+    const visibleBottom = visibleTop + el.clientHeight;
+    const fullyVisible = run[0] >= visibleTop - 0.5 && run[1] <= visibleBottom + 0.5;
+
+    if (!scrollMode) {
+      if (fullyVisible) {
+        setScrollWindow((prev) => (prev === null ? prev : null));
+        return;
+      }
+      const lockedHeight = Math.max(1, el.getBoundingClientRect().height);
+      setScrollWindow((prev) =>
+        prev?.key === revealKey && Math.abs(prev.height - lockedHeight) < 0.5
+          ? prev
+          : { key: revealKey, height: lockedHeight }
+      );
+      return;
+    }
+
     // Line indices → the window can only ever rest on whole-line boundaries, so
     // it never shows a clipped half-line (top or bottom).
     const firstLine = Math.floor((run[0] + 1) / lineH); // line the passage starts on
@@ -407,10 +420,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
 
     if (Math.abs(target - el.scrollTop) < 1) return; // already at the canonical spot
     el.scrollTo({ top: target, behavior: 'smooth' });
-    // clampHeightPx: re-run once the measured window height lands (a deep link
-    // can enter scroll mode before the first measurement — the scroll must
-    // happen against the fixed-window layout, not the clamped one).
-  }, [scrollMode, crossActive, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, visibleMarkIdx, html, clampHeightPx]);
+  }, [revealKey, scrollMode, crossActive, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, visibleMarkIdx, html]);
 
   // Spec hover model (CSS-driven via classes — never re-parses the article):
   //  · enter the post       → faint ALL its spans (.fp-hovering on the container)
@@ -718,20 +728,24 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
 
   // Expansion is owned by the parent's isTextExpanded (Read-more) render, which
   // supplies the clamp/expanded style via the `style` prop. In scroll mode we
-  // keep the SAME box height (the clamp height measured above, applied as a
-  // fixed px height) and only drop the line-clamp so the full text lays out
-  // inside the fixed window; overflow stays HIDDEN (the effect above scrolls it
-  // programmatically), so no scrollbar pops in and nothing shifts but the text.
-  // The rendered height cannot change. (.postClampedText only styles paragraph
-  // margins, so the class stays on in both modes.)
-  const mergedStyle: React.CSSProperties = scrollMode && clampHeightPx !== null
+  // keep the SAME box height — scrollWindow.height, measured from the clamped
+  // layout by the reveal effect above (whole lines including paragraph gaps;
+  // the clamp itself no longer carries a static maxHeight, which undercounted
+  // those gaps and cropped the last line in half) — and only drop the
+  // line-clamp so the full text lays out inside the fixed window; overflow
+  // stays HIDDEN (the effect above scrolls it programmatically), so no
+  // scrollbar pops in and nothing shifts but the text. The rendered height
+  // cannot change. (.postClampedText only styles paragraph margins, so the
+  // class stays on in both modes.)
+  const mergedStyle: React.CSSProperties = scrollMode && scrollWindow
     ? {
         ...style,
         display: 'block',
         WebkitLineClamp: 'unset',
         textOverflow: 'unset',
         overflow: 'hidden',
-        height: clampHeightPx,
+        height: `${scrollWindow.height}px`,
+        maxHeight: `${scrollWindow.height}px`,
       }
     : style;
 

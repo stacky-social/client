@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Avatar, Group, Button, Text, Stack, Paper, Loader, TextInput, ThemeIcon } from "@mantine/core";
+import { Avatar, Group, Button, Text, Stack, Paper, Loader, Textarea, ThemeIcon } from "@mantine/core";
 import { notifications } from '@mantine/notifications';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
@@ -16,11 +16,14 @@ interface ReplySectionProps {
      *  thread gates the composer's sticky pinning on this, so an idle composer
      *  scrolls away with the page instead of following the reader. */
     onDraftActiveChange?: (active: boolean) => void;
+    /** Compact pinned composer mode: keep the draft controls visible while the
+     *  full writing feedback remains only at the inline thread composer. */
+    stickyMode?: boolean;
 }
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
-const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchPostAndReplies, onDraftActiveChange }) => {
+const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchPostAndReplies, onDraftActiveChange, stickyMode = false }) => {
     const [replyContent, setReplyContent] = useState<string>('');
     const [buttonLabel, setButtonLabel] = useState('Submit');
     const [advice, setAdvice] = useState<string | null>(null);
@@ -86,8 +89,8 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
         setCountdown(0);
     };
 
-    const handleReplyContentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newContent = e.target.value;
+    const handleReplyContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const newContent = e.currentTarget.value;
         setReplyContent(newContent);
 
         // Stopped writing: an (effectively) cleared draft takes its feedback with
@@ -195,17 +198,26 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontFamily: 'Roboto, sans-serif' }}>
-            <Group>
+            <Group align="flex-start" wrap="nowrap">
                 <Avatar src={currentUser?.avatar || undefined} alt="Current User" radius="xl" />
-                <TextInput
+                <Textarea
                     placeholder="Post your reply"
                     variant="unstyled"
                     radius="lg"
                     size="xl"
+                    autosize
+                    minRows={stickyMode ? 1 : 2}
+                    maxRows={stickyMode ? 3 : undefined}
+                    resize="none"
                     value={replyContent}
                     onChange={handleReplyContentChange}
                     onBlur={handleBlur}
                     style={{ flex: 1, fontFamily: 'Roboto, sans-serif', fontSize: '16px' }}
+                    styles={{
+                        input: {
+                            lineHeight: 1.45,
+                        },
+                    }}
                 />
                 <Button
                     onClick={handleReplySubmit}
@@ -220,7 +232,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                 aside panel (ComposerFeedback): small label, tinted praise, plain
                 advice, and compact mood rows for the simulated replies under an
                 uppercase caption so they still read as simulated, not real. */}
-            {(advice || praise || simulatedReplies.length > 0 || loading) && (
+            {!stickyMode && (advice || praise || simulatedReplies.length > 0 || loading) && (
                 <div role="status" aria-live="polite">
                     <Text size="sm" fw={700} c="#374151" mb={6}>Writing feedback</Text>
                     {loading ? (
