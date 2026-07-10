@@ -872,6 +872,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
               currentUser={currentUser}
               fetchPostAndReplies={() => {}}
               onDraftActiveChange={setComposerDraftActive}
+              stickyMode={composerStickyTop != null && composerDraftActive}
             />
           </div>
         )}
