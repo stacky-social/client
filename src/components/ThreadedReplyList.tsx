@@ -196,33 +196,15 @@ function renderTree(
   const isExpanded = previewsEnabled && !forced && visibleChildren.length > NESTED_PREVIEW;
 
   // Cluster bracket (depth 0 only): when this top-level branch is a reply-cluster
-  // member, its WHOLE .replyGroup — post + "Show N more" expander + any expanded
-  // children — sits inside the continuous rail, so the bracket never breaks at the
-  // expander the way a per-post wrapper did. The first member caps the top (rule +
-  // rounded corner + topic tag), the last caps the bottom. Mirrors the aside.
+  // member, its WHOLE .replyGroup gets a continuous visual rail. The frame is
+  // absolutely positioned, not a layout border/padding, so grouping never changes
+  // reply card width and never pushes the divider. The extra footprint goes left.
   const inCluster = depth === 0 && !!clusterRail?.memberIds.has(post.id);
   const isFirstMember = inCluster && post.id === clusterRail!.firstId;
   const isLastMember = inCluster && post.id === clusterRail!.lastId;
   const bracketStyle: React.CSSProperties = inCluster
     ? {
-        // Wrap-around box (mirrors the aside): both side rails run down every
-        // member; the first member caps the top with both rounded corners, the
-        // last caps the bottom. The feed widens by the rail footprint (see Shell)
-        // so the reply cards keep their size instead of shrinking.
-        borderLeft: `${RAIL_W}px solid ${clusterRail!.color.border}`,
-        borderRight: `${RAIL_W}px solid ${clusterRail!.color.border}`,
-        borderTop: isFirstMember ? `${RAIL_W}px solid ${clusterRail!.color.border}` : undefined,
-        borderBottom: isLastMember ? `${RAIL_W}px solid ${clusterRail!.color.border}` : undefined,
-        borderTopLeftRadius: isFirstMember ? RAIL_R : undefined,
-        borderTopRightRadius: isFirstMember ? RAIL_R : undefined,
-        borderBottomLeftRadius: isLastMember ? RAIL_R : undefined,
-        borderBottomRightRadius: isLastMember ? RAIL_R : undefined,
-        paddingLeft: 8,
-        paddingRight: 8,
-        // flow-root establishes a BFC so the post card's OWN bottom margin is
-        // CONTAINED inside this bordered wrapper instead of protruding below it.
-        // Without it that margin sits outside the border-box and the rails
-        // stop ~12px short of the next member, breaking them between cards.
+        position: "relative",
         display: "flow-root",
         // Breathing room between the closed bracket and the next (ungrouped) reply.
         marginBottom: isLastMember ? "0.9rem" : undefined,
@@ -237,6 +219,29 @@ function renderTree(
       data-reply-cluster-member={inCluster ? "" : undefined}
       style={{ marginLeft: effectiveDepth * INDENT_PX, ...bracketStyle }}
     >
+      {inCluster && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: -RAIL_W * 2,
+            right: 0,
+            pointerEvents: "none",
+            borderLeft: `${RAIL_W}px solid ${clusterRail!.color.border}`,
+            borderRight: `${RAIL_W}px solid ${clusterRail!.color.border}`,
+            borderTop: isFirstMember ? `${RAIL_W}px solid ${clusterRail!.color.border}` : undefined,
+            borderBottom: isLastMember ? `${RAIL_W}px solid ${clusterRail!.color.border}` : undefined,
+            borderTopLeftRadius: isFirstMember ? RAIL_R : undefined,
+            borderTopRightRadius: isFirstMember ? RAIL_R : undefined,
+            borderBottomLeftRadius: isLastMember ? RAIL_R : undefined,
+            borderBottomRightRadius: isLastMember ? RAIL_R : undefined,
+            zIndex: 6,
+          }}
+        />
+      )}
+
       {/* Thread line — only shown when this node is itself a child (depth > 0) */}
       {depth > 0 && <div className={styles.threadLine} aria-hidden="true" />}
 
