@@ -54,7 +54,7 @@ export default function HomeAside() {
       <div style={{ width: "100%", paddingTop: "0.5rem" }} role="status" aria-live="polite">
         <div style={{ padding: "1rem 0" }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
-            Related responses
+            Related Posts
           </div>
           <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.45 }}>
             No related responses for this post.

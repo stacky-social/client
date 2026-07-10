@@ -2,7 +2,10 @@
 // Plain JS so the node:test suite imports it directly. Semantics mirror the
 // related panel: categories AND together; the passage filter keeps replies
 // whose relations overlap the focus span; the topic filter matches relation
-// topics exactly (reply relations always carry explicit topics in the mock).
+// topics exactly. Reply relations are REAL crossweave descendant annotations
+// emitted by scripts/convert-demo-data.mjs (from prepared_data_with_descendants);
+// each carries an explicit topic. Replies whose annotation topic isn't on the
+// related side (or plain unannotated replies) simply never match a topic filter.
 
 /**
  * @param replies    top-level reply objects

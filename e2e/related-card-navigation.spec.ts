@@ -53,14 +53,16 @@ test.describe('Related-card navigation & interaction guards', () => {
     const tag = page.locator('[data-related-card] .related-tag-text').first();
     await expect(tag).toBeVisible();
 
-    // No grouping active yet.
-    await expect(page.getByText('Grouped by:')).toHaveCount(0);
+    // No grouping active yet. (T4 removed the "Grouped by:" pill; grouping is now
+    // signalled by the inline anchor indicator, data-testid "active-group-anchor".)
+    const groupIndicator = page.getByTestId('active-group-anchor');
+    await expect(groupIndicator).toHaveCount(0);
 
     const urlBefore = page.url();
     await tag.click();
 
     // The tag's own action fires (panel groups) ...
-    await expect(page.getByText('Grouped by:').first()).toBeVisible();
+    await expect(groupIndicator.first()).toBeVisible();
     // ... and the card-level navigation did NOT (stopPropagation held).
     expect(page.url()).toBe(urlBefore);
   });

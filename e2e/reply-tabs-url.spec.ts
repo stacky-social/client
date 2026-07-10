@@ -9,13 +9,19 @@ import { FLAGS_STORAGE_KEY } from '../src/utils/experimentFlagsCore.mjs';
 // links must keep hydrating even though the persisted condition only loads a
 // render after mount.
 
-// First mock focus post: 8 top-level replies, so the sort tab strip renders
-// (it is suppressed for threads of <=5).
+// First mock focus post: 15 top-level replies (real crossweave descendants), so
+// the sort tab strip renders (it is suppressed for threads of <=5).
 const focusId = (mockData as any)[0].focusPost.id as string;
 
-// Reply ids in the mock are "bs-*"; the focus post and ancestors are numeric.
-// A visible bs-* node means the reply area actually rendered.
-const replyNodes = '[data-post-id^="bs-"]';
+// Real reply ids are numeric (like the focus post + ancestors), so select the
+// reply area by the fixture's actual top-level reply ids rather than an id
+// prefix. A visible node from this set means the reply area actually rendered.
+const topLevelIdsOf = (entryIdx: number, parentId: string): string[] =>
+  (((mockData as any)[entryIdx].replies ?? []) as { id: string; inReplyToId?: string }[])
+    .filter((r) => r.inReplyToId === parentId)
+    .map((r) => r.id);
+const nodesSelector = (ids: string[]): string => ids.map((rid) => `[data-post-id="${rid}"]`).join(', ');
+const replyNodes = nodesSelector(topLevelIdsOf(0, focusId));
 
 function seedFlags(page: import('@playwright/test').Page, flags: Record<string, boolean>) {
   return page.addInitScript(
@@ -42,8 +48,9 @@ test.describe('Reply tab URL hydration across flag conditions', () => {
     // persisted condition loads one render after mount.
     await seedFlags(page, { replySortTabs: false });
     const otherId = (mockData as any)[1].focusPost.id as string;
+    const otherReplyNodes = nodesSelector(topLevelIdsOf(1, otherId));
     await page.goto(`/ChineseEVs/posts/${otherId}`);
-    await expect(page.locator('[data-post-id^="bs2-"]').first()).toBeVisible();
+    await expect(page.locator(otherReplyNodes).first()).toBeVisible();
 
     // A stale cross-condition URL sits in history (e.g. from a flag-ON
     // session); back/forward re-enters it as a same-document navigation.

@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import RelatedStacks from "../../../../../../components/RelatedStacks";
 import { useRelatedStacks } from "../../../../related-stacks-context";
+import { navigateFromPanelScope } from "../../../../../../utils/highlightStore";
 
 export default function MockPostAside() {
   const { relatedStacks, showUpdate, highlightPostId } = useRelatedStacks();
@@ -21,7 +22,9 @@ export default function MockPostAside() {
     const url = `/ChineseEVs/posts/${postId}${search ? "?" + search : ""}`;
     sessionStorage.setItem(`previousPath:/ChineseEVs/posts/${postId}`, window.location.pathname + window.location.search);
     sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
-    router.push(url);
+    // WS6: collapse any active undo sentinel on the way out (replace OVER it when
+    // it is the current entry, else push) so Back returns here cleanly.
+    navigateFromPanelScope(url, router);
   };
 
   return (
@@ -31,6 +34,7 @@ export default function MockPostAside() {
         cardWidth={"100%"}
         onStackClick={() => {}}
         showupdate={showUpdate}
+        mode="detail-cross-pane"
         sourcePostId={focusPostId}
         highlightPostId={highlightPostId}
         onPostNavigate={onPostNavigate}

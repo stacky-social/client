@@ -10,10 +10,10 @@ import { dirname, join } from 'node:path';
 // the COMMITTED artifact so a bad regen can't land silently.
 //
 // History: this file previously validated a hand-engineered reply-highlight demo
-// (scripts/generate-reply-relations.mjs). That synthetic layer was retired when the
-// real crossweave data was swapped in — the crossweave pipeline judges focused→side
-// pairs only, so real reply threads carry no NLP relations. These tests now validate
-// the real data instead.
+// (a synthetic post-processor). That layer was retired once the crossweave corpus
+// gained ANNOTATED descendants (prepared_data_with_descendants): real reply threads
+// now carry real NLP relations + nesting, emitted directly by convert-demo-data.mjs.
+// These tests validate that real data.
 
 const here = dirname(fileURLToPath(import.meta.url));
 const data = JSON.parse(readFileSync(join(here, '../../src/app/FakeData/listy-injection.json'), 'utf8'));

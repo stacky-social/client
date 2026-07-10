@@ -7,9 +7,10 @@ import type { Relation } from "../../types/PostType";
 import { getCategoryColors, blendHex } from "../../utils/categoryStyles";
 import {
   useHighlightStore,
-  setResponseFilter,
+  setPassageFilter,
   clearResponseFilter,
   setFilterCategories,
+  beginUndoablePanelInteractionIfDetail,
 } from "../../utils/highlightStore";
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { TOP_NAV_HEIGHT } from "../NavBar/TopNav";
@@ -59,6 +60,10 @@ interface FocusPostStickyBarProps {
   anchorRef: React.RefObject<HTMLElement>;
   /** The centered column the bar should span — measured for fixed positioning. */
   containerRef: React.RefObject<HTMLElement>;
+  /** Reports the pinned bar's bottom viewport-Y while shown (null when hidden),
+   *  so a sibling (the reply composer) can pin itself directly beneath it and
+   *  stay visible for the whole scroll — same "always available" idea as the bar. */
+  onStickyChange?: (bottom: number | null) => void;
 }
 
 /**
@@ -78,9 +83,11 @@ export default function FocusPostStickyBar({
   focusRelations,
   anchorRef,
   containerRef,
+  onStickyChange,
 }: FocusPostStickyBarProps) {
   const [visible, setVisible] = useState(false);
   const [bounds, setBounds] = useState<{ left: number; width: number } | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const { hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, responseFilter, filterCategories } =
     useHighlightStore();
   const { relatedStacks: ctxRelatedStacks } = useRelatedStacks();
@@ -151,6 +158,32 @@ export default function FocusPostStickyBar({
       ro?.disconnect();
     };
   }, [containerRef, visible]);
+
+  // Publish the bar's bottom edge (nav height + its measured height) while it is
+  // pinned, so the reply composer can stick directly beneath it. Null whenever the
+  // bar is hidden, so the composer falls back to normal flow.
+  useEffect(() => {
+    if (!onStickyChange) return;
+    if (!visible || !bounds) {
+      onStickyChange(null);
+      return;
+    }
+    const el = rootRef.current;
+    const report = () => {
+      const h = el ? el.getBoundingClientRect().height : 0;
+      onStickyChange(TOP_NAV_HEIGHT + h);
+    };
+    report();
+    let ro: ResizeObserver | null = null;
+    if (el && typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(report);
+      ro.observe(el);
+    }
+    return () => ro?.disconnect();
+  }, [visible, bounds, onStickyChange]);
+
+  // Drop the composer's anchor if the bar unmounts entirely (route change).
+  useEffect(() => () => onStickyChange?.(null), [onStickyChange]);
 
   const segments = useMemo(
     () => buildSegments(focusRelations, plainText.length),
@@ -265,6 +298,10 @@ export default function FocusPostStickyBar({
     e.stopPropagation(); // a highlight click filters; it must not trigger return-to-post
     const rel = focusRelations[seg.contributors[0]];
     const span = { start: rel.focusStart, end: rel.focusEnd, text: plainText.slice(rel.focusStart, rel.focusEnd) };
+    // WS6: the sticky bar is always the current focus post on the detail route, so
+    // its passage clicks (apply or toggle-off clear) are undoable — record the
+    // pre-interaction snapshot before mutating.
+    beginUndoablePanelInteractionIfDetail();
     if (responseFilter && responseFilter.start === span.start && responseFilter.end === span.end) {
       clearResponseFilter();
       return;
@@ -281,7 +318,9 @@ export default function FocusPostStickyBar({
       });
       if (!compatible) setFilterCategories(new Set());
     }
-    setResponseFilter(span);
+    // Atomic setter → replace-not-stack: a passage click clears any topic
+    // grouping (+ category) in one transition.
+    setPassageFilter(span);
   };
 
   // Return-to-post must land BELOW the sticky top nav — scrollIntoView aligns
@@ -296,6 +335,7 @@ export default function FocusPostStickyBar({
 
   return (
     <div
+      ref={rootRef}
       role="button"
       tabIndex={0}
       aria-label="Return to focused post"

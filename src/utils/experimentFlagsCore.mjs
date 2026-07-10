@@ -2,8 +2,10 @@
 // node:test suite in tests/unit can import it without a build step; the
 // React store in experimentFlags.ts re-exports everything from here.
 
-/** Every thread-display experiment condition, ON by default (demo posture).
- *  Toggling one OFF yields the ablation/control behavior for that feature. */
+/** Thread-display experiment conditions (demo posture). Most default ON;
+ *  toggling one OFF yields the ablation/control behavior for that feature. A
+ *  few default OFF where the demo posture is the ablation itself (summary
+ *  hidden; filters replace rather than stack). */
 export const DEFAULT_FLAGS = {
   /** D1 — hide posts that already appear in the thread from the related panel */
   suppressThreadPosts: true,
@@ -16,13 +18,18 @@ export const DEFAULT_FLAGS = {
   replyReranking: true,
   /** Top / Newest / Most liked reply tabs (off = legacy time/recommended/stacked/summary) */
   replySortTabs: true,
-  /** Collapsible summary card above the replies list */
-  summaryCard: true,
+  /** Collapsible summary card above the replies list. Default OFF — the demo
+   *  hides the summary (kept behind the flag, not deleted). */
+  summaryCard: false,
   /** Collapsed sticky focus bar with the contribution strip while scrolling */
   stickyFocusBar: true,
   /** X-style branch previews: one inline reply per branch, expand in place.
    *  Off = the control condition: branches render fully expanded, flat. */
   branchPreviews: true,
+  /** Stack filters instead of replacing them (AND-combined categories / additive
+   *  passage+topic filters via the decide* helpers). Default OFF — the demo
+   *  replaces on each new filter; stacking stays reachable behind this flag. */
+  filterStacking: false,
 };
 
 export const FLAGS_STORAGE_KEY = 'stacky:experimentFlags:v1';

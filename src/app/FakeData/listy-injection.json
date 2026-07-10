@@ -6013,20 +6013,424 @@
     ],
     "replies": [
       {
-        "id": "143198028",
+        "id": "143203257",
         "inReplyToId": "143195604",
-        "content": "<p>@Tony Hartnett It's mostly because half or our major political leadership denies climate change and doesn't accept science.</p>",
-        "plainText": "@Tony Hartnett It's mostly because half or our major political leadership denies climate change and doesn't accept science.",
+        "content": "<p>@Tony Hartnett.  What is crazy is that renewable energy now makes sense from a strictly practical standpoint. China isn’t embracing it because they’re “woke”.  They’re embracing it because they need energy from all sources (they are still burning lots of coal though they’re phasing it out) and renewable energy now economically makes sense to them. </p>\n\n<p>It also makes sense in the U.S. but Trump is trying to destroy the renewable energy industry here simply because he associates it with Biden. That’s it. </p>\n\n<p>So much for “We need energy from all sources” that used to be the conservative stance on this issue. A NYT article detailed how everyone is embracing solar in Las Vegas because it just makes sense. I expect the Trump administration to somehow try to stop this now.</p>",
+        "plainText": "@Tony Hartnett.  What is crazy is that renewable energy now makes sense from a strictly practical standpoint. China isn’t embracing it because they’re “woke”.  They’re embracing it because they need energy from all sources (they are still burning lots of coal though they’re phasing it out) and renewable energy now economically makes sense to them. \n\nIt also makes sense in the U.S. but Trump is trying to destroy the renewable energy industry here simply because he associates it with Biden. That’s it. \n\nSo much for “We need energy from all sources” that used to be the conservative stance on this issue. A NYT article detailed how everyone is embracing solar in Las Vegas because it just makes sense. I expect the Trump administration to somehow try to stop this now.",
         "account": {
-          "display_name": "Leptoquark",
-          "acct": "leptoquark@stacky-nyt.com",
+          "display_name": "Scott",
+          "acct": "scott@stacky-nyt.com",
           "avatar": "https://beta.stacky.social/avatars/original/missing.png"
         },
-        "created_at": "2025-06-30T16:56:16Z",
-        "favourites_count": 168,
-        "replies_count": 3,
+        "created_at": "2025-06-30T20:02:34Z",
+        "favourites_count": 40,
+        "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 110,
+            "contentEnd": 349,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 316,
+            "contentCommentEnd": 340,
+            "category": "framing",
+            "topic": "US Clean Energy Backsliding"
+          },
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 110,
+            "contentEnd": 349,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 316,
+            "contentCommentEnd": 340,
+            "category": "agree",
+            "topic": "US Clean Energy Backsliding"
+          }
+        ]
+      },
+      {
+        "id": "143207811",
+        "inReplyToId": "143195604",
+        "content": "<p>@Tony Hartnett\nGeneral Motors vied with Volkswagen for many years as the top seller of cars in China. But by late last year, G.M. had fallen to 16th place in sales among all domestic and foreign automakers in China.</p>\n\n<p>Part of that was because G.M. was slow to embrace electric cars. Part of that was also because China's regulators took many steps to favor domestic manufacturers.</p>\n\n<p>Even VW, which has invested more than G.M. in electric cars for the Chinese market, is now struggling to compete with BYD.</p>\n\n<p>For a more full look at this history, please look at the following articles:\n&lt;a href=\"https://www.nytimes.com/2024/12/19/business/gm-china.html\" target=\"_blank\"&gt;https://www.nytimes.com/2024/12/19/business/gm-china.html&lt;/a&gt;\n&lt;a href=\"https://www.nytimes.com/2024/02/12/business/byd-china-electric-vehicle.html\" target=\"_blank\"&gt;https://www.nytimes.com/2024/02/12/business/byd-china-electric-vehicle.html&lt;/a&gt;\n&lt;a href=\"https://www.nytimes.com/2023/12/12/business/volkswagen-china.html\" target=\"_blank\"&gt;https://www.nytimes.com/2023/12/12/business/volkswagen-china.html&lt;/a&gt;</p>",
+        "plainText": "@Tony Hartnett\nGeneral Motors vied with Volkswagen for many years as the top seller of cars in China. But by late last year, G.M. had fallen to 16th place in sales among all domestic and foreign automakers in China.\n\nPart of that was because G.M. was slow to embrace electric cars. Part of that was also because China's regulators took many steps to favor domestic manufacturers.\n\nEven VW, which has invested more than G.M. in electric cars for the Chinese market, is now struggling to compete with BYD.\n\nFor a more full look at this history, please look at the following articles:\n<a href=\"https://www.nytimes.com/2024/12/19/business/gm-china.html\" target=\"_blank\">https://www.nytimes.com/2024/12/19/business/gm-china.html</a>\n<a href=\"https://www.nytimes.com/2024/02/12/business/byd-china-electric-vehicle.html\" target=\"_blank\">https://www.nytimes.com/2024/02/12/business/byd-china-electric-vehicle.html</a>\n<a href=\"https://www.nytimes.com/2023/12/12/business/volkswagen-china.html\" target=\"_blank\">https://www.nytimes.com/2023/12/12/business/volkswagen-china.html</a>",
+        "account": {
+          "display_name": "Keith Bradsher",
+          "acct": "keith_bradsher@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T22:49:18Z",
+        "favourites_count": 18,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 183,
+            "focusEnd": 537,
+            "contentStart": 102,
+            "contentEnd": 503,
+            "focusCommentStart": 199,
+            "focusCommentEnd": 267,
+            "contentCommentStart": 242,
+            "contentCommentEnd": 280,
+            "category": "evidence_public",
+            "topic": "Automaker EV Strategy"
+          },
+          {
+            "focusStart": 183,
+            "focusEnd": 537,
+            "contentStart": 102,
+            "contentEnd": 503,
+            "focusCommentStart": 199,
+            "focusCommentEnd": 267,
+            "contentCommentStart": 242,
+            "contentCommentEnd": 280,
+            "category": "pointers",
+            "topic": "Automaker EV Strategy"
+          }
+        ]
+      },
+      {
+        "id": "143209504",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau</p>\n\n<p>Go back to Jimmy Carter.   Bill clinton VP Al Gore, Obama… even a few Republican leaders cared - what we have now is a kleptocracy .   It’s not the people as much as it’s unlimited campaign dollars from oil and gas - the extremist fascist leaders of some states are in bed with oil n gas, big development other anti ecology industry.         Surely you are aware of regimes that don’t represent the peoples interest- at least they’re not selling off our public lands anymore.   Yes one third of this country gets zero empathy from me.  But it’s not all of us.</p>",
+        "plainText": "@Marceau\n\nGo back to Jimmy Carter.   Bill clinton VP Al Gore, Obama… even a few Republican leaders cared - what we have now is a kleptocracy .   It’s not the people as much as it’s unlimited campaign dollars from oil and gas - the extremist fascist leaders of some states are in bed with oil n gas, big development other anti ecology industry.         Surely you are aware of regimes that don’t represent the peoples interest- at least they’re not selling off our public lands anymore.   Yes one third of this country gets zero empathy from me.  But it’s not all of us.",
+        "account": {
+          "display_name": "Blue In Texas.",
+          "acct": "blue_in_texas@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-07-01T00:31:03Z",
+        "favourites_count": 6,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 145,
+            "contentEnd": 343,
+            "focusCommentStart": 105,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 145,
+            "contentCommentEnd": 224,
+            "category": "framing",
+            "topic": "Fossil Fuel Capture"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 145,
+            "contentEnd": 343,
+            "focusCommentStart": 105,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 145,
+            "contentCommentEnd": 224,
+            "category": "disagree",
+            "topic": "Fossil Fuel Capture"
+          }
+        ]
+      },
+      {
+        "id": "143201198",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau\nThe US is in a large part a faith based society. Belief has more power than facts.</p>\n\n<p>Many people choose to believe that global warming is not true, or that Black people are undeserving, or that vaccines kill. Evidence doesn't come into it.</p>\n\n<p>It is the only significantly non-secular Western country, and it shows.</p>",
+        "plainText": "@Marceau\nThe US is in a large part a faith based society. Belief has more power than facts.\n\nMany people choose to believe that global warming is not true, or that Black people are undeserving, or that vaccines kill. Evidence doesn't come into it.\n\nIt is the only significantly non-secular Western country, and it shows.",
+        "account": {
+          "display_name": "David",
+          "acct": "david@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T19:08:59Z",
+        "favourites_count": 134,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 9,
+            "contentEnd": 154,
+            "focusCommentStart": 105,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 58,
+            "contentCommentEnd": 90,
+            "category": "framing",
+            "topic": "Political Sabotage"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 9,
+            "contentEnd": 154,
+            "focusCommentStart": 105,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 58,
+            "contentCommentEnd": 90,
+            "category": "connections",
+            "topic": "Political Sabotage"
+          }
+        ]
+      },
+      {
+        "id": "143211406",
+        "inReplyToId": "143195604",
+        "content": "<p>@Tony Hartnett\nMr Hartnett you are absolutely correct, but the American people have only themselves to blame for this situation. We have allowed fossil fuel industry to stifle any innovation, that might threaten their market share, aided and abetted by our elected officials. So while China looks to the future, we are looking backwards…it seems to me that we are asleep and when we wake it may be too late.</p>",
+        "plainText": "@Tony Hartnett\nMr Hartnett you are absolutely correct, but the American people have only themselves to blame for this situation. We have allowed fossil fuel industry to stifle any innovation, that might threaten their market share, aided and abetted by our elected officials. So while China looks to the future, we are looking backwards…it seems to me that we are asleep and when we wake it may be too late.",
+        "account": {
+          "display_name": "Anthony",
+          "acct": "anthony@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-07-01T01:53:53Z",
+        "favourites_count": 6,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 129,
+            "contentEnd": 407,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 145,
+            "contentCommentEnd": 190,
+            "category": "agree",
+            "topic": "Fossil Fuel Capture"
+          },
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 129,
+            "contentEnd": 407,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 145,
+            "contentCommentEnd": 190,
+            "category": "framing",
+            "topic": "Fossil Fuel Capture"
+          }
+        ]
+      },
+      {
+        "id": "143199072",
+        "inReplyToId": "143195604",
+        "content": "<p>@Tony Hartnett Oil money got the current administration in office and the US energy incentives and investments outlined in this article are the payback.</p>\n\n<p>Midterms are coming up and we will have a chance to make changes. Democracy isn't perfect, but it eventually lands on the correct path. Vote.</p>",
+        "plainText": "@Tony Hartnett Oil money got the current administration in office and the US energy incentives and investments outlined in this article are the payback.\n\nMidterms are coming up and we will have a chance to make changes. Democracy isn't perfect, but it eventually lands on the correct path. Vote.",
+        "account": {
+          "display_name": "Duncan",
+          "acct": "duncan@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T16:56:46Z",
+        "favourites_count": 75,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 889,
+            "focusEnd": 992,
+            "contentStart": 15,
+            "contentEnd": 295,
+            "focusCommentStart": 939,
+            "focusCommentEnd": 959,
+            "contentCommentStart": 15,
+            "contentCommentEnd": 24,
+            "category": "framing",
+            "topic": "Fossil Fuel Capture"
+          },
+          {
+            "focusStart": 889,
+            "focusEnd": 992,
+            "contentStart": 15,
+            "contentEnd": 295,
+            "focusCommentStart": 939,
+            "focusCommentEnd": 959,
+            "contentCommentStart": 15,
+            "contentCommentEnd": 24,
+            "category": "proposals",
+            "topic": "Fossil Fuel Capture"
+          }
+        ]
+      },
+      {
+        "id": "143210858",
+        "inReplyToId": "143195604",
+        "content": "<p>@Tony Hartnett A V-8 factory no less. It's like doubling down on swords when the other side has firearms. GM meet your petard.</p>",
+        "plainText": "@Tony Hartnett A V-8 factory no less. It's like doubling down on swords when the other side has firearms. GM meet your petard.",
+        "account": {
+          "display_name": "Miguel",
+          "acct": "miguel@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-07-01T01:27:51Z",
+        "favourites_count": 10,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 183,
+            "focusEnd": 370,
+            "contentStart": 15,
+            "contentEnd": 126,
+            "focusCommentStart": 230,
+            "focusCommentEnd": 369,
+            "contentCommentStart": 48,
+            "contentCommentEnd": 104,
+            "category": "framing",
+            "topic": "Legacy Technology Trap"
+          },
+          {
+            "focusStart": 183,
+            "focusEnd": 370,
+            "contentStart": 15,
+            "contentEnd": 126,
+            "focusCommentStart": 230,
+            "focusCommentEnd": 369,
+            "contentCommentStart": 48,
+            "contentCommentEnd": 104,
+            "category": "agree",
+            "topic": "Legacy Technology Trap"
+          }
+        ]
+      },
+      {
+        "id": "143206229",
+        "inReplyToId": "143195604",
+        "content": "<p>@Tony Hartnett Thanks for your perspective from the other side of the Atlantic. European automakers are concerned about Chinese EV makers, including BYD. It will be interesting to see how this shakes out in the coming years.</p>",
+        "plainText": "@Tony Hartnett Thanks for your perspective from the other side of the Atlantic. European automakers are concerned about Chinese EV makers, including BYD. It will be interesting to see how this shakes out in the coming years.",
+        "account": {
+          "display_name": "Somini Sengupta",
+          "acct": "somini_sengupta@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T21:36:44Z",
+        "favourites_count": 14,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 412,
+            "focusEnd": 537,
+            "contentStart": 80,
+            "contentEnd": 224,
+            "focusCommentStart": 416,
+            "focusCommentEnd": 454,
+            "contentCommentStart": 104,
+            "contentCommentEnd": 152,
+            "category": "framing",
+            "topic": "China EV Leadership"
+          },
+          {
+            "focusStart": 412,
+            "focusEnd": 537,
+            "contentStart": 80,
+            "contentEnd": 224,
+            "focusCommentStart": 416,
+            "focusCommentEnd": 454,
+            "contentCommentStart": 104,
+            "contentCommentEnd": 152,
+            "category": "predictions",
+            "topic": "China EV Leadership"
+          }
+        ]
+      },
+      {
+        "id": "143316921",
+        "inReplyToId": "143195604",
+        "content": "<p>@Tony Hartnett\nI read this and remembered hearing some video my father is law was watching while I was in the kitchen putting groceries away (he is a trump supporter)- the guy was talking about how bad it was to be Chinese. All the workers unskilled, the country behind in all innovations. How the USA was the end all be all. Clearly the people in Washington and their fishing at the mouth supporters think all Chinese are garlic growers. I wonder when they will wake up and realize China is bigger than the US in most ways at this point. The US is moving backwards</p>",
+        "plainText": "@Tony Hartnett\nI read this and remembered hearing some video my father is law was watching while I was in the kitchen putting groceries away (he is a trump supporter)- the guy was talking about how bad it was to be Chinese. All the workers unskilled, the country behind in all innovations. How the USA was the end all be all. Clearly the people in Washington and their fishing at the mouth supporters think all Chinese are garlic growers. I wonder when they will wake up and realize China is bigger than the US in most ways at this point. The US is moving backwards",
+        "account": {
+          "display_name": "Jen J",
+          "acct": "jen_j@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-07-05T23:41:41Z",
+        "favourites_count": 2,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 439,
+            "contentEnd": 565,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 483,
+            "contentCommentEnd": 523,
+            "category": "agree",
+            "topic": "China Ahead Debate"
+          },
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 439,
+            "contentEnd": 565,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 483,
+            "contentCommentEnd": 523,
+            "category": "evidence_personal",
+            "topic": "China Ahead Debate"
+          }
+        ]
+      },
+      {
+        "id": "143209572",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau  The Secretary of Energy under Obama was Professor Steven Chu, Nobel prize in Physics.  It sounded great, the first time a physicist was in charge of energy.  \nBut he was reprimanded when he said that no energy policy can be done without nuclear.   \nHe rightfully said that any energy policy needs to look 25 years ahead.\nPoliticians use energy or global warming as a slogan when it should be deeply researched.</p>",
+        "plainText": "@Marceau  The Secretary of Energy under Obama was Professor Steven Chu, Nobel prize in Physics.  It sounded great, the first time a physicist was in charge of energy.  \nBut he was reprimanded when he said that no energy policy can be done without nuclear.   \nHe rightfully said that any energy policy needs to look 25 years ahead.\nPoliticians use energy or global warming as a slogan when it should be deeply researched.",
+        "account": {
+          "display_name": "janson 63",
+          "acct": "janson_63@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-07-01T00:31:00Z",
+        "favourites_count": 4,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 889,
+            "focusEnd": 992,
+            "contentStart": 169,
+            "contentEnd": 420,
+            "focusCommentStart": 939,
+            "focusCommentEnd": 959,
+            "contentCommentStart": 301,
+            "contentCommentEnd": 329,
+            "category": "framing",
+            "topic": "Long Term Planning"
+          },
+          {
+            "focusStart": 889,
+            "focusEnd": 992,
+            "contentStart": 169,
+            "contentEnd": 420,
+            "focusCommentStart": 939,
+            "focusCommentEnd": 959,
+            "contentCommentStart": 301,
+            "contentCommentEnd": 329,
+            "category": "proposals",
+            "topic": "Long Term Planning"
+          }
+        ]
       },
       {
         "id": "143198387",
@@ -6042,7 +6446,579 @@
         "favourites_count": 716,
         "replies_count": 19,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 108,
+            "contentEnd": 202,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 170,
+            "contentCommentEnd": 201,
+            "category": "framing",
+            "topic": "US Clean Energy Backsliding"
+          },
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 108,
+            "contentEnd": 202,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 170,
+            "contentCommentEnd": 201,
+            "category": "agree",
+            "topic": "US Clean Energy Backsliding"
+          }
+        ]
+      },
+      {
+        "id": "143198824",
+        "inReplyToId": "143195604",
+        "content": "<p>@Tony Hartnett we’re somehow compulsively making the all worst decisions we can think of, undermining our own strengths while doing everything we can to lose all our friends and allies.  I’m sure from your side of the Atlantic it is mystifying.  From here it’s horrific.</p>",
+        "plainText": "@Tony Hartnett we’re somehow compulsively making the all worst decisions we can think of, undermining our own strengths while doing everything we can to lose all our friends and allies.  I’m sure from your side of the Atlantic it is mystifying.  From here it’s horrific.",
+        "account": {
+          "display_name": "Ray Doortsch",
+          "acct": "ray_doortsch@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T16:56:39Z",
+        "favourites_count": 280,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 15,
+            "contentEnd": 185,
+            "focusCommentStart": 105,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 90,
+            "contentCommentEnd": 119,
+            "category": "agree",
+            "topic": "Strategic Response To China"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 15,
+            "contentEnd": 185,
+            "focusCommentStart": 105,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 90,
+            "contentCommentEnd": 119,
+            "category": "values",
+            "topic": "Strategic Response To China"
+          }
+        ]
+      },
+      {
+        "id": "143198028",
+        "inReplyToId": "143195604",
+        "content": "<p>@Tony Hartnett It's mostly because half or our major political leadership denies climate change and doesn't accept science.</p>",
+        "plainText": "@Tony Hartnett It's mostly because half or our major political leadership denies climate change and doesn't accept science.",
+        "account": {
+          "display_name": "Leptoquark",
+          "acct": "leptoquark@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T16:56:16Z",
+        "favourites_count": 168,
+        "replies_count": 3,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 15,
+            "contentEnd": 123,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 74,
+            "contentCommentEnd": 95,
+            "category": "framing",
+            "topic": "Political Sabotage"
+          },
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 15,
+            "contentEnd": 123,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 74,
+            "contentCommentEnd": 95,
+            "category": "agree",
+            "topic": "Political Sabotage"
+          }
+        ]
+      },
+      {
+        "id": "143208093",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau</p>\n\n<p>I know right? Even Obama wasn’t really American. </p>\n\n<p>All French smoke, are short, are promiscuous , and easily surrender…right?</p>\n\n<p>Let’s stop with the nonsense stereotypes.</p>",
+        "plainText": "@Marceau\n\nI know right? Even Obama wasn’t really American. \n\nAll French smoke, are short, are promiscuous , and easily surrender…right?\n\nLet’s stop with the nonsense stereotypes.",
+        "account": {
+          "display_name": "Tall Trees and Trains",
+          "acct": "tall_trees_and_trains@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T23:31:37Z",
+        "favourites_count": 1,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 61,
+            "contentEnd": 178,
+            "focusCommentStart": 0,
+            "focusCommentEnd": 9,
+            "contentCommentStart": 157,
+            "contentCommentEnd": 177,
+            "category": "disagree",
+            "topic": "National Stereotypes"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 61,
+            "contentEnd": 178,
+            "focusCommentStart": 0,
+            "focusCommentEnd": 9,
+            "contentCommentStart": 157,
+            "contentCommentEnd": 177,
+            "category": "framing",
+            "topic": "National Stereotypes"
+          }
+        ]
+      },
+      {
+        "id": "143208853",
+        "inReplyToId": "143195604",
+        "content": "<p>@Marceau get back to me when France is able to put a man on the moon…we may have our fair share of rubes but the best and brightest are still coming from our Universities…for how long, who knows.</p>",
+        "plainText": "@Marceau get back to me when France is able to put a man on the moon…we may have our fair share of rubes but the best and brightest are still coming from our Universities…for how long, who knows.",
+        "account": {
+          "display_name": "Aaron Hart",
+          "acct": "aaron_hart@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-07-01T00:13:03Z",
+        "favourites_count": 2,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 69,
+            "contentEnd": 195,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 109,
+            "contentCommentEnd": 170,
+            "category": "disagree",
+            "topic": "Future Tech Competition"
+          },
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 69,
+            "contentEnd": 195,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 109,
+            "contentCommentEnd": 170,
+            "category": "framing",
+            "topic": "Future Tech Competition"
+          }
+        ]
+      },
+      {
+        "id": "143209167",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau Because they either don't understand it or don't want to because its truth is inconvenient to owning big trucks, to doing whatever you want whenever you want. We have lost a shared vision of ourselves. We have no desire to sacrifice our immediate desires for the sake of a shared future.</p>",
+        "plainText": "@Marceau Because they either don't understand it or don't want to because its truth is inconvenient to owning big trucks, to doing whatever you want whenever you want. We have lost a shared vision of ourselves. We have no desire to sacrifice our immediate desires for the sake of a shared future.",
+        "account": {
+          "display_name": "Kathleen",
+          "acct": "kathleen@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T23:56:53Z",
+        "favourites_count": 8,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 9,
+            "contentEnd": 296,
+            "focusCommentStart": 105,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 52,
+            "contentCommentEnd": 99,
+            "category": "framing",
+            "topic": "US Clean Energy Backsliding"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 9,
+            "contentEnd": 296,
+            "focusCommentStart": 105,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 52,
+            "contentCommentEnd": 99,
+            "category": "values",
+            "topic": "US Clean Energy Backsliding"
+          }
+        ]
+      },
+      {
+        "id": "143209296",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau I have a STEM degree, voted for Obama twice (no joke), and my wife and I both own electric cars.  Yet I also voted for Trump twice and am kicking myself for not voting for him in 2016.  Hopefully I’ll be able to vote for him again in 2028.</p>",
+        "plainText": "@Marceau I have a STEM degree, voted for Obama twice (no joke), and my wife and I both own electric cars.  Yet I also voted for Trump twice and am kicking myself for not voting for him in 2016.  Hopefully I’ll be able to vote for him again in 2028.",
+        "account": {
+          "display_name": "Notorious BJB",
+          "acct": "notorious_bjb@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-07-01T00:10:27Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 539,
+            "focusEnd": 992,
+            "contentStart": 9,
+            "contentEnd": 139,
+            "focusCommentStart": 554,
+            "focusCommentEnd": 574,
+            "contentCommentStart": 107,
+            "contentCommentEnd": 139,
+            "category": "evidence_personal",
+            "topic": "Political Sabotage"
+          },
+          {
+            "focusStart": 539,
+            "focusEnd": 992,
+            "contentStart": 9,
+            "contentEnd": 139,
+            "focusCommentStart": 554,
+            "focusCommentEnd": 574,
+            "contentCommentStart": 107,
+            "contentCommentEnd": 139,
+            "category": "disagree",
+            "topic": "Political Sabotage"
+          }
+        ]
+      },
+      {
+        "id": "143201063",
+        "inReplyToId": "143195604",
+        "content": "<p>@Tony Hartnett\nAmericans proclaim their nation as the greatest on earth… while their citizens who proclaim this, face the risk of diseases long thought extinguished, they revel in gas guzzling pickup trucks, their children practice active shooter drills because they worship gun rights over common sense, a disease like cancer will bankrupt 60% of them, they get a piddling 2 weeks vacation a year but only after having worked at the company for a year, and their universities cost the price of a small house. </p>\n\n<p>And there’s little or no public transportation, their beef, chicken, eggs, milk, cheese etc is so filled with preservatives, growth hormones and dyes that the EU has banned their import. Meanwhile rates of life expectancy are low, \nand deaths from child birth high.  </p>\n\n<p>But yes it must be the greatest country on earth because they declare it so. Meanwhile Canada, the EU, UK, China have leaders who understand the future and as Kamala so aptly said,  “We don’t want to go back.”</p>",
+        "plainText": "@Tony Hartnett\nAmericans proclaim their nation as the greatest on earth… while their citizens who proclaim this, face the risk of diseases long thought extinguished, they revel in gas guzzling pickup trucks, their children practice active shooter drills because they worship gun rights over common sense, a disease like cancer will bankrupt 60% of them, they get a piddling 2 weeks vacation a year but only after having worked at the company for a year, and their universities cost the price of a small house. \n\nAnd there’s little or no public transportation, their beef, chicken, eggs, milk, cheese etc is so filled with preservatives, growth hormones and dyes that the EU has banned their import. Meanwhile rates of life expectancy are low, \nand deaths from child birth high.  \n\nBut yes it must be the greatest country on earth because they declare it so. Meanwhile Canada, the EU, UK, China have leaders who understand the future and as Kamala so aptly said,  “We don’t want to go back.”",
+        "account": {
+          "display_name": "ViewFromFarAway",
+          "acct": "viewfromfaraway@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T19:15:17Z",
+        "favourites_count": 141,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 781,
+            "contentEnd": 932,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 899,
+            "contentCommentEnd": 932,
+            "category": "framing",
+            "topic": "Strategic Response To China"
+          },
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 781,
+            "contentEnd": 932,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 899,
+            "contentCommentEnd": 932,
+            "category": "agree",
+            "topic": "Strategic Response To China"
+          }
+        ]
+      },
+      {
+        "id": "143205727",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau I’m an American and even I don’t feel empathy for America. \nWe had our chance to elect real leaders, but blew it. TWICE!\nI don’t think the damage this administration is doing is something we’ll recover from, at least not in the next 50+ years……\nRIP America.</p>",
+        "plainText": "@Marceau I’m an American and even I don’t feel empathy for America. \nWe had our chance to elect real leaders, but blew it. TWICE!\nI don’t think the damage this administration is doing is something we’ll recover from, at least not in the next 50+ years……\nRIP America.",
+        "account": {
+          "display_name": "NYC ExPat",
+          "acct": "nyc_expat@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T21:29:17Z",
+        "favourites_count": 33,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 69,
+            "contentEnd": 253,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 197,
+            "contentCommentEnd": 215,
+            "category": "agree",
+            "topic": "US Clean Energy Backsliding"
+          },
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 69,
+            "contentEnd": 253,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 197,
+            "contentCommentEnd": 215,
+            "category": "predictions",
+            "topic": "US Clean Energy Backsliding"
+          }
+        ]
+      },
+      {
+        "id": "143199842",
+        "inReplyToId": "143198028",
+        "content": "<p>@Leptoquark</p>\n\n<p>It is because the US produces 20% of the world’s oil, is one of the largest exporters of the stuff, and people want to buy it. This is all about money, nothing else.</p>",
+        "plainText": "@Leptoquark\n\nIt is because the US produces 20% of the world’s oil, is one of the largest exporters of the stuff, and people want to buy it. This is all about money, nothing else.",
+        "account": {
+          "display_name": "Frank",
+          "acct": "frank@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T17:13:54Z",
+        "favourites_count": 22,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 13,
+            "contentEnd": 178,
+            "focusCommentStart": 105,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 140,
+            "contentCommentEnd": 163,
+            "category": "framing",
+            "topic": "Fossil Fuel Capture"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 13,
+            "contentEnd": 178,
+            "focusCommentStart": 105,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 140,
+            "contentCommentEnd": 163,
+            "category": "disagree",
+            "topic": "Fossil Fuel Capture"
+          }
+        ]
+      },
+      {
+        "id": "143208467",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau\nWe like science but our leadership is owned by oil and gas.  One entire party are puppets to the industry.</p>",
+        "plainText": "@Marceau\nWe like science but our leadership is owned by oil and gas.  One entire party are puppets to the industry.",
+        "account": {
+          "display_name": "Market",
+          "acct": "market@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T23:31:37Z",
+        "favourites_count": 6,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 690,
+            "focusEnd": 992,
+            "contentStart": 9,
+            "contentEnd": 115,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 47,
+            "contentCommentEnd": 67,
+            "category": "framing",
+            "topic": "Fossil Fuel Capture"
+          },
+          {
+            "focusStart": 690,
+            "focusEnd": 992,
+            "contentStart": 9,
+            "contentEnd": 115,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 47,
+            "contentCommentEnd": 67,
+            "category": "agree",
+            "topic": "Fossil Fuel Capture"
+          }
+        ]
+      },
+      {
+        "id": "143203138",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau\nI will tell you why the US overlords don't like science.  Sometimes it produces answers they don't like and that don't serve them.  In contrast, Fox News will always \"produce\" the answers that serve the overlords.  So there has been a concerted campaign for decades to make people think that scientists have hidden and evil agendas.  A campaign lead and funded by those who actually have hidden and evil agendas.  SAD.</p>",
+        "plainText": "@Marceau\nI will tell you why the US overlords don't like science.  Sometimes it produces answers they don't like and that don't serve them.  In contrast, Fox News will always \"produce\" the answers that serve the overlords.  So there has been a concerted campaign for decades to make people think that scientists have hidden and evil agendas.  A campaign lead and funded by those who actually have hidden and evil agendas.  SAD.",
+        "account": {
+          "display_name": "Ivan",
+          "acct": "ivan@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T19:18:49Z",
+        "favourites_count": 50,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 67,
+            "contentEnd": 341,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 244,
+            "contentCommentEnd": 274,
+            "category": "framing",
+            "topic": "Political Sabotage"
+          },
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 67,
+            "contentEnd": 341,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 244,
+            "contentCommentEnd": 274,
+            "category": "connections",
+            "topic": "Political Sabotage"
+          }
+        ]
+      },
+      {
+        "id": "143201772",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau it’s especially frustrating for the many tens of millions of Americans who don’t share the belligerent, backwards, self-destructive mindset of MAGA.  Please have some solidarity with the traditional Americans who reject this scary MAGA mindset.</p>",
+        "plainText": "@Marceau it’s especially frustrating for the many tens of millions of Americans who don’t share the belligerent, backwards, self-destructive mindset of MAGA.  Please have some solidarity with the traditional Americans who reject this scary MAGA mindset.",
+        "account": {
+          "display_name": "Ray Doortsch",
+          "acct": "ray_doortsch@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T19:15:18Z",
+        "favourites_count": 33,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 889,
+            "focusEnd": 992,
+            "contentStart": 41,
+            "contentEnd": 253,
+            "focusCommentStart": 939,
+            "focusCommentEnd": 959,
+            "contentCommentStart": 84,
+            "contentCommentEnd": 95,
+            "category": "framing",
+            "topic": "Political Sabotage"
+          },
+          {
+            "focusStart": 889,
+            "focusEnd": 992,
+            "contentStart": 41,
+            "contentEnd": 253,
+            "focusCommentStart": 939,
+            "focusCommentEnd": 959,
+            "contentCommentStart": 84,
+            "contentCommentEnd": 95,
+            "category": "values",
+            "topic": "Political Sabotage"
+          }
+        ]
+      },
+      {
+        "id": "143208145",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau SOME  Americans don't like science it falls along party lines: Trump supporters are climate deniers, independents, those who vote Democratic, and the better educated believe strongly in science</p>",
+        "plainText": "@Marceau SOME  Americans don't like science it falls along party lines: Trump supporters are climate deniers, independents, those who vote Democratic, and the better educated believe strongly in science",
+        "account": {
+          "display_name": "Fred Norman",
+          "acct": "fred_norman@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T23:04:49Z",
+        "favourites_count": 9,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 9,
+            "contentEnd": 202,
+            "focusCommentStart": 105,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 44,
+            "contentCommentEnd": 70,
+            "category": "framing",
+            "topic": "Political Sabotage"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 9,
+            "contentEnd": 202,
+            "focusCommentStart": 105,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 44,
+            "contentCommentEnd": 70,
+            "category": "disagree",
+            "topic": "Political Sabotage"
+          }
+        ]
       },
       {
         "id": "143198520",
@@ -6056,9 +7032,539 @@
         },
         "created_at": "2025-06-30T16:56:31Z",
         "favourites_count": 125,
-        "replies_count": 2,
+        "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 539,
+            "focusEnd": 789,
+            "contentStart": 15,
+            "contentEnd": 138,
+            "focusCommentStart": 554,
+            "focusCommentEnd": 574,
+            "contentCommentStart": 59,
+            "contentCommentEnd": 103,
+            "category": "agree",
+            "topic": "Political Sabotage"
+          },
+          {
+            "focusStart": 539,
+            "focusEnd": 789,
+            "contentStart": 15,
+            "contentEnd": 138,
+            "focusCommentStart": 554,
+            "focusCommentEnd": 574,
+            "contentCommentStart": 59,
+            "contentCommentEnd": 103,
+            "category": "framing",
+            "topic": "Political Sabotage"
+          }
+        ]
+      },
+      {
+        "id": "143202891",
+        "inReplyToId": "143195604",
+        "content": "<p>@Tony Hartnett:</p>\n\n<p>I wouldn't be surprised to read an announcement that he's revivifying General Custer to lead the US Army and plans to return the USS Arizona to front-line service.</p>",
+        "plainText": "@Tony Hartnett:\n\nI wouldn't be surprised to read an announcement that he's revivifying General Custer to lead the US Army and plans to return the USS Arizona to front-line service.",
+        "account": {
+          "display_name": "5513",
+          "acct": "5513@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T19:18:51Z",
+        "favourites_count": 22,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 889,
+            "focusEnd": 992,
+            "contentStart": 17,
+            "contentEnd": 180,
+            "focusCommentStart": 939,
+            "focusCommentEnd": 959,
+            "contentCommentStart": 75,
+            "contentCommentEnd": 101,
+            "category": "agree",
+            "topic": "Political Sabotage"
+          },
+          {
+            "focusStart": 889,
+            "focusEnd": 992,
+            "contentStart": 17,
+            "contentEnd": 180,
+            "focusCommentStart": 939,
+            "focusCommentEnd": 959,
+            "contentCommentStart": 75,
+            "contentCommentEnd": 101,
+            "category": "framing",
+            "topic": "Political Sabotage"
+          }
+        ]
+      },
+      {
+        "id": "143199323",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau, it isn't that \"Americans just don't like Science.\" Rather, many millions of voters continue to elect people who tell them what they believe to be true.</p>",
+        "plainText": "@Marceau, it isn't that \"Americans just don't like Science.\" Rather, many millions of voters continue to elect people who tell them what they believe to be true.",
+        "account": {
+          "display_name": "Karen Lee",
+          "acct": "karen_lee@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T16:58:40Z",
+        "favourites_count": 100,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 61,
+            "contentEnd": 161,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 105,
+            "contentCommentEnd": 160,
+            "category": "framing",
+            "topic": "Political Sabotage"
+          },
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 61,
+            "contentEnd": 161,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 105,
+            "contentCommentEnd": 160,
+            "category": "connections",
+            "topic": "Political Sabotage"
+          }
+        ]
+      },
+      {
+        "id": "143204001",
+        "inReplyToId": "143198028",
+        "content": "<p>@Leptoquark i think you have it backward. The reason that they deny climate change is because we have a competitive advantage with oil and gas.</p>",
+        "plainText": "@Leptoquark i think you have it backward. The reason that they deny climate change is because we have a competitive advantage with oil and gas.",
+        "account": {
+          "display_name": "Chard",
+          "acct": "chard@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T20:02:34Z",
+        "favourites_count": 4,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 42,
+            "contentEnd": 143,
+            "focusCommentStart": 105,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 104,
+            "contentCommentEnd": 142,
+            "category": "disagree",
+            "topic": "Fossil Fuel Capture"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 42,
+            "contentEnd": 143,
+            "focusCommentStart": 105,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 104,
+            "contentCommentEnd": 142,
+            "category": "framing",
+            "topic": "Fossil Fuel Capture"
+          }
+        ]
+      },
+      {
+        "id": "143204895",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau</p>\n\n<p>\"Americans just don't like Science. Why\"?</p>\n\n<p>Perhaps because we conflate Science and Atheism. And that is because among the \"western\" countries we are most religious.  </p>\n\n<p>And in the case of Obama, perhaps because of his race, he was automatically disrespected by too many.  In his case, more so because of his middle name!</p>",
+        "plainText": "@Marceau\n\n\"Americans just don't like Science. Why\"?\n\nPerhaps because we conflate Science and Atheism. And that is because among the \"western\" countries we are most religious.  \n\nAnd in the case of Obama, perhaps because of his race, he was automatically disrespected by too many.  In his case, more so because of his middle name!",
+        "account": {
+          "display_name": "Vox Pop",
+          "acct": "vox_pop@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T21:03:10Z",
+        "favourites_count": 18,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 53,
+            "contentEnd": 279,
+            "focusCommentStart": 75,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 72,
+            "contentCommentEnd": 100,
+            "category": "framing",
+            "topic": "Political Sabotage"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 53,
+            "contentEnd": 279,
+            "focusCommentStart": 75,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 72,
+            "contentCommentEnd": 100,
+            "category": "connections",
+            "topic": "Political Sabotage"
+          }
+        ]
+      },
+      {
+        "id": "143210058",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau.  It’s not ‘Americans’ that don’t like science, it’s Republicans.  Republicans and trump are not just attacking science, but also universities and free speech.  Either they are in denial and choose to ignore reality or they are beholden to monied interests and look the other way.</p>",
+        "plainText": "@Marceau.  It’s not ‘Americans’ that don’t like science, it’s Republicans.  Republicans and trump are not just attacking science, but also universities and free speech.  Either they are in denial and choose to ignore reality or they are beholden to monied interests and look the other way.",
+        "account": {
+          "display_name": "Kid",
+          "acct": "kid@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-07-01T00:43:36Z",
+        "favourites_count": 5,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 539,
+            "focusEnd": 666,
+            "contentStart": 11,
+            "contentEnd": 168,
+            "focusCommentStart": 554,
+            "focusCommentEnd": 574,
+            "contentCommentStart": 57,
+            "contentCommentEnd": 73,
+            "category": "framing",
+            "topic": "Political Sabotage"
+          },
+          {
+            "focusStart": 539,
+            "focusEnd": 666,
+            "contentStart": 11,
+            "contentEnd": 168,
+            "focusCommentStart": 554,
+            "focusCommentEnd": 574,
+            "contentCommentStart": 57,
+            "contentCommentEnd": 73,
+            "category": "agree",
+            "topic": "Political Sabotage"
+          }
+        ]
+      },
+      {
+        "id": "143210773",
+        "inReplyToId": "143198028",
+        "content": "<p>@Leptoquark President Trump is quite a lot like Chairman Mao who promised a cultural revolution but delivered famine.</p>",
+        "plainText": "@Leptoquark President Trump is quite a lot like Chairman Mao who promised a cultural revolution but delivered famine.",
+        "account": {
+          "display_name": "John",
+          "acct": "john@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-07-01T01:27:14Z",
+        "favourites_count": 10,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 889,
+            "focusEnd": 992,
+            "contentStart": 12,
+            "contentEnd": 117,
+            "focusCommentStart": 939,
+            "focusCommentEnd": 959,
+            "contentCommentStart": 65,
+            "contentCommentEnd": 116,
+            "category": "agree",
+            "topic": "Political Sabotage"
+          },
+          {
+            "focusStart": 889,
+            "focusEnd": 992,
+            "contentStart": 12,
+            "contentEnd": 117,
+            "focusCommentStart": 939,
+            "focusCommentEnd": 959,
+            "contentCommentStart": 65,
+            "contentCommentEnd": 116,
+            "category": "framing",
+            "topic": "Political Sabotage"
+          }
+        ]
+      },
+      {
+        "id": "143214784",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau</p>\n\n<p>Americans are extremely religious and therefore extremely gullible. If they are able to believe in a Sky Daddy, they will believe anything that supports their prejudices. It's a simple formula used by the rich and powerful since humans left the cave.</p>",
+        "plainText": "@Marceau\n\nAmericans are extremely religious and therefore extremely gullible. If they are able to believe in a Sky Daddy, they will believe anything that supports their prejudices. It's a simple formula used by the rich and powerful since humans left the cave.",
+        "account": {
+          "display_name": "Loren Nordic",
+          "acct": "loren_nordic@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-07-01T10:41:06Z",
+        "favourites_count": 5,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 10,
+            "contentEnd": 180,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 24,
+            "contentCommentEnd": 76,
+            "category": "framing",
+            "topic": "US Clean Energy Backsliding"
+          },
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 10,
+            "contentEnd": 180,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 24,
+            "contentCommentEnd": 76,
+            "category": "agree",
+            "topic": "US Clean Energy Backsliding"
+          }
+        ]
+      },
+      {
+        "id": "143214510",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau The USA is founded on the hatred of government and love of individualism. This is inevitable.</p>",
+        "plainText": "@Marceau The USA is founded on the hatred of government and love of individualism. This is inevitable.",
+        "account": {
+          "display_name": "Matt",
+          "acct": "matt@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-07-01T10:41:24Z",
+        "favourites_count": 1,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 690,
+            "focusEnd": 992,
+            "contentStart": 9,
+            "contentEnd": 102,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 83,
+            "contentCommentEnd": 101,
+            "category": "framing",
+            "topic": "US Clean Energy Backsliding"
+          },
+          {
+            "focusStart": 690,
+            "focusEnd": 992,
+            "contentStart": 9,
+            "contentEnd": 102,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 83,
+            "contentCommentEnd": 101,
+            "category": "agree",
+            "topic": "US Clean Energy Backsliding"
+          }
+        ]
+      },
+      {
+        "id": "143201846",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau - because science conflicts with god.</p>",
+        "plainText": "@Marceau - because science conflicts with god.",
+        "account": {
+          "display_name": "John From Ohio",
+          "acct": "john_from_ohio@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T19:15:17Z",
+        "favourites_count": 28,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 11,
+            "contentEnd": 46,
+            "focusCommentStart": 105,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 19,
+            "contentCommentEnd": 45,
+            "category": "framing",
+            "topic": "Political Sabotage"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 11,
+            "contentEnd": 46,
+            "focusCommentStart": 105,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 19,
+            "contentCommentEnd": 45,
+            "category": "agree",
+            "topic": "Political Sabotage"
+          }
+        ]
+      },
+      {
+        "id": "143207932",
+        "inReplyToId": "143195604",
+        "content": "<p>@Tony Hartnett</p>\n\n<p>\"a carnivorous dinosaur with rearview vision only and a creative thinking deficit.\"  </p>\n\n<p>Oh, he's far worse than that.</p>",
+        "plainText": "@Tony Hartnett\n\n\"a carnivorous dinosaur with rearview vision only and a creative thinking deficit.\"  \n\nOh, he's far worse than that.",
+        "account": {
+          "display_name": "AKS",
+          "acct": "aks@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T23:31:37Z",
+        "favourites_count": 14,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 889,
+            "focusEnd": 992,
+            "contentStart": 103,
+            "contentEnd": 132,
+            "focusCommentStart": 913,
+            "focusCommentEnd": 959,
+            "contentCommentStart": 112,
+            "contentCommentEnd": 131,
+            "category": "agree",
+            "topic": "Political Sabotage"
+          },
+          {
+            "focusStart": 889,
+            "focusEnd": 992,
+            "contentStart": 103,
+            "contentEnd": 132,
+            "focusCommentStart": 913,
+            "focusCommentEnd": 959,
+            "contentCommentStart": 112,
+            "contentCommentEnd": 131,
+            "category": "values",
+            "topic": "Political Sabotage"
+          }
+        ]
+      },
+      {
+        "id": "143205873",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau\nI think the perception that Americans are not very smart goes back a long time and for a reason ;-)</p>",
+        "plainText": "@Marceau\nI think the perception that Americans are not very smart goes back a long time and for a reason ;-)",
+        "account": {
+          "display_name": "Carlos",
+          "acct": "carlos@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T21:29:17Z",
+        "favourites_count": 17,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 9,
+            "contentEnd": 108,
+            "focusCommentStart": 75,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 51,
+            "contentCommentEnd": 65,
+            "category": "agree",
+            "topic": "US Clean Energy Backsliding"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 182,
+            "contentStart": 9,
+            "contentEnd": 108,
+            "focusCommentStart": 75,
+            "focusCommentEnd": 136,
+            "contentCommentStart": 51,
+            "contentCommentEnd": 65,
+            "category": "values",
+            "topic": "US Clean Energy Backsliding"
+          }
+        ]
+      },
+      {
+        "id": "143203986",
+        "inReplyToId": "143198387",
+        "content": "<p>@Marceau We like guns more.</p>",
+        "plainText": "@Marceau We like guns more.",
+        "account": {
+          "display_name": "Fed Up",
+          "acct": "fed_up@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T20:04:04Z",
+        "favourites_count": 8,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 9,
+            "contentEnd": 27,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 17,
+            "contentCommentEnd": 26,
+            "category": "framing",
+            "topic": "US Clean Energy Backsliding"
+          },
+          {
+            "focusStart": 690,
+            "focusEnd": 789,
+            "contentStart": 9,
+            "contentEnd": 27,
+            "focusCommentStart": 699,
+            "focusCommentEnd": 731,
+            "contentCommentStart": 17,
+            "contentCommentEnd": 26,
+            "category": "agree",
+            "topic": "US Clean Energy Backsliding"
+          }
+        ]
       }
     ]
   },
@@ -9593,9 +11099,77 @@
         },
         "created_at": "2025-06-30T18:09:35Z",
         "favourites_count": 151,
-        "replies_count": 4,
+        "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 288,
+            "focusEnd": 518,
+            "contentStart": 164,
+            "contentEnd": 475,
+            "focusCommentStart": 319,
+            "focusCommentEnd": 346,
+            "contentCommentStart": 196,
+            "contentCommentEnd": 235,
+            "category": "framing",
+            "topic": "Fossil Fuel Lock In"
+          },
+          {
+            "focusStart": 288,
+            "focusEnd": 518,
+            "contentStart": 164,
+            "contentEnd": 475,
+            "focusCommentStart": 319,
+            "focusCommentEnd": 346,
+            "contentCommentStart": 196,
+            "contentCommentEnd": 235,
+            "category": "agree",
+            "topic": "Fossil Fuel Lock In"
+          }
+        ]
+      },
+      {
+        "id": "143204746",
+        "inReplyToId": "143200921",
+        "content": "<p>@S James The railroad companies never realized they were not in the railroad business, but the transportation business..to their demise. The petroleum companies are making the same mistake, not realizing they are in the energy business. They do not want to impact short-term profits, draw down with their stranded assets and reinvent themselves. This time, it is China with the vision to take the lead..to their detriment</p>",
+        "plainText": "@S James The railroad companies never realized they were not in the railroad business, but the transportation business..to their demise. The petroleum companies are making the same mistake, not realizing they are in the energy business. They do not want to impact short-term profits, draw down with their stranded assets and reinvent themselves. This time, it is China with the vision to take the lead..to their detriment",
+        "account": {
+          "display_name": "PN",
+          "acct": "pn@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T20:30:48Z",
+        "favourites_count": 12,
+        "replies_count": 2,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 348,
+            "focusEnd": 518,
+            "contentStart": 137,
+            "contentEnd": 345,
+            "focusCommentStart": 373,
+            "focusCommentEnd": 388,
+            "contentCommentStart": 172,
+            "contentCommentEnd": 188,
+            "category": "connections",
+            "topic": "Short Termism"
+          },
+          {
+            "focusStart": 348,
+            "focusEnd": 518,
+            "contentStart": 137,
+            "contentEnd": 345,
+            "focusCommentStart": 373,
+            "focusCommentEnd": 388,
+            "contentCommentStart": 172,
+            "contentCommentEnd": 188,
+            "category": "framing",
+            "topic": "Short Termism"
+          }
+        ]
       },
       {
         "id": "143201361",
@@ -9609,9 +11183,119 @@
         },
         "created_at": "2025-06-30T18:11:21Z",
         "favourites_count": 39,
-        "replies_count": 1,
+        "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 348,
+            "focusEnd": 645,
+            "contentStart": 214,
+            "contentEnd": 855,
+            "focusCommentStart": 373,
+            "focusCommentEnd": 388,
+            "contentCommentStart": 250,
+            "contentCommentEnd": 276,
+            "category": "proposals",
+            "topic": "Fossil Fuel Lock In"
+          },
+          {
+            "focusStart": 348,
+            "focusEnd": 645,
+            "contentStart": 214,
+            "contentEnd": 855,
+            "focusCommentStart": 373,
+            "focusCommentEnd": 388,
+            "contentCommentStart": 250,
+            "contentCommentEnd": 276,
+            "category": "evidence_public",
+            "topic": "Fossil Fuel Lock In"
+          }
+        ]
+      },
+      {
+        "id": "143204457",
+        "inReplyToId": "143200921",
+        "content": "<p>@S James\nThe U.S. and all its citizens can get off oil anytime we want. The problem is the transition to all electric will be very expensive and people like cheap gas no matter what they say and politicians know it. No politician on either side will get re-elected if the price of gas were to rise to its true cost. And then there’s this very inconvenient fact. If all GHG emissions were to stop right now (something that can’t happen) the effects of the emissions in the air now will last 100s of years. The truth is we’re in for a very bumpy long ride. No matter what we do.</p>",
+        "plainText": "@S James\nThe U.S. and all its citizens can get off oil anytime we want. The problem is the transition to all electric will be very expensive and people like cheap gas no matter what they say and politicians know it. No politician on either side will get re-elected if the price of gas were to rise to its true cost. And then there’s this very inconvenient fact. If all GHG emissions were to stop right now (something that can’t happen) the effects of the emissions in the air now will last 100s of years. The truth is we’re in for a very bumpy long ride. No matter what we do.",
+        "account": {
+          "display_name": "AT",
+          "acct": "at@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T20:17:46Z",
+        "favourites_count": 11,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 348,
+            "focusEnd": 518,
+            "contentStart": 72,
+            "contentEnd": 315,
+            "focusCommentStart": 351,
+            "focusCommentEnd": 388,
+            "contentCommentStart": 87,
+            "contentCommentEnd": 140,
+            "category": "disagree",
+            "topic": "Fossil Fuel Lock In"
+          },
+          {
+            "focusStart": 348,
+            "focusEnd": 518,
+            "contentStart": 72,
+            "contentEnd": 315,
+            "focusCommentStart": 351,
+            "focusCommentEnd": 388,
+            "contentCommentStart": 87,
+            "contentCommentEnd": 140,
+            "category": "framing",
+            "topic": "Fossil Fuel Lock In"
+          }
+        ]
+      },
+      {
+        "id": "143203267",
+        "inReplyToId": "143200921",
+        "content": "<p>@S James  Well the Republican Party is trapped in the same dilemma, at any rate. It can’t let go of those fat oil company megadonations to embrace clean energy. It also didn't help that Trump met with Big Oil suits before the election and promised them a quid pro quo--if they gave him a billion dollars for his campaign, he'd give them whatever they want. We're seeing that play out, aren't we? Who knows how much they actually donated. They could've given him $1B via dark money SuperPACs (or better yet, meme coin purchases) and we'd never know.</p>",
+        "plainText": "@S James  Well the Republican Party is trapped in the same dilemma, at any rate. It can’t let go of those fat oil company megadonations to embrace clean energy. It also didn't help that Trump met with Big Oil suits before the election and promised them a quid pro quo--if they gave him a billion dollars for his campaign, he'd give them whatever they want. We're seeing that play out, aren't we? Who knows how much they actually donated. They could've given him $1B via dark money SuperPACs (or better yet, meme coin purchases) and we'd never know.",
+        "account": {
+          "display_name": "Junco",
+          "acct": "junco@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-06-30T19:24:04Z",
+        "favourites_count": 18,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 348,
+            "focusEnd": 518,
+            "contentStart": 81,
+            "contentEnd": 356,
+            "focusCommentStart": 351,
+            "focusCommentEnd": 388,
+            "contentCommentStart": 106,
+            "contentCommentEnd": 135,
+            "category": "framing",
+            "topic": "Fossil Fuel Lock In"
+          },
+          {
+            "focusStart": 348,
+            "focusEnd": 518,
+            "contentStart": 81,
+            "contentEnd": 356,
+            "focusCommentStart": 351,
+            "focusCommentEnd": 388,
+            "contentCommentStart": 106,
+            "contentCommentEnd": 135,
+            "category": "evidence_public",
+            "topic": "Fossil Fuel Lock In"
+          }
+        ]
       },
       {
         "id": "143202794",
@@ -9627,7 +11311,159 @@
         "favourites_count": 20,
         "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 348,
+            "focusEnd": 518,
+            "contentStart": 27,
+            "contentEnd": 167,
+            "focusCommentStart": 373,
+            "focusCommentEnd": 388,
+            "contentCommentStart": 85,
+            "contentCommentEnd": 120,
+            "category": "agree",
+            "topic": "Short Termism"
+          },
+          {
+            "focusStart": 348,
+            "focusEnd": 518,
+            "contentStart": 27,
+            "contentEnd": 167,
+            "focusCommentStart": 373,
+            "focusCommentEnd": 388,
+            "contentCommentStart": 85,
+            "contentCommentEnd": 120,
+            "category": "connections",
+            "topic": "Short Termism"
+          }
+        ]
+      },
+      {
+        "id": "143214734",
+        "inReplyToId": "143200921",
+        "content": "<p>@S James</p>\n\n<p>Yes, the US has been addicted (truly) to oil and coal for a long time. It gave us years and years of stellar growth in a world destroyed by our brute force. Now in a world of finesse and subtleties the US is floundering badly - because of this clutching of the past thinking it will be more of the same. It won't.</p>",
+        "plainText": "@S James\n\nYes, the US has been addicted (truly) to oil and coal for a long time. It gave us years and years of stellar growth in a world destroyed by our brute force. Now in a world of finesse and subtleties the US is floundering badly - because of this clutching of the past thinking it will be more of the same. It won't.",
+        "account": {
+          "display_name": "Loren Nordic",
+          "acct": "loren_nordic@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-07-01T06:38:49Z",
+        "favourites_count": 4,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 348,
+            "focusEnd": 518,
+            "contentStart": 15,
+            "contentEnd": 313,
+            "focusCommentStart": 373,
+            "focusCommentEnd": 388,
+            "contentCommentStart": 254,
+            "contentCommentEnd": 275,
+            "category": "agree",
+            "topic": "Fossil Fuel Lock In"
+          },
+          {
+            "focusStart": 348,
+            "focusEnd": 518,
+            "contentStart": 15,
+            "contentEnd": 313,
+            "focusCommentStart": 373,
+            "focusCommentEnd": 388,
+            "contentCommentStart": 254,
+            "contentCommentEnd": 275,
+            "category": "framing",
+            "topic": "Fossil Fuel Lock In"
+          }
+        ]
+      },
+      {
+        "id": "143214760",
+        "inReplyToId": "143204746",
+        "content": "<p>@PN</p>\n\n<p>That's because China has little in oil reserves under their nation. They have to innovate and they see that the path forward IS clean energy. In the US, with our politicians bribed by oil money, it will be more of the same.</p>",
+        "plainText": "@PN\n\nThat's because China has little in oil reserves under their nation. They have to innovate and they see that the path forward IS clean energy. In the US, with our politicians bribed by oil money, it will be more of the same.",
+        "account": {
+          "display_name": "Loren Nordic",
+          "acct": "loren_nordic@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-07-01T06:43:47Z",
+        "favourites_count": 3,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 348,
+            "focusEnd": 518,
+            "contentStart": 5,
+            "contentEnd": 228,
+            "focusCommentStart": 373,
+            "focusCommentEnd": 388,
+            "contentCommentStart": 167,
+            "contentCommentEnd": 198,
+            "category": "framing",
+            "topic": "Fossil Fuel Lock In"
+          },
+          {
+            "focusStart": 348,
+            "focusEnd": 518,
+            "contentStart": 5,
+            "contentEnd": 228,
+            "focusCommentStart": 373,
+            "focusCommentEnd": 388,
+            "contentCommentStart": 167,
+            "contentCommentEnd": 198,
+            "category": "connections",
+            "topic": "Fossil Fuel Lock In"
+          }
+        ]
+      },
+      {
+        "id": "143211094",
+        "inReplyToId": "143204746",
+        "content": "<p>@PN:\n   If we ever get serious about the threat of Climate Change and its subset, Global Warming, then the Fossil Fuel companies need to leave about $20 Trillion of Oil, Coal and Natural Gas in the ground!</p>\n\n<p>  With Human Nature being what it is, I am not very confident that that will happen!</p>",
+        "plainText": "@PN:\n   If we ever get serious about the threat of Climate Change and its subset, Global Warming, then the Fossil Fuel companies need to leave about $20 Trillion of Oil, Coal and Natural Gas in the ground!\n\n  With Human Nature being what it is, I am not very confident that that will happen!",
+        "account": {
+          "display_name": "Robert Del Rosso",
+          "acct": "robert_del_rosso@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2025-07-01T01:36:06Z",
+        "favourites_count": 0,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 348,
+            "focusEnd": 518,
+            "contentStart": 8,
+            "contentEnd": 291,
+            "focusCommentStart": 373,
+            "focusCommentEnd": 388,
+            "contentCommentStart": 137,
+            "contentCommentEnd": 204,
+            "category": "framing",
+            "topic": "Fossil Fuel Lock In"
+          },
+          {
+            "focusStart": 348,
+            "focusEnd": 518,
+            "contentStart": 8,
+            "contentEnd": 291,
+            "focusCommentStart": 373,
+            "focusCommentEnd": 388,
+            "contentCommentStart": 137,
+            "contentCommentEnd": 204,
+            "category": "predictions",
+            "topic": "Fossil Fuel Lock In"
+          }
+        ]
       }
     ]
   },
@@ -14970,7 +16806,33 @@
         "favourites_count": 2,
         "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 419,
+            "focusEnd": 559,
+            "contentStart": 3,
+            "contentEnd": 88,
+            "focusCommentStart": 475,
+            "focusCommentEnd": 503,
+            "contentCommentStart": 39,
+            "contentCommentEnd": 68,
+            "category": "framing",
+            "topic": "Chinese Industrial Policy"
+          },
+          {
+            "focusStart": 419,
+            "focusEnd": 559,
+            "contentStart": 3,
+            "contentEnd": 88,
+            "focusCommentStart": 475,
+            "focusCommentEnd": 503,
+            "contentCommentStart": 39,
+            "contentCommentEnd": 68,
+            "category": "disagree",
+            "topic": "Chinese Industrial Policy"
+          }
+        ]
       }
     ]
   },
@@ -18341,22 +20203,6 @@
     ],
     "replies": [
       {
-        "id": "149293152",
-        "inReplyToId": "149289030",
-        "content": "<p>@Ed Jones US technology companies absolutely invest for the long term. But they seem to be evil incarnate on these forums don’t they.</p>",
-        "plainText": "@Ed Jones US technology companies absolutely invest for the long term. But they seem to be evil incarnate on these forums don’t they.",
-        "account": {
-          "display_name": "TW",
-          "acct": "tw@stacky-nyt.com",
-          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
-        },
-        "created_at": "2026-03-03T14:58:02Z",
-        "favourites_count": 1,
-        "replies_count": 0,
-        "favourited": false,
-        "bookmarked": false
-      },
-      {
         "id": "149294079",
         "inReplyToId": "149289030",
         "content": "<p>@Ed Jones\nVery well said, Mr Jones. As an investment professional, removing the incentives for private equity and stock buybacks (both of which largely began in the 80s) would go a long way</p>",
@@ -18370,7 +20216,33 @@
         "favourites_count": 18,
         "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 162,
+            "focusEnd": 377,
+            "contentStart": 36,
+            "contentEnd": 189,
+            "focusCommentStart": 343,
+            "focusCommentEnd": 377,
+            "contentCommentStart": 67,
+            "contentCommentEnd": 128,
+            "category": "agree",
+            "topic": "Corporate Short Termism"
+          },
+          {
+            "focusStart": 162,
+            "focusEnd": 377,
+            "contentStart": 36,
+            "contentEnd": 189,
+            "focusCommentStart": 343,
+            "focusCommentEnd": 377,
+            "contentCommentStart": 67,
+            "contentCommentEnd": 128,
+            "category": "proposals",
+            "topic": "Corporate Short Termism"
+          }
+        ]
       },
       {
         "id": "149301068",
@@ -18386,7 +20258,75 @@
         "favourites_count": 14,
         "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 563,
+            "focusEnd": 679,
+            "contentStart": 131,
+            "contentEnd": 267,
+            "focusCommentStart": 615,
+            "focusCommentEnd": 678,
+            "contentCommentStart": 131,
+            "contentCommentEnd": 169,
+            "category": "agree",
+            "topic": "Industrial Policy"
+          },
+          {
+            "focusStart": 563,
+            "focusEnd": 679,
+            "contentStart": 131,
+            "contentEnd": 267,
+            "focusCommentStart": 615,
+            "focusCommentEnd": 678,
+            "contentCommentStart": 131,
+            "contentCommentEnd": 169,
+            "category": "framing",
+            "topic": "Industrial Policy"
+          }
+        ]
+      },
+      {
+        "id": "149293152",
+        "inReplyToId": "149289030",
+        "content": "<p>@Ed Jones US technology companies absolutely invest for the long term. But they seem to be evil incarnate on these forums don’t they.</p>",
+        "plainText": "@Ed Jones US technology companies absolutely invest for the long term. But they seem to be evil incarnate on these forums don’t they.",
+        "account": {
+          "display_name": "TW",
+          "acct": "tw@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2026-03-03T14:58:02Z",
+        "favourites_count": 1,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 98,
+            "focusEnd": 160,
+            "contentStart": 10,
+            "contentEnd": 70,
+            "focusCommentStart": 123,
+            "focusCommentEnd": 159,
+            "contentCommentStart": 45,
+            "contentCommentEnd": 69,
+            "category": "disagree",
+            "topic": "Corporate Short Termism"
+          },
+          {
+            "focusStart": 98,
+            "focusEnd": 160,
+            "contentStart": 10,
+            "contentEnd": 70,
+            "focusCommentStart": 123,
+            "focusCommentEnd": 159,
+            "contentCommentStart": 45,
+            "contentCommentEnd": 69,
+            "category": "framing",
+            "topic": "Corporate Short Termism"
+          }
+        ]
       }
     ]
   },
@@ -22112,9 +24052,35 @@
         },
         "created_at": "2026-06-23T14:27:44Z",
         "favourites_count": 20,
-        "replies_count": 3,
+        "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 0,
+            "focusEnd": 97,
+            "contentStart": 7,
+            "contentEnd": 140,
+            "focusCommentStart": 37,
+            "focusCommentEnd": 96,
+            "contentCommentStart": 45,
+            "contentCommentEnd": 66,
+            "category": "agree",
+            "topic": "Engineering Capacity"
+          },
+          {
+            "focusStart": 0,
+            "focusEnd": 97,
+            "contentStart": 7,
+            "contentEnd": 140,
+            "focusCommentStart": 37,
+            "focusCommentEnd": 96,
+            "contentCommentStart": 45,
+            "contentCommentEnd": 66,
+            "category": "evidence_personal",
+            "topic": "Engineering Capacity"
+          }
+        ]
       },
       {
         "id": "152065124",
@@ -22130,7 +24096,33 @@
         "favourites_count": 0,
         "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 520,
+            "focusEnd": 710,
+            "contentStart": 16,
+            "contentEnd": 128,
+            "focusCommentStart": 583,
+            "focusCommentEnd": 621,
+            "contentCommentStart": 111,
+            "contentCommentEnd": 127,
+            "category": "disagree",
+            "topic": "Learning From China"
+          },
+          {
+            "focusStart": 520,
+            "focusEnd": 710,
+            "contentStart": 16,
+            "contentEnd": 128,
+            "focusCommentStart": 583,
+            "focusCommentEnd": 621,
+            "contentCommentStart": 111,
+            "contentCommentEnd": 127,
+            "category": "framing",
+            "topic": "Learning From China"
+          }
+        ]
       }
     ]
   },
@@ -26576,20 +28568,46 @@
     ],
     "replies": [
       {
-        "id": "152055720",
+        "id": "152060087",
         "inReplyToId": "152053690",
-        "content": "<p>@Ana Swanson\nOne thing rarely mentioned is the decision (driven by two political \"scientists\") to stick with the imperial system of measurement as opposed to metrification which was planned during the Carter Administration (and during Nixon/Ford).  Selling manufactured items overseas, be it machine tools or anything else, meant either manufacturing things for the domestic market, the international market, or having two lines so both could be made.  What was the cost of keeping our antiquated system of measurement and how many jobs and markets did that cost us?</p>",
-        "plainText": "@Ana Swanson\nOne thing rarely mentioned is the decision (driven by two political \"scientists\") to stick with the imperial system of measurement as opposed to metrification which was planned during the Carter Administration (and during Nixon/Ford).  Selling manufactured items overseas, be it machine tools or anything else, meant either manufacturing things for the domestic market, the international market, or having two lines so both could be made.  What was the cost of keeping our antiquated system of measurement and how many jobs and markets did that cost us?",
+        "content": "<p>@Ana Swanson  As your article says, China has used predatory practices to build a dominant position in batteries and has weaponized its control over global supply chains.  </p>\n\n<p>Here’s another important fact that the article fails to mention:  Environmental impact and regulations are a major obstacle to increased mining of lithium in the US. Everyone is in favor of increased battery manufacturing, except when it comes to mining of the raw materials.  China doesn’t care so much about impacts on the environment, and any NIMBY people in China are “voices in the wilderness”, so to speak.  </p>\n\n<p>This is the inconvenient truth that people ignore when they crown China as a champion of green energy (this and the fact that the US generates more power from solar than from coal, while China generates 60% of their power from coal and 11% from solar as they continue to build literally hundreds of new coal-fired power plants each year).  </p>\n\n<p>By the way, I’m enjoying my newly installed rooftop solar with panels that are not made in China and an inverter that is made in the USA.</p>",
+        "plainText": "@Ana Swanson  As your article says, China has used predatory practices to build a dominant position in batteries and has weaponized its control over global supply chains.  \n\nHere’s another important fact that the article fails to mention:  Environmental impact and regulations are a major obstacle to increased mining of lithium in the US. Everyone is in favor of increased battery manufacturing, except when it comes to mining of the raw materials.  China doesn’t care so much about impacts on the environment, and any NIMBY people in China are “voices in the wilderness”, so to speak.  \n\nThis is the inconvenient truth that people ignore when they crown China as a champion of green energy (this and the fact that the US generates more power from solar than from coal, while China generates 60% of their power from coal and 11% from solar as they continue to build literally hundreds of new coal-fired power plants each year).  \n\nBy the way, I’m enjoying my newly installed rooftop solar with panels that are not made in China and an inverter that is made in the USA.",
         "account": {
-          "display_name": "MichaelS",
-          "acct": "michaels@stacky-nyt.com",
+          "display_name": "John",
+          "acct": "john@stacky-nyt.com",
           "avatar": "https://beta.stacky.social/avatars/original/missing.png"
         },
-        "created_at": "2026-06-23T16:27:07Z",
-        "favourites_count": 133,
-        "replies_count": 6,
+        "created_at": "2026-06-23T18:45:47Z",
+        "favourites_count": 23,
+        "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 836,
+            "focusEnd": 1201,
+            "contentStart": 174,
+            "contentEnd": 586,
+            "focusCommentStart": 1118,
+            "focusCommentEnd": 1200,
+            "contentCommentStart": 240,
+            "contentCommentEnd": 339,
+            "category": "framing",
+            "topic": "Dependence Versus Decoupling"
+          },
+          {
+            "focusStart": 836,
+            "focusEnd": 1201,
+            "contentStart": 174,
+            "contentEnd": 586,
+            "focusCommentStart": 1118,
+            "focusCommentEnd": 1200,
+            "contentCommentStart": 240,
+            "contentCommentEnd": 339,
+            "category": "evidence_public",
+            "topic": "Dependence Versus Decoupling"
+          }
+        ]
       },
       {
         "id": "152059339",
@@ -26605,23 +28623,117 @@
         "favourites_count": 52,
         "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 1083,
+            "focusEnd": 1201,
+            "contentStart": 69,
+            "contentEnd": 277,
+            "focusCommentStart": 1118,
+            "focusCommentEnd": 1200,
+            "contentCommentStart": 225,
+            "contentCommentEnd": 276,
+            "category": "framing",
+            "topic": "Industrial Policy Response"
+          },
+          {
+            "focusStart": 1083,
+            "focusEnd": 1201,
+            "contentStart": 69,
+            "contentEnd": 277,
+            "focusCommentStart": 1118,
+            "focusCommentEnd": 1200,
+            "contentCommentStart": 225,
+            "contentCommentEnd": 276,
+            "category": "disagree",
+            "topic": "Industrial Policy Response"
+          }
+        ]
       },
       {
-        "id": "152060087",
+        "id": "152060762",
         "inReplyToId": "152053690",
-        "content": "<p>@Ana Swanson  As your article says, China has used predatory practices to build a dominant position in batteries and has weaponized its control over global supply chains.  </p>\n\n<p>Here’s another important fact that the article fails to mention:  Environmental impact and regulations are a major obstacle to increased mining of lithium in the US. Everyone is in favor of increased battery manufacturing, except when it comes to mining of the raw materials.  China doesn’t care so much about impacts on the environment, and any NIMBY people in China are “voices in the wilderness”, so to speak.  </p>\n\n<p>This is the inconvenient truth that people ignore when they crown China as a champion of green energy (this and the fact that the US generates more power from solar than from coal, while China generates 60% of their power from coal and 11% from solar as they continue to build literally hundreds of new coal-fired power plants each year).  </p>\n\n<p>By the way, I’m enjoying my newly installed rooftop solar with panels that are not made in China and an inverter that is made in the USA.</p>",
-        "plainText": "@Ana Swanson  As your article says, China has used predatory practices to build a dominant position in batteries and has weaponized its control over global supply chains.  \n\nHere’s another important fact that the article fails to mention:  Environmental impact and regulations are a major obstacle to increased mining of lithium in the US. Everyone is in favor of increased battery manufacturing, except when it comes to mining of the raw materials.  China doesn’t care so much about impacts on the environment, and any NIMBY people in China are “voices in the wilderness”, so to speak.  \n\nThis is the inconvenient truth that people ignore when they crown China as a champion of green energy (this and the fact that the US generates more power from solar than from coal, while China generates 60% of their power from coal and 11% from solar as they continue to build literally hundreds of new coal-fired power plants each year).  \n\nBy the way, I’m enjoying my newly installed rooftop solar with panels that are not made in China and an inverter that is made in the USA.",
+        "content": "<p>@Ana Swanson I moved from a high tech career to teaching and saw the obvious early.  China was playing the long game in building an advanced society through education, government/private research, accepting short term risk for long term rewards.  In the U.S. now, expertise is viewed with suspicion, education is devalued, and rather than look decades ahead, U.S. companies focus on quarterly profit margins.  Think of how current world events would have played out differently if the U.S. no longer was tied to Middle East oil production.</p>",
+        "plainText": "@Ana Swanson I moved from a high tech career to teaching and saw the obvious early.  China was playing the long game in building an advanced society through education, government/private research, accepting short term risk for long term rewards.  In the U.S. now, expertise is viewed with suspicion, education is devalued, and rather than look decades ahead, U.S. companies focus on quarterly profit margins.  Think of how current world events would have played out differently if the U.S. no longer was tied to Middle East oil production.",
         "account": {
-          "display_name": "John",
-          "acct": "john@stacky-nyt.com",
+          "display_name": "Grego",
+          "acct": "grego@stacky-nyt.com",
           "avatar": "https://beta.stacky.social/avatars/original/missing.png"
         },
-        "created_at": "2026-06-23T18:45:47Z",
-        "favourites_count": 23,
-        "replies_count": 5,
+        "created_at": "2026-06-23T18:41:09Z",
+        "favourites_count": 60,
+        "replies_count": 0,
         "favourited": false,
-        "bookmarked": false
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 836,
+            "focusEnd": 1201,
+            "contentStart": 85,
+            "contentEnd": 408,
+            "focusCommentStart": 1118,
+            "focusCommentEnd": 1200,
+            "contentCommentStart": 85,
+            "contentCommentEnd": 116,
+            "category": "framing",
+            "topic": "Strategic Vulnerability"
+          },
+          {
+            "focusStart": 836,
+            "focusEnd": 1201,
+            "contentStart": 85,
+            "contentEnd": 408,
+            "focusCommentStart": 1118,
+            "focusCommentEnd": 1200,
+            "contentCommentStart": 85,
+            "contentCommentEnd": 116,
+            "category": "evidence_personal",
+            "topic": "Strategic Vulnerability"
+          }
+        ]
+      },
+      {
+        "id": "152055720",
+        "inReplyToId": "152053690",
+        "content": "<p>@Ana Swanson\nOne thing rarely mentioned is the decision (driven by two political \"scientists\") to stick with the imperial system of measurement as opposed to metrification which was planned during the Carter Administration (and during Nixon/Ford).  Selling manufactured items overseas, be it machine tools or anything else, meant either manufacturing things for the domestic market, the international market, or having two lines so both could be made.  What was the cost of keeping our antiquated system of measurement and how many jobs and markets did that cost us?</p>",
+        "plainText": "@Ana Swanson\nOne thing rarely mentioned is the decision (driven by two political \"scientists\") to stick with the imperial system of measurement as opposed to metrification which was planned during the Carter Administration (and during Nixon/Ford).  Selling manufactured items overseas, be it machine tools or anything else, meant either manufacturing things for the domestic market, the international market, or having two lines so both could be made.  What was the cost of keeping our antiquated system of measurement and how many jobs and markets did that cost us?",
+        "account": {
+          "display_name": "MichaelS",
+          "acct": "michaels@stacky-nyt.com",
+          "avatar": "https://beta.stacky.social/avatars/original/missing.png"
+        },
+        "created_at": "2026-06-23T16:27:07Z",
+        "favourites_count": 133,
+        "replies_count": 0,
+        "favourited": false,
+        "bookmarked": false,
+        "relations": [
+          {
+            "focusStart": 527,
+            "focusEnd": 758,
+            "contentStart": 13,
+            "contentEnd": 566,
+            "focusCommentStart": 572,
+            "focusCommentEnd": 603,
+            "contentCommentStart": 98,
+            "contentCommentEnd": 143,
+            "category": "framing",
+            "topic": "Industrial Policy Response"
+          },
+          {
+            "focusStart": 527,
+            "focusEnd": 758,
+            "contentStart": 13,
+            "contentEnd": 566,
+            "focusCommentStart": 572,
+            "focusCommentEnd": 603,
+            "contentCommentStart": 98,
+            "contentCommentEnd": 143,
+            "category": "questions",
+            "topic": "Industrial Policy Response"
+          }
+        ]
       }
     ]
   }

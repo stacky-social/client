@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import {
-  setFilterCategories,
-  setResponseFilter,
+  setCategoryFilter,
+  setPassageFilter,
   useHighlightStore,
+  filteredHistoryState,
+  registerUrlSyncFlush,
 } from "./highlightStore";
 import { LEGACY_TABS, SORT_TABS } from "./replyTabs.mjs";
 
@@ -52,11 +54,11 @@ function isValidTab(v: string): boolean {
  *
  * Read direction (hydration):
  *   ?tab    → setActiveTab()
- *   ?fc     → setFilterCategories()
- *   ?fs     → setResponseFilter() (deferred until plainPostText is available)
+ *   ?fc     → setCategoryFilter() (atomic; replace-not-stack)
+ *   ?fs     → setPassageFilter() (atomic; deferred until plainPostText is available)
  *
  * Write direction (debounced):
- *   activeTab + filterCategories + responseFilter → router.replace(pathname + ?params)
+ *   activeTab + filterCategories + responseFilter → history.replaceState(pathname + ?params)
  *
  * ?stackId and ?from are preserved (pass-through) and not modified here.
  */
@@ -69,7 +71,6 @@ export function useUrlSync({
   allowedTabs,
 }: UrlSyncOptions): void {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const pathname = usePathname();
   const { filterCategories, responseFilter } = useHighlightStore();
 
@@ -81,6 +82,19 @@ export function useUrlSync({
   // Tracks whether we triggered onHydratedTab for the current mount.
   const hydratedTabCalledRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Expose a flush so a WS6 Back-undo restore can cancel any pending delayed
+  // history write — otherwise a fast double-Back could fire a stale replaceState
+  // against the wrong entry after the ring already moved on.
+  useEffect(() => {
+    registerUrlSyncFlush(() => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+    });
+    return () => registerUrlSyncFlush(null);
+  }, []);
 
   // Reset hydration gate when the route changes.
   useEffect(() => {
@@ -128,7 +142,9 @@ export function useUrlSync({
     if (fcParam) {
       const cats = new Set(fcParam.split(",").map((c) => c.trim()).filter(Boolean));
       if (cats.size > 0) {
-        setFilterCategories(cats);
+        // Atomic setter → replace-not-stack holds on deep-links (a ?fc link is
+        // the active interaction, clearing any restored topic/passage).
+        setCategoryFilter(cats);
       }
     }
 
@@ -175,16 +191,18 @@ export function useUrlSync({
 
     const safeEnd = Math.min(end, plainPostText.length);
     const text = plainPostText.slice(start, safeEnd);
-    setResponseFilter({ start, end: safeEnd, text });
+    // Atomic setter → a ?fs deep-link is the active interaction (clears any
+    // restored topic/category), keeping replace-not-stack coherent.
+    setPassageFilter({ start, end: safeEnd, text });
     fsHydratedRef.current = true;
   }, [plainPostText, pathname, searchParams]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── WRITE: debounced URL update when UI state changes ────────────────────
-  // Uses router.replace (not push) so filter toggles don't pollute history.
-  // Preserves ?stackId, ?from and ?related (set by other parts of the app).
+  // Writes via history.replaceState (not push) so filter toggles don't pollute
+  // history. Preserves ?stackId, ?from and ?related (set by other parts of the app).
   useEffect(() => {
-    // Clear any pending debounce up front so a stale router.replace can't fire
-    // against an out-of-date path, even if this effect early-returns below.
+    // Clear any pending debounce up front so a stale write can't fire against an
+    // out-of-date path, even if this effect early-returns below.
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
@@ -226,10 +244,14 @@ export function useUrlSync({
 
     debounceRef.current = setTimeout(() => {
       const newUrl = pathname + (newSearch ? "?" + newSearch : "");
-      // scroll:false — this replace fires 300ms after every tab/filter change;
-      // the App Router's default scroll-to-top would yank the user away from
-      // the replies they are sorting/filtering.
-      router.replace(newUrl, { scroll: false });
+      // WS6/W6-1: write via Next's PATCHED window.history.replaceState (NOT
+      // App Router router.replace). router.replace would REPLACE the current
+      // entry's state and could strand the undo sentinel; more importantly, this
+      // path keeps the entry in place (so the sentinel survives) while a FILTERED
+      // state (no __NA/_N) makes the patch re-sync useSearchParams/usePathname
+      // to the new URL. No scroll side effect either (App Router's replace would
+      // otherwise yank the user away from the replies they are filtering).
+      window.history.replaceState(filteredHistoryState(), "", newUrl);
     }, 300);
 
     return () => {
@@ -238,5 +260,5 @@ export function useUrlSync({
         debounceRef.current = null;
       }
     };
-  }, [activeTab, defaultTab, filterCategories, responseFilter, pathname, searchParams, router]);
+  }, [activeTab, defaultTab, filterCategories, responseFilter, pathname, searchParams]);
 }

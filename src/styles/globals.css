@@ -76,6 +76,15 @@ body {
     .related-tag-text { display: none; }
 }
 
+/* Shared Post card (focus post + feed cards) — the feed column is now a
+   container-query context too (Shell.tsx). The category tags sit in the header
+   row; when the card's container is narrow they collapse to icon-only so the
+   header (avatar · name · date · tags) never wraps or crowds. The header is
+   wider than an aside card, so the threshold is higher than the aside tags'. */
+@container (max-width: 500px) {
+    .post-tag-text { display: none; }
+}
+
 /* Related-panel (right pane) scrollbar — a custom, branded style on the right of
    the panel so it reads as distinct from the feed column's system scrollbar.
    (Firefox uses scrollbar-width/-color set inline in Shell.tsx.) */

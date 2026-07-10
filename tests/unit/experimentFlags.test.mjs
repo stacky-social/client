@@ -9,12 +9,22 @@ import {
   parseFlagOverrides,
 } from '../../src/utils/experimentFlagsCore.mjs';
 
-test('all flags default to true', () => {
+// Demo posture: most conditions default ON, but summaryCard (summary hidden)
+// and filterStacking (filters replace, not stack) default OFF.
+const DEFAULT_OFF = new Set(['summaryCard', 'filterStacking']);
+
+test('flags carry the demo-posture defaults (most on, summary + stacking off)', () => {
   const keys = Object.keys(DEFAULT_FLAGS);
   assert.ok(keys.length >= 7, 'expected at least 7 flags');
   for (const [k, v] of Object.entries(DEFAULT_FLAGS)) {
-    assert.equal(v, true, `flag ${k} should default to true`);
+    const expected = !DEFAULT_OFF.has(k);
+    assert.equal(v, expected, `flag ${k} should default to ${expected}`);
   }
+});
+
+test('summaryCard and filterStacking default to false', () => {
+  assert.equal(DEFAULT_FLAGS.summaryCard, false);
+  assert.equal(DEFAULT_FLAGS.filterStacking, false);
 });
 
 test('mergeFlags applies persisted booleans, ignores junk keys and non-boolean values', () => {
@@ -45,7 +55,7 @@ test('branchPreviews is a known default-on flag', () => {
   assert.equal(DEFAULT_FLAGS.branchPreviews, true);
 });
 
-test('effectiveFlags: all-on defaults pass through unchanged', () => {
+test('effectiveFlags: defaults pass through unchanged (no unmet dependencies)', () => {
   assert.deepEqual(effectiveFlags(DEFAULT_FLAGS), DEFAULT_FLAGS);
 });
 
@@ -54,8 +64,8 @@ test('effectiveFlags: replySortTabs off forces crossPaneFiltering and replyReran
   assert.equal(eff.replySortTabs, false);
   assert.equal(eff.crossPaneFiltering, false);
   assert.equal(eff.replyReranking, false);
-  // Independent flags are untouched.
-  assert.equal(eff.summaryCard, true);
+  // Independent flags are untouched (carry their own defaults).
+  assert.equal(eff.summaryCard, false);
   assert.equal(eff.branchPreviews, true);
 });
 

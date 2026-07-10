@@ -2,8 +2,38 @@
 
 import { useSyncExternalStore } from "react";
 import type { Relation } from "../types/PostType";
+import {
+  reduceInteraction,
+  validateTopicInteraction,
+  pushUndoEntry,
+  ringTopMatchesScope,
+} from "./highlightStoreCore.mjs";
+// Re-export the pure selectors/topic-key helper so components import them from
+// the store surface (the .mjs holds the framework-free, unit-tested logic).
+export {
+  topicKeyOf,
+  relationsMatchTopic,
+  asideGrouping,
+  asideTopicFilter,
+  replyGrouping,
+  replyTopicFilter,
+} from "./highlightStoreCore.mjs";
 
 // ─── State ──────────────────────────────────────────────────────────────────
+
+/**
+ * The single atomic panel-interaction primitive (replaces the anchor-derived
+ * `reRankAnchorIds`/`anchoredRangeByPost`/`replyAnchor` model as the *UI
+ * interaction* source of truth once T4 migrates the components). Exactly one is
+ * active at a time. `origin` is the pane the user clicked; that pane GROUPS by
+ * `topicKey` and the other pane is FILTERED by it. `anchor` is the clicked span
+ * on the ORIGIN pane.
+ */
+export interface TopicInteraction {
+  origin: "aside" | "replies";
+  topicKey: string;
+  anchor: { postId: string; rangeIndex: number };
+}
 
 interface HighlightState {
   /** ID of the sidebar post currently being hovered (drives focus-post cross-highlighting) */
@@ -50,6 +80,22 @@ interface HighlightState {
    * tooltips can count across both panes.
    */
   replyTopicCounts: Record<string, number>;
+  /**
+   * Atomic panel-interaction primitive (see {@link TopicInteraction}). Added
+   * alongside the legacy anchor fields; T4 migrates the components onto it and
+   * retires the legacy fields. Set/cleared only through the atomic actions
+   * (`activateAsideTopic`/`activateReplyTopic`/`setCategoryFilter`/
+   * `setPassageFilter`/`clearTopicInteraction`/`clearAll`) so replace-not-stack
+   * holds: activating any dimension clears the others.
+   */
+  topicInteraction: TopicInteraction | null;
+  /**
+   * The visible related-panel order captured just before the current
+   * interaction began, so a Back-undo can restore the exact prior view (WS6).
+   * T3 defines the field + persistence; T6 wires the capture path that
+   * populates it.
+   */
+  baseOrderIds: string[];
 }
 
 const INITIAL: HighlightState = {
@@ -65,6 +111,8 @@ const INITIAL: HighlightState = {
   responseFilter: null,
   replyAnchor: null,
   replyTopicCounts: {},
+  topicInteraction: null,
+  baseOrderIds: [],
 };
 
 // ─── Module-level store ─────────────────────────────────────────────────────
@@ -221,6 +269,71 @@ export function toggleFilterCategory(category: string): void {
   notify();
 }
 
+// ─── Atomic panel-interaction actions (replace-not-stack) ────────────────────
+// The single entry point onto `topicInteraction` + the two filter dimensions.
+// Every action fires ONE notification and, via reduceInteraction, clears the
+// dimensions it does not set — so exactly one interaction is ever active. T4
+// routes chip clicks, span clicks, URL hydration, and per-focus restore through
+// these (never the legacy primitive setters) so the invariant can't leak.
+
+/** Apply an interaction transition: reduce the three-dimension slice and merge
+ *  it back into state in one notified update. */
+function applyInteraction(action: Parameters<typeof reduceInteraction>[1]): void {
+  const dims = reduceInteraction(
+    {
+      topicInteraction: state.topicInteraction,
+      filterCategories: state.filterCategories,
+      responseFilter: state.responseFilter,
+    },
+    action,
+  );
+  state = {
+    ...state,
+    topicInteraction: dims.topicInteraction,
+    filterCategories: dims.filterCategories,
+    responseFilter: dims.responseFilter,
+  };
+  notify();
+}
+
+/** Group the aside by a clicked card span; filters the reply pane by the same
+ *  topic. Clears any category/passage filter. */
+export function activateAsideTopic(payload: {
+  topicKey: string;
+  anchor: { postId: string; rangeIndex: number };
+}): void {
+  applyInteraction({ type: "asideTopic", topicKey: payload.topicKey, anchor: payload.anchor });
+}
+
+/** Cluster the reply list by a clicked reply span; filters the aside by the same
+ *  topic. Clears any category/passage filter. */
+export function activateReplyTopic(payload: {
+  topicKey: string;
+  anchor: { postId: string; rangeIndex: number };
+}): void {
+  applyInteraction({ type: "replyTopic", topicKey: payload.topicKey, anchor: payload.anchor });
+}
+
+/** Set the category filter across both panes; clears any topic/passage interaction. */
+export function setCategoryFilter(cats: Set<string> | string[]): void {
+  applyInteraction({ type: "category", cats: Array.from(cats) });
+}
+
+/** Set the passage ("responses to") filter; clears any topic/category interaction. */
+export function setPassageFilter(span: { start: number; end: number; text: string }): void {
+  applyInteraction({ type: "passage", span });
+}
+
+/** Clear only the topic interaction (leaves any filter untouched). */
+export function clearTopicInteraction(): void {
+  applyInteraction({ type: "clearTopic" });
+}
+
+/** Clear every interaction dimension (topic + category + passage) at once. */
+export function clearAll(): void {
+  applyInteraction({ type: "clearAll" });
+}
+
 export function resetHighlightStore(): void {
   state = { ...INITIAL, filterCategories: new Set(), responseFilter: null };
   notify();
@@ -239,6 +352,12 @@ interface PanelSnapshot {
   anchoredRangeByPost: Record<string, number>;
   responseFilter: { start: number; end: number; text: string } | null;
   replyAnchor: { replyId: string; rangeIndex: number } | null;
+  /** Atomic interaction primitive (see {@link TopicInteraction}); restored with
+   *  validation on focus switch (dropped whole if the anchor/topic is gone). */
+  topicInteraction: TopicInteraction | null;
+  /** Pre-interaction visible order, for Back-undo restore (WS6). T6 wires the
+   *  capture; T3 persists whatever `state.baseOrderIds` holds. */
+  baseOrderIds: string[];
 }
 
 const panelStateByFocus = new Map<string, PanelSnapshot>();
@@ -267,6 +386,8 @@ function snapshotPanel(): PanelSnapshot {
     anchoredRangeByPost: { ...state.anchoredRangeByPost },
     responseFilter: state.responseFilter,
     replyAnchor: state.replyAnchor,
+    topicInteraction: state.topicInteraction,
+    baseOrderIds: [...state.baseOrderIds],
   };
 }
 
@@ -276,8 +397,24 @@ function snapshotPanel(): PanelSnapshot {
  * to a clean panel if it has none). No-op when the focus id is unchanged, so it
  * is safe to call on every render/effect. Transient hover/tap state always
  * resets on a real switch.
+ *
+ * `resolveTopicKey` (optional) validates a restored `topicInteraction` against
+ * the incoming focus's current data: it returns the topic key that currently
+ * lives at the interaction's anchor (or null if that span is gone). The whole
+ * interaction is dropped unless the anchor still resolves to the same key —
+ * never a partial restore. When omitted (e.g. legacy callers), a saved
+ * interaction is restored as-is; T4 passes the resolver from the components.
+ * The interaction's `origin` is forwarded so the resolver can route an
+ * aside-origin anchor against the related cards and a reply-origin anchor
+ * against the thread's reply relations (T7).
  */
-export function setPanelFocus(focusId: string | null): void {
+export function setPanelFocus(
+  focusId: string | null,
+  resolveTopicKey?: (
+    anchor: { postId: string; rangeIndex: number },
+    origin?: "aside" | "replies",
+  ) => string | null | undefined,
+): void {
   if (focusId === currentPanelFocusId) return;
   if (currentPanelFocusId) {
     panelStateByFocus.set(currentPanelFocusId, snapshotPanel());
@@ -288,9 +425,18 @@ export function setPanelFocus(focusId: string | null): void {
   // filter is stashed as "pending" and applied here — after the saved-panel
   // restore that would otherwise wipe it on the focus switch.
   let incomingResponseFilter = saved ? saved.responseFilter : null;
+  // Restore the atomic interaction, validated against the incoming focus data.
+  let incomingTopicInteraction = saved
+    ? resolveTopicKey
+      ? validateTopicInteraction(saved.topicInteraction, resolveTopicKey)
+      : saved.topicInteraction
+    : null;
   if (pendingResponseFilter && pendingResponseFilter.postId === focusId) {
     incomingResponseFilter = pendingResponseFilter.span;
     pendingResponseFilter = null;
+    // A fresh passage filter is the active interaction — replace-not-stack means
+    // it supersedes any topic interaction that would otherwise be restored.
+    incomingTopicInteraction = null;
   }
   state = {
     ...state,
@@ -299,6 +445,8 @@ export function setPanelFocus(focusId: string | null): void {
     anchoredRangeByPost: saved ? { ...saved.anchoredRangeByPost } : {},
     responseFilter: incomingResponseFilter,
     replyAnchor: saved ? saved.replyAnchor : null,
+    topicInteraction: incomingTopicInteraction,
+    baseOrderIds: saved ? [...saved.baseOrderIds] : [],
     // reply-topic counts are re-published by the incoming thread page
     replyTopicCounts: {},
     // transient view state never persists across a focus switch
@@ -334,6 +482,29 @@ export function setPendingResponseFilter(postId: string, span: { start: number; 
   pendingResponseFilter = { postId, span };
 }
 
+// ─── Reply-topic resolver (detail page → aside restore validation) ──────────
+// The aside (RelatedStacks) owns the single `setPanelFocus` call, so it runs
+// the restore validation for BOTH panes' interactions — but it only knows the
+// related-card anchors, not the thread's reply relations. The detail page
+// registers a resolver here so an aside-run validation of a restored
+// REPLY-origin interaction can resolve its anchor against the current thread's
+// reply relations (else the interaction is wrongly dropped, T4/T7 seam).
+let _replyTopicResolver:
+  | ((anchor: { postId: string; rangeIndex: number }) => string | null | undefined)
+  | null = null;
+
+export function registerReplyTopicResolver(
+  fn: ((anchor: { postId: string; rangeIndex: number }) => string | null | undefined) | null,
+): void {
+  _replyTopicResolver = fn;
+}
+
+/** Resolve a reply-origin anchor's current topic key via the registered detail
+ *  page resolver (null when no thread is mounted or the span is gone). */
+export function resolveReplyTopicKey(anchor: { postId: string; rangeIndex: number }): string | null {
+  return (_replyTopicResolver ? _replyTopicResolver(anchor) : null) ?? null;
+}
+
 // ─── Navigation callback (shared between page and aside parallel routes) ────
 
 let _navigateCallback: ((postId: string) => void) | null = null;
@@ -344,6 +515,205 @@ export function registerNavigateCallback(cb: ((postId: string) => void) | null):
 
 export function triggerNavigate(postId: string): void {
   if (_navigateCallback) _navigateCallback(postId);
+}
+
+// ─── WS6: Back-button undo (single-sentinel ring) ───────────────────────────
+// Detail-route only. Model:
+//  • An in-memory ring of pre-interaction PanelSnapshots (incl. baseOrderIds),
+//    scoped by {pathname, focusId}, cap 5 (older states drop, non-undoable).
+//  • Exactly ONE extra same-URL history "sentinel" entry while the ring is
+//    non-empty (push on the first interaction after empty; re-push after each
+//    Back-restore if states remain; do NOT re-push when the ring empties → the
+//    next Back leaves the route). ring non-empty ⟺ current entry is the sentinel.
+//  • popstate detection is IN-MEMORY: on Back we compare location.pathname +
+//    focus to the ring's top scope (never history.state), and undo if it matches.
+// The route installs the popstate listener in a client effect (see
+// consumePanelUndo); this module owns the ring + the sentinel bookkeeping.
+
+export interface PanelScope {
+  pathname: string;
+  focusId: string;
+}
+
+interface UndoEntry {
+  pathname: string;
+  focusId: string;
+  snapshot: PanelSnapshot;
+}
+
+const UNDO_RING_CAP = 5;
+let panelUndoRing: UndoEntry[] = [];
+
+/** The current {pathname, focusId} scope, from the live URL + the focus the
+ *  panel is showing. Undo entries are pushed and matched against this. */
+export function currentPanelScope(): PanelScope | null {
+  if (typeof window === "undefined") return null;
+  return { pathname: window.location.pathname, focusId: currentPanelFocusId ?? "" };
+}
+
+/**
+ * The current history.state with the App-Router bypass keys (`__NA`/`_N`)
+ * stripped. Next 14.2.5 monkeypatches `window.history.push/replaceState`: when
+ * `data.__NA` or `data._N` is present it takes a bypass path that updates ONLY
+ * the address bar and leaves `useSearchParams`/`usePathname` stale (critique
+ * W6-1). Passing a state WITHOUT those keys makes the patch re-copy the Next
+ * internals from the current entry AND dispatch the router restore, so the hooks
+ * stay in sync. Any other custom fields are preserved.
+ */
+export function filteredHistoryState(): Record<string, unknown> {
+  if (typeof window === "undefined") return {};
+  const s = window.history.state as Record<string, unknown> | null;
+  if (!s || typeof s !== "object") return {};
+  const { __NA, _N, ...rest } = s;
+  void __NA;
+  void _N;
+  return rest;
+}
+
+/** Push the single same-URL sentinel entry through Next's PATCHED pushState (so
+ *  Next copies its internals into it — otherwise a Back that LANDS on the
+ *  sentinel would trip Next's `location.reload()` fallback). No url arg keeps
+ *  the current URL and skips a redundant router restore. */
+function pushSentinel(): void {
+  if (typeof window === "undefined") return;
+  window.history.pushState(filteredHistoryState(), "");
+}
+
+/** URL-sync debounce flush — registered by useUrlSync so a restore can cancel a
+ *  pending delayed history write (a fast double-Back must not fire a stale one). */
+let _urlSyncFlush: (() => void) | null = null;
+export function registerUrlSyncFlush(fn: (() => void) | null): void {
+  _urlSyncFlush = fn;
+}
+
+/** Apply a PanelSnapshot back onto the live state in ONE notified update — the
+ *  atomic restore Back-undo needs (base order + grouping + filters together, so
+ *  no intermediate render shows a half-restored view). Transient hover/tap
+ *  state is cleared, matching a fresh interaction. */
+function applyPanelSnapshot(snap: PanelSnapshot): void {
+  state = {
+    ...state,
+    filterCategories: new Set(snap.filterCategories),
+    reRankAnchorIds: [...snap.reRankAnchorIds],
+    anchoredRangeByPost: { ...snap.anchoredRangeByPost },
+    responseFilter: snap.responseFilter,
+    replyAnchor: snap.replyAnchor,
+    topicInteraction: snap.topicInteraction,
+    baseOrderIds: [...snap.baseOrderIds],
+    hoveredPostId: null,
+    hoveredRelations: null,
+    hoveredHighlightRangeIndex: null,
+    hoveredCategory: null,
+    tappedCardPostId: null,
+    tappedRangeIndex: null,
+  };
+  notify();
+}
+
+/**
+ * Begin an UNDOABLE panel interaction (detail route). Call BEFORE mutating the
+ * interaction — it captures the PRE-interaction snapshot (incl. the current
+ * baseOrderIds) onto the ring and, if the ring was empty, pushes the sentinel.
+ * When `currentVisibleOrderIds` is provided (grouping gestures) it also persists
+ * that as the new base order, so the upcoming grouping operates on the order the
+ * user currently sees (permanent-reorder) — and Back restores the OLD base with
+ * it. Filter-chip / reply-span gestures pass `null` (they don't rebase the aside).
+ *
+ * This runs as one NON-render transaction: the snapshot push is module memory
+ * and the base-order write does NOT notify — the caller's atomic action fires the
+ * single notification, so the base order + the mutation land in one render.
+ * Only call at genuine user gestures (filter chip, aside span, reply span) — URL
+ * hydration, per-focus restore, and programmatic sets are NOT undoable.
+ */
+export function beginPanelInteraction(
+  scope: PanelScope,
+  currentVisibleOrderIds?: string[] | null,
+): void {
+  const wasEmpty = panelUndoRing.length === 0;
+  panelUndoRing = pushUndoEntry(
+    panelUndoRing,
+    { pathname: scope.pathname, focusId: scope.focusId, snapshot: snapshotPanel() },
+    UNDO_RING_CAP,
+  );
+  if (wasEmpty) pushSentinel();
+  if (currentVisibleOrderIds) {
+    // Non-render: no notify — the caller's atomic action coalesces it in.
+    state = { ...state, baseOrderIds: [...currentVisibleOrderIds] };
+  }
+}
+
+/** Set the aside base order WITHOUT recording an undo entry — the feed
+ *  (aside-only) permanent-reorder path, which is non-undoable by design. No
+ *  notify: the caller's atomic grouping action fires it. */
+export function setPanelBaseOrder(orderIds: string[]): void {
+  state = { ...state, baseOrderIds: [...orderIds] };
+}
+
+/**
+ * DRY boundary for the many detail-route filter/passage/CLEAR gestures that
+ * don't rebase the aside order: record a pre-interaction undo snapshot (null
+ * order) IFF we're on a ChineseEVs detail route with a known focus — so a
+ * category/passage/topic APPLY *and* its later REMOVE/CLEAR are both undoable
+ * (Back re-applies the just-cleared filter, keeping the ring coherent). Pass
+ * `focusId` to tighten the guard to a specific post (focus-post span clicks);
+ * omit for controls only ever rendered for the current focus. The feed route is
+ * excluded (undo is detail-only in v1). Returns whether a boundary was recorded.
+ */
+export function beginUndoablePanelInteractionIfDetail(focusId?: string): boolean {
+  const scope = currentPanelScope();
+  if (!scope || !scope.pathname.startsWith("/ChineseEVs/posts/")) return false;
+  if (focusId !== undefined && scope.focusId !== focusId) return false;
+  beginPanelInteraction(scope, null);
+  return true;
+}
+
+/** True when a Back at the current scope would undo a panel interaction. */
+export function hasPanelUndo(scope?: PanelScope | null): boolean {
+  const s = scope ?? currentPanelScope();
+  return ringTopMatchesScope(panelUndoRing, s);
+}
+
+/**
+ * Consume one undo step. Assumes the browser has just Backed OFF the sentinel
+ * onto the entry below it (the popstate handler calls this; the visible Back
+ * button routes through `window.history.back()` so the same thing happens).
+ * Pops the ring's top, clears any pending URL-sync write, restores the snapshot
+ * atomically, and re-pushes the sentinel iff states remain. Returns false (no-op)
+ * when the current scope has no undoable entry, so a real Back navigates away.
+ */
+export function consumePanelUndo(): boolean {
+  const scope = currentPanelScope();
+  if (!ringTopMatchesScope(panelUndoRing, scope)) return false;
+  const entry = panelUndoRing[panelUndoRing.length - 1];
+  panelUndoRing = panelUndoRing.slice(0, -1);
+  if (_urlSyncFlush) _urlSyncFlush();
+  applyPanelSnapshot(entry.snapshot);
+  if (panelUndoRing.length > 0) pushSentinel();
+  return true;
+}
+
+/**
+ * Commit the outgoing panel state and navigate away from the current focus
+ * scope (WS3 X-click + any related-post navigation). A history entry can't be
+ * deleted, so when we're sitting ON the sentinel we `replace` OVER it (collapsing
+ * it so Back doesn't hit a stranded sentinel — critique W6-2); otherwise `push`.
+ * The ring for the outgoing focus is cleared. Exported for T2.
+ */
+export function navigateFromPanelScope(
+  url: string,
+  navigate: { push: (u: string) => void; replace: (u: string) => void },
+): void {
+  if (currentPanelFocusId) {
+    panelStateByFocus.set(currentPanelFocusId, snapshotPanel());
+  }
+  const onSentinel = panelUndoRing.length > 0;
+  panelUndoRing = panelUndoRing.filter((e) => e.focusId !== currentPanelFocusId);
+  (onSentinel ? navigate.replace : navigate.push)(url);
+}
+
+/** Test/reset seam: drop the whole undo ring (does not touch history). */
+export function resetPanelUndoRing(): void {
+  panelUndoRing = [];
 }
 
 // ─── Hook ───────────────────────────────────────────────────────────────────
