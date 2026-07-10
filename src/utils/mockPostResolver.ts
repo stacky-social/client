@@ -1,6 +1,7 @@
 "use client";
 
 import mockData from "../app/FakeData/listy-injection.json";
+import { firstTypeRelations } from "./relationFirstType.mjs";
 import type {
   ListyInjectionData,
   ListyInjectionEntry,
@@ -42,7 +43,11 @@ function toMockPostType(p: FocusPostMock | RelatedPostMock, relatedStacks: any[]
       acct: p.account.acct,
       avatar: p.account.avatar,
     },
-    replies_count: p.replies_count,
+    // Never report fewer replies than the data actually threads under this
+    // post: synthesized ancestors (the NYT article headlines) are written with
+    // replies_count 0 by the converter, but their children — the focus posts —
+    // are right here in the fixture, so the headline card read "0 replies".
+    replies_count: Math.max(p.replies_count ?? 0, (childrenByParent.get(p.id) ?? []).length),
     created_at: p.created_at,
     stackCount,
     favourites_count: p.favourites_count,
@@ -165,7 +170,10 @@ export function getMockReplies(id: string): MockPostType[] {
  *  post has no entry (synthetic / reply-only ids). */
 export function getMockFocusRelations(id: string): Relation[] {
   const entry = entryByFocusId.get(id);
-  if (entry) return entry.relatedPosts.flatMap((rp) => rp.relations ?? []);
+  // First contribution type only (see relationFirstType.mjs) — deduped PER
+  // related post, so two different posts marking the same focus span still
+  // both contribute their mark.
+  if (entry) return entry.relatedPosts.flatMap((rp) => firstTypeRelations(rp.relations));
   // Replies have no own relations (they aren't part of NLP analysis); leave empty
   // so the reply text renders cleanly without misaligned marks from the parent.
   return [];
@@ -207,7 +215,7 @@ export function getMockRelatedStacks(id: string): any[] {
           },
           content_rewritten: "",
           rewrite: { content: p.rewrite?.content ?? p.content, significant: p.rewrite?.significant ?? false },
-          relations: p.relations,
+          relations: firstTypeRelations(p.relations),
         },
       }));
   }
@@ -230,7 +238,7 @@ export function getMockRelatedStacks(id: string): any[] {
       },
       content_rewritten: "",
       rewrite: { content: rp.rewrite?.content ?? rp.content, significant: rp.rewrite?.significant ?? false },
-      relations: rp.relations,
+      relations: firstTypeRelations(rp.relations),
     },
   }));
 }
@@ -251,11 +259,11 @@ export function getMockRecommended(id: string): MockPostType[] {
 export function getMockReplyRelations(id: string, focusId?: string): Relation[] {
   const fromReply = replyById.get(id);
   if (fromReply && (!focusId || fromReply.parent.focusPost.id === focusId)) {
-    return fromReply.reply.relations ?? [];
+    return firstTypeRelations(fromReply.reply.relations);
   }
   const fromRelated = relatedById.get(id);
   if (fromRelated && (!focusId || fromRelated.parent.focusPost.id === focusId)) {
-    return fromRelated.rp.relations ?? [];
+    return firstTypeRelations(fromRelated.rp.relations);
   }
   return [];
 }

@@ -9,6 +9,7 @@ import Post from "../../../components/Posts/Post";
 import mockData from "../../FakeData/listy-injection.json";
 import type { ListyInjectionData, ListyInjectionEntry, RelatedPostMock, FocusPostMock, Relation, CategoryKey } from "../../../types/PostType";
 import { useRelatedStacks } from "../related-stacks-context";
+import { firstTypeRelations } from "../../../utils/relationFirstType.mjs";
 import { registerNavigateCallback } from "../../../utils/highlightStore";
 import ReplySection from "../../../components/ReplySection";
 import { useLocalStore, useHydrated, getHashtagAuthors, followAll, unfollowAll, areAllFollowing } from "../../../utils/localStore";
@@ -33,7 +34,10 @@ function toTopPost(rp: RelatedPostMock) {
     account: { avatar: rp.account.avatar, display_name: rp.account.display_name, acct: rp.account.acct },
     content_rewritten: "",
     rewrite: { content: rp.rewrite?.content ?? rp.content, significant: rp.rewrite?.significant ?? false },
-    relations: rp.relations,
+    // First contribution type only per highlight (relationFirstType.mjs) — the
+    // backend now emits one relation PER TYPE on the same span, which rendered
+    // as stacked two-colour bands on every highlight.
+    relations: firstTypeRelations(rp.relations),
   };
 }
 
@@ -59,8 +63,10 @@ function toPostData(entry: ListyInjectionEntry) {
   const aggregatedStacks = Array.from(categoryMap.entries()).map(([cat, { count, topPost }]) => ({
     stackId: `agg-${entry.focusPost.id}-${cat}`, rel: cat, size: count, topPost,
   }));
-  // All focus-post relations from every related post (for dimmed always-visible marks)
-  const focusRelations = entry.relatedPosts.flatMap((rp) => rp.relations ?? []);
+  // All focus-post relations from every related post (for dimmed always-visible
+  // marks). Deduped to the first contribution type PER related post — distinct
+  // posts marking the same focus span still both contribute.
+  const focusRelations = entry.relatedPosts.flatMap((rp) => firstTypeRelations(rp.relations));
   return {
     postId: entry.focusPost.id,
     text: entry.focusPost.content,

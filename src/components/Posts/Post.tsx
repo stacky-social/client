@@ -309,6 +309,23 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // no expand/collapse state to race on rapid card-to-card hovers.
   const scrollMode = active && !isTextExpanded && anyMarkVisuallyActive;
 
+  // The fixed-window height = the clamp's RENDERED height, measured in the rest
+  // state (the line-clamp includes any paragraph gaps inside the window; the old
+  // static calc(1.5em * N) maxHeight didn't, cropping the last line in half).
+  // While unmeasured (first paint straight into scroll mode, e.g. a ?fs= deep
+  // link), mergedStyle below keeps the clamp for one frame so THIS effect can
+  // measure it, then the re-render switches to the fixed window.
+  const [clampHeightPx, setClampHeightPx] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (isTextExpanded) return;
+    const el = innerRef.current;
+    if (!el) return;
+    if (!scrollMode || clampHeightPx === null) {
+      const h = el.clientHeight;
+      if (h > 0 && h !== clampHeightPx) setClampHeightPx(h);
+    }
+  }, [scrollMode, isTextExpanded, html, clampHeightPx]);
+
   useLayoutEffect(() => {
     const el = innerRef.current;
     if (!el) return;
@@ -390,7 +407,10 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
 
     if (Math.abs(target - el.scrollTop) < 1) return; // already at the canonical spot
     el.scrollTo({ top: target, behavior: 'smooth' });
-  }, [scrollMode, crossActive, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, visibleMarkIdx, html]);
+    // clampHeightPx: re-run once the measured window height lands (a deep link
+    // can enter scroll mode before the first measurement — the scroll must
+    // happen against the fixed-window layout, not the clamped one).
+  }, [scrollMode, crossActive, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, visibleMarkIdx, html, clampHeightPx]);
 
   // Spec hover model (CSS-driven via classes — never re-parses the article):
   //  · enter the post       → faint ALL its spans (.fp-hovering on the container)
@@ -698,19 +718,20 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
 
   // Expansion is owned by the parent's isTextExpanded (Read-more) render, which
   // supplies the clamp/expanded style via the `style` prop. In scroll mode we
-  // keep the SAME box height (maxHeight from the clamp style is preserved) and
-  // only drop the line-clamp so the full text lays out inside the fixed window;
-  // overflow stays HIDDEN (the effect above scrolls it programmatically), so no
-  // scrollbar pops in and nothing shifts but the text. The rendered height
-  // cannot change. (.postClampedText only styles paragraph margins, so the
-  // class stays on in both modes.)
-  const mergedStyle: React.CSSProperties = scrollMode
+  // keep the SAME box height (the clamp height measured above, applied as a
+  // fixed px height) and only drop the line-clamp so the full text lays out
+  // inside the fixed window; overflow stays HIDDEN (the effect above scrolls it
+  // programmatically), so no scrollbar pops in and nothing shifts but the text.
+  // The rendered height cannot change. (.postClampedText only styles paragraph
+  // margins, so the class stays on in both modes.)
+  const mergedStyle: React.CSSProperties = scrollMode && clampHeightPx !== null
     ? {
         ...style,
         display: 'block',
         WebkitLineClamp: 'unset',
         textOverflow: 'unset',
         overflow: 'hidden',
+        height: clampHeightPx,
       }
     : style;
 
@@ -1264,7 +1285,9 @@ function Post({
             WebkitLineClamp: isTextExpanded ? undefined : clampLines,
             overflow: isTextExpanded ? 'visible' : 'hidden',
             textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
-            maxHeight: isTextExpanded ? undefined : `calc(1.5em * ${clampLines})`,
+            // No maxHeight: the line-clamp owns the collapsed height. A static
+            // calc(1.5em * N) missed the paragraph gaps inside the window and
+            // cropped the last visible line in half.
             marginTop: '0px',
             lineHeight: '1.5',
             color: '#011445',
@@ -1306,15 +1329,17 @@ function Post({
                   color: '#011445',
                 }
               : {
-                  // Clamp. The highlight layer switches this box to an
-                  // internally-scrollable mode AT THIS SAME maxHeight while a
-                  // cross-highlight is active (fixed window — never grows).
+                  // Clamp. The line-clamp owns the collapsed height (a static
+                  // calc(1.5em * N) maxHeight missed the paragraph gaps inside
+                  // the window and cropped the last visible line in half). The
+                  // highlight layer switches this box to an internally-scrolled
+                  // window at the MEASURED clamp height while a cross-highlight
+                  // is active (fixed window — never grows).
                   display: '-webkit-box',
                   WebkitBoxOrient: 'vertical',
                   WebkitLineClamp: clampLines,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  maxHeight: `calc(1.5em * ${clampLines})`,
                   marginTop: '0px',
                   lineHeight: '1.5',
                   color: '#011445',
@@ -1331,7 +1356,7 @@ function Post({
             WebkitLineClamp: isTextExpanded ? undefined : clampLines,
             overflow: isTextExpanded ? 'visible' : 'hidden',
             textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
-            maxHeight: isTextExpanded ? undefined : `calc(1.5em * ${clampLines})`,
+            // No maxHeight — see the clamp comment above (half-line crop).
             marginTop: '0px',
             lineHeight: '1.5',
             color: '#011445'

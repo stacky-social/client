@@ -571,10 +571,13 @@ function buildMultiHighlightNodes(
       }
       const bgColor = bgAlpha < 1 ? hexToRgba(colors.bg, bgAlpha) : colors.bg;
 
-      // Bold the contentComment phrase only on card hover (Level 1+)
+      // Bold the contentComment phrase on card hover (Level 1+). Level 1 is the
+      // gate — requiring the span itself to be hovered (Level 2 only) meant the
+      // crux never bolded on a plain card hover, which read as "boldface in the
+      // side pane doesn't work".
       const commentPhrase = c.comment;
       let markContent: React.ReactNode;
-      if (isThisRangeHovered && commentPhrase && segText.includes(commentPhrase)) {
+      if ((opts.isCardHovered || isThisRangeHovered) && commentPhrase && segText.includes(commentPhrase)) {
         const ci = segText.indexOf(commentPhrase);
         markContent = (
           <>
