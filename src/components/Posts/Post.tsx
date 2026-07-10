@@ -273,6 +273,20 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // actually visible. Transient direct hover on this post stays CSS-only.
   const crossActive = hoveredRelations !== null && hoveredRelations.length > 0;
   const anyMarkVisuallyActive = (responseFilter !== null && filterIdx >= 0) || crossActive;
+  const revealKey = active && !isTextExpanded && anyMarkVisuallyActive
+    ? crossActive
+      ? [
+          'cross',
+          hoveredPostId ?? '',
+          hoveredHighlightRangeIndex ?? 'all',
+          hoveredCategory ?? '',
+          hoveredRelations.length,
+        ].join(':')
+      : visibleMarkIdx !== null
+      ? `mark:${visibleMarkIdx}`
+      : null
+    : null;
+  const [scrollWindow, setScrollWindow] = useState<{ key: string; height: number } | null>(null);
 
   // PERF: the marks are rendered ONCE from this post's own spans (focusRelations)
   // and never re-parsed on hover. Hover/cross-highlight states are applied as CSS
@@ -298,25 +312,23 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   const containerIdRef = useRef<string>(`ahc-${useId().replace(/[^a-zA-Z0-9]/g, '')}`);
 
   // ── Fixed-window scroll-to-span ───────────────────────────────────────────
-  // The focus post NEVER changes height or line count on hover — any growth
-  // shoves the layout and reads as instability. While a cross-highlight/filter
-  // is active the clamped box becomes a scrolled window at the SAME height (see
-  // mergedStyle) and this effect scrolls it to the WHOLE span union, snapped to
-  // whole lines. Line-snapping is what makes it robust: the window can only ever
-  // rest on whole-line boundaries, so it never shows a clipped half-line and a
-  // half-line's span can never be mistaken for "already shown" (the semi-visible
-  // = no-scroll bug). Everything is computed from the DOM each time, so there is
-  // no expand/collapse state to race on rapid card-to-card hovers.
-  const scrollMode = active && !isTextExpanded && anyMarkVisuallyActive;
+  // The focus post NEVER changes height or line count on hover. First measure the
+  // target while the post is still in its normal line-clamped layout; only if the
+  // target is actually clipped do we switch to a fixed-height internal scroll
+  // window. A visible span must not force `-webkit-box` -> `block`, because that
+  // display-mode swap exposes fractional next-lines in Chromium/WebKit.
+  const scrollMode = revealKey !== null && scrollWindow?.key === revealKey;
 
   useLayoutEffect(() => {
     const el = innerRef.current;
     if (!el) return;
-    if (!scrollMode) {
+    if (!revealKey) {
+      setScrollWindow((prev) => (prev === null ? prev : null));
       // Rest state: park the window back at the top of the clamp.
-      if (el.scrollTop > 0) el.scrollTo({ top: 0, behavior: 'smooth' });
+      if (el.scrollTop > 0) el.scrollTop = 0;
       return;
     }
+    if (!scrollMode && el.scrollTop > 0) el.scrollTop = 0;
     // Only the marks we're actually lighting up: the regions the hovered card
     // links to, else the filter/dwell mark. When the cursor is on a SPECIFIC
     // contribution within the card (Level 2 — a single range, or a category
@@ -374,6 +386,24 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     let run = runs[0];
     for (const r of runs) if (r[1] - r[0] > run[1] - run[0]) run = r;
 
+    const visibleTop = el.scrollTop;
+    const visibleBottom = visibleTop + el.clientHeight;
+    const fullyVisible = run[0] >= visibleTop - 0.5 && run[1] <= visibleBottom + 0.5;
+
+    if (!scrollMode) {
+      if (fullyVisible) {
+        setScrollWindow((prev) => (prev === null ? prev : null));
+        return;
+      }
+      const lockedHeight = Math.max(1, el.getBoundingClientRect().height);
+      setScrollWindow((prev) =>
+        prev?.key === revealKey && Math.abs(prev.height - lockedHeight) < 0.5
+          ? prev
+          : { key: revealKey, height: lockedHeight }
+      );
+      return;
+    }
+
     // Line indices → the window can only ever rest on whole-line boundaries, so
     // it never shows a clipped half-line (top or bottom).
     const firstLine = Math.floor((run[0] + 1) / lineH); // line the passage starts on
@@ -390,7 +420,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
 
     if (Math.abs(target - el.scrollTop) < 1) return; // already at the canonical spot
     el.scrollTo({ top: target, behavior: 'smooth' });
-  }, [scrollMode, crossActive, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, visibleMarkIdx, html]);
+  }, [revealKey, scrollMode, crossActive, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, visibleMarkIdx, html]);
 
   // Spec hover model (CSS-driven via classes — never re-parses the article):
   //  · enter the post       → faint ALL its spans (.fp-hovering on the container)
@@ -711,6 +741,8 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         WebkitLineClamp: 'unset',
         textOverflow: 'unset',
         overflow: 'hidden',
+        height: `${scrollWindow.height}px`,
+        maxHeight: `${scrollWindow.height}px`,
       }
     : style;
 
