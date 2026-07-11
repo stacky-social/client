@@ -1767,6 +1767,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
         style={{
           display: 'flex', flexDirection: 'column', gap: '0.75rem',
           paddingBottom: '1rem',
+          // Gutter for the group frame's outward right rail (right:
+          // -GROUP_LINE_WIDTH*2 on the frame, matching negative marginRight on
+          // the header). The aside is a scroll container (overflow-y: auto), so
+          // overflow-x can never be truly `visible` — anything painted past the
+          // content box becomes 4px of horizontal scrollable overflow that lets
+          // the pane shift sideways and clip the border. Reserving the space
+          // keeps the rail inside the pane; card widths stay constant whether
+          // grouped or not, so the shell divider still never moves.
+          paddingRight: GROUP_LINE_WIDTH * 2,
         }}
       >
         {(() => {

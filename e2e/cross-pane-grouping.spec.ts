@@ -244,4 +244,27 @@ test.describe('Cross-pane grouping / filtering (T7)', () => {
     await expect(page.getByTestId('active-group-anchor')).toHaveCount(0);
     await expect(footerBtn).toHaveCount(0);
   });
+
+  test('aside pane has no horizontal overflow while a group border is shown', async ({ page }) => {
+    await page.goto(DETAIL_URL);
+    await expect(page.locator('[data-related-card]').first()).toBeVisible();
+
+    const clickedCardId = await clickAsideCardMark(page, FOOTER_TOPIC_CARDS.ids);
+    expect(clickedCardId).not.toBeNull();
+    await expect(page.getByTestId('active-group-anchor').first()).toBeVisible();
+
+    // The group frame paints its rails a few px OUTWARD of the cards. If that
+    // paint escapes the aside's content box, the pane (overflow-y: auto ⇒
+    // overflow-x computes to auto) becomes horizontally scrollable and the
+    // border can be scrolled/clipped out of view.
+    const probe = await page.evaluate(() => {
+      const a = document.querySelector('[data-testid="col-aside"]') as HTMLElement;
+      a.scrollLeft = 999;
+      const maxScrollLeft = a.scrollLeft;
+      a.scrollLeft = 0;
+      return { overflow: a.scrollWidth - a.clientWidth, maxScrollLeft };
+    });
+    expect(probe.maxScrollLeft, 'aside must not be horizontally scrollable').toBe(0);
+    expect(probe.overflow, 'grouped content must not overflow the pane width').toBeLessThanOrEqual(0);
+  });
 });
