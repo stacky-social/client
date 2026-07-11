@@ -8,11 +8,11 @@ export type EmotionKey =
   | 'sad'
   | 'sweet';
 
-// AI-generated robot avatar set (Gemini image generation, 2026-07): one
-// consistent robot character, per-emotion color + expression, drawn with the
-// face centered on a solid pastel square so a circular avatar crop never
-// clips it. Replaces the legacy sticky-note "stacky_*.PNG" icons (still in
-// public/avatar/ for reference).
+// Circularized Stacky avatar set (Gemini image generation, 2026-07): each
+// icon is the ORIGINAL stacky_*.PNG character — same face, colors, and
+// hand-drawn outline — regenerated with its original as the image reference,
+// reshaped into a full-bleed circle with the sticky-note page curl removed,
+// so the circular avatar crop shows it cleanly. Originals kept alongside.
 export const AVATAR_BY_EMOTION: Record<EmotionKey, string> = {
   angry: '/avatar/robot_angry.png',
   cracked: '/avatar/robot_cracked.png',
