@@ -1927,9 +1927,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
           // Footer: "K more Topic" — clickable to load 3 more when K > 0,
           // plain "0 more Topic" when K = 0 so the user can see where the
-          // block ends. Rendered inside the cardEl's motion.div so its
-          // lifecycle is tied to the last block card (popLayout would
-          // otherwise strand a separately-keyed footer at opacity:0).
+          // block ends — plus a × that collapses the group (same action as the
+          // header ×, so the user doesn't have to scroll back up to dismiss).
+          // Rendered INSIDE the last block card, after its Paper: the block's
+          // wrap-around border then encloses it, and it escapes the card's
+          // absolute bottom-edge hover zone (which extends BELOW the card box
+          // with pointerEvents:auto and used to swallow the footer's clicks
+          // when the footer dangled outside the card).
           const footerHover = (clientX: number, clientY: number) => {
             if (!anchorTopic) return;
             showTooltip({
@@ -1942,14 +1946,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           const renderFooter = showBlockDecorations && isLastInBlock && !!anchorTopic;
           const footerEl = renderFooter && anchorForThisCard ? (
             <div
+              // Block the card's touch-tap handler (cardEl onPointerDown) so a
+              // tap on the footer doesn't also toggle card-active state.
+              onPointerDown={(e) => e.stopPropagation()}
               style={{
-                // No rail here: the "see more" sits directly under the block's bottom
-                // rule, not on a vertical line coming off the last card. Cancel most
-                // of the flex-column gap so it HUGS the rule (~6px) instead of the
-                // full gap + marginTop (~24px, which read as too airy).
-                marginLeft: `${blockIndentPx}px`,
-                paddingLeft: '8px',
-                marginTop: 6 - GROUP_GAP_PX,
+                position: 'relative',
+                display: 'flex', alignItems: 'center', gap: '2px',
+                padding: '4px 10px 0',
               }}
             >
               {groupRemaining > 0 ? (
@@ -1973,6 +1976,29 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   0 more <strong style={{ color: anchorColors.text }}>{anchorTopic}</strong>
                 </span>
               )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  hideTooltip();
+                  handleToggleAnchor(anchorForThisCard);
+                }}
+                aria-label={`Collapse ${anchorTopic} group`}
+                // Same affordance as the header ×: 24px hit target, background
+                // appears on hover.
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#94a3b8', fontSize: '16px', lineHeight: 1,
+                  padding: '4px 8px',
+                  minWidth: 24, minHeight: 24,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: 4,
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#475569'; (e.currentTarget as HTMLElement).style.background = '#e2e8f0'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#94a3b8'; (e.currentTarget as HTMLElement).style.background = 'none'; }}
+              >
+                ×
+              </button>
             </div>
           ) : null;
 
@@ -2496,6 +2522,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 )}
               </Paper>
 
+              {footerEl}
+
               {bottomRuleEl}
 
               {/* Bottom-edge hover zone */}
@@ -2521,10 +2549,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             </div>
           );
 
-          // footerEl is a sibling AFTER cardEl (not inside it) so the rail — which
-          // spans cardEl down to the bottom rule — stops at the rule, and the "see
-          // more" sits below with no rail.
-          return [topRuleEl, headerEl, cardEl, footerEl].filter(Boolean);
+          // footerEl renders INSIDE cardEl (after its Paper) so the block's
+          // wrap-around border encloses the "see more" row and the card's
+          // bottom-edge hover zone can't intercept its clicks.
+          return [topRuleEl, headerEl, cardEl].filter(Boolean);
           }); // end displayStacks.flatMap
         })()} {/* end activeAnchorTopic IIFE */}
       </div>
