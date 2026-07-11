@@ -17,10 +17,54 @@ const SIM_ROW_GAP = 10;
 
 /** One simulated reply, formatted like an actual reply: robot avatar (the
  *  colored Stacky faces double as the AI disclosure), "Possible Reply" as the
- *  author name, a SIMULATED chip, and post-sized text. */
-function SimulatedReply({ content }: { content: string }) {
+ *  author name, a SIMULATED chip, and post-sized text. Each row carries its
+ *  own piece of the thread rail: a vertical segment spanning the gap above it
+ *  (so the segments chain into one continuous line from the draft's avatar),
+ *  plus a horizontal elbow reaching its robot's avatar. The LAST row's
+ *  vertical segment stops at its avatar center — the rail ends at the last
+ *  bot photo instead of running past it (whiteboard spec). */
+function SimulatedReply({ content, isLast }: { content: string; isLast: boolean }) {
+  const AVATAR_CENTER = 19; // Mantine Avatar is 38px tall
+  const CURVE = 14; // height of the curved branch's vertical run before it bends
   return (
-    <div style={{ marginLeft: SIM_REPLY_INDENT, marginTop: SIM_ROW_GAP }}>
+    <div style={{ position: "relative", marginLeft: SIM_REPLY_INDENT, marginTop: SIM_ROW_GAP }}>
+      {/* Straight trunk segment — continues the rail through this row. The
+          LAST row omits it: its curved elbow below terminates the trunk by
+          bending into the final robot's avatar (whiteboard spec). */}
+      {!isLast && (
+        <div
+          aria-hidden
+          data-testid="sim-reply-rail-seg"
+          style={{
+            position: "absolute",
+            left: RAIL_X - SIM_REPLY_INDENT,
+            top: -SIM_ROW_GAP,
+            bottom: 0,
+            width: 2,
+            background: "#cbd5e1",
+            zIndex: 0,
+          }}
+        />
+      )}
+      {/* Curved branch: drops along the trunk, then bends right into the
+          avatar's vertical center — drawn with border-left + border-bottom +
+          a rounded corner rather than a straight T-junction. */}
+      <div
+        aria-hidden
+        data-testid="sim-reply-elbow"
+        style={{
+          position: "absolute",
+          left: RAIL_X - SIM_REPLY_INDENT,
+          top: isLast ? -SIM_ROW_GAP : AVATAR_CENTER - CURVE,
+          width: SIM_REPLY_INDENT - RAIL_X,
+          height: isLast ? SIM_ROW_GAP + AVATAR_CENTER : CURVE,
+          border: "solid #cbd5e1",
+          borderWidth: "0 0 2px 2px",
+          borderBottomLeftRadius: 10,
+          background: "transparent",
+          zIndex: 0,
+        }}
+      />
       <Group gap={10} align="flex-start" wrap="nowrap">
         <Avatar
           src={pickAvatarForText(content)}
@@ -88,28 +132,28 @@ export function FeedbackBlock({
 }) {
   const replies = simulatedReplies ?? [];
   const hasReplies = !loading && replies.length > 0;
-  // Rail + indents only when simulated replies hang off the draft — plain
-  // feedback (or the loading row) stays at the block's left edge.
-  const feedbackIndent = hasReplies ? FEEDBACK_INDENT : 0;
   return (
-    <div style={{ position: "relative" }}>
-      {hasReplies && (
-        <div
-          aria-hidden
-          data-testid="sim-reply-thread-rail"
-          style={{
-            position: "absolute",
-            left: RAIL_X,
-            top: attachedToDraft ? -SIM_ROW_GAP : 0,
-            bottom: 0,
-            width: 2,
-            background: "#cbd5e1",
-            zIndex: 0,
-          }}
-        />
-      )}
+    <div>
+      {/* Feedback section — indented FURTHER than the replies (paddingLeft, so
+          its rail segment still positions from the block's left edge): the
+          rail passes it by on its way from the draft's photo to the bots'. */}
+      <div style={{ position: "relative", paddingLeft: hasReplies ? FEEDBACK_INDENT : 0 }}>
+        {hasReplies && (
+          <div
+            aria-hidden
+            data-testid="sim-reply-thread-rail"
+            style={{
+              position: "absolute",
+              left: RAIL_X,
+              top: attachedToDraft ? -SIM_ROW_GAP : 0,
+              bottom: 0,
+              width: 2,
+              background: "#cbd5e1",
+              zIndex: 0,
+            }}
+          />
+        )}
 
-      <div style={{ marginLeft: feedbackIndent }}>
         <Text size="sm" fw={700} c="#374151" mb={6}>
           Feedback
         </Text>
@@ -136,7 +180,7 @@ export function FeedbackBlock({
       {hasReplies && (
         <div>
           {replies.map((r, i) => (
-            <SimulatedReply key={r.id ?? i} content={r.content} />
+            <SimulatedReply key={r.id ?? i} content={r.content} isLast={i === replies.length - 1} />
           ))}
         </div>
       )}

@@ -83,5 +83,18 @@ test.describe('Reply-draft feedback presentation', () => {
     const commentBox = (await comment.boundingBox())!;
     expect(railBox.x, 'rail must sit left of the reply avatars').toBeLessThan(avatarBox.x);
     expect(commentBox.x, 'feedback must be indented more than the replies').toBeGreaterThan(avatarBox.x);
+
+    // Whiteboard spec: the rail connects the user's photo to the BOT PHOTOS —
+    // an elbow reaches each robot avatar, and the vertical line stops at the
+    // last robot instead of running past it.
+    await expect(page.getByTestId('sim-reply-elbow')).toHaveCount(SIM_REPLIES.length);
+    const lastAvatar = (await page.locator('img[src*="/avatar/stacky_"]').last().boundingBox())!;
+    const segBoxes = await Promise.all(
+      (await page.getByTestId('sim-reply-rail-seg').all()).map((s) => s.boundingBox()),
+    );
+    expect(segBoxes.length).toBeGreaterThan(0);
+    const railBottom = Math.max(...segBoxes.map((b) => b!.y + b!.height));
+    const lastAvatarCenter = lastAvatar.y + lastAvatar.height / 2;
+    expect(railBottom, 'rail must stop at the last robot avatar').toBeLessThanOrEqual(lastAvatarCenter + 4);
   });
 });
