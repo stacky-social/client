@@ -49,6 +49,14 @@ interface HighlightState {
   filterCategories: Set<string>;
   /** Level 2: which specific substring within the hovered card is being hovered (index into bracket pairs) */
   hoveredHighlightRangeIndex: number | null;
+  /**
+   * Reverse cross-highlight (focus → aside): the union of relation focus-ranges
+   * under the cursor while a FOCUS-POST span is hovered. The related cards
+   * brighten their spans whose relations overlap these ranges and dim the rest
+   * (the paper's "hovering an A span highlights the corresponding B spans,
+   * temporarily dimming other B spans"). Null when no focus span is hovered.
+   */
+  focusHoverRanges: Array<{ start: number; end: number }> | null;
   /** Category tag hover: when set, all ranges of this category behave as hovered (within the hovered card) */
   hoveredCategory: string | null;
   /** Touch: card that has been tapped-to-activate (sticky until tapped elsewhere or tapped again for rerank) */
@@ -103,6 +111,7 @@ const INITIAL: HighlightState = {
   hoveredRelations: null,
   filterCategories: new Set(),
   hoveredHighlightRangeIndex: null,
+  focusHoverRanges: null,
   hoveredCategory: null,
   tappedCardPostId: null,
   tappedRangeIndex: null,
@@ -149,6 +158,26 @@ export function setHoveredHighlightRangeIndex(index: number | null): void {
 export function setHoveredCategory(category: string | null): void {
   if (state.hoveredCategory === category) return;
   state = { ...state, hoveredCategory: category };
+  notify();
+}
+
+/** Publish/clear the hovered focus-post span union (reverse cross-highlight,
+ *  focus → aside). Bails when the ranges are unchanged so the caller can fire
+ *  it freely from mousemove-driven code without re-render churn. */
+export function setFocusHoverRanges(
+  ranges: Array<{ start: number; end: number }> | null,
+): void {
+  const prev = state.focusHoverRanges;
+  if (prev === null && ranges === null) return;
+  if (
+    prev !== null &&
+    ranges !== null &&
+    prev.length === ranges.length &&
+    prev.every((r, i) => r.start === ranges[i].start && r.end === ranges[i].end)
+  ) {
+    return;
+  }
+  state = { ...state, focusHoverRanges: ranges };
   notify();
 }
 

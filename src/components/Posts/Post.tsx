@@ -14,7 +14,7 @@ import { PreviewCardType } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
 import { toggleFavourite, toggleBookmark } from '../../utils/mastoActions';
 import { getPost, isLiked as storeIsLiked, isBookmarked as storeIsBookmarked } from '../../utils/localStore';
-import { useHighlightStore, setPassageFilter, clearResponseFilter, setPendingResponseFilter, setFilterCategories, beginUndoablePanelInteractionIfDetail } from '../../utils/highlightStore';
+import { useHighlightStore, setPassageFilter, clearResponseFilter, setPendingResponseFilter, setFilterCategories, setFocusHoverRanges, beginUndoablePanelInteractionIfDetail } from '../../utils/highlightStore';
 import { CATEGORY_COLORS, CATEGORY_LABELS, categoryIcon, getCategoryColors } from '../../utils/categoryStyles';
 import { renderMultiHighlightHtml } from '../../utils/focusHighlightHtml.mjs';
 import ReplyHighlightedContent from './ReplyHighlightedContent';
@@ -251,6 +251,23 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   const filterCategoriesRef = useRef(filterCategories);
   filterCategoriesRef.current = filterCategories;
 
+  // Reverse cross-highlight (focus → aside): publish the hovered focus-span
+  // union so the related cards can brighten their overlapping spans and dim the
+  // rest. Coalesced (90ms in / 60ms out — the same rhythm as the card hover)
+  // so sweeping the cursor across the post's many segments settles into one
+  // store update instead of re-rendering the aside per mousemove.
+  const focusHoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusHoverPendingRef = useRef(false);
+  const publishFocusHover = (ranges: Array<{ fs: number; fe: number }> | null) => {
+    if (!activeRef.current) return; // only the FOCUSED post drives the panel
+    if (ranges === null && !focusHoverPendingRef.current) return; // nothing to clear
+    if (focusHoverTimerRef.current) clearTimeout(focusHoverTimerRef.current);
+    focusHoverPendingRef.current = ranges !== null;
+    focusHoverTimerRef.current = setTimeout(() => {
+      setFocusHoverRanges(ranges ? ranges.map((r) => ({ start: r.fs, end: r.fe })) : null);
+    }, ranges ? 90 : 60);
+  };
+
   // Cleanup dwell timer on unmount
   useEffect(() => {
     return () => {
@@ -258,6 +275,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       if (tooltipShownByMeRef.current) {
         hideTooltip();
         tooltipShownByMeRef.current = false;
+      }
+      if (focusHoverTimerRef.current) clearTimeout(focusHoverTimerRef.current);
+      if (focusHoverPendingRef.current) {
+        setFocusHoverRanges(null);
+        focusHoverPendingRef.current = false;
       }
     };
   }, []);
@@ -489,17 +511,21 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       el.classList.remove('fp-hovering');
       clearDark();
       cancelDwell();
+      publishFocusHover(null);
     };
     const onMove = (e: MouseEvent) => {
       latestX = e.clientX; latestY = e.clientY;
       hoveringRef.current = true;
       el.classList.add('fp-hovering');
       const mark = (e.target as HTMLElement).closest('mark') as HTMLElement | null;
-      if (!mark) { hoverRangeRef.current = null; clearDark(); cancelDwell(); return; }
+      if (!mark) { hoverRangeRef.current = null; clearDark(); cancelDwell(); publishFocusHover(null); return; }
       if (mark.classList.contains('fp-dark')) return; // already the active union
       clearDark();
       const { marks, ranges } = unionFor(mark);
       marks.forEach((m) => m.classList.add('fp-dark'));
+      // Reverse cross-highlight: the corresponding aside spans light up while
+      // this union is under the cursor (the aside dims its other spans).
+      publishFocusHover(ranges);
       // hoverRangeRef = the union's bounding box so a post-commit re-apply
       // re-darkens the whole union, not just the hovered segment.
       hoverRangeRef.current = ranges.length

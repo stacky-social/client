@@ -381,6 +381,12 @@ function buildMultiHighlightNodes(
     inActiveBlock: boolean;
     onRangeHover: (index: number | null) => void;
     onRangeClick?: (index: number) => void;
+    /** Reverse cross-highlight (focus → aside): indices of THIS card's relations
+     *  whose focus ranges overlap the hovered focus-post span union. Non-null
+     *  whenever a focus span is hovered — matched spans brighten, the card's
+     *  other spans dim (paper: "highlighting the corresponding B spans,
+     *  temporarily dimming other B spans"). Null when no focus span is hovered. */
+    focusHoverMatchedIdx: Set<number> | null;
     /** topic → number of OTHER posts (excluding current) that share this topic */
     otherCountByTopic?: (topic: string) => number;
     /** range indices → number of related posts linked to those spans' focus
@@ -431,8 +437,10 @@ function buildMultiHighlightNodes(
 
       const isBandActive = (c: { rangeIndex: number; category: string }) =>
         opts.hoveredRangeIndex === c.rangeIndex ||
-        (opts.hoveredCategory !== null && opts.hoveredCategory === c.category);
-      const anyDirected = opts.hoveredRangeIndex !== null || opts.hoveredCategory !== null;
+        (opts.hoveredCategory !== null && opts.hoveredCategory === c.category) ||
+        (opts.focusHoverMatchedIdx !== null && opts.focusHoverMatchedIdx.has(c.rangeIndex));
+      const anyDirected =
+        opts.hoveredRangeIndex !== null || opts.hoveredCategory !== null || opts.focusHoverMatchedIdx !== null;
       // Original related-post hover behaviour: always-visible by default, full on
       // card hover (Level 1), and on span/category hover (Level 2) the active band
       // stays full while the rest dim. (The grey/colour spec is focus-post only.)
@@ -564,6 +572,10 @@ function buildMultiHighlightNodes(
         }
       } else if (opts.anyCardHovered) {
         bgAlpha = 0.25; // Another card is hovered — dim these highlights
+      } else if (opts.focusHoverMatchedIdx !== null) {
+        // A focus-post span is hovered: brighten the spans linked to it,
+        // temporarily dim this card's other spans.
+        bgAlpha = opts.focusHoverMatchedIdx.has(c.rangeIndex) ? 1 : 0.18;
       } else if (dimByBlock) {
         bgAlpha = 0.2; // Non-Topic span inside the active topic block
       } else {
@@ -746,7 +758,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const [favouritedOverride, setFavouritedOverride] = useState<Record<string, boolean>>({});
   const [bookmarkedOverride, setBookmarkedOverride] = useState<Record<string, boolean>>({});
   const [favouritesCountOverride, setFavouritesCountOverride] = useState<Record<string, number>>({});
-  const { filterCategories, responseFilter, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, topicInteraction, replyTopicCounts, baseOrderIds } = useHighlightStore();
+  const { filterCategories, responseFilter, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, topicInteraction, replyTopicCounts, baseOrderIds, focusHoverRanges } = useHighlightStore();
   const flags = useExperimentFlags();
 
   // ── T4: consume the T3 derived selectors ────────────────────────────────────
@@ -1824,6 +1836,20 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             claimedBy.has(stack.topPost.id)
             || (anchorSet.has(stack.topPost.id) && anchorsWithClaims.has(stack.topPost.id));
 
+          // Reverse cross-highlight (focus → aside): while a focus-post span is
+          // hovered, this card's relations overlapping the hovered union get
+          // their spans brightened and the rest dimmed. Indices are into the
+          // ORIGINAL relations array — the same space as tagged rangeIndex
+          // (windowing preserves it via __idx).
+          const focusHoverMatchedIdx = focusHoverRanges
+            ? new Set(
+                (rels ?? [])
+                  .map((r: Relation, i: number) =>
+                    focusHoverRanges.some((u) => r.focusStart < u.end && u.start < r.focusEnd) ? i : -1)
+                  .filter((i: number) => i >= 0),
+              )
+            : null;
+
           // Build React content nodes with multi-range + 3-level hover
           const contentNodes = buildMultiHighlightNodes(
             visibleText, adjustedRelations, colors,
@@ -1832,6 +1858,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               anyCardHovered,
               hoveredRangeIndex: isCardActive ? (isCardTapped ? tappedRangeIndex : hoveredHighlightRangeIndex) : null,
               hoveredCategory: isCardActive ? hoveredCategory : null,
+              focusHoverMatchedIdx,
               anchoredRangeIndex: anchoredRangeByPost[stack.topPost.id] ?? null,
               activeTopic: activeAnchorTopic,
               inActiveBlock,
