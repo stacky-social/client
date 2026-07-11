@@ -240,6 +240,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                         praise={praise}
                         advice={advice}
                         simulatedReplies={simulatedReplies}
+                        attachedToDraft
                     />
                 </div>
             )}

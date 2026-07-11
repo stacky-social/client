@@ -66,12 +66,22 @@ test.describe('Reply-draft feedback presentation', () => {
     await expect(comment).toContainText(ADVICE);
 
     // No "How people might reply" header; each simulated reply is authored by
-    // "Possible Reply", wears a robot avatar and a SIMULATED disclosure chip,
-    // and hangs off a thread connector line.
+    // "Possible Reply", wears a robot avatar and a SIMULATED disclosure chip.
     await expect(page.getByText(/how people might reply/i)).toHaveCount(0);
     await expect(page.getByText('Possible Reply', { exact: true })).toHaveCount(SIM_REPLIES.length);
     await expect(page.locator('img[src*="/avatar/stacky_"]')).toHaveCount(SIM_REPLIES.length);
     await expect(page.getByText(/^simulated$/i)).toHaveCount(SIM_REPLIES.length);
-    await expect(page.getByTestId('sim-reply-connector')).toHaveCount(SIM_REPLIES.length);
+
+    // The thread rail attaches the simulated replies to the USER'S DRAFT, not
+    // to the feedback: it drops from the draft's avatar column, the replies
+    // indent under the draft like real replies (right of the rail), and the
+    // feedback box indents further than the replies so the rail passes it.
+    const rail = page.getByTestId('sim-reply-thread-rail');
+    await expect(rail).toHaveCount(1);
+    const railBox = (await rail.boundingBox())!;
+    const avatarBox = (await page.locator('img[src*="/avatar/stacky_"]').first().boundingBox())!;
+    const commentBox = (await comment.boundingBox())!;
+    expect(railBox.x, 'rail must sit left of the reply avatars').toBeLessThan(avatarBox.x);
+    expect(commentBox.x, 'feedback must be indented more than the replies').toBeGreaterThan(avatarBox.x);
   });
 });
