@@ -104,6 +104,14 @@ interface HighlightState {
    * populates it.
    */
   baseOrderIds: string[];
+  /**
+   * The reply pane's counterpart to `baseOrderIds`: the last cluster-arranged
+   * top-level order, written through while a reply cluster is active so that
+   * DISMISSING the cluster leaves replies in place (permanence rule). Empty ⇒
+   * order derives from the active sort tab; a tab switch (explicit re-sort)
+   * clears it. Snapshotted/restored with the panel like the aside's base.
+   */
+  replyBaseOrderIds: string[];
 }
 
 const INITIAL: HighlightState = {
@@ -122,6 +130,7 @@ const INITIAL: HighlightState = {
   replyTopicCounts: {},
   topicInteraction: null,
   baseOrderIds: [],
+  replyBaseOrderIds: [],
 };
 
 // ─── Module-level store ─────────────────────────────────────────────────────
@@ -387,6 +396,8 @@ interface PanelSnapshot {
   /** Pre-interaction visible order, for Back-undo restore (WS6). T6 wires the
    *  capture; T3 persists whatever `state.baseOrderIds` holds. */
   baseOrderIds: string[];
+  /** Reply-pane permanent order (see {@link HighlightState.replyBaseOrderIds}). */
+  replyBaseOrderIds: string[];
 }
 
 const panelStateByFocus = new Map<string, PanelSnapshot>();
@@ -417,6 +428,7 @@ function snapshotPanel(): PanelSnapshot {
     replyAnchor: state.replyAnchor,
     topicInteraction: state.topicInteraction,
     baseOrderIds: [...state.baseOrderIds],
+    replyBaseOrderIds: [...state.replyBaseOrderIds],
   };
 }
 
@@ -476,6 +488,7 @@ export function setPanelFocus(
     replyAnchor: saved ? saved.replyAnchor : null,
     topicInteraction: incomingTopicInteraction,
     baseOrderIds: saved ? [...saved.baseOrderIds] : [],
+    replyBaseOrderIds: saved ? [...(saved.replyBaseOrderIds ?? [])] : [],
     // reply-topic counts are re-published by the incoming thread page
     replyTopicCounts: {},
     // transient view state never persists across a focus switch
@@ -629,6 +642,7 @@ function applyPanelSnapshot(snap: PanelSnapshot): void {
     replyAnchor: snap.replyAnchor,
     topicInteraction: snap.topicInteraction,
     baseOrderIds: [...snap.baseOrderIds],
+    replyBaseOrderIds: [...(snap.replyBaseOrderIds ?? [])],
     hoveredPostId: null,
     hoveredRelations: null,
     hoveredHighlightRangeIndex: null,
@@ -676,6 +690,18 @@ export function beginPanelInteraction(
  *  notify: the caller's atomic grouping action fires it. */
 export function setPanelBaseOrder(orderIds: string[]): void {
   state = { ...state, baseOrderIds: [...orderIds] };
+}
+
+/** Persist the reply pane's permanent order (write-through while a reply
+ *  cluster is active, or `[]` on an explicit re-sort). Equality-guarded so the
+ *  thread page's write-through effect can call it every render without
+ *  looping; NOT undoable itself — the pre-interaction snapshot recorded at the
+ *  gesture already holds the order Back-undo should restore. */
+export function setReplyBaseOrder(orderIds: string[]): void {
+  const prev = state.replyBaseOrderIds;
+  if (prev.length === orderIds.length && orderIds.every((id, i) => prev[i] === id)) return;
+  state = { ...state, replyBaseOrderIds: [...orderIds] };
+  notify();
 }
 
 /**

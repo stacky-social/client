@@ -267,4 +267,40 @@ test.describe('Cross-pane grouping / filtering (T7)', () => {
     expect(probe.maxScrollLeft, 'aside must not be horizontally scrollable').toBe(0);
     expect(probe.overflow, 'grouped content must not overflow the pane width').toBeLessThanOrEqual(0);
   });
+
+  test('reply cluster rearrangement is permanent after dismissal', async ({ page }) => {
+    // Decision (tech plan, "Permanence rule"): cancelling/dismissing a group
+    // leaves posts in place — only Back-undo or an explicit re-sort (tab
+    // switch) restores the pre-cluster order.
+    const topLevelIds = topLevel.map((r) => r.id);
+    const readTopLevelOrder = () =>
+      page.evaluate((ids: string[]) => {
+        const set = new Set(ids);
+        const seen = new Set<string>();
+        const out: string[] = [];
+        for (const el of Array.from(document.querySelectorAll('[data-post-id]'))) {
+          const pid = el.getAttribute('data-post-id');
+          if (pid && set.has(pid) && !seen.has(pid)) { seen.add(pid); out.push(pid); }
+        }
+        return out;
+      }, topLevelIds);
+
+    await page.goto(DETAIL_URL);
+    await revealTopLevelReplies(page);
+    const anchorMark = page.locator(replyAnchorMark).first();
+    await expect(anchorMark).toBeVisible();
+    const before = await readTopLevelOrder();
+
+    // Cluster by the anchor's topic → members move adjacent to the anchor.
+    await anchorMark.click();
+    await expect(page.locator('[data-reply-cluster-member]').first()).toBeVisible();
+    const during = await readTopLevelOrder();
+    expect(during, 'fixture guard: clustering should actually rearrange the top level').not.toEqual(before);
+
+    // Re-click dismisses the cluster (rails clear) but the order STAYS.
+    await page.locator(replyAnchorMark).first().click();
+    await expect(page.locator('[data-reply-cluster-member]')).toHaveCount(0);
+    const after = await readTopLevelOrder();
+    expect(after, 'dismissing the cluster must keep the clustered order').toEqual(during);
+  });
 });
