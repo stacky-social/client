@@ -198,7 +198,22 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontFamily: 'Roboto, sans-serif' }}>
-            <Group align="flex-start" wrap="nowrap">
+            <Group align="flex-start" wrap="nowrap" style={{ position: 'relative' }}>
+                {/* Rail bridge: spans the composer row itself (top pinned just
+                    under the avatar, bottom pinned to the row's bottom edge +
+                    the 10px flex gap), so the simulated-reply thread rail
+                    reaches the user's PHOTO no matter how many lines the
+                    draft wraps to. Same x/color as FeedbackBlock's rail. */}
+                {!stickyMode && !loading && simulatedReplies.length > 0 && (
+                    <div
+                        aria-hidden
+                        data-testid="draft-rail-bridge"
+                        style={{
+                            position: 'absolute', left: 19, top: 36, bottom: -10,
+                            width: 2, background: '#cbd5e1', zIndex: 0,
+                        }}
+                    />
+                )}
                 <Avatar src={currentUser?.avatar || undefined} alt="Current User" radius="xl" />
                 <Textarea
                     placeholder="Post your reply"

@@ -50,7 +50,13 @@ test.describe('Reply-draft feedback presentation', () => {
     await page.goto(DETAIL_URL);
     const composer = page.getByPlaceholder('Post your reply');
     await expect(composer).toBeVisible();
-    await composer.fill("wouldn't that just make us more dependent on chinese manufacturing?");
+    // Deliberately long draft: the composer textarea wraps to multiple lines,
+    // and the rail bridge must still span the whole (variable-height) row.
+    await composer.fill(
+      "wouldn't that just make us more dependent on chinese manufacturing? " +
+      "we already rely on them for batteries, rare earths, and most of the cell supply chain, " +
+      "so tariffs alone don't obviously fix the dependency problem."
+    );
 
     // Wait for the stubbed feedback to render.
     await expect(page.getByText(PRAISE)).toBeVisible();
@@ -83,6 +89,18 @@ test.describe('Reply-draft feedback presentation', () => {
     const commentBox = (await comment.boundingBox())!;
     expect(railBox.x, 'rail must sit left of the reply avatars').toBeLessThan(avatarBox.x);
     expect(commentBox.x, 'feedback must be indented more than the replies').toBeGreaterThan(avatarBox.x);
+
+    // The rail must reach UP past the (multiline) draft text and hit the
+    // user's photo: a bridge segment spans the composer row from just below
+    // the avatar down to the feedback block, at the same x as the rail.
+    const bridge = page.getByTestId('draft-rail-bridge');
+    await expect(bridge).toHaveCount(1);
+    const bridgeBox = (await bridge.boundingBox())!;
+    const composerBox = (await composer.boundingBox())!;
+    expect(composerBox.height, 'draft should actually be multiline for this test').toBeGreaterThan(50);
+    expect(bridgeBox.y, 'bridge must start at the avatar, above the draft text bottom').toBeLessThan(composerBox.y + 45);
+    expect(bridgeBox.y + bridgeBox.height, 'bridge must span down past the whole draft row').toBeGreaterThanOrEqual(composerBox.y + composerBox.height);
+    expect(Math.abs(bridgeBox.x - railBox.x), 'bridge and rail must be collinear').toBeLessThanOrEqual(1);
 
     // Whiteboard spec: the rail connects the user's photo to the BOT PHOTOS —
     // an elbow reaches each robot avatar, and the vertical line stops at the
