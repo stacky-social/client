@@ -70,7 +70,12 @@ function SimulatedReply({ content, isLast }: { content: string; isLast: boolean 
           src={pickAvatarForText(content)}
           alt="Simulated reply"
           radius="xl"
-          style={{ flexShrink: 0, backgroundColor: "#fff" }}
+          style={{ flexShrink: 0, backgroundColor: "#fff", border: "1px solid #e2e8f0" }}
+          // The Stacky robot icons are SQUARE art: filling the circular frame
+          // (the default object-fit: cover) clips their corners. Render them
+          // inscribed instead — 27px is the largest square that fully fits
+          // inside the 38px circle (38/√2), centered on a white disc.
+          styles={{ image: { width: 27, height: 27, margin: "auto", objectFit: "contain" } }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
           <Group gap={8} align="center" wrap="nowrap">
