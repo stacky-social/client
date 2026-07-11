@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Avatar, Group, Button, Text, Stack, Paper, Loader, Textarea, ThemeIcon } from "@mantine/core";
+import { Avatar, Group, Button, Textarea } from "@mantine/core";
 import { notifications } from '@mantine/notifications';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
-import { pickMood } from './SubmitPost/ComposerFeedback';
+import { FeedbackBlock } from './SubmitPost/ComposerFeedback';
 import { addComment } from '../utils/localStore';
 
 interface ReplySectionProps {
@@ -228,55 +228,19 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                 </Button>
             </Group>
 
-            {/* Live draft feedback — same visual language as the /home composer's
-                aside panel (ComposerFeedback): small label, tinted praise, plain
-                advice, and compact mood rows for the simulated replies under an
-                uppercase caption so they still read as simulated, not real. */}
+            {/* Live draft feedback — shared presentation with the /home composer's
+                aside panel (FeedbackBlock): "Feedback" title, praise + advice as
+                one comment in one box, and the simulated replies formatted like
+                actual replies (robot avatars, "Possible Reply" author, SIMULATED
+                chip) hanging off thread connector lines. */}
             {!stickyMode && (advice || praise || simulatedReplies.length > 0 || loading) && (
                 <div role="status" aria-live="polite">
-                    <Text size="sm" fw={700} c="#374151" mb={6}>Writing feedback</Text>
-                    {loading ? (
-                        <Group gap={8}>
-                            <Loader size="xs" />
-                            <Text size="xs" c="dimmed">Analyzing your draft…</Text>
-                        </Group>
-                    ) : (
-                        <>
-                            {praise && (
-                                <Paper withBorder p="sm" radius="md" mb={6} style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
-                                    <Text size="xs" c="#15803d">{praise}</Text>
-                                </Paper>
-                            )}
-                            {advice && (
-                                <Paper withBorder p="sm" radius="md" style={{ background: '#fff' }}>
-                                    <Text size="xs" c="#374151">{advice}</Text>
-                                </Paper>
-                            )}
-
-                            {simulatedReplies.length > 0 && (
-                                <>
-                                    <Text size="xs" c="dimmed" fw={600} mt={8} mb={6} tt="uppercase">
-                                        How people might reply
-                                    </Text>
-                                    <Stack gap={6}>
-                                        {simulatedReplies.map((reply) => {
-                                            const mood = pickMood(reply.content);
-                                            return (
-                                                <Paper key={reply.id ?? reply.content} withBorder p="sm" radius="md" style={{ background: '#fff' }}>
-                                                    <Group gap={8} align="flex-start" wrap="nowrap">
-                                                        <ThemeIcon size={26} radius="xl" variant="light" color={mood.color} title={mood.label}>
-                                                            <mood.Icon size={16} />
-                                                        </ThemeIcon>
-                                                        <Text size="xs" c="#374151" style={{ flex: 1 }}>{reply.content}</Text>
-                                                    </Group>
-                                                </Paper>
-                                            );
-                                        })}
-                                    </Stack>
-                                </>
-                            )}
-                        </>
-                    )}
+                    <FeedbackBlock
+                        loading={loading}
+                        praise={praise}
+                        advice={advice}
+                        simulatedReplies={simulatedReplies}
+                    />
                 </div>
             )}
         </div>
