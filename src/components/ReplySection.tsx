@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Avatar, Group, Button, Text, Stack, Paper, Loader, Textarea, ThemeIcon } from "@mantine/core";
+import { Avatar, Group, Button, Textarea, Paper, Text } from "@mantine/core";
 import { notifications } from '@mantine/notifications';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
-import { pickMood } from './SubmitPost/ComposerFeedback';
+import { FeedbackBlock } from './SubmitPost/ComposerFeedback';
 import { addComment } from '../utils/localStore';
 
 interface ReplySectionProps {
@@ -205,7 +205,22 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontFamily: 'Roboto, sans-serif' }}>
-            <Group align="flex-start" wrap="nowrap">
+            <Group align="flex-start" wrap="nowrap" style={{ position: 'relative' }}>
+                {/* Rail bridge: spans the composer row itself (top pinned just
+                    under the avatar, bottom pinned to the row's bottom edge +
+                    the 10px flex gap), so the simulated-reply thread rail
+                    reaches the user's PHOTO no matter how many lines the
+                    draft wraps to. Same x/color as FeedbackBlock's rail. */}
+                {!stickyMode && !loading && simulatedReplies.length > 0 && (
+                    <div
+                        aria-hidden
+                        data-testid="draft-rail-bridge"
+                        style={{
+                            position: 'absolute', left: 19, top: 36, bottom: -10,
+                            width: 2, background: '#cbd5e1', zIndex: 0,
+                        }}
+                    />
+                )}
                 <Avatar src={currentUser?.avatar || undefined} alt="Current User" radius="xl" />
                 <Textarea
                     placeholder="Post your reply"
@@ -235,15 +250,13 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                 </Button>
             </Group>
 
-            {/* Live draft feedback — same visual language as the /home composer's
-                aside panel (ComposerFeedback): small label, tinted praise, plain
-                advice, and compact mood rows for the simulated replies under an
-                uppercase caption so they still read as simulated, not real. */}
+            {/* Use the latest shared robot-thread presentation for successful
+                feedback. A failed request replaces stale feedback with a clear,
+                retryable error while the user's draft remains untouched. */}
             {!stickyMode && (advice || praise || simulatedReplies.length > 0 || loading || feedbackError) && (
                 <div role="status" aria-live="polite">
-                    <Text size="sm" fw={700} c="#374151" mb={6}>Writing feedback</Text>
-                    {feedbackError && !loading && (
-                        <Paper withBorder p="sm" radius="md" mb={6} role="alert" style={{ background: '#fff2ef', borderColor: '#e6b9b1' }}>
+                    {feedbackError && !loading ? (
+                        <Paper withBorder p="sm" radius="md" role="alert" style={{ background: '#fff2ef', borderColor: '#e6b9b1' }}>
                             <Group justify="space-between" align="flex-start" wrap="nowrap">
                                 <Text size="xs" c="#8a2f2f">{feedbackError}</Text>
                                 <Button
@@ -256,48 +269,14 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                                 </Button>
                             </Group>
                         </Paper>
-                    )}
-                    {loading ? (
-                        <Group gap={8}>
-                            <Loader size="xs" />
-                            <Text size="xs" c="dimmed">Analyzing your draft…</Text>
-                        </Group>
-                    ) : !feedbackError && (
-                        <>
-                            {praise && (
-                                <Paper withBorder p="sm" radius="md" mb={6} style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
-                                    <Text size="xs" c="#15803d">{praise}</Text>
-                                </Paper>
-                            )}
-                            {advice && (
-                                <Paper withBorder p="sm" radius="md" style={{ background: '#fff' }}>
-                                    <Text size="xs" c="#374151">{advice}</Text>
-                                </Paper>
-                            )}
-
-                            {simulatedReplies.length > 0 && (
-                                <>
-                                    <Text size="xs" c="dimmed" fw={600} mt={8} mb={6} tt="uppercase">
-                                        How people might reply
-                                    </Text>
-                                    <Stack gap={6}>
-                                        {simulatedReplies.map((reply) => {
-                                            const mood = pickMood(reply.content);
-                                            return (
-                                                <Paper key={reply.id ?? reply.content} withBorder p="sm" radius="md" style={{ background: '#fff' }}>
-                                                    <Group gap={8} align="flex-start" wrap="nowrap">
-                                                        <ThemeIcon size={26} radius="xl" variant="light" color={mood.color} title={mood.label}>
-                                                            <mood.Icon size={16} />
-                                                        </ThemeIcon>
-                                                        <Text size="xs" c="#374151" style={{ flex: 1 }}>{reply.content}</Text>
-                                                    </Group>
-                                                </Paper>
-                                            );
-                                        })}
-                                    </Stack>
-                                </>
-                            )}
-                        </>
+                    ) : (
+                        <FeedbackBlock
+                            loading={loading}
+                            praise={praise}
+                            advice={advice}
+                            simulatedReplies={simulatedReplies}
+                            attachedToDraft
+                        />
                     )}
                 </div>
             )}

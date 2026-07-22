@@ -76,3 +76,26 @@ export function clusterTopLevel(orderedIds, relationsOfId, anchorId, anchorTopic
     memberIds,
   };
 }
+
+/**
+ * Permanent-reorder base for the reply list (mirrors the aside's baseOrderIds
+ * contract): when a cluster has ever rearranged the top level, the last
+ * arrangement is persisted as the "base" and dismissing the cluster leaves
+ * replies in place — only an explicit re-sort (tab switch clears the base)
+ * re-derives order from the sort.
+ *
+ * @param sortedIds current ids in freshly-sorted order (source of truth for
+ *                  which ids exist, and for the relative order of NEW ids)
+ * @param baseIds   persisted base order (possibly stale: may contain ids that
+ *                  no longer exist, and lack ids that are new)
+ * @returns base order filtered to live ids, with new ids appended in their
+ *          sorted relative order; `sortedIds` as-is when the base is empty
+ */
+export function applyBaseOrder(sortedIds, baseIds) {
+  if (!baseIds || baseIds.length === 0) return [...sortedIds];
+  const present = new Set(sortedIds);
+  const kept = baseIds.filter((id) => present.has(id));
+  const known = new Set(kept);
+  const fresh = sortedIds.filter((id) => !known.has(id));
+  return [...kept, ...fresh];
+}

@@ -166,11 +166,14 @@ export default function Shell({
                         top: TOP_NAV_HEIGHT,
                         height: `calc(100vh - ${TOP_NAV_HEIGHT}px)`,
                         overflowY: "auto",
-                        // Grouping frames can paint a few pixels outward to the right
-                        // without participating in layout. The shell/divider stay fixed;
-                        // body overflow remains hidden, so this does not create page
-                        // sideways scrolling.
-                        overflowX: "visible",
+                        // NOT "visible": with overflow-y auto this is a scroll
+                        // container, so a visible x-axis is impossible ("visible"
+                        // computes to auto — which made the pane horizontally
+                        // scrollable by the group frame's outward rail, letting the
+                        // border scroll out of view). "clip" hard-disables sideways
+                        // scrolling; the rail itself fits inside the card list's
+                        // matching right gutter (see RelatedStacks).
+                        overflowX: "clip",
                         overscrollBehavior: "contain",
                         // Visible, distinctly-styled scrollbar for the related panel
                         // (Firefox here; the custom webkit style is in globals.css

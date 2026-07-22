@@ -29,7 +29,7 @@ import { useLocalStore, useHydrated, getComments, type Post as StorePost } from 
 import { useExperimentFlags } from "../../../../../utils/experimentFlags";
 import { sortReplies } from "../../../../../utils/replySort.mjs";
 import { allowedTabsFor, coerceTab, defaultTabFor } from "../../../../../utils/replyTabs.mjs";
-import { filterReplies, clusterTopLevel } from "../../../../../utils/threadFilter.mjs";
+import { filterReplies, clusterTopLevel, applyBaseOrder } from "../../../../../utils/threadFilter.mjs";
 import { getMockReplyRank } from "../../../../../utils/mockPostResolver";
 import ReplyFilterBar from "../../../../../components/ReplyFilterBar";
 import FocusPostStickyBar from "../../../../../components/Posts/FocusPostStickyBar";
@@ -48,6 +48,7 @@ import {
   replyTopicFilter,
   beginPanelInteraction,
   beginUndoablePanelInteractionIfDetail,
+  setReplyBaseOrder,
   currentPanelScope,
   consumePanelUndo,
   navigateFromPanelScope,
@@ -127,7 +128,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   const { id } = params;
   const { setFromPost, relatedStacks: ctxRelatedStacks } = useRelatedStacks();
   const flags = useExperimentFlags();
-  const { filterCategories, responseFilter, topicInteraction } = useHighlightStore();
+  const { filterCategories, responseFilter, topicInteraction, replyBaseOrderIds } = useHighlightStore();
 
   const [post, setPost] = useState<MockPostType | null>(null);
   const [ancestors, setAncestors] = useState<MockPostType[]>([]);
@@ -374,7 +375,13 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   const { topLevelOrder, clusterMemberIds } = useMemo(() => {
     if (!flags.replySortTabs) return { topLevelOrder: undefined, clusterMemberIds: null as Set<string> | null };
     const mode = activeTab === "top" || activeTab === "liked" ? activeTab : "time";
-    let order = sortReplies(displayedTopLevel, mode, sortOpts).map((r: MockPostType) => r.id);
+    // Permanence rule (tech plan): a cluster's rearrangement outlives its
+    // dismissal. The persisted base order (last clustered arrangement) wins
+    // over the sort until an explicit re-sort clears it (tab switch below).
+    let order = applyBaseOrder(
+      sortReplies(displayedTopLevel, mode, sortOpts).map((r: MockPostType) => r.id),
+      replyBaseOrderIds
+    );
     let memberIds: Set<string> | null = null;
     if (replyCluster) {
       const res = clusterTopLevel(
@@ -387,7 +394,16 @@ export default function MockPostView({ params }: { params: { id: string } }) {
       memberIds = res.memberIds;
     }
     return { topLevelOrder: order, clusterMemberIds: memberIds };
-  }, [flags.replySortTabs, activeTab, displayedTopLevel, sortOpts, replyCluster, replyRelationsById]);
+  }, [flags.replySortTabs, activeTab, displayedTopLevel, sortOpts, replyCluster, replyRelationsById, replyBaseOrderIds]);
+
+  // Write-through: while a cluster is active, its arrangement IS the permanent
+  // base — so any dismissal path (re-click, header ×, replacement by another
+  // interaction) leaves the replies where the cluster put them. Equality-guarded
+  // in the store, so steady state doesn't loop. Not undoable: Back-undo restores
+  // the pre-gesture snapshot (including the old replyBaseOrderIds) instead.
+  useEffect(() => {
+    if (replyCluster && topLevelOrder) setReplyBaseOrder(topLevelOrder);
+  }, [replyCluster, topLevelOrder]);
   const displayedTotal = topLevelOrder ? topLevelOrder.length : totalTopLevelReplies;
 
   // A newly submitted reply should never vanish below the current sort/window.
@@ -745,7 +761,13 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   }, []);
 
   const handleTabChange = (value: string | null) => {
-    if (value) setActiveTab(value);
+    if (!value) return;
+    // Explicit re-sort: the user asked for a fresh ordering, so the permanent
+    // cluster arrangement yields (permanence rule's one escape hatch besides
+    // Back-undo). With a cluster still active, the write-through effect
+    // re-persists its arrangement over the fresh sort on the next render.
+    setReplyBaseOrder([]);
+    setActiveTab(value);
   };
 
   // Stack icons are hidden on the focused view; related stacks live in the aside.

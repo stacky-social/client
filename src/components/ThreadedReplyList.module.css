@@ -3,13 +3,15 @@
   position: relative;
 }
 
-/* The vertical connecting line that runs from the parent avatar
-   through all child replies at this indent level.
-   Positioned absolutely so it stretches to the full height of
-   the subtree without any JS measurement. */
+/* The vertical connecting line that attaches child replies to their parent.
+   Positioned absolutely so it stretches to the full height of the subtree
+   without any JS measurement. It lives in the 28px INDENT GUTTER left of the
+   child's card (negative left, relative to the indented .replyGroup): the
+   reply cards are opaque white boxes, so a line inside the card's own column
+   (the old left:20px, under the avatar) was painted over and invisible. */
 .threadLine {
   position: absolute;
-  left: 20px;           /* center of the 40px-diameter Mantine Avatar */
+  left: -15px;          /* middle of the indent gutter, clear of the card */
   top: 0;
   bottom: 0;
   width: 2px;

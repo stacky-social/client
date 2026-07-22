@@ -22,3 +22,5 @@ export function clusterTopLevel(
   anchorId: string,
   anchorTopic: string,
 ): { order: string[]; memberIds: Set<string> };
+
+export function applyBaseOrder(sortedIds: string[], baseIds: string[]): string[];

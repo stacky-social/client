@@ -87,6 +87,26 @@ const ALL_TOPIC_CARD_IDS = (entry.relatedPosts ?? [])
 const MATCHING_REPLY_IDS = topLevel.filter((r) => branchTopics(r).has(ASIDE_TOPIC)).map((r) => r.id);
 const NON_MATCHING_REPLY_IDS = topLevel.filter((r) => !branchTopics(r).has(ASIDE_TOPIC)).map((r) => r.id);
 
+// Footer-topic: the topic with the MOST single-topic related cards, so grouping
+// by it is guaranteed to leave more matched posts than the initial 3 shown —
+// i.e. the block renders a clickable "K more <topic>" footer.
+const FOOTER_TOPIC_CARDS = (() => {
+  const byTopic = new Map<string, string[]>();
+  for (const rp of entry.relatedPosts ?? []) {
+    const rels = rp.relations ?? [];
+    if (rels.length === 0 || !rels[0].topic) continue;
+    if (!rels.every((x) => x.topic === rels[0].topic)) continue;
+    const arr = byTopic.get(rels[0].topic) ?? [];
+    arr.push(rp.id);
+    byTopic.set(rels[0].topic, arr);
+  }
+  let best: { topic: string; ids: string[] } | null = null;
+  byTopic.forEach((ids, topic) => {
+    if (!best || ids.length > best!.ids.length) best = { topic, ids };
+  });
+  return best!;
+})();
+
 // ── DOM helpers ──────────────────────────────────────────────────────────────
 const replyAnchorMark = `[data-post-id="${REPLY_ANCHOR.replyId}"] mark[data-reply-range-id="${REPLY_ANCHOR.rangeIndex}"]`;
 
@@ -193,5 +213,94 @@ test.describe('Cross-pane grouping / filtering (T7)', () => {
     await expect(groupIndicator).toHaveCount(0);
     await expect(replyBar).toHaveCount(0);
     await expect(nonMatching).toHaveCount(1);
+  });
+
+  test('group footer "K more" sits inside the block border, is clickable, and its × collapses the group', async ({ page }) => {
+    expect(FOOTER_TOPIC_CARDS.ids.length, 'need a topic with enough matches to leave a "K more" remainder').toBeGreaterThan(4);
+
+    await page.goto(DETAIL_URL);
+    await expect(page.locator('[data-related-card]').first()).toBeVisible();
+
+    const clickedCardId = await clickAsideCardMark(page, FOOTER_TOPIC_CARDS.ids);
+    expect(clickedCardId, 'a footer-topic aside card should be rendered and clickable').not.toBeNull();
+    await expect(page.getByTestId('active-group-anchor').first()).toBeVisible();
+
+    // The "K more <topic>" footer renders INSIDE the bordered block (a child of
+    // the last grouped card), not dangling below it.
+    const footerBtn = page.locator('[data-related-card] .show-more-link');
+    await expect(footerBtn).toBeVisible();
+    const label = (await footerBtn.textContent()) ?? '';
+    const remaining = parseInt(label, 10);
+    expect(remaining, 'footer should report a positive remainder').toBeGreaterThan(3);
+
+    // Clickable at its own center: Playwright's actionability check fails if
+    // another element (e.g. the card's bottom-edge hover zone) intercepts the
+    // pointer, which is exactly the regression this guards against.
+    await footerBtn.click();
+    await expect(footerBtn).toContainText(`${remaining - 3} more`);
+
+    // The footer × collapses the group without scrolling back to the header.
+    await page.getByRole('button', { name: /collapse .* group/i }).click();
+    await expect(page.getByTestId('active-group-anchor')).toHaveCount(0);
+    await expect(footerBtn).toHaveCount(0);
+  });
+
+  test('aside pane has no horizontal overflow while a group border is shown', async ({ page }) => {
+    await page.goto(DETAIL_URL);
+    await expect(page.locator('[data-related-card]').first()).toBeVisible();
+
+    const clickedCardId = await clickAsideCardMark(page, FOOTER_TOPIC_CARDS.ids);
+    expect(clickedCardId).not.toBeNull();
+    await expect(page.getByTestId('active-group-anchor').first()).toBeVisible();
+
+    // The group frame paints its rails a few px OUTWARD of the cards. If that
+    // paint escapes the aside's content box, the pane (overflow-y: auto ⇒
+    // overflow-x computes to auto) becomes horizontally scrollable and the
+    // border can be scrolled/clipped out of view.
+    const probe = await page.evaluate(() => {
+      const a = document.querySelector('[data-testid="col-aside"]') as HTMLElement;
+      a.scrollLeft = 999;
+      const maxScrollLeft = a.scrollLeft;
+      a.scrollLeft = 0;
+      return { overflow: a.scrollWidth - a.clientWidth, maxScrollLeft };
+    });
+    expect(probe.maxScrollLeft, 'aside must not be horizontally scrollable').toBe(0);
+    expect(probe.overflow, 'grouped content must not overflow the pane width').toBeLessThanOrEqual(0);
+  });
+
+  test('reply cluster rearrangement is permanent after dismissal', async ({ page }) => {
+    // Decision (tech plan, "Permanence rule"): cancelling/dismissing a group
+    // leaves posts in place — only Back-undo or an explicit re-sort (tab
+    // switch) restores the pre-cluster order.
+    const topLevelIds = topLevel.map((r) => r.id);
+    const readTopLevelOrder = () =>
+      page.evaluate((ids: string[]) => {
+        const set = new Set(ids);
+        const seen = new Set<string>();
+        const out: string[] = [];
+        for (const el of Array.from(document.querySelectorAll('[data-post-id]'))) {
+          const pid = el.getAttribute('data-post-id');
+          if (pid && set.has(pid) && !seen.has(pid)) { seen.add(pid); out.push(pid); }
+        }
+        return out;
+      }, topLevelIds);
+
+    await page.goto(DETAIL_URL);
+    await revealTopLevelReplies(page);
+    const anchorMark = page.locator(replyAnchorMark).first();
+    await expect(anchorMark).toBeVisible();
+    const before = await readTopLevelOrder();
+
+    // Cluster by the anchor's topic → members move adjacent to the anchor.
+    await anchorMark.click();
+    await expect(page.locator('[data-reply-cluster-member]').first()).toBeVisible();
+    const during = await readTopLevelOrder();
+    expect(during, 'fixture guard: clustering should actually rearrange the top level').not.toEqual(before);
+
+    // Re-click dismisses the cluster (rails clear) but the order STAYS.
+    await page.locator(replyAnchorMark).first().click();
+    await expect(page.locator('[data-reply-cluster-member]')).toHaveCount(0);
+    const after = await readTopLevelOrder();
+    expect(after, 'dismissing the cluster must keep the clustered order').toEqual(during);
   });
 });

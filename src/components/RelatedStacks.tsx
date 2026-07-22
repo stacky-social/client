@@ -383,6 +383,12 @@ function buildMultiHighlightNodes(
     inActiveBlock: boolean;
     onRangeHover: (index: number | null) => void;
     onRangeClick?: (index: number) => void;
+    /** Reverse cross-highlight (focus → aside): indices of THIS card's relations
+     *  whose focus ranges overlap the hovered focus-post span union. Non-null
+     *  whenever a focus span is hovered — matched spans brighten, the card's
+     *  other spans dim (paper: "highlighting the corresponding B spans,
+     *  temporarily dimming other B spans"). Null when no focus span is hovered. */
+    focusHoverMatchedIdx: Set<number> | null;
     /** topic → number of OTHER posts (excluding current) that share this topic */
     otherCountByTopic?: (topic: string) => number;
     /** range indices → number of related posts linked to those spans' focus
@@ -433,8 +439,10 @@ function buildMultiHighlightNodes(
 
       const isBandActive = (c: { rangeIndex: number; category: string }) =>
         opts.hoveredRangeIndex === c.rangeIndex ||
-        (opts.hoveredCategory !== null && opts.hoveredCategory === c.category);
-      const anyDirected = opts.hoveredRangeIndex !== null || opts.hoveredCategory !== null;
+        (opts.hoveredCategory !== null && opts.hoveredCategory === c.category) ||
+        (opts.focusHoverMatchedIdx !== null && opts.focusHoverMatchedIdx.has(c.rangeIndex));
+      const anyDirected =
+        opts.hoveredRangeIndex !== null || opts.hoveredCategory !== null || opts.focusHoverMatchedIdx !== null;
       // Original related-post hover behaviour: always-visible by default, full on
       // card hover (Level 1), and on span/category hover (Level 2) the active band
       // stays full while the rest dim. (The grey/colour spec is focus-post only.)
@@ -566,6 +574,10 @@ function buildMultiHighlightNodes(
         }
       } else if (opts.anyCardHovered) {
         bgAlpha = 0.25; // Another card is hovered — dim these highlights
+      } else if (opts.focusHoverMatchedIdx !== null) {
+        // A focus-post span is hovered: brighten the spans linked to it,
+        // temporarily dim this card's other spans.
+        bgAlpha = opts.focusHoverMatchedIdx.has(c.rangeIndex) ? 1 : 0.18;
       } else if (dimByBlock) {
         bgAlpha = 0.2; // Non-Topic span inside the active topic block
       } else {
@@ -573,10 +585,13 @@ function buildMultiHighlightNodes(
       }
       const bgColor = bgAlpha < 1 ? hexToRgba(colors.bg, bgAlpha) : colors.bg;
 
-      // Bold the contentComment phrase only on card hover (Level 1+)
+      // Bold the contentComment phrase on card hover (Level 1+). Level 1 is the
+      // gate — requiring the span itself to be hovered (Level 2 only) meant the
+      // crux never bolded on a plain card hover, which read as "boldface in the
+      // side pane doesn't work".
       const commentPhrase = c.comment;
       let markContent: React.ReactNode;
-      if (isThisRangeHovered && commentPhrase && segText.includes(commentPhrase)) {
+      if ((opts.isCardHovered || isThisRangeHovered) && commentPhrase && segText.includes(commentPhrase)) {
         const ci = segText.indexOf(commentPhrase);
         markContent = (
           <>
@@ -752,7 +767,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const [favouritedOverride, setFavouritedOverride] = useState<Record<string, boolean>>({});
   const [bookmarkedOverride, setBookmarkedOverride] = useState<Record<string, boolean>>({});
   const [favouritesCountOverride, setFavouritesCountOverride] = useState<Record<string, number>>({});
-  const { filterCategories, responseFilter, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, topicInteraction, replyTopicCounts, baseOrderIds } = useHighlightStore();
+  const { filterCategories, responseFilter, hoveredHighlightRangeIndex, hoveredCategory, tappedCardPostId, tappedRangeIndex, topicInteraction, replyTopicCounts, baseOrderIds, focusHoverRanges } = useHighlightStore();
   const flags = useExperimentFlags();
 
   // ── T4: consume the T3 derived selectors ────────────────────────────────────
@@ -1861,6 +1876,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
         style={{
           display: 'flex', flexDirection: 'column', gap: '0.75rem',
           paddingBottom: '1rem',
+          // Gutter for the group frame's outward right rail (right:
+          // -GROUP_LINE_WIDTH*2 on the frame, matching negative marginRight on
+          // the header). The aside is a scroll container (overflow-y: auto), so
+          // overflow-x can never be truly `visible` — anything painted past the
+          // content box becomes 4px of horizontal scrollable overflow that lets
+          // the pane shift sideways and clip the border. Reserving the space
+          // keeps the rail inside the pane; card widths stay constant whether
+          // grouped or not, so the shell divider still never moves.
+          paddingRight: GROUP_LINE_WIDTH * 2,
         }}
       >
         {(() => {
@@ -1930,6 +1954,20 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             claimedBy.has(stack.topPost.id)
             || (anchorSet.has(stack.topPost.id) && anchorsWithClaims.has(stack.topPost.id));
 
+          // Reverse cross-highlight (focus → aside): while a focus-post span is
+          // hovered, this card's relations overlapping the hovered union get
+          // their spans brightened and the rest dimmed. Indices are into the
+          // ORIGINAL relations array — the same space as tagged rangeIndex
+          // (windowing preserves it via __idx).
+          const focusHoverMatchedIdx = focusHoverRanges
+            ? new Set(
+                (rels ?? [])
+                  .map((r: Relation, i: number) =>
+                    focusHoverRanges.some((u) => r.focusStart < u.end && u.start < r.focusEnd) ? i : -1)
+                  .filter((i: number) => i >= 0),
+              )
+            : null;
+
           // Build React content nodes with multi-range + 3-level hover
           const contentNodes = buildMultiHighlightNodes(
             visibleText, adjustedRelations, colors,
@@ -1938,6 +1976,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               anyCardHovered,
               hoveredRangeIndex: isCardActive ? (isCardTapped ? tappedRangeIndex : hoveredHighlightRangeIndex) : null,
               hoveredCategory: isCardActive ? hoveredCategory : null,
+              focusHoverMatchedIdx,
               anchoredRangeIndex: anchoredRangeByPost[stack.topPost.id] ?? null,
               activeTopic: activeAnchorTopic,
               inActiveBlock,
@@ -2033,9 +2072,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
           // Footer: "K more Topic" — clickable to load 3 more when K > 0,
           // plain "0 more Topic" when K = 0 so the user can see where the
-          // block ends. Rendered inside the cardEl's motion.div so its
-          // lifecycle is tied to the last block card (popLayout would
-          // otherwise strand a separately-keyed footer at opacity:0).
+          // block ends — plus a × that collapses the group (same action as the
+          // header ×, so the user doesn't have to scroll back up to dismiss).
+          // Rendered INSIDE the last block card, after its Paper: the block's
+          // wrap-around border then encloses it, and it escapes the card's
+          // absolute bottom-edge hover zone (which extends BELOW the card box
+          // with pointerEvents:auto and used to swallow the footer's clicks
+          // when the footer dangled outside the card).
           const footerHover = (clientX: number, clientY: number) => {
             if (!anchorTopic) return;
             showTooltip({
@@ -2048,14 +2091,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           const renderFooter = showBlockDecorations && isLastInBlock && !!anchorTopic;
           const footerEl = renderFooter && anchorForThisCard ? (
             <div
+              // Block the card's touch-tap handler (cardEl onPointerDown) so a
+              // tap on the footer doesn't also toggle card-active state.
+              onPointerDown={(e) => e.stopPropagation()}
               style={{
-                // No rail here: the "see more" sits directly under the block's bottom
-                // rule, not on a vertical line coming off the last card. Cancel most
-                // of the flex-column gap so it HUGS the rule (~6px) instead of the
-                // full gap + marginTop (~24px, which read as too airy).
-                marginLeft: `${blockIndentPx}px`,
-                paddingLeft: '8px',
-                marginTop: 6 - GROUP_GAP_PX,
+                position: 'relative',
+                display: 'flex', alignItems: 'center', gap: '2px',
+                padding: '4px 10px 0',
               }}
             >
               {groupRemaining > 0 ? (
@@ -2079,6 +2121,29 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   0 more <strong style={{ color: anchorColors.text }}>{anchorTopic}</strong>
                 </span>
               )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  hideTooltip();
+                  handleToggleAnchor(anchorForThisCard);
+                }}
+                aria-label={`Collapse ${anchorTopic} group`}
+                // Same affordance as the header ×: 24px hit target, background
+                // appears on hover.
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#94a3b8', fontSize: '16px', lineHeight: 1,
+                  padding: '4px 8px',
+                  minWidth: 24, minHeight: 24,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: 4,
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#475569'; (e.currentTarget as HTMLElement).style.background = '#e2e8f0'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#94a3b8'; (e.currentTarget as HTMLElement).style.background = 'none'; }}
+              >
+                ×
+              </button>
             </div>
           ) : null;
 
@@ -2597,6 +2662,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 )}
               </Paper>
 
+              {footerEl}
+
               {bottomRuleEl}
 
               {/* Bottom-edge hover zone */}
@@ -2622,10 +2689,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             </div>
           );
 
-          // footerEl is a sibling AFTER cardEl (not inside it) so the rail — which
-          // spans cardEl down to the bottom rule — stops at the rule, and the "see
-          // more" sits below with no rail.
-          return [topRuleEl, headerEl, cardEl, footerEl].filter(Boolean);
+          // footerEl renders INSIDE cardEl (after its Paper) so the block's
+          // wrap-around border encloses the "see more" row and the card's
+          // bottom-edge hover zone can't intercept its clicks.
+          return [topRuleEl, headerEl, cardEl].filter(Boolean);
           }); // end visibleDisplayStacks.flatMap
         })()} {/* end activeAnchorTopic IIFE */}
 

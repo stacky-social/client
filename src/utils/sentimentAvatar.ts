@@ -8,15 +8,20 @@ export type EmotionKey =
   | 'sad'
   | 'sweet';
 
+// Circularized Stacky avatar set (Gemini image generation, 2026-07): each
+// icon is the ORIGINAL stacky_*.PNG character — same face, colors, and
+// hand-drawn outline — regenerated with its original as the image reference,
+// reshaped into a full-bleed circle with the sticky-note page curl removed,
+// so the circular avatar crop shows it cleanly. Originals kept alongside.
 export const AVATAR_BY_EMOTION: Record<EmotionKey, string> = {
-  angry: '/avatar/stacky_angry.PNG',
-  cracked: '/avatar/stacky_cracked.PNG',
-  default: '/avatar/stacky_default.PNG',
-  haha: '/avatar/stacky_haha.PNG',
-  love: '/avatar/stacky_love.PNG',
-  queasy: '/avatar/stacky_queasy.PNG',
-  sad: '/avatar/stacky_sad.PNG',
-  sweet: '/avatar/stacky_sweet.PNG',
+  angry: '/avatar/robot_angry.png',
+  cracked: '/avatar/robot_cracked.png',
+  default: '/avatar/robot_default.png',
+  haha: '/avatar/robot_haha.png',
+  love: '/avatar/robot_love.png',
+  queasy: '/avatar/robot_queasy.png',
+  sad: '/avatar/robot_sad.png',
+  sweet: '/avatar/robot_sweet.png',
 };
 
 // ─── Keyword library ────────────────────────────────────────────────────────

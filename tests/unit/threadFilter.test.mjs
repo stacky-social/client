@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterReplies, clusterTopLevel } from '../../src/utils/threadFilter.mjs';
+import { filterReplies, clusterTopLevel, applyBaseOrder } from '../../src/utils/threadFilter.mjs';
 
 const R = (id, rels) => ({ id, rels });
 const relsOf = (r) => r.rels;
@@ -90,4 +90,22 @@ test('passage filter via branch union counts a nested reply toward the branch', 
     r.id === 'd' ? [...r.rels, { category: 'agree', topic: 'W', focusStart: 12, focusEnd: 20 }] : r.rels;
   const out = filterReplies([a, b, c, d], relsOf, { responseFilter: { start: 5, end: 15 } }, branchRels);
   assert.deepEqual(out.map((r) => r.id), ['a', 'b', 'd']);
+});
+
+// ── applyBaseOrder (permanent reorder): dismissing a cluster keeps the last
+// clustered order — the sort only wins again after an explicit re-sort (tab
+// switch clears the base). New ids missing from the base append at the end in
+// their sorted relative order; base ids that no longer exist drop out. ────────
+
+test('applyBaseOrder returns sorted order when base is empty', () => {
+  assert.deepEqual(applyBaseOrder(['a', 'b', 'c'], []), ['a', 'b', 'c']);
+});
+
+test('applyBaseOrder keeps the base order over the sorted order', () => {
+  assert.deepEqual(applyBaseOrder(['a', 'b', 'c', 'd'], ['c', 'a', 'd', 'b']), ['c', 'a', 'd', 'b']);
+});
+
+test('applyBaseOrder drops base ids no longer present and appends new sorted ids', () => {
+  // 'x' vanished from the data; 'n1'/'n2' are new — they follow in sorted order.
+  assert.deepEqual(applyBaseOrder(['n2', 'a', 'n1', 'b'], ['b', 'x', 'a']), ['b', 'a', 'n2', 'n1']);
 });
