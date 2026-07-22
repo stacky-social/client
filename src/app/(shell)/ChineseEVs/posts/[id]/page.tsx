@@ -25,7 +25,7 @@ import {
 } from "../../../../../utils/mockPostResolver";
 import type { Relation } from "../../../../../types/PostType";
 import { getCurrentUser } from "../../../../../utils/getCurrentUser";
-import { useLocalStore, useHydrated, getComments } from "../../../../../utils/localStore";
+import { useLocalStore, useHydrated, getComments, type Post as StorePost } from "../../../../../utils/localStore";
 import { useExperimentFlags } from "../../../../../utils/experimentFlags";
 import { sortReplies } from "../../../../../utils/replySort.mjs";
 import { allowedTabsFor, coerceTab, defaultTabFor } from "../../../../../utils/replyTabs.mjs";
@@ -83,6 +83,44 @@ function stripHtmlToPlain(html: string): string {
   return html.replace(/<[^>]*>/g, "");
 }
 
+/** Resolve a store-backed post's parent chain (oldest → direct parent). */
+function getStoreAncestors(id: string, posts: Record<string, StorePost>): MockPostType[] {
+  const chain: StorePost[] = [];
+  const seen = new Set<string>([id]);
+  let cursor = posts[id]?.in_reply_to_id ?? null;
+  while (cursor && !seen.has(cursor)) {
+    seen.add(cursor);
+    const parent = posts[cursor];
+    if (!parent) break;
+    chain.unshift(parent);
+    cursor = parent.in_reply_to_id ?? null;
+  }
+  return chain as unknown as MockPostType[];
+}
+
+/** Resolve every locally stored descendant so reply-to-reply threads survive. */
+function getStoreReplies(id: string, posts: Record<string, StorePost>): MockPostType[] {
+  const children = new Map<string, StorePost[]>();
+  for (const candidate of Object.values(posts)) {
+    const parentId = candidate.in_reply_to_id;
+    if (!parentId) continue;
+    const bucket = children.get(parentId) ?? [];
+    bucket.push(candidate);
+    children.set(parentId, bucket);
+  }
+  const out: StorePost[] = [];
+  const queue = [...(children.get(id) ?? [])];
+  const seen = new Set<string>();
+  while (queue.length > 0) {
+    const child = queue.shift()!;
+    if (seen.has(child.id)) continue;
+    seen.add(child.id);
+    out.push(child);
+    queue.push(...(children.get(child.id) ?? []));
+  }
+  return out as unknown as MockPostType[];
+}
+
 export default function MockPostView({ params }: { params: { id: string } }) {
   const router = useRouter();
   const searchParamsObj = useSearchParams();
@@ -105,6 +143,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   // ancestors paint immediately and the heavy thread render doesn't block the
   // main thread as one giant synchronous task (fixes slow nav + the freeze).
   const [showThread, setShowThread] = useState(false);
+  const [postedReplyId, setPostedReplyId] = useState<string | null>(null);
 
   const plainPostText = post ? stripHtmlToPlain(post.content) : null;
 
@@ -114,6 +153,11 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   // Store comments live in localStorage; gate on mount so the thread matches the
   // server render, then merge them in.
   const hydrated = useHydrated();
+  // Read the whole immutable snapshot by identity. This makes user-created
+  // posts/replies resolvable after hydration and updates the thread immediately
+  // when a new local reply is persisted.
+  const localState = useLocalStore((snapshot) => snapshot);
+  const storePost = hydrated ? localState.posts[id] : undefined;
   const userCommentsLive = useLocalStore(() => getComments(id));
   const userComments = hydrated ? userCommentsLive : [];
 
@@ -346,6 +390,33 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   }, [flags.replySortTabs, activeTab, displayedTopLevel, sortOpts, replyCluster, replyRelationsById]);
   const displayedTotal = topLevelOrder ? topLevelOrder.length : totalTopLevelReplies;
 
+  // A newly submitted reply should never vanish below the current sort/window.
+  // Switch to chronological order, include its row, then bring it into view and
+  // briefly emphasize the card once React has committed the store update.
+  const handleReplyPosted = useCallback((replyId: string) => {
+    setActiveTab("time");
+    setVisibleTopLevelReplies((visible) => Math.max(visible, totalTopLevelReplies + 1));
+    setPostedReplyId(replyId);
+  }, [totalTopLevelReplies]);
+
+  useEffect(() => {
+    if (!postedReplyId || !mergedReplies.some((reply) => reply.id === postedReplyId)) return;
+    const frame = requestAnimationFrame(() => {
+      const element = document.querySelector(`[data-post-id="${postedReplyId}"]`) as HTMLElement | null;
+      if (!element) return;
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+      element.animate(
+        [
+          { boxShadow: "0 0 0 4px rgba(0, 35, 121, 0.28)" },
+          { boxShadow: "0 0 0 0 rgba(0, 35, 121, 0)" },
+        ],
+        { duration: 1800, easing: "ease-out" },
+      );
+      setPostedReplyId(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [postedReplyId, mergedReplies]);
+
   // A cluster must form IN VIEW (visibility of system status): grow the visible
   // top-level window to cover the anchor plus at least its first 3 below-matches,
   // so the grouping pill never points at an off-screen block. Grows only —
@@ -576,21 +647,27 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     if (coerced !== activeTab) setActiveTab(coerced);
   }, [flags.replySortTabs, activeTab]);
 
-  // -------------------- Load mock data --------------------
+  // -------------------- Load mock + local study data --------------------
   useEffect(() => {
-    if (!mockHasPost(id)) {
+    const mockPost = getMockPost(id);
+    const p = mockPost ?? (storePost as unknown as MockPostType | undefined) ?? null;
+    if (!p) {
       setPost(null);
       return;
     }
-    const p = getMockPost(id);
     setPost(p);
-    const threadAncestors = getMockAncestors(id);
-    const threadReplies = getMockReplies(id);
+    const isMockPost = !!mockPost;
+    const threadAncestors = isMockPost
+      ? getMockAncestors(id)
+      : getStoreAncestors(id, localState.posts);
+    const threadReplies = isMockPost
+      ? getMockReplies(id)
+      : getStoreReplies(id, localState.posts);
     setAncestors(threadAncestors);
     setReplies(threadReplies);
-    setRecommendedPosts(getMockRecommended(id));
-    setFocusRelations(getMockFocusRelations(id));
-    if (p) {
+    setRecommendedPosts(isMockPost ? getMockRecommended(id) : []);
+    setFocusRelations(isMockPost ? getMockFocusRelations(id) : []);
+    {
       // D1 suppression: posts already visible in the thread (the focus post,
       // its ancestors, its replies) are dropped from the related panel so the
       // user never meets the same post in both panes. The context only ever
@@ -622,7 +699,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     const user = getCurrentUser();
     if (user) setCurrentUser(user);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, flags.suppressThreadPosts]);
+  }, [id, flags.suppressThreadPosts, storePost, localState.posts, hydrated]);
 
   // Defer the reply thread to the next task so the focus post + ancestors
   // paint immediately instead of blocking on one big synchronous render.
@@ -747,16 +824,17 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     return postEl;
   };
 
-  if (!mockHasPost(id)) {
+  if (!mockHasPost(id) && !storePost) {
+    if (!hydrated) return <Loader size="lg" />;
     return (
       <Paper withBorder radius="md" mt={20} p="lg">
         <Text size="sm">
-          Post <code>{id}</code> not found in mock data.
+          Post <code>{id}</code> was not found in this study session.
         </Text>
         <Text size="xs" c="dimmed" mt="xs">
-          This demo thread runs on bundled sample data. Head back to the{" "}
+          It may have been removed or created in a different participant session. Head back to the{" "}
           <Anchor component={Link} href="/ChineseEVs" size="xs">
-            demo feed
+            #ChineseEVs discussion
           </Anchor>{" "}
           to pick a post that exists.
         </Text>
@@ -871,6 +949,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
               postId={id}
               currentUser={currentUser}
               fetchPostAndReplies={() => {}}
+              onReplyPosted={handleReplyPosted}
               onDraftActiveChange={setComposerDraftActive}
               stickyMode={composerStickyTop != null && composerDraftActive}
             />

@@ -5,6 +5,7 @@ import { Text, Paper, Box, Group, Divider, Button } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { notifications } from "@mantine/notifications";
 import Post from "../../../components/Posts/Post";
 import mockData from "../../FakeData/listy-injection.json";
 import type { ListyInjectionData, ListyInjectionEntry, RelatedPostMock, FocusPostMock, Relation, CategoryKey } from "../../../types/PostType";
@@ -843,8 +844,36 @@ export default function ListyInjectionPage() {
   const hashtagFollowed = useLocalStore(() => areAllFollowing(getHashtagAuthors()));
   const handleFollowHashtag = () => {
     const authors = getHashtagAuthors();
-    if (areAllFollowing(authors)) unfollowAll(authors);
+    const wasFollowing = areAllFollowing(authors);
+    if (wasFollowing) unfollowAll(authors);
     else followAll(authors);
+
+    const notificationId = `chinese-evs-follow-${Date.now()}`;
+    notifications.show({
+      id: notificationId,
+      title: wasFollowing ? "Hashtag unfollowed" : "Following #ChineseEVs",
+      color: "blue",
+      message: (
+        <Group gap="xs" justify="space-between" wrap="nowrap">
+          <Text size="sm">
+            {wasFollowing
+              ? "Posts from this discussion were removed from Home."
+              : "Posts from this discussion will now appear on Home."}
+          </Text>
+          <Button
+            variant="subtle"
+            size="compact-xs"
+            onClick={() => {
+              if (wasFollowing) followAll(authors);
+              else unfollowAll(authors);
+              notifications.hide(notificationId);
+            }}
+          >
+            Undo
+          </Button>
+        </Group>
+      ),
+    });
   };
 
   const feedContent = (

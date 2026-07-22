@@ -67,19 +67,26 @@ export default function SearchBar() {
 
   const goToUser = (acct: string) => router.push(`/user/${encodeURIComponent(acct)}`);
   const goToPost = (id: string) => router.push(`/ChineseEVs/posts/${id}`);
+  const goToHashtag = () => router.push("/ChineseEVs");
+
+  // The study currently has one complete, locally seeded hashtag experience.
+  // Treat the optional leading # as presentation rather than part of the query,
+  // so both "ChineseEVs" and "#ChineseEVs" reach the same discussion.
+  const normalizedHashtagQuery = q.replace(/^#/, "").toLowerCase();
+  const hasHashtagResult = normalizedHashtagQuery === "chineseevs";
 
   const hasQuery = q.length > 0;
-  const hasResults = users.length > 0 || posts.length > 0;
+  const hasResults = hasHashtagResult || users.length > 0 || posts.length > 0;
 
   return (
     <Box>
       <Paper withBorder p="md" mb="lg" style={{ ...CARD_STYLE }}>
         <TextInput
-          placeholder="Search people and posts"
+          placeholder="Search hashtags, people, and posts"
           variant="unstyled"
           value={query}
           onChange={(e) => setQuery(e.currentTarget.value)}
-          aria-label="Search people and posts"
+          aria-label="Search hashtags, people, and posts"
           leftSection={<IconSearch style={{ width: rem(16), height: rem(16) }} />}
         />
       </Paper>
@@ -89,7 +96,7 @@ export default function SearchBar() {
         <>
           {!hasQuery && (
             <Text size="sm" c="dimmed" px="xs">
-              Start typing to search people and posts.
+              Start typing to search hashtags, people, and posts.
             </Text>
           )}
 
@@ -97,6 +104,35 @@ export default function SearchBar() {
             <Text size="sm" c="dimmed" px="xs">
               No results for &ldquo;{q}&rdquo;
             </Text>
+          )}
+
+          {hasQuery && hasHashtagResult && (
+            <Box mb="lg">
+              <Text
+                size="xs"
+                fw={600}
+                c="dimmed"
+                mb="sm"
+                px="xs"
+                style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}
+              >
+                Hashtags
+              </Text>
+              <UnstyledButton
+                onClick={goToHashtag}
+                style={{ width: "100%" }}
+                aria-label="Open #ChineseEVs hashtag"
+              >
+                <Paper withBorder p="md" style={{ ...CARD_STYLE }}>
+                  <Text size="sm" fw={700} c="#011445">
+                    #ChineseEVs
+                  </Text>
+                  <Text size="xs" c="dimmed" mt={3}>
+                    Explore posts in the Chinese electric vehicles discussion
+                  </Text>
+                </Paper>
+              </UnstyledButton>
+            </Box>
           )}
 
           {hasQuery && users.length > 0 && (

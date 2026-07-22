@@ -17,6 +17,7 @@ import { useExperimentFlags } from '../utils/experimentFlags';
 import { reorderForAnchor } from '../utils/reorderForAnchor';
 import type { Relation } from '../types/PostType';
 import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
+import { showUndoableAction } from '../utils/actionNotifications';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -91,6 +92,7 @@ const GROUP_GAP_PX = 12; // matches the parent's `gap: '0.75rem'`
 // Radius of the two left corners where the bracket's horizontal rules curve into
 // the vertical rail (top-left on the header row, bottom-left on the bottom rule).
 const GROUP_CORNER_R = 12;
+const RELATED_PAGE_SIZE = 10;
 
 // ─── Missing-topic diagnostic (rate-limited) ─────────────────────────────────
 // Surface data-integrity issues (relations with no `topic`) in study logs
@@ -727,6 +729,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   // multi-second main-thread block (the "page died" freeze). Coalescing rapid
   // enter/leave into a single settle keeps the thread free while moving.
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingHoverCardIdRef = useRef<string | null>(null);
+  // A stationary pointer must not activate whichever card happens to pass under
+  // it while the related panel is scrolling. Hover becomes eligible again only
+  // after the panel has settled; the user's next pointer movement can then
+  // activate the card intentionally.
+  const panelScrollingRef = useRef(false);
+  const panelScrollEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Shared-pairing highlight: scroll the emphasised card into view when arriving
   // via a …?related={id} link (or when the highlight target changes).
   const highlightCardRef = useRef<HTMLDivElement | null>(null);
@@ -830,6 +839,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   }, []);
   // Per-card expanded state, keyed by stackId
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  const [visibleCardCount, setVisibleCardCount] = useState(RELATED_PAGE_SIZE);
 
   const isFavourited = (postId: string, initial: boolean) =>
     favouritedOverride[postId] !== undefined ? favouritedOverride[postId] : initial;
@@ -842,33 +852,46 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     // Optimistically reflect the toggle, then confirm/revert with the server result
     // (mastoActions now returns { ok, value } so failures can be surfaced).
     const optimistic = !current;
+    const optimisticCount = Math.max(0, initialCount + (optimistic ? 1 : -1));
     setFavouritedOverride(prev => ({ ...prev, [postId]: optimistic }));
-    setFavouritesCountOverride(prev => {
-      const effectivePrev = prev[postId] !== undefined ? prev[postId] : initialCount;
-      const newCount = optimistic ? effectivePrev + 1 : effectivePrev - 1;
-      return { ...prev, [postId]: Math.max(0, newCount) };
-    });
+    setFavouritesCountOverride(prev => ({ ...prev, [postId]: optimisticCount }));
 
     const result = await toggleFavourite(postId, current);
     if (!result.ok) {
       // Revert optimistic UI on failure.
       setFavouritedOverride(prev => ({ ...prev, [postId]: current }));
-      setFavouritesCountOverride(prev => {
-        const effectivePrev = prev[postId] !== undefined ? prev[postId] : initialCount;
-        const reverted = optimistic ? effectivePrev - 1 : effectivePrev + 1;
-        return { ...prev, [postId]: Math.max(0, reverted) };
-      });
+      setFavouritesCountOverride(prev => ({ ...prev, [postId]: initialCount }));
       notifications.show({
         title: 'Error',
         message: 'Could not update like. Please try again.',
         color: 'red',
       });
+      return;
     }
+
+    setFavouritedOverride(prev => ({ ...prev, [postId]: result.value }));
+    showUndoableAction({
+      title: result.value ? 'Post liked' : 'Like removed',
+      message: result.value ? 'This post was added to your likes.' : 'This post was removed from your likes.',
+      onUndo: async () => {
+        const undoResult = await toggleFavourite(postId, result.value);
+        if (!undoResult.ok) {
+          notifications.show({ title: 'Error', message: 'Could not undo like. Please try again.', color: 'red' });
+          return;
+        }
+        setFavouritedOverride(prev => ({ ...prev, [postId]: undoResult.value }));
+        setFavouritesCountOverride(prev => ({
+          ...prev,
+          [postId]: Math.max(0, optimisticCount + (undoResult.value ? 1 : -1)),
+        }));
+      },
+    });
   };
 
   const handleToggleBookmark = async (postId: string, current: boolean) => {
     // Optimistically reflect the toggle, then confirm/revert with the server result.
-    setBookmarkedOverride(prev => ({ ...prev, [postId]: !current }));
+    const optimistic = !current;
+    setBookmarkedOverride(prev => ({ ...prev, [postId]: optimistic }));
     const result = await toggleBookmark(postId, current);
     if (!result.ok) {
       setBookmarkedOverride(prev => ({ ...prev, [postId]: current }));
@@ -877,7 +900,22 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
         message: 'Could not update bookmark. Please try again.',
         color: 'red',
       });
+      return;
     }
+
+    setBookmarkedOverride(prev => ({ ...prev, [postId]: result.value }));
+    showUndoableAction({
+      title: result.value ? 'Post saved' : 'Bookmark removed',
+      message: result.value ? 'This post was added to your bookmarks.' : 'This post was removed from your bookmarks.',
+      onUndo: async () => {
+        const undoResult = await toggleBookmark(postId, result.value);
+        if (!undoResult.ok) {
+          notifications.show({ title: 'Error', message: 'Could not undo bookmark. Please try again.', color: 'red' });
+          return;
+        }
+        setBookmarkedOverride(prev => ({ ...prev, [postId]: undoResult.value }));
+      },
+    });
   };
 
   const [currentStackId, setCurrentStackId] = useState<string | null>(null);
@@ -1232,6 +1270,42 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       ? { displayStacks: matched, activeTopicFilterKey: asideTopicFilterKey }
       : { displayStacks: groupedStacks, activeTopicFilterKey: null };
   }, [groupedStacks, asideTopicFilterKey]);
+
+  // Keep long related sets study-friendly: start with ten cards and reveal ten
+  // more at a time. A filter/group change starts a fresh page, while the active
+  // anchor and its currently revealed block are always kept in view even when
+  // they originally sat beyond the first ten results.
+  const paginationResetKey = useMemo(() => [
+    sourcePostId ?? ctxActivePostId ?? '',
+    relatedStacks.map((stack) => stack.topPost.id).join(','),
+    Array.from(filterCategories).sort().join(','),
+    responseFilter ? `${responseFilter.start}:${responseFilter.end}` : '',
+    asideTopicFilterKey ?? '',
+    grouping ? `${grouping.anchor.postId}:${grouping.anchor.rangeIndex}` : '',
+  ].join('|'), [sourcePostId, ctxActivePostId, relatedStacks, filterCategories, responseFilter, asideTopicFilterKey, grouping]);
+
+  useEffect(() => {
+    setVisibleCardCount(RELATED_PAGE_SIZE);
+  }, [paginationResetKey]);
+
+  const activeAnchorIdForPagination = grouping?.anchor.postId ?? null;
+  const minimumCountForActiveGroup = useMemo(() => {
+    if (!activeAnchorIdForPagination) return 0;
+    let lastGroupIndex = -1;
+    displayStacks.forEach((stack, index) => {
+      const postId = stack.topPost.id;
+      if (postId === activeAnchorIdForPagination || claimedBy.get(postId) === activeAnchorIdForPagination) {
+        lastGroupIndex = index;
+      }
+    });
+    return lastGroupIndex + 1;
+  }, [activeAnchorIdForPagination, claimedBy, displayStacks]);
+  const effectiveVisibleCardCount = Math.max(visibleCardCount, minimumCountForActiveGroup);
+  const visibleDisplayStacks = useMemo(
+    () => displayStacks.slice(0, effectiveVisibleCardCount),
+    [displayStacks, effectiveVisibleCardCount],
+  );
+  const remainingCardCount = Math.max(0, displayStacks.length - visibleDisplayStacks.length);
 
   // Robustness: sweep away residual FLIP transforms whenever the visible list
   // changes for a reason the FLIP effect does not run for (filters, cross-pane
@@ -1646,15 +1720,50 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
     if (!aside) return;
     let raf = 0;
+
+    const suspendHover = () => {
+      const wasAlreadyScrolling = panelScrollingRef.current;
+      panelScrollingRef.current = true;
+      if (panelScrollEndTimerRef.current) clearTimeout(panelScrollEndTimerRef.current);
+      panelScrollEndTimerRef.current = setTimeout(() => {
+        panelScrollingRef.current = false;
+        panelScrollEndTimerRef.current = null;
+      }, 160);
+
+      // Clear once at the beginning of a scroll gesture. Repeating store writes
+      // on every scroll event would add needless rendering work while moving.
+      if (wasAlreadyScrolling) return;
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+      pendingHoverCardIdRef.current = null;
+      if (rangeHoverTimer.current) clearTimeout(rangeHoverTimer.current);
+      cancelTagScroll();
+      setHoveredCardId(null);
+      setHoveredIndex(null);
+      setHoveredSidebarPost(null);
+      setHoveredHighlightRangeIndex(null);
+      setHoveredCategory(null);
+      hideTooltip();
+    };
+
     const onScroll = () => {
+      suspendHover();
       if (restoringPanelScrollRef.current || raf) return;
       raf = requestAnimationFrame(() => {
         raf = 0;
         savePanelScroll(panelFocusIdRef.current, aside.scrollTop);
       });
     };
+    // Wheel arrives before the resulting scroll/mouse-boundary events, so it
+    // closes the brief window where a card could activate during the first frame.
+    aside.addEventListener('wheel', suspendHover, { passive: true });
     aside.addEventListener('scroll', onScroll, { passive: true });
-    return () => { aside.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf); };
+    return () => {
+      aside.removeEventListener('wheel', suspendHover);
+      aside.removeEventListener('scroll', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+      if (panelScrollEndTimerRef.current) clearTimeout(panelScrollEndTimerRef.current);
+    };
   }, []);
 
   // Touch: tap-outside clears the active state so highlights/sidebar reset.
@@ -1771,7 +1880,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             ? topicOf(activeAnchorRel, activeAnchorStack.stackId, activeAnchorRangeIdx)
             : null;
 
-          return displayStacks.flatMap((stack, index) => {
+          return visibleDisplayStacks.flatMap((stack, index) => {
           const isCardHovered = hoveredCardId === stack.topPost.id;
           const isHighlighted = !!highlightPostId && stack.topPost.id === highlightPostId;
           const colors = getCategoryColors(stack.rel);
@@ -1873,8 +1982,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             return undefined;
           };
           const anchorForThisCard = anchorOf(stack);
-          const anchorForPrev = index > 0 ? anchorOf(displayStacks[index - 1]) : undefined;
-          const anchorForNext = index + 1 < displayStacks.length ? anchorOf(displayStacks[index + 1]) : undefined;
+          const anchorForPrev = index > 0 ? anchorOf(visibleDisplayStacks[index - 1]) : undefined;
+          const anchorForNext = index + 1 < visibleDisplayStacks.length ? anchorOf(visibleDisplayStacks[index + 1]) : undefined;
 
           // Block boundaries: the first card whose anchorOf differs from the
           // previous (and isn't undefined) is the start of the topic block;
@@ -2064,6 +2173,21 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           // separate bottom-rule element is needed.
           const bottomRuleEl = null;
 
+          const scheduleCardHover = () => {
+            if (isTouch || isTouchRef.current || panelScrollingRef.current) return;
+            const pid = stack.topPost.id;
+            if (hoveredCardId === pid || pendingHoverCardIdRef.current === pid) return;
+            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+            pendingHoverCardIdRef.current = pid;
+            hoverTimerRef.current = setTimeout(() => {
+              hoverTimerRef.current = null;
+              pendingHoverCardIdRef.current = null;
+              if (panelScrollingRef.current || isTouchRef.current) return;
+              setHoveredCardId(pid);
+              setHoveredSidebarPost(pid, stack.topPost.relations);
+            }, 90);
+          };
+
           const cardEl = (
             <div
               key={stack.stackId}
@@ -2151,18 +2275,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 data-post-id={stack.topPost.id}
                 onClick={(e) => handleCardClick(e, stack.topPost.id, stack.stackId)}
                 onMouseEnter={() => {
-                  if (isTouch) return;
+                  if (isTouch || panelScrollingRef.current) return;
                   setHoveredIndex(null);
-                  // Debounced: coalesce a fast cursor sweep into a single settle
-                  // so the expensive focus-post cross-highlight fires once.
-                  const pid = stack.topPost.id;
-                  const rels = stack.topPost.relations;
-                  if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-                  hoverTimerRef.current = setTimeout(() => {
-                    setHoveredCardId(pid);
-                    setHoveredSidebarPost(pid, rels);
-                  }, 90);
+                  scheduleCardHover();
                 }}
+                onMouseMove={scheduleCardHover}
                 onMouseLeave={(e) => {
                   if (isTouch) return;
                   // A6: ignore Paper-leave events where the mouse went to a
@@ -2182,7 +2299,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   // Debounced clear — same coalescing so a sweep doesn't trigger
                   // an expensive un-highlight on every card boundary.
                   if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                  pendingHoverCardIdRef.current = null;
                   hoverTimerRef.current = setTimeout(() => {
+                    hoverTimerRef.current = null;
                     setHoveredCardId(null); setHoveredSidebarPost(null);
                     setHoveredHighlightRangeIndex(null); setHoveredCategory(null);
                   }, 60);
@@ -2198,10 +2317,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   cursor: 'pointer',
                 }}
               >
-                {/* Card header row — category tags (left, wrapping) and the F relation
-                    indicator (right), in NORMAL FLOW. The old absolute positioning over
-                    a fixed 40px reserve overlapped the author header and the indicator
-                    as soon as tags wrapped or labels ran long; a flow row just grows. */}
+                {/* Card header row — author/date first, then compact contribution icons.
+                    Text labels live in the tooltip/accessible name so tags never crowd
+                    or obscure authorship metadata in the narrow related column. */}
                 <div
                   onClick={(e) => { e.stopPropagation(); handleNavigate(stack.topPost.id, stack.stackId); }}
                   style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 10px 6px', minWidth: 0 }}>
@@ -2216,11 +2334,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   </Anchor>
                   <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>· {formatPostDate(stack.topPost.created_at)}</Text>
                 </div>
-                {/* Category tags — pushed right; collapse to icon-only when the panel
-                    is narrow (.related-tag-text @container rule in globals.css). Kept on
-                    ONE line (nowrap + no shrink): the contribution icons must never
-                    stack vertically — the author name (minWidth:0, below) yields space
-                    instead, and the group indicator truncates. */}
+                {/* Category tags — icon-only and pushed right. Kept on one line so
+                    author and date retain the readable portion of the header. */}
                 <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'nowrap', justifyContent: 'flex-end', marginLeft: 'auto', flexShrink: 0 }}>
                   {(() => {
                     // Dedupe categories from relations, preserving order
@@ -2234,14 +2349,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                     }
                     const hri = isCardActive ? (isCardTapped ? tappedRangeIndex : hoveredHighlightRangeIndex) : null;
                     const hcat = isCardActive ? hoveredCategory : null;
-                    // In a grouped/clustered card the header row ALSO carries the
-                    // "N more <topic>" indicator, which squeezes the contribution tags
-                    // into wrapping. Collapse them to ICON-ONLY (drop the text label)
-                    // in that case so they can't overflow. Ungrouped cards keep their
-                    // labels (still collapsing at a narrow panel via the container query).
-                    const isGroupedCard =
-                      (reRankAnchorIds.length > 0 && reRankAnchorIds[reRankAnchorIds.length - 1] === stack.topPost.id) ||
-                      (activeAnchorTopic !== null && rels.some((r, ri) => topicOf(r, stack.stackId, ri) === activeAnchorTopic));
                     return tags.map(({ cat, indices }) => {
                       const tc = getCategoryColors(cat);
                       const anyDirected = hri !== null || hcat !== null;
@@ -2263,6 +2370,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       return (
                         <div
                           key={cat}
+                          data-related-tag
                           aria-label={CATEGORY_LABELS[cat] ?? cat}
                           onMouseEnter={(e) => { if (!isTouch) { setHoveredCategory(cat); scheduleTagScroll(index, indices[0]); } tagHover(e.clientX, e.clientY); }}
                           onMouseLeave={() => { if (!isTouch) { setHoveredCategory(null); cancelTagScroll(); } hideTooltip(); }}
@@ -2294,7 +2402,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                             background: tc.bg,
                             color: tc.text,
                             borderRadius: '5px',
-                            padding: '2px 7px', display: 'flex', alignItems: 'center', gap: '4px',
+                            width: '24px', height: '22px', padding: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
                             border: `1px solid ${tc.border}`,
                             opacity: tagBright ? 1 : 0.3,
                             transition: 'opacity 200ms ease',
@@ -2302,11 +2411,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                           }}
                         >
                           {React.cloneElement(iconMapping[cat] || iconMapping['default'], { color: tc.text, size: 12 })}
-                          {!isGroupedCard && (
-                            <Text className="related-tag-text" size="xs" c={tc.text} fw={700} style={{ fontSize: '10px' }}>
-                              {CATEGORY_LABELS[cat] ?? cat}
-                            </Text>
-                          )}
                         </div>
                       );
                     });
@@ -2522,8 +2626,20 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           // spans cardEl down to the bottom rule — stops at the rule, and the "see
           // more" sits below with no rail.
           return [topRuleEl, headerEl, cardEl, footerEl].filter(Boolean);
-          }); // end displayStacks.flatMap
+          }); // end visibleDisplayStacks.flatMap
         })()} {/* end activeAnchorTopic IIFE */}
+
+        {remainingCardCount > 0 && (
+          <button
+            type="button"
+            className="related-load-more"
+            data-testid="related-load-more"
+            onClick={() => setVisibleCardCount(Math.min(displayStacks.length, effectiveVisibleCardCount + RELATED_PAGE_SIZE))}
+          >
+            Load more
+            <span>{Math.min(RELATED_PAGE_SIZE, remainingCardCount)} of {remainingCardCount} remaining</span>
+          </button>
+        )}
       </div>
 
       <StackPostsModal

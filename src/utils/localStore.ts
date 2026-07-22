@@ -232,7 +232,7 @@ function makeMe(): Account {
 }
 
 /** Build the initial state from the mock dataset. Pure — no localStorage access. */
-function seedState(): LocalState {
+function seedState(meOverride?: Account): LocalState {
   const posts: Record<string, Post> = {};
   const accounts: Record<string, Account> = {};
 
@@ -273,7 +273,7 @@ function seedState(): LocalState {
     if (acc) acc.statuses_count += 1;
   }
 
-  const me = makeMe();
+  const me = meOverride ?? makeMe();
   accounts[me.acct] = me;
 
   return {
@@ -344,6 +344,23 @@ function persist(next: LocalState): void {
   } catch {
     // Quota / serialisation failure — keep the in-memory copy authoritative.
   }
+}
+
+/**
+ * Replace every participant-controlled value with a freshly seeded store.
+ *
+ * Study sessions use this at both entry and exit so posts, replies, likes,
+ * bookmarks, and follows from one participant cannot leak into the next. An
+ * optional local identity lets the composer and replies render the active
+ * participant consistently without creating a Mastodon access token.
+ */
+export function resetLocalStore(me?: Account): void {
+  state = seedState(me);
+  hydrated = isBrowser();
+  memoState = null;
+  memo = new Map();
+  persist(state);
+  listeners.forEach((listener) => listener());
 }
 
 // ─── Subscription (useSyncExternalStore wiring) ──────────────────────────────

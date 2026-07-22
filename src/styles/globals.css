@@ -65,15 +65,10 @@ body {
 /* Related panel collapse: the aside is a container-query context
    (container-type: inline-size), so these rules respond to the related panel's
    own width — set by the feed/aside resize divider — not the viewport. When the
-   panel is narrow, collapse the top category filter chips to just icon + count
-   (below ~360px) and the per-card category tags to icon-only (below ~300px), so
-   the bar stays compact instead of sprawling. Words stay visible while there's
-   room and only drop when the panel is genuinely cramped. */
+   panel is narrow, collapse the top category filter chips to just icon + count.
+   Per-card tags are always icon-only so author and date remain readable. */
 @container (max-width: 360px) {
     .related-chip-text { display: none; }
-}
-@container (max-width: 300px) {
-    .related-tag-text { display: none; }
 }
 
 /* Shared Post card (focus post + feed cards) — the feed column is now a

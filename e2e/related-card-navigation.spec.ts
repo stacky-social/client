@@ -50,8 +50,11 @@ test.describe('Related-card navigation & interaction guards', () => {
   test('B1: clicking a category tag groups the panel and does NOT navigate', async ({ page }) => {
     await page.goto(DETAIL_URL);
 
-    const tag = page.locator('[data-related-card] .related-tag-text').first();
+    const tag = page.locator('[data-related-card] [data-related-tag]').first();
     await expect(tag).toBeVisible();
+    await expect(page.locator('[data-related-card] .related-tag-text')).toHaveCount(0);
+    const tagBox = await tag.boundingBox();
+    expect(tagBox?.width).toBeLessThanOrEqual(26);
 
     // No grouping active yet. (T4 removed the "Grouped by:" pill; grouping is now
     // signalled by the inline anchor indicator, data-testid "active-group-anchor".)
@@ -65,6 +68,26 @@ test.describe('Related-card navigation & interaction guards', () => {
     await expect(groupIndicator.first()).toBeVisible();
     // ... and the card-level navigation did NOT (stopPropagation held).
     expect(page.url()).toBe(urlBefore);
+  });
+
+  test('B1.1: scrolling clears level-one hover and does not activate cards under a stationary pointer', async ({ page }) => {
+    await page.goto(DETAIL_URL);
+
+    const cards = page.locator('[data-related-card]');
+    await expect(cards).toHaveCount(10);
+    const first = cards.first();
+    const second = cards.nth(1);
+
+    await first.hover();
+    await expect(second).toHaveCSS('opacity', '0.45');
+
+    await page.getByTestId('col-aside').evaluate((element) => {
+      element.scrollBy({ top: 320, behavior: 'instant' });
+    });
+
+    await expect(second).toHaveCSS('opacity', '1');
+    await page.waitForTimeout(220);
+    await expect(page.locator('[data-related-card][style*="opacity: 0.45"]')).toHaveCount(0);
   });
 
   test('B2: clicking a related-card interaction control does NOT navigate', async ({ page }) => {

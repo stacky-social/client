@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { LoadingOverlay, Button, Box, Paper, Text, Anchor } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Virtuoso } from 'react-virtuoso';
 import { PostType } from '../types/PostType';
 import Post from './Posts/Post';
@@ -671,6 +672,7 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
     activePostId,
     setActivePostId,
 }) => {
+    const router = useRouter();
     // Re-renders on any store mutation (post/like/bookmark/follow) so the feed
     // stays live without a manual refresh.
     const hydrated = useHydrated();
@@ -735,10 +737,16 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                         bookmarked={post.bookmarked}
                         mediaAttachments={post.mediaAttachments}
                         onStackIconClick={handleStackIconClick}
-                        // Clicking a store-feed post shows its related panel in the
-                        // aside (stay on the page) instead of routing to the REST
-                        // /posts/{id}; handleStackIconClick resolves the mock stacks.
-                        onNavigate={(postId: string) => handleStackIconClick([], postId, { top: 0, height: 0 })}
+                        // Store feeds are local study surfaces: publish the same
+                        // related-panel focus as before, then open the compatible
+                        // local detail route (never the auth-gated REST route).
+                        onNavigate={(postId: string) => {
+                            handleStackIconClick(post.relatedStacks ?? [], postId, { top: 0, height: 0 });
+                            const url = `/ChineseEVs/posts/${postId}`;
+                            sessionStorage.setItem(`previousPath:${url}`, window.location.pathname + window.location.search);
+                            sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
+                            router.push(url);
+                        }}
                         setIsModalOpen={setIsModalOpen}
                         setIsExpandModalOpen={setIsExpandModalOpen}
                         relatedStacks={post.relatedStacks}

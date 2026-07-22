@@ -1,16 +1,14 @@
 'use client';
 
-import {useEffect, useState} from 'react';
-import { Title, Text, Button, TextInput, Box, Center, Container, rem, Paper, Anchor } from '@mantine/core';
+import {useState} from 'react';
+import { Text, Button, TextInput, Center, Container, Paper, Divider, Stack } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Header } from '../components/Header/Header';
-import { Footer } from '../components/Footer/Footer';
 import { CrossweaveLogo } from '../components/NavBar/CrossweaveLogo';
 import classes from './LandingPage.module.css';
 import {BASE_URL} from "../utils/DevMode";
+import { prepareForMastodonLogin, startStudySession } from "../utils/studyMode";
 
 
 
@@ -38,6 +36,7 @@ export default function LandingPage() {
   });
 
   const handleLogin = () => {
+    prepareForMastodonLogin();
     setIsLoading(true);
     notifications.show({
       title: 'Logging in',
@@ -50,20 +49,16 @@ export default function LandingPage() {
     window.location.href = authorizationUrl;
   };
 
-  //
-  useEffect(() => {
-    // check if user is already logged in
-
-    //router.push("/home")
-
-  }, [])
+  const handleStartStudy = () => {
+    startStudySession();
+    router.push('/home');
+  };
 
 
   return (
     <>
-      {/* <Header /> */}
       <Center className={classes.landingPageContent}>
-        <Container size={400} className={classes.container}>
+        <Container size={460} className={classes.container}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
             <CrossweaveLogo height={56} />
           </div>
@@ -71,9 +66,32 @@ export default function LandingPage() {
             AI-Curated Democratic Discourse
           </Text>
 
-          <Paper radius="md" p="xl" withBorder className={classes.paper}>
-            <Text size="lg" fw={600} ta="center" mb="1rem">
-              Login to Mastodon
+          <Paper radius="lg" p="xl" withBorder className={classes.paper}>
+            <Stack gap="sm">
+              <Text size="xl" fw={700} ta="center">
+                Explore CrossWeave
+              </Text>
+              <Text size="sm" c="dimmed" ta="center">
+                Start with a fresh participant profile. No account or password is required.
+              </Text>
+              <Button
+                type="button"
+                fullWidth
+                size="md"
+                mt="sm"
+                radius="xl"
+                color="teal"
+                onClick={handleStartStudy}
+                data-testid="start-study-session"
+              >
+                Start study session
+              </Button>
+            </Stack>
+
+            <Divider label="or" labelPosition="center" my="xl" />
+
+            <Text size="sm" fw={600} ta="center" mb="md" c="dimmed">
+              Continue with a Mastodon account
             </Text>
 
             <form onSubmit={form.onSubmit(handleLogin)}>
@@ -84,27 +102,13 @@ export default function LandingPage() {
                 placeholder="instance domain"
                 {...form.getInputProps('instanceDomain')}
               />
-              <Button type="submit" fullWidth loading={isLoading} mt="2rem" radius="lg" color="pink" variant="light">
-                Login
+              <Button type="submit" fullWidth loading={isLoading} mt="lg" radius="xl" color="gray" variant="light">
+                Continue with Mastodon
               </Button>
             </form>
           </Paper>
-
-          <Anchor
-            component={Link}
-            href="/ChineseEVs"
-            data-testid="landing-demo-link"
-            size="sm"
-            fw={600}
-            display="block"
-            ta="center"
-            mt="lg"
-          >
-            Explore the demo — no login required
-          </Anchor>
         </Container>
       </Center>
-      {/* <Footer /> */}
     </>
   );
 }

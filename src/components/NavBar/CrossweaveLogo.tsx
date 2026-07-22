@@ -2,7 +2,7 @@ import React from "react";
 
 /**
  * Crossweave brand lockup for the top nav: the four-colour woven "X" mark +
- * the "crossweave" wordmark. Drawn as inline SVG/text (no asset files) so it
+ * the "CrossWeave" wordmark. Drawn as inline SVG/text (no asset files) so it
  * scales and themes cleanly. `height` controls the mark size and the wordmark
  * is sized to sit on the same vertical baseline — matching the footprint of the
  * old logo (icon height unchanged; the wordmark is wider, which is expected).
@@ -23,7 +23,7 @@ export function CrossweaveLogo({ height = 28 }: { height?: number }) {
         height={height}
         viewBox="0 0 100 100"
         role="img"
-        aria-label="crossweave logo"
+        aria-label="CrossWeave logo"
         style={{ display: "block", flexShrink: 0 }}
       >
         {/* "\" diagonal (NW↔SE): navy top-left + amber bottom-right */}
@@ -44,7 +44,7 @@ export function CrossweaveLogo({ height = 28 }: { height?: number }) {
           whiteSpace: "nowrap",
         }}
       >
-        crossweave
+        CrossWeave
       </span>
     </div>
   );

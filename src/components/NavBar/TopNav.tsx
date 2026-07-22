@@ -1,6 +1,6 @@
 "use client";
 
-import { Group, ActionIcon, Tooltip, Box } from "@mantine/core";
+import { Group, ActionIcon, Tooltip, Box, Button } from "@mantine/core";
 import {
     IconHome,
     IconMessages,
@@ -12,6 +12,7 @@ import {
 import { useRouter, usePathname } from "next/navigation";
 import CrossweaveLogo from "./CrossweaveLogo";
 import { ExperimentPanel } from "./ExperimentPanel";
+import { endStudySession, useStudyMode } from "../../utils/studyMode";
 
 const MastodonInstanceUrl = "https://beta.stacky.social";
 const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
@@ -36,6 +37,7 @@ const LINKS = [
 export function TopNav() {
     const router = useRouter();
     const pathname = usePathname();
+    const studyMode = useStudyMode();
 
     const handleLogOut = async () => {
         const accessToken =
@@ -66,6 +68,11 @@ export function TopNav() {
             sessionStorage.clear();
             router.push("/");
         }
+    };
+
+    const handleEndStudySession = () => {
+        endStudySession();
+        router.push("/");
     };
 
     return (
@@ -119,20 +126,35 @@ export function TopNav() {
                     );
                 })}
 
-                <ExperimentPanel />
-
-                <Tooltip label="Logout" withArrow>
-                    <ActionIcon
-                        variant="subtle"
+                {studyMode ? (
+                    <Button
+                        variant="light"
                         color="red"
-                        size="lg"
-                        aria-label="Logout"
-                        data-testid="nav-logout"
-                        onClick={handleLogOut}
+                        size="xs"
+                        radius="xl"
+                        leftSection={<IconLogout size={16} stroke={1.8} />}
+                        data-testid="end-study-session"
+                        onClick={handleEndStudySession}
                     >
-                        <IconLogout size={20} stroke={1.8} />
-                    </ActionIcon>
-                </Tooltip>
+                        End study session
+                    </Button>
+                ) : (
+                    <>
+                        <ExperimentPanel />
+                        <Tooltip label="Logout" withArrow>
+                            <ActionIcon
+                                variant="subtle"
+                                color="red"
+                                size="lg"
+                                aria-label="Logout"
+                                data-testid="nav-logout"
+                                onClick={handleLogOut}
+                            >
+                                <IconLogout size={20} stroke={1.8} />
+                            </ActionIcon>
+                        </Tooltip>
+                    </>
+                )}
             </Group>
         </Box>
     );

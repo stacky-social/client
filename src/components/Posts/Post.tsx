@@ -21,6 +21,7 @@ import ReplyHighlightedContent from './ReplyHighlightedContent';
 import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 import type { Relation } from '../../types/PostType';
 import { showTooltip, hideTooltip } from '../HoverTooltip';
+import { showUndoableAction } from '../../utils/actionNotifications';
 
 /** X-style left-pane indent (px): avatar (Mantine md = 38px) + the header row's
  *  `gap="xs"` (10px) = 48px, i.e. where the username's left edge sits. The post
@@ -936,7 +937,10 @@ function Post({
 
   const handleNavigate = () => {
     if (onNavigate) { onNavigate(id); return; }
-    const url = `/posts/${id}`;
+    // Store-backed posts (seeded study content, user posts, and local replies)
+    // must stay on the compatible local thread route. Unknown ids are assumed
+    // to belong to a live Mastodon surface and keep the API-backed route.
+    const url = getPost(id) ? `/ChineseEVs/posts/${id}` : `/posts/${id}`;
     sessionStorage.setItem(`previousPath:${url}`, window.location.pathname);
     sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
     router.push(url);
@@ -944,7 +948,7 @@ function Post({
 
   const handleReply = () => {
     if (onNavigate) { onNavigate(id); return; }
-    const url = `/posts/${id}`;
+    const url = getPost(id) ? `/ChineseEVs/posts/${id}` : `/posts/${id}`;
     sessionStorage.setItem(`previousPath:${url}`, window.location.pathname);
     sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
     router.push(url);
@@ -1015,6 +1019,26 @@ function Post({
       if (result.ok) {
         // Confirm against the store's authoritative new state.
         setLiked(result.value);
+        showUndoableAction({
+          title: result.value ? 'Post liked' : 'Like removed',
+          message: result.value ? 'This post was added to your likes.' : 'This post was removed from your likes.',
+          onUndo: async () => {
+            try {
+              const undoResult = await toggleFavourite(id, result.value);
+              if (!mountedRef.current) return;
+              if (!undoResult.ok) throw new Error('toggleFavourite undo returned ok: false');
+              setLiked(undoResult.value);
+              setLikeCount((c) => Math.max(0, c + (undoResult.value ? 1 : -1)));
+            } catch (error) {
+              console.error('Error undoing like:', error);
+              notifications.show({
+                title: 'Error',
+                message: 'Could not undo like. Please try again.',
+                color: 'red',
+              });
+            }
+          },
+        });
       } else {
         throw new Error('toggleFavourite returned ok: false');
       }
@@ -1046,6 +1070,25 @@ function Post({
       if (!mountedRef.current) return;
       if (result.ok) {
         setBookmarkedState(result.value);
+        showUndoableAction({
+          title: result.value ? 'Post saved' : 'Bookmark removed',
+          message: result.value ? 'This post was added to your bookmarks.' : 'This post was removed from your bookmarks.',
+          onUndo: async () => {
+            try {
+              const undoResult = await toggleBookmark(id, result.value);
+              if (!mountedRef.current) return;
+              if (!undoResult.ok) throw new Error('toggleBookmark undo returned ok: false');
+              setBookmarkedState(undoResult.value);
+            } catch (error) {
+              console.error('Error undoing bookmark:', error);
+              notifications.show({
+                title: 'Error',
+                message: 'Could not undo bookmark. Please try again.',
+                color: 'red',
+              });
+            }
+          },
+        });
       } else {
         throw new Error('toggleBookmark returned ok: false');
       }
