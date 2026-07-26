@@ -170,6 +170,7 @@ const ApiFeed: React.FC<PostListProps> = ({
     const manualLockRef = useRef(false);
     const fetchKeyRef = useRef<string | null>(null);
     const restoredScrollRef = useRef(false);
+    const mergedMaxIdRef = useRef<string | null>(null);
 
     // Currently-viewport-intersecting post nodes, keyed by data-post-id. Kept up
     // to date by an IntersectionObserver so the active-post computation only has
@@ -375,12 +376,18 @@ const ApiFeed: React.FC<PostListProps> = ({
                 // Append any remaining old posts (from Load More) that weren't in the fresh page
                 prevMap.forEach((p) => merged.push(p));
 
+                // Compute maxId from the FULL merged list, not just freshPosts
+                if (merged.length > 0) {
+                    mergedMaxIdRef.current = merged[merged.length - 1].postId;
+                }
+
                 return merged;
             });
 
-            // Update maxId for Load More continuity
-            if (freshPosts.length > 0) {
-                setMaxId(freshPosts[freshPosts.length - 1].postId);
+            // Update maxId from merged result
+            if (mergedMaxIdRef.current) {
+                setMaxId(mergedMaxIdRef.current);
+                mergedMaxIdRef.current = null;
             }
 
             // Restore scroll position after merge
