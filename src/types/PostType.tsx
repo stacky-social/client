@@ -117,6 +117,8 @@ export interface RelatedPostMock {
   rewrite?: {
     content: string;
     significant: boolean;
+    /** Plain-language reason the contextual edit was made. */
+    editSummary?: string;
   };
 }
 

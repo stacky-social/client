@@ -18,6 +18,7 @@ import { reorderForAnchor } from '../utils/reorderForAnchor';
 import type { Relation } from '../types/PostType';
 import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
 import { showUndoableAction } from '../utils/actionNotifications';
+import AiModifiedDisclosure from './AiModifiedDisclosure';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -35,7 +36,7 @@ interface PostType {
     username?: string;
   };
   content_rewritten: string;
-  rewrite: { content: string; significant: boolean };
+  rewrite: { content: string; significant: boolean; editSummary?: string };
   /** Offset-based relations between this post and the focus post */
   relations?: Relation[];
 }
@@ -2585,6 +2586,14 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   style={{ paddingLeft: '54px', paddingRight: '1rem', cursor: 'pointer' }}
                 >
                   {/* D3: shortest common related text label — only when span filter is active */}
+                  {stack.topPost.rewrite?.significant && stack.topPost.rewrite.content && (
+                    <AiModifiedDisclosure
+                      originalContent={plainContent}
+                      rewrittenContent={stack.topPost.rewrite.content.replace(/<[^>]*>/g, '')}
+                      editSummary={stack.topPost.rewrite.editSummary}
+                    />
+                  )}
+
                   {shortestCommonText !== null && (
                     <div style={{
                       display: 'inline-flex', alignItems: 'center',

@@ -2,6 +2,7 @@
 
 import mockData from "../app/FakeData/listy-injection.json";
 import { firstTypeRelations } from "./relationFirstType.mjs";
+import { contextualAiRewrite } from "../data/contextualAiRewrites";
 import type {
   ListyInjectionData,
   ListyInjectionEntry,
@@ -214,7 +215,7 @@ export function getMockRelatedStacks(id: string): any[] {
             acct: p.account.acct,
           },
           content_rewritten: "",
-          rewrite: { content: p.rewrite?.content ?? p.content, significant: p.rewrite?.significant ?? false },
+          rewrite: contextualAiRewrite(id, p.id, p.content, p.rewrite),
           relations: firstTypeRelations(p.relations),
         },
       }));
@@ -237,7 +238,7 @@ export function getMockRelatedStacks(id: string): any[] {
         acct: rp.account.acct,
       },
       content_rewritten: "",
-      rewrite: { content: rp.rewrite?.content ?? rp.content, significant: rp.rewrite?.significant ?? false },
+      rewrite: contextualAiRewrite(id, rp.id, rp.content, rp.rewrite),
       relations: firstTypeRelations(rp.relations),
     },
   }));
