@@ -41,27 +41,36 @@ test.describe('ChineseEVs feed', () => {
     await expect(page.getByRole('button', { name: 'Bookmark' }).first()).toBeVisible();
   });
 
-  test('explains contextual AI edits with track-changes markup only in the related panel', async ({ page }) => {
+  test('shows contextual AI edits in place without resizing the related card', async ({ page }) => {
     await page.goto('/ChineseEVs');
 
     const aside = page.getByTestId('col-aside');
     const badge = aside.getByRole('button', { name: 'Modified by AI' }).first();
     await expect(badge).toBeVisible();
+    const card = badge.locator('xpath=ancestor::*[@data-post-id][1]');
+    const beforeHover = await card.boundingBox();
+    const inlineDiff = card.locator('[data-ai-inline-diff]');
+    await expect(inlineDiff).toHaveAttribute('aria-hidden', 'true');
+
     await badge.hover();
 
-    const disclosure = aside.getByRole('note', { name: 'Changes made by AI' });
-    await expect(disclosure).toBeVisible();
-    await expect(disclosure.locator('del').first()).toBeVisible();
-    await expect(disclosure.locator('ins').first()).toBeVisible();
-    await expect(disclosure).toContainText('original post is preserved');
+    await expect(aside.getByRole('note')).toHaveCount(0);
+    await expect(inlineDiff).toHaveAttribute('aria-hidden', 'false');
+    await expect(inlineDiff.locator('del').first()).toBeVisible();
+    await expect(inlineDiff.locator('ins').first()).toBeVisible();
+    const afterHover = await card.boundingBox();
+    expect(beforeHover).not.toBeNull();
+    expect(afterHover).not.toBeNull();
+    expect(afterHover!.width).toBeCloseTo(beforeHover!.width, 2);
+    expect(afterHover!.height).toBeCloseTo(beforeHover!.height, 2);
 
-    // Keyboard users get the same explanation and can dismiss it predictably.
+    // Keyboard users get the same in-card treatment and can dismiss it.
     await page.keyboard.press('Escape');
-    await expect(disclosure).toBeHidden();
+    await expect(inlineDiff).toHaveAttribute('aria-hidden', 'true');
     await badge.focus();
-    await expect(disclosure).toBeVisible();
+    await expect(inlineDiff).toHaveAttribute('aria-hidden', 'false');
     await page.keyboard.press('Escape');
-    await expect(disclosure).toBeHidden();
+    await expect(inlineDiff).toHaveAttribute('aria-hidden', 'true');
 
     // Full post content remains an ordinary post; AI provenance belongs only
     // to compact related cards where the missing context needs explanation.

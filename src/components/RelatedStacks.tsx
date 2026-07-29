@@ -19,6 +19,7 @@ import type { Relation } from '../types/PostType';
 import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
 import { showUndoableAction } from '../utils/actionNotifications';
 import AiModifiedDisclosure from './AiModifiedDisclosure';
+import { createWordDiffExcerpt } from '../utils/wordDiff.mjs';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -856,6 +857,18 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   // Per-card expanded state, keyed by stackId
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const [visibleCardCount, setVisibleCardCount] = useState(RELATED_PAGE_SIZE);
+  const [activeAiEditPostId, setActiveAiEditPostId] = useState<string | null>(null);
+  const aiDiffByPostId = useMemo(() => {
+    const diffs = new Map<string, ReturnType<typeof createWordDiffExcerpt>>();
+    for (const stack of relatedStacks) {
+      const rewrite = stack.topPost.rewrite;
+      if (!rewrite?.significant || !rewrite.content) continue;
+      const original = (stack.topPost.content || '').replace(/<[^>]*>/g, '');
+      const revised = rewrite.content.replace(/<[^>]*>/g, '');
+      diffs.set(stack.topPost.id, createWordDiffExcerpt(original, revised, 55));
+    }
+    return diffs;
+  }, [relatedStacks]);
 
   const isFavourited = (postId: string, initial: boolean) =>
     favouritedOverride[postId] !== undefined ? favouritedOverride[postId] : initial;
@@ -1910,6 +1923,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           const isHighlighted = !!highlightPostId && stack.topPost.id === highlightPostId;
           const colors = getCategoryColors(stack.rel);
           const isExpanded = !!expandedCards[stack.stackId];
+          const aiDiff = aiDiffByPostId.get(stack.topPost.id);
+          const isAiEditActive = activeAiEditPostId === stack.topPost.id && !!aiDiff;
 
           // Strip HTML so the text matches the relations' PLAIN-text offsets.
           // The mock resolver wraps card content as `<p>…</p>`, which both leaks
@@ -2588,9 +2603,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   {/* D3: shortest common related text label — only when span filter is active */}
                   {stack.topPost.rewrite?.significant && stack.topPost.rewrite.content && (
                     <AiModifiedDisclosure
-                      originalContent={plainContent}
-                      rewrittenContent={stack.topPost.rewrite.content.replace(/<[^>]*>/g, '')}
+                      active={isAiEditActive}
                       editSummary={stack.topPost.rewrite.editSummary}
+                      onActiveChange={(active) => {
+                        setActiveAiEditPostId(active ? stack.topPost.id : null);
+                      }}
                     />
                   )}
 
@@ -2610,11 +2627,38 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       </Text>
                     </div>
                   )}
-                  <Text component="p" size="sm" lh={1.55} c="#011445" style={{ margin: '0 0 0.4rem 0' }}>
-                    {hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
-                    {contentNodes}
-                    {hasSuffix && !isExpanded && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
-                  </Text>
+                  <div className={`ai-edit-text-stage${isAiEditActive ? ' is-active' : ''}`}>
+                    <Text
+                      component="p"
+                      size="sm"
+                      lh={1.55}
+                      c="#011445"
+                      className="ai-edit-original-text"
+                      aria-hidden={isAiEditActive}
+                    >
+                      {hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
+                      {contentNodes}
+                      {hasSuffix && !isExpanded && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
+                    </Text>
+                    {aiDiff && (
+                      <Text
+                        component="p"
+                        size="sm"
+                        lh={1.55}
+                        c="#011445"
+                        className="ai-edit-inline-text"
+                        data-ai-inline-diff
+                        aria-hidden={!isAiEditActive}
+                        aria-label={stack.topPost.rewrite.editSummary || 'AI changes shown in this post'}
+                      >
+                        {aiDiff.map((chunk, chunkIndex) => {
+                          if (chunk.kind === 'delete') return <del key={chunkIndex}>{chunk.text}</del>;
+                          if (chunk.kind === 'insert') return <ins key={chunkIndex}>{chunk.text}</ins>;
+                          return <React.Fragment key={chunkIndex}>{chunk.text}</React.Fragment>;
+                        })}
+                      </Text>
+                    )}
+                  </div>
 
                   {/* Read more / See less */}
                   {(isTruncated || isExpanded) && (
