@@ -58,3 +58,71 @@ export function createWordDiffExcerpt(original, revised, maxTokens = 100) {
   if (end < parts.length || start + maxTokens < parts.length) excerpt.push({ kind: "equal", text: " …" });
   return compact(excerpt);
 }
+
+/**
+ * Returns original and tracked-edit slices covering the same semantic window.
+ * Deleted text remains in the tracked layer and insertions are additive, so the
+ * tracked layer can never contain less reading material than the original.
+ */
+export function createAlignedWordDiffWindow(original, revised, maxOriginalChars = 280) {
+  if (original === revised) {
+    const originalEnd = Math.min(original.length, maxOriginalChars);
+    return {
+      originalText: original.slice(0, originalEnd),
+      chunks: [{ kind: "equal", text: revised.slice(0, originalEnd) }],
+      originalStart: 0,
+      originalEnd,
+      hasPrefix: false,
+      hasSuffix: originalEnd < original.length,
+    };
+  }
+
+  let changeStart = 0;
+  while (
+    changeStart < original.length
+    && changeStart < revised.length
+    && original[changeStart] === revised[changeStart]
+  ) changeStart++;
+
+  let sharedSuffix = 0;
+  while (
+    sharedSuffix < original.length - changeStart
+    && sharedSuffix < revised.length - changeStart
+    && original[original.length - sharedSuffix - 1] === revised[revised.length - sharedSuffix - 1]
+  ) sharedSuffix++;
+
+  const originalChangeEnd = original.length - sharedSuffix;
+  const revisedChangeEnd = revised.length - sharedSuffix;
+  const changedOriginalChars = Math.max(0, originalChangeEnd - changeStart);
+  const contextBudget = Math.max(0, maxOriginalChars - changedOriginalChars);
+  let originalStart = Math.max(0, changeStart - Math.floor(contextBudget / 3));
+  let originalEnd = Math.min(
+    original.length,
+    Math.max(originalChangeEnd, originalStart + maxOriginalChars),
+  );
+
+  if (originalEnd - originalStart < maxOriginalChars && originalStart > 0) {
+    originalStart = Math.max(0, originalEnd - maxOriginalChars);
+  }
+
+  // The window begins in the unchanged prefix and ends in the unchanged
+  // suffix. Shift its revised end by the edit delta to preserve the same
+  // semantic endpoint rather than cutting the new text short.
+  const revisedStart = originalStart;
+  const revisedEnd = Math.min(
+    revised.length,
+    originalEnd + (revisedChangeEnd - originalChangeEnd),
+  );
+  const originalText = original.slice(originalStart, originalEnd);
+  const revisedText = revised.slice(revisedStart, revisedEnd);
+  const tokenBudget = Math.max(100, (originalText.length + revisedText.length) * 2);
+
+  return {
+    originalText,
+    chunks: createWordDiffExcerpt(originalText, revisedText, tokenBudget),
+    originalStart,
+    originalEnd,
+    hasPrefix: originalStart > 0,
+    hasSuffix: originalEnd < original.length,
+  };
+}

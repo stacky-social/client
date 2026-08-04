@@ -49,7 +49,13 @@ test.describe('ChineseEVs feed', () => {
     await expect(badge).toBeVisible();
     const card = badge.locator('xpath=ancestor::*[@data-post-id][1]');
     const beforeHover = await card.boundingBox();
+    const originalText = card.locator('.ai-edit-original-text');
     const inlineDiff = card.locator('[data-ai-inline-diff]');
+    const originalContentHeight = await originalText.evaluate((element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return range.getBoundingClientRect().height;
+    });
     await expect(inlineDiff).toHaveAttribute('aria-hidden', 'true');
 
     await badge.hover();
@@ -58,11 +64,17 @@ test.describe('ChineseEVs feed', () => {
     await expect(inlineDiff).toHaveAttribute('aria-hidden', 'false');
     await expect(inlineDiff.locator('del').first()).toBeVisible();
     await expect(inlineDiff.locator('ins').first()).toBeVisible();
+    const diffContentHeight = await inlineDiff.evaluate((element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return range.getBoundingClientRect().height;
+    });
     const afterHover = await card.boundingBox();
     expect(beforeHover).not.toBeNull();
     expect(afterHover).not.toBeNull();
     expect(afterHover!.width).toBeCloseTo(beforeHover!.width, 2);
     expect(afterHover!.height).toBeCloseTo(beforeHover!.height, 2);
+    expect(diffContentHeight).toBeGreaterThanOrEqual(originalContentHeight - 1);
 
     // Keyboard users get the same in-card treatment and can dismiss it.
     await page.keyboard.press('Escape');

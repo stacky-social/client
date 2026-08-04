@@ -19,7 +19,7 @@ import type { Relation } from '../types/PostType';
 import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
 import { showUndoableAction } from '../utils/actionNotifications';
 import AiModifiedDisclosure from './AiModifiedDisclosure';
-import { createWordDiffExcerpt } from '../utils/wordDiff.mjs';
+import { createAlignedWordDiffWindow } from '../utils/wordDiff.mjs';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -677,22 +677,27 @@ function buildMultiHighlightNodes(
 const WINDOW_CHARS = 140;
 
 /** Window content around the first relation's content range. Returns adjusted relations with shifted offsets. */
-function windowContent(plain: string, relations: Relation[] | undefined, expanded: boolean): {
+function windowContent(
+  plain: string,
+  relations: Relation[] | undefined,
+  expanded: boolean,
+  preferredBounds?: { start: number; end: number },
+): {
   text: string; adjustedRelations: Relation[] | undefined; hasPrefix: boolean; hasSuffix: boolean;
 } {
-  if (!relations || relations.length === 0) {
-    return { text: plain, adjustedRelations: relations, hasPrefix: false, hasSuffix: false };
-  }
   const totalChars = WINDOW_CHARS * 2;
   if (expanded || plain.length <= totalChars) {
     return { text: plain, adjustedRelations: relations, hasPrefix: false, hasSuffix: false };
   }
-  const first = relations[0];
-  const center = Math.floor((first.contentStart + first.contentEnd) / 2);
-  const start = Math.max(0, center - WINDOW_CHARS);
-  const end = Math.min(plain.length, center + WINDOW_CHARS);
+  if ((!relations || relations.length === 0) && !preferredBounds) {
+    return { text: plain, adjustedRelations: relations, hasPrefix: false, hasSuffix: false };
+  }
+  const first = relations?.[0];
+  const center = first ? Math.floor((first.contentStart + first.contentEnd) / 2) : WINDOW_CHARS;
+  const start = preferredBounds?.start ?? Math.max(0, center - WINDOW_CHARS);
+  const end = preferredBounds?.end ?? Math.min(plain.length, center + WINDOW_CHARS);
   const text = plain.slice(start, end);
-  const adjustedRelations = relations.map((r, i) => ({
+  const adjustedRelations = relations?.map((r, i) => ({
     ...r,
     __idx: i, // preserve original index so rangeIndex survives the filter below
     contentStart: Math.max(0, r.contentStart - start),
@@ -859,13 +864,19 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const [visibleCardCount, setVisibleCardCount] = useState(RELATED_PAGE_SIZE);
   const [activeAiEditPostId, setActiveAiEditPostId] = useState<string | null>(null);
   const aiDiffByPostId = useMemo(() => {
-    const diffs = new Map<string, ReturnType<typeof createWordDiffExcerpt>>();
+    const diffs = new Map<string, {
+      collapsed: ReturnType<typeof createAlignedWordDiffWindow>;
+      expanded: ReturnType<typeof createAlignedWordDiffWindow>;
+    }>();
     for (const stack of relatedStacks) {
       const rewrite = stack.topPost.rewrite;
       if (!rewrite?.significant || !rewrite.content) continue;
       const original = (stack.topPost.content || '').replace(/<[^>]*>/g, '');
       const revised = rewrite.content.replace(/<[^>]*>/g, '');
-      diffs.set(stack.topPost.id, createWordDiffExcerpt(original, revised, 55));
+      diffs.set(stack.topPost.id, {
+        collapsed: createAlignedWordDiffWindow(original, revised, WINDOW_CHARS * 2),
+        expanded: createAlignedWordDiffWindow(original, revised, original.length),
+      });
     }
     return diffs;
   }, [relatedStacks]);
@@ -1923,7 +1934,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           const isHighlighted = !!highlightPostId && stack.topPost.id === highlightPostId;
           const colors = getCategoryColors(stack.rel);
           const isExpanded = !!expandedCards[stack.stackId];
-          const aiDiff = aiDiffByPostId.get(stack.topPost.id);
+          const aiDiffSet = aiDiffByPostId.get(stack.topPost.id);
+          const aiDiff = aiDiffSet ? (isExpanded ? aiDiffSet.expanded : aiDiffSet.collapsed) : undefined;
           const isAiEditActive = activeAiEditPostId === stack.topPost.id && !!aiDiff;
 
           // Strip HTML so the text matches the relations' PLAIN-text offsets.
@@ -1935,7 +1947,14 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
 
           // Smart windowing: show only the highlighted portion unless expanded
           const { text: visibleText, adjustedRelations, hasPrefix, hasSuffix } =
-            windowContent(plainContent, rels, isExpanded);
+            windowContent(
+              plainContent,
+              rels,
+              isExpanded,
+              aiDiff && !isExpanded
+                ? { start: aiDiff.originalStart, end: aiDiff.originalEnd }
+                : undefined,
+            );
           const isTruncated = hasPrefix || hasSuffix;
 
           // Calculate indent depth by walking the anchor chain. Per-level indent
@@ -2651,11 +2670,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                         aria-hidden={!isAiEditActive}
                         aria-label={stack.topPost.rewrite.editSummary || 'AI changes shown in this post'}
                       >
-                        {aiDiff.map((chunk, chunkIndex) => {
+                        {aiDiff.hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
+                        {aiDiff.chunks.map((chunk, chunkIndex) => {
                           if (chunk.kind === 'delete') return <del key={chunkIndex}>{chunk.text}</del>;
                           if (chunk.kind === 'insert') return <ins key={chunkIndex}>{chunk.text}</ins>;
                           return <React.Fragment key={chunkIndex}>{chunk.text}</React.Fragment>;
                         })}
+                        {aiDiff.hasSuffix && !isExpanded && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
                       </Text>
                     )}
                   </div>
