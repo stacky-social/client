@@ -13,6 +13,7 @@ import {
     getHomeFeed,
     getBookmarks,
     getLiked,
+    getPost,
     type Post as StorePost,
 } from '../utils/localStore';
 
@@ -44,6 +45,7 @@ function selectStoreFeed(source: FeedSource): StorePost[] {
  *  Mirrors PostList's `mapResponseToPosts` so store posts render identically to
  *  REST posts (the `replies` field is set to the count, as the REST path does). */
 function storeToPost(post: StorePost): PostType {
+    const parent = post.in_reply_to_id ? getPost(post.in_reply_to_id) : undefined;
     return {
         postId: post.id,
         text: post.content,
@@ -61,6 +63,9 @@ function storeToPost(post: StorePost): PostType {
             typeof m === 'string' ? m : m.url
         ),
         relatedStacks: Array.isArray(post.relatedStacks) ? post.relatedStacks : [],
+        focusRelations: Array.isArray(post.focusRelations) ? post.focusRelations : [],
+        inReplyToId: post.in_reply_to_id ?? null,
+        replyingToAccount: parent?.account.acct ?? null,
         previewCard: null,
     };
 }
@@ -618,6 +623,8 @@ const ApiFeed: React.FC<PostListProps> = ({
                     setActivePostId(id);
                 }}
                 initialCard={post.previewCard || null}
+                focusRelations={post.focusRelations}
+                replyingToAccount={post.replyingToAccount}
             />
         </div>
     );
@@ -682,6 +689,61 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
     // immediately after mount.
     const posts: PostType[] = hydrated ? storePosts.map(storeToPost) : [];
 
+    // Keep Home's related pane synced to the post nearest the viewport center,
+    // matching the API-backed feed. This makes relation discovery passive and
+    // predictable: scroll onto a focus post and its related responses appear;
+    // scroll onto an ordinary reply and the stable right column becomes blank.
+    const activePostIdRef = useRef(activePostId);
+    activePostIdRef.current = activePostId;
+    const postsRef = useRef(posts);
+    postsRef.current = posts;
+    const postMapRef = useRef(new Map(posts.map((post) => [post.postId, post])));
+    postMapRef.current = new Map(posts.map((post) => [post.postId, post]));
+    const stackHandlerRef = useRef(handleStackIconClick);
+    stackHandlerRef.current = handleStackIconClick;
+
+    useEffect(() => {
+        if (source !== 'home' || !hydrated || postsRef.current.length === 0) return;
+        let scrollTimer: ReturnType<typeof setTimeout> | null = null;
+
+        const evaluate = () => {
+            const viewportCenter = window.innerHeight / 2;
+            let best: { post: PostType; rect: DOMRect; distance: number } | null = null;
+            const elements = Array.from(
+                document.querySelectorAll<HTMLElement>('[data-store-feed-post]'),
+            );
+            for (const element of elements) {
+                const rect = element.getBoundingClientRect();
+                if (rect.bottom <= 0 || rect.top >= window.innerHeight) continue;
+                const postId = element.dataset.storeFeedPost;
+                const post = postId ? postMapRef.current.get(postId) : undefined;
+                if (!post) continue;
+                const distance = Math.abs(rect.top + rect.height / 2 - viewportCenter);
+                if (!best || distance < best.distance) best = { post, rect, distance };
+            }
+
+            if (!best || best.post.postId === activePostIdRef.current) return;
+            activePostIdRef.current = best.post.postId;
+            setActivePostId(best.post.postId);
+            stackHandlerRef.current(best.post.relatedStacks, best.post.postId, {
+                top: best.rect.top + window.scrollY,
+                height: best.rect.height,
+            });
+        };
+
+        const initialFrame = requestAnimationFrame(evaluate);
+        const onScroll = () => {
+            if (scrollTimer) clearTimeout(scrollTimer);
+            scrollTimer = setTimeout(evaluate, 50);
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => {
+            cancelAnimationFrame(initialFrame);
+            if (scrollTimer) clearTimeout(scrollTimer);
+            window.removeEventListener('scroll', onScroll);
+        };
+    }, [hydrated, source, setActivePostId]);
+
     // Mirror the apiUrl path's manual-selection bookkeeping so clicking a post
     // both highlights it and (when relatedStacks exist) drives the aside.
     const lastUserActivateRef = useRef<number>(0);
@@ -722,6 +784,7 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                 <div
                     key={post.postId}
                     data-post-id={post.postId}
+                    data-store-feed-post={post.postId}
                 >
                     <Post
                         id={post.postId}
@@ -758,6 +821,9 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                             setActivePostId(id);
                         }}
                         initialCard={post.previewCard || null}
+                        focusRelations={post.focusRelations}
+                        replyingToAccount={post.replyingToAccount}
+                        appearance={source === 'home' ? 'timeline' : 'card'}
                     />
                 </div>
             ))}

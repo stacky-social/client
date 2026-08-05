@@ -32,6 +32,12 @@ export interface PostType {
     replies_count: number;
     relatedStacks: any[];
     previewCard?: PreviewCardType | null;
+    /** Thread parent supplied by the timeline/status payload. */
+    inReplyToId?: string | null;
+    /** Parent account handle, resolved by the data adapter for X-style reply context. */
+    replyingToAccount?: string | null;
+    /** Offset annotations connecting this post to its related responses. */
+    focusRelations?: Relation[];
 }
 
 // ─── Listy Injection mock data types ────────────────────────────────────────

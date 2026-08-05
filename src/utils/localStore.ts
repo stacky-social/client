@@ -36,7 +36,9 @@ import type {
   ListyInjectionEntry,
   FocusPostMock,
   RelatedPostMock,
+  Relation,
 } from "../types/PostType";
+import { getMockFocusRelations, getMockRelatedStacks } from "./mockPostResolver";
 
 // ─── Exported data shapes ────────────────────────────────────────────────────
 
@@ -94,6 +96,8 @@ export interface Post {
   media_attachments: any[];
   /** Aside-format related stacks for this post (see mockPostResolver.getMockRelatedStacks). */
   relatedStacks: any[];
+  /** Offset annotations connecting this post to its related responses. */
+  focusRelations: Relation[];
   /** Parent post id for thread hierarchy; null for roots. */
   in_reply_to_id?: string | null;
 }
@@ -163,6 +167,7 @@ function mockToPost(p: FocusPostMock | RelatedPostMock): Post {
     bookmarked: p.bookmarked,
     media_attachments: [],
     relatedStacks: [],
+    focusRelations: [],
     in_reply_to_id: p.inReplyToId ?? null,
   };
 }
@@ -250,6 +255,22 @@ function seedState(meOverride?: Account): LocalState {
     for (const rp of e.relatedPosts ?? []) addPost(rp);
   }
 
+  // Keep the demo store backend-shaped: focus posts carry their own related
+  // response payload and annotation offsets. Consumers should never need to
+  // know which fixture produced a post or perform a second hidden resolver
+  // lookup just to decide whether the related pane exists.
+  for (const e of entries) {
+    const post = posts[e.focusPost.id];
+    if (!post) continue;
+    const relatedStacks = getMockRelatedStacks(e.focusPost.id);
+    posts[e.focusPost.id] = {
+      ...post,
+      stackCount: relatedStacks.length || null,
+      relatedStacks,
+      focusRelations: getMockFocusRelations(e.focusPost.id),
+    };
+  }
+
   // Seed accounts from FakeUsers too (they have no posts, but should resolve).
   for (const u of fakeUsers) {
     const acct = u.email?.split("@")[0] || u.accountId;
@@ -312,8 +333,35 @@ function load(): LocalState {
     const parsed = JSON.parse(raw) as LocalState;
     // Defensive: ensure all top-level keys exist (forward-compat with older blobs).
     const seed = seedState();
+    const persistedPosts = parsed.posts ?? {};
+    const posts: Record<string, Post> = { ...seed.posts, ...persistedPosts };
+
+    // Migrate existing v1 browser data without discarding likes, bookmarks, or
+    // user-created posts. Older snapshots intentionally stored empty relation
+    // arrays, so restore only the seeded read-only enrichment fields here.
+    for (const [id, seededPost] of Object.entries(seed.posts)) {
+      const persistedPost = persistedPosts[id];
+      if (!persistedPost) continue;
+      posts[id] = {
+        ...seededPost,
+        ...persistedPost,
+        relatedStacks:
+          persistedPost.relatedStacks?.length > 0
+            ? persistedPost.relatedStacks
+            : seededPost.relatedStacks,
+        focusRelations:
+          persistedPost.focusRelations?.length > 0
+            ? persistedPost.focusRelations
+            : seededPost.focusRelations,
+        stackCount:
+          persistedPost.relatedStacks?.length > 0
+            ? persistedPost.stackCount
+            : seededPost.stackCount,
+      };
+    }
+
     return {
-      posts: parsed.posts ?? seed.posts,
+      posts,
       accounts: parsed.accounts ?? seed.accounts,
       liked: parsed.liked ?? [],
       bookmarked: parsed.bookmarked ?? [],
@@ -489,8 +537,21 @@ function memoized<T>(key: string, compute: () => T): T {
 export function getHomeFeed(): Post[] {
   return memoized("home", () => {
     const sources = new Set<string>([state.me.acct, ...state.following]);
-    return Object.values(state.posts)
-      .filter((p) => sources.has(p.account.acct))
+    const personal = Object.values(state.posts).filter((p) => sources.has(p.account.acct));
+
+    // A fresh local profile still needs a meaningful Home to evaluate. This is
+    // the simulated equivalent of a backend "For you" blend: three focus posts
+    // with annotated related responses, interleaved with three ordinary replies
+    // that deliberately have no related payload. Following and self-authored
+    // posts merge into the same chronological timeline without duplicates.
+    const starterIds = [
+      "152053690", "152052643", "152047717",
+      "149294079", "149289030", "143203257",
+    ];
+    const starter = starterIds
+      .map((id) => state.posts[id])
+      .filter((post): post is Post => !!post);
+    return Array.from(new Map([...personal, ...starter].map((post) => [post.id, post])).values())
       .sort(byNewest);
   });
 }
@@ -574,6 +635,7 @@ export function createPost(text: string): Post {
     bookmarked: false,
     media_attachments: [],
     relatedStacks: [],
+    focusRelations: [],
     in_reply_to_id: null,
   };
   mutate((draft) => {
@@ -608,6 +670,7 @@ export function addComment(postId: string, text: string): Comment {
     bookmarked: false,
     media_attachments: [],
     relatedStacks: [],
+    focusRelations: [],
     in_reply_to_id: postId,
   };
   mutate((draft) => {

@@ -7,7 +7,7 @@ import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 import axios from 'axios';
 import classes from './SubmitPost.module.css';
 
-export function SubmitPost() {
+export function SubmitPost({ appearance = 'card' }: { appearance?: 'card' | 'timeline' }) {
   // Local current user — reactive so the avatar reflects store identity.
   const currentUser = useLocalStore(() => getMe());
   // Publish live writing-feedback to the aside (rendered by the feed @aside slot).
@@ -112,7 +112,10 @@ export function SubmitPost() {
   };
 
   return (
-    <section className={classes.composer} aria-label="Create a post">
+    <section
+      className={`${classes.composer} ${appearance === 'timeline' ? classes.timeline : ''}`}
+      aria-label="Create a post"
+    >
       <div className={classes.threadRail} aria-hidden="true">
         <span /><span /><span /><span />
       </div>

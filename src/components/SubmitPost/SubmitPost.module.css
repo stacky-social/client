@@ -11,6 +11,14 @@
   box-shadow: 0 8px 22px rgba(20, 33, 61, 0.07);
 }
 
+.timeline {
+  margin-bottom: 0;
+  border: 0;
+  border-bottom: 1px solid #deddd6;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 .threadRail {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

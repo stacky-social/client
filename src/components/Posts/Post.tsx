@@ -832,6 +832,10 @@ interface PostProps {
   /** Count of displayed replies linked to a span union — merged into the
    *  focused post's dwell tooltip on the thread view (honest two-pane counts). */
   replyCountForSpans?: (ranges: Array<{ fs: number; fe: number }>) => number;
+  /** Timeline cards form one continuous stream; card is the default everywhere else. */
+  appearance?: 'card' | 'timeline';
+  /** Parent account handle displayed as reply provenance in timeline views. */
+  replyingToAccount?: string | null;
 }
 
 function Post({
@@ -862,6 +866,8 @@ function Post({
   activeClusterTopic = null,
   relatedCountForSpans,
   replyCountForSpans,
+  appearance = 'card',
+  replyingToAccount = null,
 }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
@@ -891,6 +897,7 @@ function Post({
   const isTextExpandedRef = useRef(isTextExpanded);
   isTextExpandedRef.current = isTextExpanded;
   const [hovered, setHovered] = useState(false);
+  const isTimeline = appearance === 'timeline';
 
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>(initialCard ? [initialCard] : []);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
@@ -1244,7 +1251,7 @@ function Post({
   };
 
   return (
-    <div style={{ position: 'relative', marginBottom: '1rem'}}>
+    <div style={{ position: 'relative', marginBottom: isTimeline ? 0 : '1rem'}}>
       <Paper
         ref={paperRef}
         data-testid="post"
@@ -1253,16 +1260,19 @@ function Post({
         style={{
           position: 'relative',
           width: "100%",
-          backgroundColor: '#fff',
+          backgroundColor: isTimeline && hovered ? '#fbfcff' : '#fff',
           zIndex: 5,
-          borderRadius: '10px',
-          border: isActive ? '2px solid rgb(156, 184, 255)' : '2px solid #e7e7e7',
-          boxShadow: isActive ? 'rgba(0, 0, 0, 0.18) 0px 12px 24px, rgba(0, 0, 0, 0.12) 0px 6px 12px' : 'none',
-          transform: isActive ? 'translateY(-2px)' : 'none',
+          borderRadius: isTimeline ? 0 : '10px',
+          border: isTimeline ? 'none' : (isActive ? '2px solid rgb(156, 184, 255)' : '2px solid #e7e7e7'),
+          borderBottom: isTimeline ? '1px solid #e3e2dc' : undefined,
+          boxShadow: isTimeline
+            ? (isActive ? 'inset 3px 0 0 #5a71a8' : 'none')
+            : (isActive ? 'rgba(0, 0, 0, 0.18) 0px 12px 24px, rgba(0, 0, 0, 0.12) 0px 6px 12px' : 'none'),
+          transform: !isTimeline && isActive ? 'translateY(-2px)' : 'none',
           // Border switches instantly (not transitioned) so the active outline
           // can't be caught mid-fade showing the inactive colour during scroll
           // re-renders (R-FEED-5). Elevation/lift still animate.
-          transition: 'box-shadow 150ms ease, transform 150ms ease',
+          transition: 'background-color 120ms ease, box-shadow 150ms ease, transform 150ms ease',
           paddingLeft: '1rem',
           paddingRight: '1rem',
           paddingTop: '1rem',
@@ -1346,6 +1356,21 @@ function Post({
             )}
           </Group>
         </div>
+
+        {replyingToAccount && (
+          <Text
+            data-testid="reply-context"
+            size="xs"
+            style={{
+              paddingLeft: `${BODY_INDENT_PX}px`,
+              marginTop: '2px',
+              marginBottom: '3px',
+              color: '#6b7280',
+            }}
+          >
+            Replying to <span style={{ color: '#4f669d', fontWeight: 600 }}>@{replyingToAccount.split('@')[0]}</span>
+          </Text>
+        )}
 
         <div
           // X-style: the body + media indent to align under the USERNAME, past the

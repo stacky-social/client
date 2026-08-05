@@ -26,8 +26,9 @@ export default function HomeAside() {
     );
   }
 
-  // PRIORITY 2 — active post: show its related panel, or a graceful empty state
-  // (your own posts, for example, have no related responses).
+  // PRIORITY 2 — active post: show its related panel when the payload contains
+  // responses. Posts with no relations keep the column geometrically stable but
+  // intentionally render no message, card, or invented fallback content.
   if (activePostId) {
     if (relatedStacks && relatedStacks.length > 0) {
       return (
@@ -50,19 +51,10 @@ export default function HomeAside() {
         </div>
       );
     }
-    return (
-      <div style={{ width: "100%", paddingTop: "0.5rem" }} role="status" aria-live="polite">
-        <div style={{ padding: "1rem 0" }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
-            Related Posts
-          </div>
-          <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.45 }}>
-            No related responses for this post.
-          </div>
-        </div>
-      </div>
-    );
+    return <div data-testid="home-related-empty" aria-hidden="true" style={{ width: "100%", minHeight: 1 }} />;
   }
 
-  return null;
+  // A blank mount keeps the Home feed width stable before the first post is
+  // selected; otherwise the shell would jump from one column to two on load.
+  return <div data-testid="home-related-empty" aria-hidden="true" style={{ width: "100%", minHeight: 1 }} />;
 }
