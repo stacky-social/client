@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createAlignedWordDiffWindow, createWordDiffExcerpt } from "../../src/utils/wordDiff.mjs";
+import { createAlignedWordDiffWindow, createWordDiff, createWordDiffExcerpt } from "../../src/utils/wordDiff.mjs";
+
+test("complete diff reconstructs both original and edited text", () => {
+  const original = "The old wording stays concise.";
+  const revised = "The clearer AI wording stays concise.";
+  const diff = createWordDiff(original, revised);
+  assert.equal(diff.filter((chunk) => chunk.kind !== "insert").map((chunk) => chunk.text).join(""), original);
+  assert.equal(diff.filter((chunk) => chunk.kind !== "delete").map((chunk) => chunk.text).join(""), revised);
+});
 
 test("word diff exposes inserted and removed language", () => {
   const diff = createWordDiffExcerpt(

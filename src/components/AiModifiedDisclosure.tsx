@@ -59,7 +59,8 @@ export default function AiModifiedDisclosure({
         Modified by AI
       </button>
       <span id={descriptionId} className="ai-edit-sr-only">
-        Hover or focus to show tracked edits directly in this post.
+        This post shows the edited wording by default. Hover or focus to reveal
+        additions and removals directly in place.
         {editSummary ? ` ${editSummary}` : ""}
       </span>
     </span>

@@ -130,15 +130,15 @@
     box-shadow: 0 0 0 3px rgba(117, 96, 176, 0.2);
   }
 
-  /* The original text remains in normal flow and permanently owns the card's
-     geometry. The tracked-edit layer occupies the exact same rectangle, so
-     switching it on can never reflow or resize the related-post card. */
+  /* The edited/published text remains in normal flow and permanently owns the
+     card's geometry. The tracked-edit layer occupies the exact same rectangle,
+     so revealing provenance can never resize the related-post card. */
   .ai-edit-text-stage {
     position: relative;
     margin: 0 0 0.4rem;
   }
 
-  .ai-edit-original-text,
+  .ai-edit-edited-text,
   .ai-edit-inline-text {
     margin: 0;
     transition: opacity 90ms ease;
@@ -152,7 +152,7 @@
     pointer-events: none;
   }
 
-  .ai-edit-text-stage.is-active .ai-edit-original-text {
+  .ai-edit-text-stage.is-active .ai-edit-edited-text {
     opacity: 0;
     pointer-events: none;
   }
@@ -190,6 +190,6 @@
 
   @media (prefers-reduced-motion: reduce) {
     .ai-edit-badge,
-    .ai-edit-original-text,
+    .ai-edit-edited-text,
     .ai-edit-inline-text { transition: none; }
   }

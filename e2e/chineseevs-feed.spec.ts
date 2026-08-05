@@ -49,9 +49,12 @@ test.describe('ChineseEVs feed', () => {
     await expect(badge).toBeVisible();
     const card = badge.locator('xpath=ancestor::*[@data-post-id][1]');
     const beforeHover = await card.boundingBox();
-    const originalText = card.locator('.ai-edit-original-text');
+    const editedText = card.locator('[data-ai-edited-default]');
     const inlineDiff = card.locator('[data-ai-inline-diff]');
-    const originalContentHeight = await originalText.evaluate((element) => {
+    const insertedText = (await inlineDiff.locator('ins').first().innerText()).trim();
+    await expect(editedText).toContainText(insertedText);
+    await expect(editedText).toHaveAttribute('aria-hidden', 'false');
+    const editedContentHeight = await editedText.evaluate((element) => {
       const range = document.createRange();
       range.selectNodeContents(element);
       return range.getBoundingClientRect().height;
@@ -61,6 +64,7 @@ test.describe('ChineseEVs feed', () => {
     await badge.hover();
 
     await expect(aside.getByRole('note')).toHaveCount(0);
+    await expect(editedText).toHaveAttribute('aria-hidden', 'true');
     await expect(inlineDiff).toHaveAttribute('aria-hidden', 'false');
     await expect(inlineDiff.locator('del').first()).toBeVisible();
     await expect(inlineDiff.locator('ins').first()).toBeVisible();
@@ -74,11 +78,12 @@ test.describe('ChineseEVs feed', () => {
     expect(afterHover).not.toBeNull();
     expect(afterHover!.width).toBeCloseTo(beforeHover!.width, 2);
     expect(afterHover!.height).toBeCloseTo(beforeHover!.height, 2);
-    expect(diffContentHeight).toBeGreaterThanOrEqual(originalContentHeight - 1);
+    expect(diffContentHeight).toBeGreaterThanOrEqual(editedContentHeight - 1);
 
     // Keyboard users get the same in-card treatment and can dismiss it.
     await page.keyboard.press('Escape');
     await expect(inlineDiff).toHaveAttribute('aria-hidden', 'true');
+    await expect(editedText).toHaveAttribute('aria-hidden', 'false');
     await badge.focus();
     await expect(inlineDiff).toHaveAttribute('aria-hidden', 'false');
     await page.keyboard.press('Escape');

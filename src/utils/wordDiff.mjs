@@ -12,8 +12,8 @@ function compact(parts) {
   return chunks;
 }
 
-/** Word-level LCS diff with surrounding context, suitable for a track-changes preview. */
-export function createWordDiffExcerpt(original, revised, maxTokens = 100) {
+/** Complete word-level LCS diff. The non-delete chunks reconstruct `revised`. */
+export function createWordDiff(original, revised) {
   const before = tokenize(original);
   const after = tokenize(revised);
   const rows = Array.from({ length: before.length + 1 }, () => new Uint16Array(after.length + 1));
@@ -43,6 +43,13 @@ export function createWordDiffExcerpt(original, revised, maxTokens = 100) {
   while (i < before.length) parts.push({ kind: "delete", text: before[i++] });
   while (j < after.length) parts.push({ kind: "insert", text: after[j++] });
 
+  return compact(parts);
+}
+
+/** Word-level LCS diff with surrounding context, suitable for a track-changes preview. */
+export function createWordDiffExcerpt(original, revised, maxTokens = 100) {
+  const parts = createWordDiff(original, revised);
+
   const firstChange = parts.findIndex((part) => part.kind !== "equal");
   let lastChange = -1;
   for (let index = parts.length - 1; index >= 0; index--) {
@@ -69,9 +76,12 @@ export function createAlignedWordDiffWindow(original, revised, maxOriginalChars 
     const originalEnd = Math.min(original.length, maxOriginalChars);
     return {
       originalText: original.slice(0, originalEnd),
+      revisedText: revised.slice(0, originalEnd),
       chunks: [{ kind: "equal", text: revised.slice(0, originalEnd) }],
       originalStart: 0,
       originalEnd,
+      revisedStart: 0,
+      revisedEnd: originalEnd,
       hasPrefix: false,
       hasSuffix: originalEnd < original.length,
     };
@@ -119,9 +129,12 @@ export function createAlignedWordDiffWindow(original, revised, maxOriginalChars 
 
   return {
     originalText,
+    revisedText,
     chunks: createWordDiffExcerpt(originalText, revisedText, tokenBudget),
     originalStart,
     originalEnd,
+    revisedStart,
+    revisedEnd,
     hasPrefix: originalStart > 0,
     hasSuffix: originalEnd < original.length,
   };
