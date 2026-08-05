@@ -48,9 +48,9 @@ test.describe('Landing page', () => {
     await page.getByRole('button', { name: /Explore the JSON demo/ }).click();
     await expect(page).toHaveURL(/\/home$/);
     await expect(page.locator('[data-feed-mode="json-demo"]')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'End study session' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Experiment settings' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Logout' })).toHaveCount(0);
+    await expect(page.getByTestId('nav-logout')).toBeVisible();
 
     const active = await page.evaluate(() => {
       const session = JSON.parse(localStorage.getItem('crossweave:studySession:v1') || 'null');
@@ -81,9 +81,9 @@ test.describe('Landing page', () => {
     expect(active.sessionStorageLength).toBe(0);
 
     await page.reload();
-    await expect(page.getByRole('button', { name: 'End study session' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'End study session' }).click();
+    await page.getByRole('button', { name: 'Log out' }).click();
     await expect(page).toHaveURL(/\/$/);
     const ended = await page.evaluate(() => ({
       studySession: localStorage.getItem('crossweave:studySession:v1'),

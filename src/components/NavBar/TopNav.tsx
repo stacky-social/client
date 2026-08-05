@@ -1,6 +1,6 @@
 "use client";
 
-import { Group, ActionIcon, Tooltip, Box, Button } from "@mantine/core";
+import { Group, ActionIcon, Tooltip, Box } from "@mantine/core";
 import {
     IconHome,
     IconMessages,
@@ -27,7 +27,7 @@ const LINKS = [
 
 /**
  * Horizontal sticky top nav bar (D-NAV): logo on the left, condensed icon
- * links, and a Logout button on the right.
+ * links, and a compact log-out action on the right.
  * Replaces the old left nav column + collapse burger.
  */
 export function TopNav() {
@@ -62,7 +62,7 @@ export function TopNav() {
         }
     };
 
-    const handleEndStudySession = () => {
+    const handleStudyLogOut = () => {
         endStudySession();
         router.push("/");
     };
@@ -118,35 +118,19 @@ export function TopNav() {
                     );
                 })}
 
-                {studyMode ? (
-                    <Button
-                        variant="light"
+                {!studyMode && <ExperimentPanel />}
+                <Tooltip label="Log out" withArrow>
+                    <ActionIcon
+                        variant="subtle"
                         color="red"
-                        size="xs"
-                        radius="xl"
-                        leftSection={<IconLogout size={16} stroke={1.8} />}
-                        data-testid="end-study-session"
-                        onClick={handleEndStudySession}
+                        size="lg"
+                        aria-label="Log out"
+                        data-testid="nav-logout"
+                        onClick={studyMode ? handleStudyLogOut : handleLogOut}
                     >
-                        End study session
-                    </Button>
-                ) : (
-                    <>
-                        <ExperimentPanel />
-                        <Tooltip label="Logout" withArrow>
-                            <ActionIcon
-                                variant="subtle"
-                                color="red"
-                                size="lg"
-                                aria-label="Logout"
-                                data-testid="nav-logout"
-                                onClick={handleLogOut}
-                            >
-                                <IconLogout size={20} stroke={1.8} />
-                            </ActionIcon>
-                        </Tooltip>
-                    </>
-                )}
+                        <IconLogout size={20} stroke={1.8} />
+                    </ActionIcon>
+                </Tooltip>
             </Group>
         </Box>
     );
