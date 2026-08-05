@@ -1,7 +1,9 @@
 .timeline {
   overflow: clip;
   width: 100%;
-  background: #ffffff;
+  /* Let the warm CrossWeave canvas show through the space between white cards,
+     matching the curated demo feed instead of producing white gutters. */
+  background: #fcfbf5;
   border: 1px solid #d9d7cd;
   border-radius: 14px;
   box-shadow: 0 10px 30px rgba(20, 33, 61, 0.055);

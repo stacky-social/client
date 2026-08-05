@@ -567,8 +567,13 @@ export function getFollowedDemoFeed(): Post[] {
   return memoized("followedDemo", () => {
     const followed = new Set(state.following);
     if (followed.size === 0) return [];
+    // Match the actual /ChineseEVs timeline contract: its feed contains focus
+    // posts, while ancestors, replies, and related responses belong inside the
+    // focus/detail experience. Returning every stored record here buried focus
+    // posts beneath newer standalone replies that correctly had no related pane.
+    const focusPostIds = new Set(entries.map((entry) => entry.focusPost.id));
     return Object.values(state.posts)
-      .filter((post) => followed.has(post.account.acct))
+      .filter((post) => focusPostIds.has(post.id) && followed.has(post.account.acct))
       .sort(byNewest);
   });
 }

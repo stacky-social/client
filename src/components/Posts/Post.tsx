@@ -1260,8 +1260,11 @@ function Post({
           backgroundColor: isTimeline && hovered ? '#fbfcff' : '#fff',
           zIndex: 5,
           borderRadius: isTimeline ? 0 : '10px',
-          border: isTimeline ? 'none' : (isActive ? '2px solid rgb(156, 184, 255)' : '2px solid #e7e7e7'),
-          borderBottom: isTimeline ? '1px solid #e3e2dc' : undefined,
+          borderStyle: 'solid',
+          borderWidth: isTimeline ? '0 0 1px' : '2px',
+          borderColor: isTimeline
+            ? '#e3e2dc'
+            : (isActive ? 'rgb(156, 184, 255)' : '#e7e7e7'),
           boxShadow: isTimeline
             ? (isActive ? 'inset 3px 0 0 #5a71a8' : 'none')
             : (isActive ? 'rgba(0, 0, 0, 0.18) 0px 12px 24px, rgba(0, 0, 0, 0.12) 0px 6px 12px' : 'none'),

@@ -79,7 +79,9 @@ test.describe('Mastodon-backed client mode', () => {
     await page.goto('/home');
     await expect(page.locator('[data-feed-mode="mastodon"]')).toBeVisible();
     await expect(page.locator('[data-feed-origin="demo"]').first()).toBeVisible();
+    await expect(page.locator('[data-related-card]').first()).toBeVisible();
     await expect(page.getByText('Your Mastodon home timeline is empty.')).toHaveCount(0);
+    await expect(page.getByRole('main')).toHaveCSS('background-color', 'rgb(252, 251, 245)');
   });
 
   test('publishes through Mastodon and prepends the canonical returned status', async ({ page }) => {
