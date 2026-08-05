@@ -14,6 +14,7 @@ import { registerNavigateCallback } from "../../../utils/highlightStore";
 import ReplySection from "../../../components/ReplySection";
 import { useLocalStore, useHydrated, getHashtagAuthors, followAll, unfollowAll, areAllFollowing } from "../../../utils/localStore";
 import { DEMO_TIMELINE_PAGE_SIZE, getChineseEvTimelinePage, type TimelineStats } from "../../../services/demoApiClient";
+import { getMockReplyCount } from "../../../utils/mockPostResolver";
 
 // ── Thread line constants ────────────────────────────────────────────────────
 const THREAD_LINE_COLOR = "#ccd1dc";
@@ -25,7 +26,7 @@ function toTopPost(rp: RelatedPostMock) {
   return {
     id: rp.id,
     created_at: rp.created_at,
-    replies_count: rp.replies_count,
+    replies_count: getMockReplyCount(rp.id),
     favourites_count: rp.favourites_count,
     favourited: rp.favourited,
     bookmarked: rp.bookmarked,
@@ -77,7 +78,7 @@ function toPostData(entry: ListyInjectionEntry) {
     account: entry.focusPost.account.acct,
     avatar: entry.focusPost.account.avatar,
     createdAt: entry.focusPost.created_at,
-    replies_count: entry.focusPost.replies_count,
+    replies_count: getMockReplyCount(entry.focusPost.id),
     stackCount: entry.relatedPosts.length,
     favouritesCount: entry.focusPost.favourites_count,
     favourited: entry.focusPost.favourited,
@@ -177,7 +178,7 @@ function syntheticEntryFromRelated(rp: RelatedPostMock, parentEntry: ListyInject
       account: rp.account,
       created_at: rp.created_at,
       favourites_count: rp.favourites_count,
-      replies_count: rp.replies_count,
+      replies_count: getMockReplyCount(rp.id),
       favourited: rp.favourited,
       bookmarked: rp.bookmarked,
     },
@@ -194,7 +195,7 @@ function replyToPostData(reply: FocusPostMock) {
     account: reply.account.acct,
     avatar: reply.account.avatar,
     createdAt: reply.created_at,
-    replies_count: reply.replies_count,
+    replies_count: getMockReplyCount(reply.id),
     stackCount: -1,
     favouritesCount: reply.favourites_count,
     favourited: reply.favourited,
@@ -381,7 +382,7 @@ export default function ListyInjectionPage() {
             account: rp.account,
             created_at: rp.created_at,
             favourites_count: rp.favourites_count,
-            replies_count: rp.replies_count,
+            replies_count: getMockReplyCount(rp.id),
             favourited: rp.favourited,
             bookmarked: rp.bookmarked,
           });
@@ -739,7 +740,11 @@ export default function ListyInjectionPage() {
         author={postData.author}
         account={postData.account}
         avatar={postData.avatar}
-        repliesCount={postData.replies_count}
+        repliesCount={
+          hydrated
+            ? localPosts[postData.postId]?.replies_count ?? postData.replies_count
+            : postData.replies_count
+        }
         createdAt={postData.createdAt}
         stackCount={-1}
         favouritesCount={postData.favouritesCount}
@@ -925,6 +930,7 @@ export default function ListyInjectionPage() {
   // Follow every demo participant so the JSON-backed conversation is blended
   // into Home. This stays local until the curated corpus is imported to Mastodon.
   const hydrated = useHydrated();
+  const localPosts = useLocalStore((snapshot) => snapshot.posts);
   const hashtagFollowed = useLocalStore(() => areAllFollowing(getHashtagAuthors()));
   const handleFollowHashtag = () => {
     const authors = getHashtagAuthors();

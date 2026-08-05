@@ -933,6 +933,13 @@ function Post({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, favourited, bookmarked, favouritesCount]);
 
+  // Reply counts can change after a local reply or a background Mastodon
+  // refresh. Keep the stateful action row aligned with the latest parent prop;
+  // previously it permanently retained the value from the first render.
+  useEffect(() => {
+    setReplyCount(repliesCount);
+  }, [id, repliesCount]);
+
   useEffect(() => {
     const element = textRef.current;
     if (!element) return;

@@ -3,6 +3,7 @@
 import mockData from "../app/FakeData/listy-injection.json";
 import { firstTypeRelations } from "./relationFirstType.mjs";
 import { contextualAiRewrite } from "../data/contextualAiRewrites";
+import { resolveReplyCount } from "./replyCount.mjs";
 import type {
   ListyInjectionData,
   ListyInjectionEntry,
@@ -48,7 +49,7 @@ function toMockPostType(p: FocusPostMock | RelatedPostMock, relatedStacks: any[]
     // post: synthesized ancestors (the NYT article headlines) are written with
     // replies_count 0 by the converter, but their children — the focus posts —
     // are right here in the fixture, so the headline card read "0 replies".
-    replies_count: Math.max(p.replies_count ?? 0, (childrenByParent.get(p.id) ?? []).length),
+    replies_count: getMockReplyCount(p.id),
     created_at: p.created_at,
     stackCount,
     favourites_count: p.favourites_count,
@@ -120,6 +121,15 @@ export function getMockPost(id: string): MockPostType | null {
   if (!post) return null;
   const stacks = getMockRelatedStacks(id);
   return toMockPostType(post, stacks, stacks.length || null);
+}
+
+/** Source/Mastodon count, repaired only by explicit thread edges in the fixture. */
+export function getMockReplyCount(id: string): number {
+  const post = allPostsById.get(id);
+  return resolveReplyCount(
+    post?.replies_count ?? 0,
+    (childrenByParent.get(id) ?? []).length,
+  );
 }
 
 /** Plain text of the post — for useUrlSync ?fs= hydration. */

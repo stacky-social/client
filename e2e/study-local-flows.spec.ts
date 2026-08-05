@@ -49,6 +49,24 @@ test.describe('study-mode local flows', () => {
     await expect(page.getByText('Local reply')).toBeVisible();
   });
 
+  test('increments a seeded post reply count once and keeps it after reload', async ({ page }) => {
+    const sourceCount = (mockData as any)[0].focusPost.replies_count as number;
+    await page.goto(`/ChineseEVs/posts/${firstFocusId}`);
+
+    const focusCard = page.locator(`[data-post-id="${firstFocusId}"]`).first();
+    const replyCount = focusCard.getByRole('button', { name: 'Reply' });
+    await expect(replyCount).toContainText(String(sourceCount));
+
+    await page.getByPlaceholder('Post your reply').first().fill('Counted.');
+    await page.getByRole('button', { name: 'Submit' }).first().click();
+    await expect(page.getByText('Reply posted', { exact: true })).toBeVisible();
+    await expect(replyCount).toContainText(String(sourceCount + 1));
+
+    await page.reload();
+    const reloadedFocus = page.locator(`[data-post-id="${firstFocusId}"]`).first();
+    await expect(reloadedFocus.getByRole('button', { name: 'Reply' })).toContainText(String(sourceCount + 1));
+  });
+
   test('like and bookmark confirmations offer working single-step Undo', async ({ page }) => {
     await page.goto(`/ChineseEVs/posts/${firstFocusId}`);
 

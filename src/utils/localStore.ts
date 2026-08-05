@@ -38,7 +38,8 @@ import type {
   RelatedPostMock,
   Relation,
 } from "../types/PostType";
-import { getMockFocusRelations, getMockRelatedStacks } from "./mockPostResolver";
+import { getMockFocusRelations, getMockRelatedStacks, getMockReplyCount } from "./mockPostResolver";
+import { resolveReplyCount } from "./replyCount.mjs";
 
 // ─── Exported data shapes ────────────────────────────────────────────────────
 
@@ -159,7 +160,7 @@ function mockToPost(p: FocusPostMock | RelatedPostMock): Post {
       acct: p.account.acct,
       avatar: p.account.avatar || DEFAULT_AVATAR,
     },
-    replies_count: p.replies_count,
+    replies_count: getMockReplyCount(p.id),
     created_at: p.created_at,
     stackCount: null,
     favourites_count: p.favourites_count,
@@ -334,6 +335,7 @@ function load(): LocalState {
     // Defensive: ensure all top-level keys exist (forward-compat with older blobs).
     const seed = seedState();
     const persistedPosts = parsed.posts ?? {};
+    const persistedComments = parsed.comments ?? {};
     const posts: Record<string, Post> = { ...seed.posts, ...persistedPosts };
 
     // Migrate existing v1 browser data without discarding likes, bookmarks, or
@@ -346,6 +348,11 @@ function load(): LocalState {
       posts[id] = {
         ...seededPost,
         ...persistedPost,
+        replies_count: resolveReplyCount(
+          seededPost.replies_count,
+          0,
+          (persistedComments[id] ?? []).filter((comment) => comment.in_reply_to_id === id).length,
+        ),
         relatedStacks: seededPost.relatedStacks,
         focusRelations: seededPost.focusRelations,
         stackCount: seededPost.stackCount,
@@ -358,7 +365,7 @@ function load(): LocalState {
       liked: parsed.liked ?? [],
       bookmarked: parsed.bookmarked ?? [],
       following: parsed.following ?? [],
-      comments: parsed.comments ?? {},
+      comments: persistedComments,
       me: parsed.me ?? seed.me,
     };
   } catch {

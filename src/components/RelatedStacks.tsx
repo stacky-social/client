@@ -20,6 +20,7 @@ import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
 import { showUndoableAction } from '../utils/actionNotifications';
 import AiModifiedDisclosure from './AiModifiedDisclosure';
 import { createAlignedWordDiffWindow, createWordDiff } from '../utils/wordDiff.mjs';
+import { useHydrated, useLocalStore } from '../utils/localStore';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -803,6 +804,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   // forgot to thread the sourcePostId prop (which is what produced the "share
   // opens the related post instead of the pairing" bug).
   const { activePostId: ctxActivePostId } = useRelatedStacks();
+  const localHydrated = useHydrated();
+  const localPosts = useLocalStore((snapshot) => snapshot.posts);
+  const localFocusId = sourcePostId ?? ctxActivePostId;
+  const useLocalReplyCounts = localHydrated && !!localFocusId && !!localPosts[localFocusId];
+  const displayedReplyCount = (postId: string, sourceCount: number) =>
+    useLocalReplyCounts ? localPosts[postId]?.replies_count ?? sourceCount : sourceCount;
   const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
   // Debounce hover activation. Hovering a card cross-highlights the (possibly
   // long) focus post, which re-parses its HTML + reflows (~300ms). Firing that
@@ -2770,7 +2777,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 <Divider style={{ marginTop: '0.5rem', marginLeft: '1rem', marginRight: '1rem' }} />
                 <div style={{ paddingLeft: '1rem', paddingRight: '1rem' }}>
                   <Group style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <InteractionControl icon={<IconMessageCircle size={20} />} label={stack.topPost.replies_count} ariaLabel="Replies"
+                    <InteractionControl icon={<IconMessageCircle size={20} />} label={displayedReplyCount(stack.topPost.id, stack.topPost.replies_count)} ariaLabel="Replies"
                       onClick={() => handleNavigate(stack.topPost.id, stack.stackId)} />
                     <InteractionControl
                       icon={isFavourited(stack.topPost.id, stack.topPost.favourited) ? <IconHeartFilled size={20} /> : <IconHeart size={20} />}
