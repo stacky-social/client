@@ -18,6 +18,9 @@ import { reorderForAnchor } from '../utils/reorderForAnchor';
 import type { Relation } from '../types/PostType';
 import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
 import { showUndoableAction } from '../utils/actionNotifications';
+import AiModifiedDisclosure from './AiModifiedDisclosure';
+import { createAlignedWordDiffWindow, createWordDiff } from '../utils/wordDiff.mjs';
+import { useHydrated, useLocalStore } from '../utils/localStore';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -35,7 +38,7 @@ interface PostType {
     username?: string;
   };
   content_rewritten: string;
-  rewrite: { content: string; significant: boolean };
+  rewrite: { content: string; significant: boolean; editSummary?: string };
   /** Offset-based relations between this post and the focus post */
   relations?: Relation[];
 }
@@ -674,23 +677,87 @@ function buildMultiHighlightNodes(
 
 const WINDOW_CHARS = 140;
 
+/** Map an original-text boundary into the revised text. Start boundaries sit
+ * after an insertion at that exact point; end boundaries sit before it, so an
+ * insertion between two adjacent annotated ranges is not claimed by both. */
+function mapRewriteBoundary(
+  chunks: ReturnType<typeof createWordDiff>,
+  offset: number,
+  edge: 'start' | 'end',
+): number {
+  let originalOffset = 0;
+  let revisedOffset = 0;
+  for (const chunk of chunks) {
+    if (chunk.kind === 'insert') {
+      if (originalOffset === offset && edge === 'end') return revisedOffset;
+      revisedOffset += chunk.text.length;
+      continue;
+    }
+    const nextOriginalOffset = originalOffset + chunk.text.length;
+    if (offset < nextOriginalOffset) {
+      return chunk.kind === 'equal'
+        ? revisedOffset + (offset - originalOffset)
+        : revisedOffset;
+    }
+    originalOffset = nextOriginalOffset;
+    if (chunk.kind === 'equal') revisedOffset += chunk.text.length;
+  }
+  return revisedOffset;
+}
+
+/** Preserve relation highlighting after a contextual rewrite changes offsets. */
+function remapRelationsToRewrite(
+  original: string,
+  revised: string,
+  relations: Relation[] | undefined,
+): Relation[] | undefined {
+  if (!relations || original === revised) return relations;
+  const chunks = createWordDiff(original, revised);
+  const remapRange = (start: number, end: number) => {
+    const nextStart = mapRewriteBoundary(chunks, start, 'start');
+    let nextEnd = mapRewriteBoundary(chunks, end, 'end');
+    // If a relation was exactly the replaced phrase, include its replacement
+    // instead of collapsing its highlight to a zero-width range.
+    if (nextEnd <= nextStart && end > start) {
+      nextEnd = mapRewriteBoundary(chunks, end, 'start');
+    }
+    return { start: nextStart, end: Math.max(nextStart, nextEnd) };
+  };
+  return relations.map((relation) => {
+    const content = remapRange(relation.contentStart, relation.contentEnd);
+    const comment = remapRange(relation.contentCommentStart, relation.contentCommentEnd);
+    return {
+      ...relation,
+      contentStart: content.start,
+      contentEnd: content.end,
+      contentCommentStart: comment.start,
+      contentCommentEnd: comment.end,
+    };
+  });
+}
+
 /** Window content around the first relation's content range. Returns adjusted relations with shifted offsets. */
-function windowContent(plain: string, relations: Relation[] | undefined, expanded: boolean): {
+function windowContent(
+  plain: string,
+  relations: Relation[] | undefined,
+  expanded: boolean,
+  preferredBounds?: { start: number; end: number },
+): {
   text: string; adjustedRelations: Relation[] | undefined; hasPrefix: boolean; hasSuffix: boolean;
 } {
-  if (!relations || relations.length === 0) {
-    return { text: plain, adjustedRelations: relations, hasPrefix: false, hasSuffix: false };
-  }
   const totalChars = WINDOW_CHARS * 2;
   if (expanded || plain.length <= totalChars) {
     return { text: plain, adjustedRelations: relations, hasPrefix: false, hasSuffix: false };
   }
-  const first = relations[0];
-  const center = Math.floor((first.contentStart + first.contentEnd) / 2);
-  const start = Math.max(0, center - WINDOW_CHARS);
-  const end = Math.min(plain.length, center + WINDOW_CHARS);
+  if ((!relations || relations.length === 0) && !preferredBounds) {
+    return { text: plain, adjustedRelations: relations, hasPrefix: false, hasSuffix: false };
+  }
+  const first = relations?.[0];
+  const center = first ? Math.floor((first.contentStart + first.contentEnd) / 2) : WINDOW_CHARS;
+  const start = preferredBounds?.start ?? Math.max(0, center - WINDOW_CHARS);
+  const end = preferredBounds?.end ?? Math.min(plain.length, center + WINDOW_CHARS);
   const text = plain.slice(start, end);
-  const adjustedRelations = relations.map((r, i) => ({
+  const adjustedRelations = relations?.map((r, i) => ({
     ...r,
     __idx: i, // preserve original index so rangeIndex survives the filter below
     contentStart: Math.max(0, r.contentStart - start),
@@ -737,6 +804,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   // forgot to thread the sourcePostId prop (which is what produced the "share
   // opens the related post instead of the pairing" bug).
   const { activePostId: ctxActivePostId } = useRelatedStacks();
+  const localHydrated = useHydrated();
+  const localPosts = useLocalStore((snapshot) => snapshot.posts);
+  const localFocusId = sourcePostId ?? ctxActivePostId;
+  const useLocalReplyCounts = localHydrated && !!localFocusId && !!localPosts[localFocusId];
+  const displayedReplyCount = (postId: string, sourceCount: number) =>
+    useLocalReplyCounts ? localPosts[postId]?.replies_count ?? sourceCount : sourceCount;
   const paperRefs = useRef<(HTMLDivElement | null)[]>([]);
   // Debounce hover activation. Hovering a card cross-highlights the (possibly
   // long) focus post, which re-parses its HTML + reflows (~300ms). Firing that
@@ -855,6 +928,28 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   // Per-card expanded state, keyed by stackId
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const [visibleCardCount, setVisibleCardCount] = useState(RELATED_PAGE_SIZE);
+  const [activeAiEditPostId, setActiveAiEditPostId] = useState<string | null>(null);
+  const aiDiffByPostId = useMemo(() => {
+    const diffs = new Map<string, {
+      collapsed: ReturnType<typeof createAlignedWordDiffWindow>;
+      expanded: ReturnType<typeof createAlignedWordDiffWindow>;
+      revisedContent: string;
+      revisedRelations: Relation[] | undefined;
+    }>();
+    for (const stack of relatedStacks) {
+      const rewrite = stack.topPost.rewrite;
+      if (!rewrite?.significant || !rewrite.content) continue;
+      const original = (stack.topPost.content || '').replace(/<[^>]*>/g, '');
+      const revised = rewrite.content.replace(/<[^>]*>/g, '');
+      diffs.set(stack.topPost.id, {
+        collapsed: createAlignedWordDiffWindow(original, revised, WINDOW_CHARS * 2),
+        expanded: createAlignedWordDiffWindow(original, revised, original.length),
+        revisedContent: revised,
+        revisedRelations: remapRelationsToRewrite(original, revised, stack.topPost.relations),
+      });
+    }
+    return diffs;
+  }, [relatedStacks]);
 
   const isFavourited = (postId: string, initial: boolean) =>
     favouritedOverride[postId] !== undefined ? favouritedOverride[postId] : initial;
@@ -1909,6 +2004,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           const isHighlighted = !!highlightPostId && stack.topPost.id === highlightPostId;
           const colors = getCategoryColors(stack.rel);
           const isExpanded = !!expandedCards[stack.stackId];
+          const aiDiffSet = aiDiffByPostId.get(stack.topPost.id);
+          const aiDiff = aiDiffSet ? (isExpanded ? aiDiffSet.expanded : aiDiffSet.collapsed) : undefined;
+          const isAiEditActive = activeAiEditPostId === stack.topPost.id && !!aiDiff;
 
           // Strip HTML so the text matches the relations' PLAIN-text offsets.
           // The mock resolver wraps card content as `<p>…</p>`, which both leaks
@@ -1916,10 +2014,21 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           // the focus post already strips before highlighting, so mirror that.
           const plainContent = (stack.topPost.content || '').replace(/<[^>]*>/g, '');
           const rels = stack.topPost.relations;
+          // Contextual rewrites are the published/default card text. The
+          // original survives only inside the hover/focus track-changes layer.
+          const visibleContent = aiDiffSet?.revisedContent ?? plainContent;
+          const visibleRelations = aiDiffSet?.revisedRelations ?? rels;
 
           // Smart windowing: show only the highlighted portion unless expanded
           const { text: visibleText, adjustedRelations, hasPrefix, hasSuffix } =
-            windowContent(plainContent, rels, isExpanded);
+            windowContent(
+              visibleContent,
+              visibleRelations,
+              isExpanded,
+              aiDiff && !isExpanded
+                ? { start: aiDiff.revisedStart, end: aiDiff.revisedEnd }
+                : undefined,
+            );
           const isTruncated = hasPrefix || hasSuffix;
 
           // Calculate indent depth by walking the anchor chain. Per-level indent
@@ -2585,6 +2694,16 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                   style={{ paddingLeft: '54px', paddingRight: '1rem', cursor: 'pointer' }}
                 >
                   {/* D3: shortest common related text label — only when span filter is active */}
+                  {stack.topPost.rewrite?.significant && stack.topPost.rewrite.content && (
+                    <AiModifiedDisclosure
+                      active={isAiEditActive}
+                      editSummary={stack.topPost.rewrite.editSummary}
+                      onActiveChange={(active) => {
+                        setActiveAiEditPostId(active ? stack.topPost.id : null);
+                      }}
+                    />
+                  )}
+
                   {shortestCommonText !== null && (
                     <div style={{
                       display: 'inline-flex', alignItems: 'center',
@@ -2601,11 +2720,41 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       </Text>
                     </div>
                   )}
-                  <Text component="p" size="sm" lh={1.55} c="#011445" style={{ margin: '0 0 0.4rem 0' }}>
-                    {hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
-                    {contentNodes}
-                    {hasSuffix && !isExpanded && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
-                  </Text>
+                  <div className={`ai-edit-text-stage${isAiEditActive ? ' is-active' : ''}`}>
+                    <Text
+                      component="p"
+                      size="sm"
+                      lh={1.55}
+                      c="#011445"
+                      className="ai-edit-edited-text"
+                      data-ai-edited-default
+                      aria-hidden={isAiEditActive}
+                    >
+                      {hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
+                      {contentNodes}
+                      {hasSuffix && !isExpanded && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
+                    </Text>
+                    {aiDiff && (
+                      <Text
+                        component="p"
+                        size="sm"
+                        lh={1.55}
+                        c="#011445"
+                        className="ai-edit-inline-text"
+                        data-ai-inline-diff
+                        aria-hidden={!isAiEditActive}
+                        aria-label={stack.topPost.rewrite.editSummary || 'AI changes shown in this post'}
+                      >
+                        {aiDiff.hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
+                        {aiDiff.chunks.map((chunk, chunkIndex) => {
+                          if (chunk.kind === 'delete') return <del key={chunkIndex}>{chunk.text}</del>;
+                          if (chunk.kind === 'insert') return <ins key={chunkIndex}>{chunk.text}</ins>;
+                          return <React.Fragment key={chunkIndex}>{chunk.text}</React.Fragment>;
+                        })}
+                        {aiDiff.hasSuffix && !isExpanded && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
+                      </Text>
+                    )}
+                  </div>
 
                   {/* Read more / See less */}
                   {(isTruncated || isExpanded) && (
@@ -2628,7 +2777,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 <Divider style={{ marginTop: '0.5rem', marginLeft: '1rem', marginRight: '1rem' }} />
                 <div style={{ paddingLeft: '1rem', paddingRight: '1rem' }}>
                   <Group style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <InteractionControl icon={<IconMessageCircle size={20} />} label={stack.topPost.replies_count} ariaLabel="Replies"
+                    <InteractionControl icon={<IconMessageCircle size={20} />} label={displayedReplyCount(stack.topPost.id, stack.topPost.replies_count)} ariaLabel="Replies"
                       onClick={() => handleNavigate(stack.topPost.id, stack.stackId)} />
                     <InteractionControl
                       icon={isFavourited(stack.topPost.id, stack.topPost.favourited) ? <IconHeartFilled size={20} /> : <IconHeart size={20} />}

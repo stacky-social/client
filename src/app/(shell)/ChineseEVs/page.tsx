@@ -1,21 +1,20 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Text, Paper, Box, Group, Divider, Button } from "@mantine/core";
+import { Text, Paper, Box, Group, Divider, Button, Skeleton } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { notifications } from "@mantine/notifications";
 import Post from "../../../components/Posts/Post";
-import mockData from "../../FakeData/listy-injection.json";
-import type { ListyInjectionData, ListyInjectionEntry, RelatedPostMock, FocusPostMock, Relation, CategoryKey } from "../../../types/PostType";
+import type { ListyInjectionEntry, RelatedPostMock, FocusPostMock, Relation, CategoryKey } from "../../../types/PostType";
 import { useRelatedStacks } from "../related-stacks-context";
 import { firstTypeRelations } from "../../../utils/relationFirstType.mjs";
 import { registerNavigateCallback } from "../../../utils/highlightStore";
 import ReplySection from "../../../components/ReplySection";
 import { useLocalStore, useHydrated, getHashtagAuthors, followAll, unfollowAll, areAllFollowing } from "../../../utils/localStore";
-
-const entries = mockData as unknown as ListyInjectionData;
+import { DEMO_TIMELINE_PAGE_SIZE, getChineseEvTimelinePage, type TimelineStats } from "../../../services/demoApiClient";
+import { getMockReplyCount } from "../../../utils/mockPostResolver";
 
 // ── Thread line constants ────────────────────────────────────────────────────
 const THREAD_LINE_COLOR = "#ccd1dc";
@@ -27,14 +26,18 @@ function toTopPost(rp: RelatedPostMock) {
   return {
     id: rp.id,
     created_at: rp.created_at,
-    replies_count: rp.replies_count,
+    replies_count: getMockReplyCount(rp.id),
     favourites_count: rp.favourites_count,
     favourited: rp.favourited,
     bookmarked: rp.bookmarked,
     content: rp.content,
     account: { avatar: rp.account.avatar, display_name: rp.account.display_name, acct: rp.account.acct },
     content_rewritten: "",
-    rewrite: { content: rp.rewrite?.content ?? rp.content, significant: rp.rewrite?.significant ?? false },
+    rewrite: {
+      content: rp.rewrite?.content ?? rp.content,
+      significant: rp.rewrite?.significant ?? false,
+      editSummary: rp.rewrite?.editSummary,
+    },
     // First contribution type only per highlight (relationFirstType.mjs) — the
     // backend now emits one relation PER TYPE on the same span, which rendered
     // as stacked two-colour bands on every highlight.
@@ -75,7 +78,7 @@ function toPostData(entry: ListyInjectionEntry) {
     account: entry.focusPost.account.acct,
     avatar: entry.focusPost.account.avatar,
     createdAt: entry.focusPost.created_at,
-    replies_count: entry.focusPost.replies_count,
+    replies_count: getMockReplyCount(entry.focusPost.id),
     stackCount: entry.relatedPosts.length,
     favouritesCount: entry.focusPost.favourites_count,
     favourited: entry.focusPost.favourited,
@@ -175,7 +178,7 @@ function syntheticEntryFromRelated(rp: RelatedPostMock, parentEntry: ListyInject
       account: rp.account,
       created_at: rp.created_at,
       favourites_count: rp.favourites_count,
-      replies_count: rp.replies_count,
+      replies_count: getMockReplyCount(rp.id),
       favourited: rp.favourited,
       bookmarked: rp.bookmarked,
     },
@@ -192,7 +195,7 @@ function replyToPostData(reply: FocusPostMock) {
     account: reply.account.acct,
     avatar: reply.account.avatar,
     createdAt: reply.created_at,
-    replies_count: reply.replies_count,
+    replies_count: getMockReplyCount(reply.id),
     stackCount: -1,
     favouritesCount: reply.favourites_count,
     favourited: reply.favourited,
@@ -211,24 +214,97 @@ function replyToPostData(reply: FocusPostMock) {
 export default function ListyInjectionPage() {
   const router = useRouter();
   const { setFromPost, activePostId: ctxActivePostId } = useRelatedStacks();
+  const [entries, setEntries] = useState<ListyInjectionEntry[]>([]);
+  const [timelineStats, setTimelineStats] = useState<TimelineStats | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const pageSentinelRef = useRef<HTMLDivElement | null>(null);
+  const inFlightCursorsRef = useRef(new Map<string, symbol>());
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const activePostIdRef = useRef<string | null>(null);
   const setFromPostRef = useRef(setFromPost);
   setFromPostRef.current = setFromPost;
   const postRefs = useRef<Array<HTMLDivElement | null>>([]);
 
+  const loadTimelinePage = useCallback(async (
+    cursor: string | null,
+    append: boolean,
+    signal?: AbortSignal,
+  ) => {
+    const requestKey = cursor ?? "__first__";
+    if (inFlightCursorsRef.current.has(requestKey)) return;
+    const requestToken = Symbol(requestKey);
+    inFlightCursorsRef.current.set(requestKey, requestToken);
+    setLoadError(null);
+    if (append) setLoadingMore(true);
+    else setInitialLoading(true);
+
+    try {
+      const page = await getChineseEvTimelinePage(cursor, { signal });
+      setEntries((current) => {
+        if (!append) return page.items;
+        const seen = new Set(current.map((entry) => entry.focusPost.id));
+        return [...current, ...page.items.filter((entry) => !seen.has(entry.focusPost.id))];
+      });
+      setTimelineStats(page.stats);
+      setNextCursor(page.nextCursor);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setLoadError(error instanceof Error ? error.message : "The demo timeline could not be loaded.");
+    } finally {
+      if (inFlightCursorsRef.current.get(requestKey) === requestToken) {
+        inFlightCursorsRef.current.delete(requestKey);
+      }
+      if (append) setLoadingMore(false);
+      else setInitialLoading(false);
+    }
+  }, []);
+
+  // The page knows only the API contract. The bundled route currently serves
+  // the JSON fixture with latency; a live service can replace its base URL.
+  useEffect(() => {
+    const controller = new AbortController();
+    const inFlightCursors = inFlightCursorsRef.current;
+    void loadTimelinePage(null, false, controller.signal);
+    return () => {
+      // React Strict Mode immediately re-runs effects in development. Release
+      // this subscription synchronously so the replacement can share the
+      // underlying client request instead of being mistaken for a duplicate.
+      inFlightCursors.delete("__first__");
+      controller.abort();
+    };
+  }, [loadTimelinePage]);
+
+  // Near-viewport preloading keeps the next cursor page ready without fetching
+  // the entire collection up front. The visible button remains a manual/a11y
+  // fallback when IntersectionObserver is unavailable.
+  useEffect(() => {
+    const node = pageSentinelRef.current;
+    if (!node || !nextCursor || loadingMore || loadError) return;
+    if (typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((observations) => {
+      if (observations.some((observation) => observation.isIntersecting)) {
+        void loadTimelinePage(nextCursor, true);
+      }
+    }, { rootMargin: "300px 0px" });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [loadError, nextCursor, loadingMore, loadTimelinePage]);
+
   // ── Lookup maps ────────────────────────────────────────────────────────────
   const entryMap = useMemo(() => {
     const map = new Map<string, ListyInjectionEntry>();
     for (const e of entries) map.set(e.focusPost.id, e);
     return map;
-  }, []);
+  }, [entries]);
 
   const allRelatedPosts = useMemo(() => {
     const map = new Map<string, { rp: RelatedPostMock; parentEntry: ListyInjectionEntry }>();
     for (const e of entries) for (const rp of e.relatedPosts) if (!map.has(rp.id)) map.set(rp.id, { rp, parentEntry: e });
     return map;
-  }, []);
+  }, [entries]);
 
   /**
    * Global parent map (childId → parentId) derived from inherent thread hierarchy:
@@ -268,7 +344,7 @@ export default function ListyInjectionPage() {
       }
     }
     return map;
-  }, []);
+  }, [entries]);
 
   /** childrenByParent[parentId] = ids of posts whose inherent parent is parentId */
   const childrenByParent = useMemo(() => {
@@ -306,7 +382,7 @@ export default function ListyInjectionPage() {
             account: rp.account,
             created_at: rp.created_at,
             favourites_count: rp.favourites_count,
-            replies_count: rp.replies_count,
+            replies_count: getMockReplyCount(rp.id),
             favourited: rp.favourited,
             bookmarked: rp.bookmarked,
           });
@@ -314,7 +390,7 @@ export default function ListyInjectionPage() {
       }
     }
     return map;
-  }, []);
+  }, [entries]);
 
   /** Walk inherent parent chain. Returns oldest-ancestor-first (root → parent). */
   const getAncestorChain = useCallback((id: string): string[] => {
@@ -519,7 +595,7 @@ export default function ListyInjectionPage() {
   }, [getRelatedStacks]);
 
   // ── Feed mode posts ────────────────────────────────────────────────────────
-  const posts = useMemo(() => entries.map(toPostData), []);
+  const posts = useMemo(() => entries.map(toPostData), [entries]);
   // Keep postsRef in sync so the popstate-driven back path can re-seed feed
   // mode without `posts` having to be declared above it.
   postsRef.current = posts;
@@ -584,7 +660,7 @@ export default function ListyInjectionPage() {
       sessionStorage.removeItem("scrollY:/ChineseEVs");
       sessionStorage.removeItem("activeFeedPost:/ChineseEVs");
     }
-  }, []);
+  }, [posts, activePostId, ctxActivePostId, setFromPost]);
 
   // Keep ref in sync
   useEffect(() => { activePostIdRef.current = activePostId; }, [activePostId]);
@@ -664,7 +740,11 @@ export default function ListyInjectionPage() {
         author={postData.author}
         account={postData.account}
         avatar={postData.avatar}
-        repliesCount={postData.replies_count}
+        repliesCount={
+          hydrated
+            ? localPosts[postData.postId]?.replies_count ?? postData.replies_count
+            : postData.replies_count
+        }
         createdAt={postData.createdAt}
         stackCount={-1}
         favouritesCount={postData.favouritesCount}
@@ -841,12 +921,16 @@ export default function ListyInjectionPage() {
   }
 
   // ── Feed mode content ──────────────────────────────────────────────────────
-  const totalRelated = posts.reduce((sum, p) => sum + p.relatedStacks.length, 0);
+  const totalRelated = timelineStats?.responses ?? posts.reduce((sum, p) => sum + p.relatedStacks.length, 0);
   const uniqueAuthors = new Set(posts.flatMap(p => p.relatedStacks.map(s => s.topPost.account.display_name)));
+  const totalPosts = timelineStats?.posts ?? posts.length;
+  const participantCount = timelineStats?.participants ?? uniqueAuthors.size;
+  const remainingPosts = Math.max(0, totalPosts - posts.length);
 
-  // "Follow hashtag" follows every participant so the whole conversation lands on
-  // Home. Gated on mount (the follow state lives in localStorage) to match SSR.
+  // Follow every demo participant so the JSON-backed conversation is blended
+  // into Home. This stays local until the curated corpus is imported to Mastodon.
   const hydrated = useHydrated();
+  const localPosts = useLocalStore((snapshot) => snapshot.posts);
   const hashtagFollowed = useLocalStore(() => areAllFollowing(getHashtagAuthors()));
   const handleFollowHashtag = () => {
     const authors = getHashtagAuthors();
@@ -857,14 +941,14 @@ export default function ListyInjectionPage() {
     const notificationId = `chinese-evs-follow-${Date.now()}`;
     notifications.show({
       id: notificationId,
-      title: wasFollowing ? "Hashtag unfollowed" : "Following #ChineseEVs",
+      title: wasFollowing ? "Demo feed unfollowed" : "Following demo feed",
       color: "blue",
       message: (
         <Group gap="xs" justify="space-between" wrap="nowrap">
           <Text size="sm">
             {wasFollowing
-              ? "Posts from this discussion were removed from Home."
-              : "Posts from this discussion will now appear on Home."}
+              ? "These curated posts were removed from Home."
+              : "These curated posts now appear on Home alongside Mastodon posts."}
           </Text>
           <Button
             variant="subtle"
@@ -899,17 +983,17 @@ export default function ListyInjectionPage() {
             size="sm"
             onClick={handleFollowHashtag}
           >
-            {hydrated && hashtagFollowed ? "Following hashtag" : "Follow hashtag"}
+            {hydrated && hashtagFollowed ? "Following demo feed" : "Follow demo feed"}
           </Button>
         </Group>
         <Divider my="md" />
         <Group style={{ justifyContent: "center", gap: "2rem" }}>
           <div>
-            <Text size="lg" style={{ textAlign: "center" }}>{posts.length}</Text>
+            <Text size="lg" style={{ textAlign: "center" }}>{totalPosts}</Text>
             <Text size="sm" c="dimmed" style={{ textAlign: "center" }}>Posts</Text>
           </div>
           <div>
-            <Text size="lg" style={{ textAlign: "center" }}>{uniqueAuthors.size}</Text>
+            <Text size="lg" style={{ textAlign: "center" }}>{participantCount}</Text>
             <Text size="sm" c="dimmed" style={{ textAlign: "center" }}>Participants</Text>
           </div>
           <div>
@@ -917,9 +1001,41 @@ export default function ListyInjectionPage() {
             <Text size="sm" c="dimmed" style={{ textAlign: "center" }}>Responses</Text>
           </div>
         </Group>
+        <Text size="xs" c="dimmed" mt="md">
+          Demo follows are saved on this device until the curated posts move to Mastodon.
+        </Text>
       </Paper>
 
       <Box style={{ width: "100%", position: "relative" }}>
+        {initialLoading && posts.length === 0 && (
+          <div data-testid="demo-feed-loading" aria-label="Loading posts">
+            {[0, 1].map((index) => (
+              <Paper key={index} withBorder p="lg" mb="sm" radius="md">
+                <Group mb="md">
+                  <Skeleton circle height={40} />
+                  <div style={{ flex: 1 }}>
+                    <Skeleton height={10} width="34%" mb={8} />
+                    <Skeleton height={8} width="22%" />
+                  </div>
+                </Group>
+                <Skeleton height={10} mb={8} />
+                <Skeleton height={10} mb={8} />
+                <Skeleton height={10} width="72%" />
+              </Paper>
+            ))}
+          </div>
+        )}
+
+        {loadError && posts.length === 0 && (
+          <Paper withBorder p="lg" radius="md" role="alert" data-testid="demo-feed-error">
+            <Text fw={700} size="sm" mb={4}>Posts didn&apos;t load</Text>
+            <Text c="dimmed" size="xs" mb="md">{loadError}</Text>
+            <Button size="xs" variant="light" onClick={() => void loadTimelinePage(null, false)}>
+              Try again
+            </Button>
+          </Paper>
+        )}
+
         {posts.map((post, index) => (
           <div
             key={post.postId}
@@ -930,6 +1046,26 @@ export default function ListyInjectionPage() {
             {renderPost(post)}
           </div>
         ))}
+
+        {nextCursor && (
+          <div ref={pageSentinelRef} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, margin: "18px 0" }}>
+            <Button
+              variant="light"
+              loading={loadingMore}
+              disabled={loadingMore}
+              data-testid="demo-load-more"
+              onClick={() => void loadTimelinePage(nextCursor, true)}
+            >
+              Load {Math.min(DEMO_TIMELINE_PAGE_SIZE, remainingPosts)} more posts
+            </Button>
+            <Text size="xs" c="dimmed" aria-live="polite">
+              {posts.length} of {totalPosts} loaded
+            </Text>
+            {loadError && (
+              <Text size="xs" c="red" role="alert">Couldn&apos;t load the next page. Try again.</Text>
+            )}
+          </div>
+        )}
         <div style={{ height: "60vh" }} />
       </Box>
     </div>

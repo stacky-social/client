@@ -6,7 +6,7 @@ The `/ChineseEVs/*` routes are the research prototype ("baby stacky") for the fu
 
 | Path | Purpose | Data source |
 |---|---|---|
-| `/ChineseEVs` | Feed view (hashtag stream + per-post in-page thread) | `src/app/FakeData/listy-injection.json` |
+| `/ChineseEVs` | Feed view (hashtag stream + per-post in-page thread) | Cursor-paginated `/api/demo/timelines/chinese-evs` contract backed by the fixture |
 | `/ChineseEVs/posts/[id]` | Post-detail with threaded replies + related-post aside | Same JSON, resolver in `src/utils/mockPostResolver.ts` |
 
 The post-detail route mirrors the future `/posts/[id]` route. The same React components are shared (`Post`, `ThreadedReplyList`, `RelatedStacks`, `BackButton`, `ReplySection`) and the same URL-sync hook (`useUrlSync`) is reused, so the URL contract carries over verbatim.

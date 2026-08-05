@@ -1,17 +1,25 @@
 import { test, expect } from '@playwright/test';
 import mockData from '../src/app/FakeData/listy-injection.json';
 
-// The research feed at /ChineseEVs is rendered entirely from local mock
-// JSON — no backend needed. Its detail route /ChineseEVs/posts/[id]
-// mirrors a single post. (The fixture keeps its historical filename
-// listy-injection.json; the route was renamed /listy-injection -> /ChineseEVs.)
+// The research feed at /ChineseEVs calls a simulated backend route backed by
+// the local fixture, so no external server is needed. Its detail route
+// /ChineseEVs/posts/[id] mirrors a single post.
 
 // First focus-post id from the mock data, used by the detail-view test.
 const firstFocusId = (mockData as any)[0].focusPost.id as string;
 
 test.describe('ChineseEVs feed', () => {
   test('renders the hashtag header, stats, post cards and interactions', async ({ page }) => {
+    const firstPageResponse = page.waitForResponse((response) =>
+      response.url().includes('/api/demo/timelines/chinese-evs') && response.status() === 200
+    );
     await page.goto('/ChineseEVs');
+    const firstPage = await (await firstPageResponse).json();
+
+    // The simulated backend returns a bounded cursor page, not the whole fixture.
+    expect(firstPage.items).toHaveLength(2);
+    expect(firstPage.nextCursor).toBeTruthy();
+    expect(firstPage.stats.posts).toBeGreaterThan(2);
 
     // Hashtag header + stat labels.
     await expect(page.getByText('#ChineseEVs')).toBeVisible();
@@ -21,7 +29,8 @@ test.describe('ChineseEVs feed', () => {
 
     // At least 2 post cards.
     const cards = page.locator('[data-post-id]');
-    expect(await cards.count()).toBeGreaterThanOrEqual(2);
+    await expect(cards.first()).toBeVisible();
+    await expect(cards.nth(1)).toBeVisible();
 
     // "Read more" affordance (collapsed posts) — present on at least one card.
     await expect(page.getByText('Read more').first()).toBeVisible();
@@ -30,6 +39,60 @@ test.describe('ChineseEVs feed', () => {
     await expect(page.getByRole('button', { name: 'Reply' }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Like' }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Bookmark' }).first()).toBeVisible();
+  });
+
+  test('shows contextual AI edits in place without resizing the related card', async ({ page }) => {
+    await page.goto('/ChineseEVs');
+
+    const aside = page.getByTestId('col-aside');
+    const badge = aside.getByRole('button', { name: 'Modified by AI' }).first();
+    await expect(badge).toBeVisible();
+    const card = badge.locator('xpath=ancestor::*[@data-post-id][1]');
+    const beforeHover = await card.boundingBox();
+    const editedText = card.locator('[data-ai-edited-default]');
+    const inlineDiff = card.locator('[data-ai-inline-diff]');
+    const insertedText = (await inlineDiff.locator('ins').first().innerText()).trim();
+    await expect(editedText).toContainText(insertedText);
+    await expect(editedText).toHaveAttribute('aria-hidden', 'false');
+    const editedContentHeight = await editedText.evaluate((element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return range.getBoundingClientRect().height;
+    });
+    await expect(inlineDiff).toHaveAttribute('aria-hidden', 'true');
+
+    await badge.hover();
+
+    await expect(aside.getByRole('note')).toHaveCount(0);
+    await expect(editedText).toHaveAttribute('aria-hidden', 'true');
+    await expect(inlineDiff).toHaveAttribute('aria-hidden', 'false');
+    await expect(inlineDiff.locator('del').first()).toBeVisible();
+    await expect(inlineDiff.locator('ins').first()).toBeVisible();
+    const diffContentHeight = await inlineDiff.evaluate((element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return range.getBoundingClientRect().height;
+    });
+    const afterHover = await card.boundingBox();
+    expect(beforeHover).not.toBeNull();
+    expect(afterHover).not.toBeNull();
+    expect(afterHover!.width).toBeCloseTo(beforeHover!.width, 2);
+    expect(afterHover!.height).toBeCloseTo(beforeHover!.height, 2);
+    expect(diffContentHeight).toBeGreaterThanOrEqual(editedContentHeight - 1);
+
+    // Keyboard users get the same in-card treatment and can dismiss it.
+    await page.keyboard.press('Escape');
+    await expect(inlineDiff).toHaveAttribute('aria-hidden', 'true');
+    await expect(editedText).toHaveAttribute('aria-hidden', 'false');
+    await badge.focus();
+    await expect(inlineDiff).toHaveAttribute('aria-hidden', 'false');
+    await page.keyboard.press('Escape');
+    await expect(inlineDiff).toHaveAttribute('aria-hidden', 'true');
+
+    // Full post content remains an ordinary post; AI provenance belongs only
+    // to compact related cards where the missing context needs explanation.
+    await page.goto('/ChineseEVs/posts/149288649?from=143195604');
+    await expect(page.getByTestId('feed').locator('[data-ai-edit]')).toHaveCount(0);
   });
 
   test('opens a post detail view without an error boundary', async ({ page }) => {

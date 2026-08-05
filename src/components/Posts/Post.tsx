@@ -832,6 +832,10 @@ interface PostProps {
   /** Count of displayed replies linked to a span union — merged into the
    *  focused post's dwell tooltip on the thread view (honest two-pane counts). */
   replyCountForSpans?: (ranges: Array<{ fs: number; fe: number }>) => number;
+  /** Timeline cards form one continuous stream; card is the default everywhere else. */
+  appearance?: 'card' | 'timeline';
+  /** Parent account handle displayed as reply provenance in timeline views. */
+  replyingToAccount?: string | null;
 }
 
 function Post({
@@ -862,6 +866,8 @@ function Post({
   activeClusterTopic = null,
   relatedCountForSpans,
   replyCountForSpans,
+  appearance = 'card',
+  replyingToAccount = null,
 }: PostProps) {
   const router = useRouter();
   const [cardHeight, setCardHeight] = useState(0);
@@ -891,6 +897,7 @@ function Post({
   const isTextExpandedRef = useRef(isTextExpanded);
   isTextExpandedRef.current = isTextExpanded;
   const [hovered, setHovered] = useState(false);
+  const isTimeline = appearance === 'timeline';
 
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>(initialCard ? [initialCard] : []);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
@@ -925,6 +932,13 @@ function Post({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, favourited, bookmarked, favouritesCount]);
+
+  // Reply counts can change after a local reply or a background Mastodon
+  // refresh. Keep the stateful action row aligned with the latest parent prop;
+  // previously it permanently retained the value from the first render.
+  useEffect(() => {
+    setReplyCount(repliesCount);
+  }, [id, repliesCount]);
 
   useEffect(() => {
     const element = textRef.current;
@@ -1039,14 +1053,12 @@ function Post({
     setLikeCount((c) => Math.max(0, c + (wasLiked ? -1 : 1)));
 
     try {
-      // Persists to the local store (flips liked[] + favourites_count) and returns
-      // { ok: true, value: <new liked state> }. ok is always true in local mode,
-      // so this just confirms the optimistic update; the revert path is retained
-      // for the future swap back to REST.
+      // Persists to Mastodon when authenticated and to the local JSON store in
+      // demo mode, then confirms or reverts the optimistic state.
       const result = await toggleFavourite(id, wasLiked);
       if (!mountedRef.current) return;
       if (result.ok) {
-        // Confirm against the store's authoritative new state.
+        // Confirm against the active data source's authoritative state.
         setLiked(result.value);
         showUndoableAction({
           title: result.value ? 'Post liked' : 'Like removed',
@@ -1092,9 +1104,8 @@ function Post({
     setBookmarkedState(!wasBookmarked);
 
     try {
-      // Persists to the local store (flips bookmarked[]) and returns
-      // { ok: true, value: <new bookmarked state> }. ok is always true in local
-      // mode; the revert path is retained for the future swap back to REST.
+      // Persists to Mastodon when authenticated and to the local JSON store in
+      // demo mode, then confirms or reverts the optimistic state.
       const result = await toggleBookmark(id, wasBookmarked);
       if (!mountedRef.current) return;
       if (result.ok) {
@@ -1244,7 +1255,7 @@ function Post({
   };
 
   return (
-    <div style={{ position: 'relative', marginBottom: '1rem'}}>
+    <div style={{ position: 'relative', marginBottom: isTimeline ? 0 : '1rem'}}>
       <Paper
         ref={paperRef}
         data-testid="post"
@@ -1253,16 +1264,22 @@ function Post({
         style={{
           position: 'relative',
           width: "100%",
-          backgroundColor: '#fff',
+          backgroundColor: isTimeline && hovered ? '#fbfcff' : '#fff',
           zIndex: 5,
-          borderRadius: '10px',
-          border: isActive ? '2px solid rgb(156, 184, 255)' : '2px solid #e7e7e7',
-          boxShadow: isActive ? 'rgba(0, 0, 0, 0.18) 0px 12px 24px, rgba(0, 0, 0, 0.12) 0px 6px 12px' : 'none',
-          transform: isActive ? 'translateY(-2px)' : 'none',
+          borderRadius: isTimeline ? 0 : '10px',
+          borderStyle: 'solid',
+          borderWidth: isTimeline ? '0 0 1px' : '2px',
+          borderColor: isTimeline
+            ? '#e3e2dc'
+            : (isActive ? 'rgb(156, 184, 255)' : '#e7e7e7'),
+          boxShadow: isTimeline
+            ? (isActive ? 'inset 3px 0 0 #5a71a8' : 'none')
+            : (isActive ? 'rgba(0, 0, 0, 0.18) 0px 12px 24px, rgba(0, 0, 0, 0.12) 0px 6px 12px' : 'none'),
+          transform: !isTimeline && isActive ? 'translateY(-2px)' : 'none',
           // Border switches instantly (not transitioned) so the active outline
           // can't be caught mid-fade showing the inactive colour during scroll
           // re-renders (R-FEED-5). Elevation/lift still animate.
-          transition: 'box-shadow 150ms ease, transform 150ms ease',
+          transition: 'background-color 120ms ease, box-shadow 150ms ease, transform 150ms ease',
           paddingLeft: '1rem',
           paddingRight: '1rem',
           paddingTop: '1rem',
@@ -1346,6 +1363,21 @@ function Post({
             )}
           </Group>
         </div>
+
+        {replyingToAccount && (
+          <Text
+            data-testid="reply-context"
+            size="xs"
+            style={{
+              paddingLeft: `${BODY_INDENT_PX}px`,
+              marginTop: '2px',
+              marginBottom: '3px',
+              color: '#6b7280',
+            }}
+          >
+            Replying to <span style={{ color: '#4f669d', fontWeight: 600 }}>@{replyingToAccount.split('@')[0]}</span>
+          </Text>
+        )}
 
         <div
           // X-style: the body + media indent to align under the USERNAME, past the

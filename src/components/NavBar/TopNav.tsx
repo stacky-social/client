@@ -1,6 +1,6 @@
 "use client";
 
-import { Group, ActionIcon, Tooltip, Box, Button } from "@mantine/core";
+import { Group, ActionIcon, Tooltip, Box } from "@mantine/core";
 import {
     IconHome,
     IconMessages,
@@ -13,10 +13,6 @@ import { useRouter, usePathname } from "next/navigation";
 import CrossweaveLogo from "./CrossweaveLogo";
 import { ExperimentPanel } from "./ExperimentPanel";
 import { endStudySession, useStudyMode } from "../../utils/studyMode";
-
-const MastodonInstanceUrl = "https://beta.stacky.social";
-const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
-const clientSecret = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_SECRET;
 
 /** Height of the sticky top nav bar (used by the shell for sticky offsets). */
 export const TOP_NAV_HEIGHT = 56;
@@ -31,7 +27,7 @@ const LINKS = [
 
 /**
  * Horizontal sticky top nav bar (D-NAV): logo on the left, condensed icon
- * links, and a Logout button on the right.
+ * links, and a compact log-out action on the right.
  * Replaces the old left nav column + collapse burger.
  */
 export function TopNav() {
@@ -44,14 +40,9 @@ export function TopNav() {
             typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
         try {
             if (accessToken) {
-                await fetch(`${MastodonInstanceUrl}/oauth/revoke`, {
+                await fetch('/api/auth/mastodon/revoke', {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        client_id: clientId,
-                        client_secret: clientSecret,
-                        token: accessToken,
-                    }),
+                    headers: { Authorization: `Bearer ${accessToken}` },
                 });
             }
         } catch (error) {
@@ -63,6 +54,7 @@ export function TopNav() {
             localStorage.removeItem("accessToken");
             localStorage.removeItem("currentUser");
             localStorage.removeItem("authCode");
+            localStorage.removeItem("mastodonInstance");
             // Session-scoped scroll/back-navigation keys shouldn't outlive the
             // login either.
             sessionStorage.clear();
@@ -70,7 +62,7 @@ export function TopNav() {
         }
     };
 
-    const handleEndStudySession = () => {
+    const handleStudyLogOut = () => {
         endStudySession();
         router.push("/");
     };
@@ -126,35 +118,19 @@ export function TopNav() {
                     );
                 })}
 
-                {studyMode ? (
-                    <Button
-                        variant="light"
+                {!studyMode && <ExperimentPanel />}
+                <Tooltip label="Log out" withArrow>
+                    <ActionIcon
+                        variant="subtle"
                         color="red"
-                        size="xs"
-                        radius="xl"
-                        leftSection={<IconLogout size={16} stroke={1.8} />}
-                        data-testid="end-study-session"
-                        onClick={handleEndStudySession}
+                        size="lg"
+                        aria-label="Log out"
+                        data-testid="nav-logout"
+                        onClick={studyMode ? handleStudyLogOut : handleLogOut}
                     >
-                        End study session
-                    </Button>
-                ) : (
-                    <>
-                        <ExperimentPanel />
-                        <Tooltip label="Logout" withArrow>
-                            <ActionIcon
-                                variant="subtle"
-                                color="red"
-                                size="lg"
-                                aria-label="Logout"
-                                data-testid="nav-logout"
-                                onClick={handleLogOut}
-                            >
-                                <IconLogout size={20} stroke={1.8} />
-                            </ActionIcon>
-                        </Tooltip>
-                    </>
-                )}
+                        <IconLogout size={20} stroke={1.8} />
+                    </ActionIcon>
+                </Tooltip>
             </Group>
         </Box>
     );

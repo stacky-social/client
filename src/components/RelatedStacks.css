@@ -92,3 +92,104 @@
     background: #f4f1e8;
     border-color: #9ca8bf;
   }
+
+  /* Contextual AI edits borrow the visual grammar of document track changes:
+     red strike-through for removed language, green underline for additions. */
+  .ai-edit-disclosure {
+    display: inline-flex;
+    margin: 0 0 7px;
+  }
+
+  .ai-edit-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 24px;
+    padding: 3px 7px;
+    color: #4c3f78;
+    background: #f3f0ff;
+    border: 1px solid #c9c1e8;
+    border-radius: 5px;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    cursor: default;
+  }
+
+  .ai-edit-badge:hover,
+  .ai-edit-badge:focus-visible,
+  .ai-edit-badge[aria-pressed="true"] {
+    color: #35265f;
+    background: #e9e3ff;
+    border-color: #9f93cf;
+    outline: none;
+  }
+
+  .ai-edit-badge:focus-visible {
+    box-shadow: 0 0 0 3px rgba(117, 96, 176, 0.2);
+  }
+
+  /* The edited/published text remains in normal flow and permanently owns the
+     card's geometry. The tracked-edit layer occupies the exact same rectangle,
+     so revealing provenance can never resize the related-post card. */
+  .ai-edit-text-stage {
+    position: relative;
+    margin: 0 0 0.4rem;
+  }
+
+  .ai-edit-edited-text,
+  .ai-edit-inline-text {
+    margin: 0;
+    transition: opacity 90ms ease;
+  }
+
+  .ai-edit-inline-text {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .ai-edit-text-stage.is-active .ai-edit-edited-text {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .ai-edit-text-stage.is-active .ai-edit-inline-text {
+    opacity: 1;
+  }
+
+  .ai-edit-inline-text del {
+    color: #8f2f35;
+    background: #fde5e5;
+    text-decoration-color: #b83c45;
+    text-decoration-thickness: 1.5px;
+  }
+
+  .ai-edit-inline-text ins {
+    color: #17613a;
+    background: #ddf5e6;
+    text-decoration-color: #2d8955;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+
+  .ai-edit-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ai-edit-badge,
+    .ai-edit-edited-text,
+    .ai-edit-inline-text { transition: none; }
+  }

@@ -19,10 +19,12 @@ import {
   getMockRecommended,
   getMockFocusRelations,
   getMockReplyRelations,
+  getMockReplyCount,
   getMockPlainText,
   mockHasPost,
   type MockPostType,
 } from "../../../../../utils/mockPostResolver";
+import { resolveReplyCount } from "../../../../../utils/replyCount.mjs";
 import type { Relation } from "../../../../../types/PostType";
 import { getCurrentUser } from "../../../../../utils/getCurrentUser";
 import { useLocalStore, useHydrated, getComments, type Post as StorePost } from "../../../../../utils/localStore";
@@ -666,7 +668,16 @@ export default function MockPostView({ params }: { params: { id: string } }) {
   // -------------------- Load mock + local study data --------------------
   useEffect(() => {
     const mockPost = getMockPost(id);
-    const p = mockPost ?? (storePost as unknown as MockPostType | undefined) ?? null;
+    const p = mockPost
+      ? {
+          ...mockPost,
+          replies_count: resolveReplyCount(
+            getMockReplyCount(id),
+            0,
+            userComments.length,
+          ),
+        }
+      : (storePost as unknown as MockPostType | undefined) ?? null;
     if (!p) {
       setPost(null);
       return;
@@ -715,7 +726,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     const user = getCurrentUser();
     if (user) setCurrentUser(user);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, flags.suppressThreadPosts, storePost, localState.posts, hydrated]);
+  }, [id, flags.suppressThreadPosts, storePost, localState.posts, hydrated, userComments.length]);
 
   // Defer the reply thread to the next task so the focus post + ancestors
   // paint immediately instead of blocking on one big synchronous render.

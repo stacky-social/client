@@ -36,7 +36,10 @@ import type {
   ListyInjectionEntry,
   FocusPostMock,
   RelatedPostMock,
+  Relation,
 } from "../types/PostType";
+import { getMockFocusRelations, getMockRelatedStacks, getMockReplyCount } from "./mockPostResolver";
+import { resolveReplyCount } from "./replyCount.mjs";
 
 // ─── Exported data shapes ────────────────────────────────────────────────────
 
@@ -94,6 +97,8 @@ export interface Post {
   media_attachments: any[];
   /** Aside-format related stacks for this post (see mockPostResolver.getMockRelatedStacks). */
   relatedStacks: any[];
+  /** Offset annotations connecting this post to its related responses. */
+  focusRelations: Relation[];
   /** Parent post id for thread hierarchy; null for roots. */
   in_reply_to_id?: string | null;
 }
@@ -155,7 +160,7 @@ function mockToPost(p: FocusPostMock | RelatedPostMock): Post {
       acct: p.account.acct,
       avatar: p.account.avatar || DEFAULT_AVATAR,
     },
-    replies_count: p.replies_count,
+    replies_count: getMockReplyCount(p.id),
     created_at: p.created_at,
     stackCount: null,
     favourites_count: p.favourites_count,
@@ -163,6 +168,7 @@ function mockToPost(p: FocusPostMock | RelatedPostMock): Post {
     bookmarked: p.bookmarked,
     media_attachments: [],
     relatedStacks: [],
+    focusRelations: [],
     in_reply_to_id: p.inReplyToId ?? null,
   };
 }
@@ -250,6 +256,22 @@ function seedState(meOverride?: Account): LocalState {
     for (const rp of e.relatedPosts ?? []) addPost(rp);
   }
 
+  // Keep the demo store backend-shaped: focus posts carry their own related
+  // response payload and annotation offsets. Consumers should never need to
+  // know which fixture produced a post or perform a second hidden resolver
+  // lookup just to decide whether the related pane exists.
+  for (const e of entries) {
+    const post = posts[e.focusPost.id];
+    if (!post) continue;
+    const relatedStacks = getMockRelatedStacks(e.focusPost.id);
+    posts[e.focusPost.id] = {
+      ...post,
+      stackCount: relatedStacks.length || null,
+      relatedStacks,
+      focusRelations: getMockFocusRelations(e.focusPost.id),
+    };
+  }
+
   // Seed accounts from FakeUsers too (they have no posts, but should resolve).
   for (const u of fakeUsers) {
     const acct = u.email?.split("@")[0] || u.accountId;
@@ -312,13 +334,38 @@ function load(): LocalState {
     const parsed = JSON.parse(raw) as LocalState;
     // Defensive: ensure all top-level keys exist (forward-compat with older blobs).
     const seed = seedState();
+    const persistedPosts = parsed.posts ?? {};
+    const persistedComments = parsed.comments ?? {};
+    const posts: Record<string, Post> = { ...seed.posts, ...persistedPosts };
+
+    // Migrate existing v1 browser data without discarding likes, bookmarks, or
+    // user-created posts. Related stacks, annotations, and contextual rewrites
+    // are read-only fixture enrichment, so always refresh those fields from the
+    // latest seed instead of pinning a participant to a stale demo payload.
+    for (const [id, seededPost] of Object.entries(seed.posts)) {
+      const persistedPost = persistedPosts[id];
+      if (!persistedPost) continue;
+      posts[id] = {
+        ...seededPost,
+        ...persistedPost,
+        replies_count: resolveReplyCount(
+          seededPost.replies_count,
+          0,
+          (persistedComments[id] ?? []).filter((comment) => comment.in_reply_to_id === id).length,
+        ),
+        relatedStacks: seededPost.relatedStacks,
+        focusRelations: seededPost.focusRelations,
+        stackCount: seededPost.stackCount,
+      };
+    }
+
     return {
-      posts: parsed.posts ?? seed.posts,
+      posts,
       accounts: parsed.accounts ?? seed.accounts,
       liked: parsed.liked ?? [],
       bookmarked: parsed.bookmarked ?? [],
       following: parsed.following ?? [],
-      comments: parsed.comments ?? {},
+      comments: persistedComments,
       me: parsed.me ?? seed.me,
     };
   } catch {
@@ -489,8 +536,43 @@ function memoized<T>(key: string, compute: () => T): T {
 export function getHomeFeed(): Post[] {
   return memoized("home", () => {
     const sources = new Set<string>([state.me.acct, ...state.following]);
+    const personal = Object.values(state.posts).filter((p) => sources.has(p.account.acct));
+
+    // A fresh local profile still needs a meaningful Home to evaluate. This is
+    // the simulated equivalent of a backend "For you" blend: three focus posts
+    // with annotated related responses, interleaved with three ordinary replies
+    // that deliberately have no related payload. Following and self-authored
+    // posts merge into the same chronological timeline without duplicates.
+    const starterIds = [
+      "152053690", "152052643", "152047717",
+      "149294079", "149289030", "143203257",
+    ];
+    const starter = starterIds
+      .map((id) => state.posts[id])
+      .filter((post): post is Post => !!post);
+    return Array.from(new Map([...personal, ...starter].map((post) => [post.id, post])).values())
+      .sort(byNewest);
+  });
+}
+
+/**
+ * JSON-backed posts authored by accounts the participant explicitly followed.
+ *
+ * Authenticated Home uses this as a temporary supplemental source beside the
+ * real Mastodon timeline. Once the curated corpus is imported into Mastodon,
+ * the same UI can rely on the server timeline and remove this adapter.
+ */
+export function getFollowedDemoFeed(): Post[] {
+  return memoized("followedDemo", () => {
+    const followed = new Set(state.following);
+    if (followed.size === 0) return [];
+    // Match the actual /ChineseEVs timeline contract: its feed contains focus
+    // posts, while ancestors, replies, and related responses belong inside the
+    // focus/detail experience. Returning every stored record here buried focus
+    // posts beneath newer standalone replies that correctly had no related pane.
+    const focusPostIds = new Set(entries.map((entry) => entry.focusPost.id));
     return Object.values(state.posts)
-      .filter((p) => sources.has(p.account.acct))
+      .filter((post) => focusPostIds.has(post.id) && followed.has(post.account.acct))
       .sort(byNewest);
   });
 }
@@ -574,6 +656,7 @@ export function createPost(text: string): Post {
     bookmarked: false,
     media_attachments: [],
     relatedStacks: [],
+    focusRelations: [],
     in_reply_to_id: null,
   };
   mutate((draft) => {
@@ -608,6 +691,7 @@ export function addComment(postId: string, text: string): Comment {
     bookmarked: false,
     media_attachments: [],
     relatedStacks: [],
+    focusRelations: [],
     in_reply_to_id: postId,
   };
   mutate((draft) => {
@@ -697,8 +781,8 @@ export function toggleFollow(acct: string): { following: boolean } {
 
 /**
  * Distinct authors of the hashtag's posts — everyone whose post is in the feed,
- * excluding the local user. Backs the "Follow hashtag" action, which surfaces the
- * whole conversation on Home by following all of them.
+ * excluding the local user. Backs the "Follow demo feed" action, which surfaces
+ * the whole conversation on Home by following all of them.
  */
 export function getHashtagAuthors(): string[] {
   return memoized("hashtagAuthors", () => {

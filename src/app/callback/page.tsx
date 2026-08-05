@@ -1,134 +1,94 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { Anchor, Button, Loader, Text } from '@mantine/core';
+import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { notifications } from '@mantine/notifications';
-import { Anchor, Center, Loader, Stack, Text } from '@mantine/core';
-import { Suspense } from 'react';
-import {BASE_URL} from "../../utils/DevMode";
+import { CrossweaveLogo } from '../../components/NavBar/CrossweaveLogo';
+import classes from './Callback.module.css';
 
-const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
-const clientSecret = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_SECRET;
-
-const redirectUri = `${BASE_URL}/callback`;
+type CallbackState = 'loading' | 'success' | 'error';
 
 function CallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const hasProcessedRef = useRef(false);
-  const [error, setError] = useState(false);
-
+  const [status, setStatus] = useState<CallbackState>('loading');
+  const [message, setMessage] = useState('Confirming your Stacky account…');
 
   useEffect(() => {
     if (hasProcessedRef.current) return;
     hasProcessedRef.current = true;
 
-    const fetchAccessToken = async (code: string, instance: string) => {
+    const code = searchParams.get('code');
+    const state = searchParams.get('state');
+    if (!code || !state) {
+      setStatus('error');
+      setMessage('The login response was incomplete. Please start again.');
+      return;
+    }
+
+    if (localStorage.getItem('accessToken')) {
+      router.replace('/home');
+      return;
+    }
+
+    const finishLogin = async () => {
       try {
-        const response = await fetch(`${instance}/oauth/token`, {
+        const response = await fetch('/api/auth/mastodon/callback', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            client_id: clientId,
-            client_secret: clientSecret,
-            redirect_uri: redirectUri,
-            grant_type: 'authorization_code',
-            code,
-          }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, state }),
         });
-
-        const data = await response.json();
-        if (response.ok) {
-          const accessToken = data.access_token;
-          localStorage.setItem('accessToken', accessToken);
-
-          // get user info
-          const userResponse = await fetch(`${instance}/api/v1/accounts/verify_credentials`, {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          });
-          const userData = await userResponse.json();
-          if (userResponse.ok) {
-            localStorage.setItem('currentUser', JSON.stringify(userData));
-            notifications.show({
-              title: 'Success',
-              message: 'Login successful. User info stored in localStorage.',
-              color: 'green',
-            });
-            router.push('/home'); // direct to home page
-          } else {
-            console.error('Failed to fetch user info:', userData);
-            notifications.show({
-              title: 'Error',
-              message: 'Failed to fetch user info.',
-              color: 'red',
-            });
-            setError(true);
-          }
-        } else {
-          console.error('Error response from token endpoint:', data);
-          throw new Error(data.error || 'Unknown error');
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.accessToken || !data?.account) {
+          throw new Error(data?.error || 'Login could not be completed.');
         }
+
+        localStorage.setItem('accessToken', data.accessToken);
+        localStorage.setItem('currentUser', JSON.stringify(data.account));
+        localStorage.setItem('mastodonInstance', data.instance);
+        const accountName = data.account.display_name || `@${data.account.acct}`;
+        setStatus('success');
+        setMessage(`Signed in as ${accountName}`);
+        notifications.show({ title: 'Welcome to CrossWeave', message: `Signed in as @${data.account.acct}.`, color: 'green' });
+        const timeout = window.setTimeout(() => router.replace('/home'), 500);
+        return () => window.clearTimeout(timeout);
       } catch (error) {
-        notifications.show({
-          title: 'Error',
-          message: 'Login failed.',
-          color: 'red',
-        });
-        console.error('Error during token exchange:', error);
-        setError(true);
+        console.error('Mastodon login failed:', error);
+        setStatus('error');
+        setMessage(error instanceof Error ? error.message : 'Login could not be completed.');
       }
     };
 
-    const code = searchParams.get('code');
-    const state = searchParams.get('state');
-    const instance = `https://${state}`;
-    console.log('Authorization code:', code);
-    if (!code || !state) {
-      setError(true);
-      return;
-    }
-    if (localStorage.getItem('accessToken')) {
-      router.push('/home');
-      return;
-    }
-    fetchAccessToken(code, instance);
-  }, [searchParams, router]);
-
-  // On failure, send the user back to the login page after a short delay so
-  // they aren't stranded on a stalled spinner. The "Back to login" link below
-  // lets them leave immediately.
-  useEffect(() => {
-    if (!error) return;
-    const t = setTimeout(() => router.push('/'), 4000);
-    return () => clearTimeout(t);
-  }, [error, router]);
-
-  if (error) {
-    return (
-      <Center my={45}>
-        <Stack align="center" gap="xs">
-          <Text fw={500}>Login failed.</Text>
-          <Text size="sm" c="dimmed">Redirecting you to the login page…</Text>
-          <Anchor href="/">Back to login</Anchor>
-        </Stack>
-      </Center>
-    );
-  }
+    void finishLogin();
+  }, [router, searchParams]);
 
   return (
-    <Center>
-      <Loader color="blue" size={41} my={45} />
-    </Center>
+    <main className={classes.page}>
+      <section className={classes.card} aria-live="polite">
+        <CrossweaveLogo height={34} />
+        <div className={classes.statusIcon} data-status={status}>
+          {status === 'loading' && <Loader size={30} color="blue" />}
+          {status === 'success' && <IconCheck size={32} aria-hidden="true" />}
+          {status === 'error' && <IconAlertCircle size={32} aria-hidden="true" />}
+        </div>
+        <h1>{status === 'loading' ? 'Signing you in' : status === 'success' ? 'You’re signed in' : 'Login failed.'}</h1>
+        <Text className={classes.message}>{message}</Text>
+        {status === 'error' && (
+          <div className={classes.actions}>
+            <Button component="a" href="/api/auth/mastodon/start" color="dark">Try again</Button>
+            <Anchor href="/">Back to login</Anchor>
+          </div>
+        )}
+      </section>
+    </main>
   );
 }
-
 export default function Callback() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<main className={classes.page}><Loader /></main>}>
       <CallbackPage />
     </Suspense>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useMediaQuery } from "@mantine/hooks";
 import { HoverTooltip } from "../../components/HoverTooltip";
 import { TopNav, TOP_NAV_HEIGHT } from "../../components/NavBar/TopNav";
 import { RelatedStacksProvider } from "./related-stacks-context";
@@ -23,12 +24,14 @@ export default function Shell({
     aside: React.ReactNode;
 }) {
     const { ratio, setRatio, reset } = useFeedRatio();
+    const isNarrowViewport = useMediaQuery("(max-width: 48rem)", false);
 
     const groupRef = useRef<HTMLDivElement | null>(null);
     // Live width of the group minus the slider, so px drag-deltas map to ratio.
     const groupInnerRef = useRef<number>(1);
     const asideRef = useRef<HTMLDivElement | null>(null);
     const [hasAside, setHasAside] = useState(false);
+    const showAside = hasAside && !isNarrowViewport;
 
     // Measure the content group for the slider's px → ratio conversion.
     useEffect(() => {
@@ -57,7 +60,7 @@ export default function Shell({
     }, []);
 
     useEffect(() => {
-        if (!hasAside) return;
+        if (!showAside) return;
         const routeRightGutterWheel = (event: WheelEvent) => {
             const aside = asideRef.current;
             if (!aside || event.defaultPrevented || event.clientY < TOP_NAV_HEIGHT) return;
@@ -86,7 +89,7 @@ export default function Shell({
 
         window.addEventListener("wheel", routeRightGutterWheel, { passive: false });
         return () => window.removeEventListener("wheel", routeRightGutterWheel);
-    }, [hasAside]);
+    }, [showAside]);
 
     const onSliderResize = (deltaPx: number) => {
         const inner = groupInnerRef.current || 1;
@@ -123,11 +126,12 @@ export default function Shell({
                         // the focus/feed cards compress to icon-only when narrow.
                         containerType: "inline-size",
                         // With an aside, take the slider-controlled share of the row.
-                        // Without one (home / liked / bookmarks / search), render a
+                        // Without one (liked / bookmarks / search, or on a narrow
+                        // viewport), render a
                         // single centered reading column instead of a too-wide
                         // full-bleed feed — keeps the composer and posts aligned and
                         // consistent with the feed width when the aside is present.
-                        ...(hasAside
+                        ...(showAside
                             ? { flexGrow: ratio, flexBasis: 0, minWidth: 0 }
                             : { width: "100%", maxWidth: 760, margin: "0 auto" }),
                     }}
@@ -135,7 +139,7 @@ export default function Shell({
                     {children}
                 </div>
 
-                {hasAside && (
+                {showAside && (
                     <ResizableDivider
                         ariaLabel="Resize feed and related panels"
                         onResize={onSliderResize}
@@ -156,11 +160,11 @@ export default function Shell({
                     className="aside-scroll"
                     ref={asideRef}
                     style={{
-                        ...(hasAside
+                        ...(showAside
                             ? { flexGrow: 1 - ratio, flexBasis: 0 }
                             : { flexGrow: 0, flexBasis: 0 }),
                         minWidth: 0,
-                        display: hasAside ? "block" : "none",
+                        display: showAside ? "block" : "none",
                         alignSelf: "flex-start",
                         position: "sticky",
                         top: TOP_NAV_HEIGHT,

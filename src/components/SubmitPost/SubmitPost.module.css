@@ -11,6 +11,14 @@
   box-shadow: 0 8px 22px rgba(20, 33, 61, 0.07);
 }
 
+.timeline {
+  margin-bottom: 0;
+  border: 0;
+  border-bottom: 1px solid #deddd6;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 .threadRail {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -70,6 +78,27 @@
 
 .feedbackHint {
   color: #697386;
+}
+
+.composerMeta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.characterCount {
+  min-width: 2.2rem;
+  padding-left: 0.65rem;
+  color: #747d8d;
+  text-align: right;
+  border-left: 1px solid rgba(20, 33, 61, 0.14);
+  font-variant-numeric: tabular-nums;
+}
+
+.characterCount[data-near-limit='true'] {
+  color: #a9493d;
+  font-weight: 700;
 }
 
 .button {

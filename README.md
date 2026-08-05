@@ -12,11 +12,10 @@ pnpm install
 pnpm dev
 ```
 
-Then open <http://localhost:3000/ChineseEVs>. The feed, its post-detail pages,
-and the related-posts panel render entirely from local mock JSON
-(`src/app/FakeData/listy-injection.json`). Likes, bookmarks, and replies all
-work and persist locally in your browser via localStorage — nothing leaves
-your machine.
+Then open <http://localhost:3000/ChineseEVs>. The feed calls a bundled simulated
+backend (`/api/demo`) that serves cursor-paginated data from the local fixture
+with realistic latency. Likes, bookmarks, and replies all work and persist
+locally in your browser via localStorage — nothing leaves your machine.
 
 ## Prerequisites
 
@@ -54,7 +53,7 @@ reply-sort, thread-filter, reply-relations, and experiment-flag helpers.
 
 ## Connecting a live Mastodon-compatible backend (optional)
 
-Most of the app runs fully offline: the `/ChineseEVs` demo plus the `/home`,
+Most of the app runs fully offline: the `/ChineseEVs` simulated API plus the `/home`,
 `/search`, `/user`, `/bookmarks`, and `/liked` feeds are backed by a local
 store in your browser's localStorage. Only the legacy live-mode surfaces
 (`/posts/[id]`, `/tag`, `/oldversion`, `/explore`, `/annotation`) call the
@@ -107,6 +106,10 @@ Five terms recur throughout the UI, the docs, and the code:
   ratio slider) and its `@aside` parallel route for the related-posts panel.
 - `src/components/` — Reusable UI components (posts, related-posts panel,
   navigation, etc.).
+- `src/services/` — Typed frontend API clients. `demoApiClient.ts` is the swap
+  boundary between the bundled simulated route and a future live service.
+- `src/app/api/demo/` — Simulated backend handlers with delay, cursor pagination,
+  and backend-shaped AI enrichment metadata.
 - `src/utils/` — Helpers (Mastodon actions, the localStorage-backed store,
   experiment flags, dev-mode base URL, and more).
 - `src/app/FakeData/` — Local mock data used by the demo and the e2e tests.

@@ -1,114 +1,129 @@
 'use client';
 
-import {useState} from 'react';
-import { Text, Button, TextInput, Center, Container, Paper, Divider, Stack } from '@mantine/core';
-import { useForm } from '@mantine/form';
-import { notifications } from '@mantine/notifications';
+import { useState } from 'react';
+import { Anchor, Button, Divider, Text } from '@mantine/core';
+import { IconArrowRight, IconCheck, IconExternalLink, IconUserPlus } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { CrossweaveLogo } from '../components/NavBar/CrossweaveLogo';
+import { MASTODON_INSTANCE_URL } from '../utils/mastodonApi';
+import { prepareForMastodonLogin, startStudySession } from '../utils/studyMode';
 import classes from './LandingPage.module.css';
-import {BASE_URL} from "../utils/DevMode";
-import { prepareForMastodonLogin, startStudySession } from "../utils/studyMode";
 
-
-
-interface FormValues {
-  instanceDomain: string;
-}
-
-const redirectUri = `${BASE_URL}/callback`;
-const scopes = 'read write follow';
+const ACCOUNT_REGISTRATION_URL = `${MASTODON_INSTANCE_URL}/auth/sign_up`;
 
 export default function LandingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const form = useForm<FormValues>({
-    initialValues: {
-      instanceDomain: '',
-    },
-    validate: {
-      instanceDomain: (value) =>
-          /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)
-              ? null
-              : 'Please enter a valid instance domain, e.g., mastodon.social or beta.stacky.social',
-    },
-  });
-
   const handleLogin = () => {
     prepareForMastodonLogin();
     setIsLoading(true);
-    notifications.show({
-      title: 'Logging in',
-      message: 'Attempting to Login to Mastodon...',
-    });
-    const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
-    const instanceUrl = `https://${form.values.instanceDomain}`;
-    const authorizationUrl = `${instanceUrl}/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scopes}&state=${form.values.instanceDomain}`;
-    console.log("Authorization URL:", authorizationUrl);
-    window.location.href = authorizationUrl;
+    window.location.assign('/api/auth/mastodon/start');
   };
 
-  const handleStartStudy = () => {
+  const handleStartDemo = () => {
     startStudySession();
     router.push('/home');
   };
 
-
   return (
-    <>
-      <Center className={classes.landingPageContent}>
-        <Container size={460} className={classes.container}>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-            <CrossweaveLogo height={56} />
-          </div>
-          <Text c="dimmed" ta="center" size="md" className={classes.subtitle}>
-            AI-Curated Democratic Discourse
-          </Text>
+    <main className={classes.page}>
+      <div className={classes.weaveRail} aria-hidden="true">
+        <span /><span /><span /><span />
+      </div>
 
-          <Paper radius="lg" p="xl" withBorder className={classes.paper}>
-            <Stack gap="sm">
-              <Text size="xl" fw={700} ta="center">
-                Explore CrossWeave
-              </Text>
-              <Text size="sm" c="dimmed" ta="center">
-                Start with a fresh participant profile. No account or password is required.
-              </Text>
-              <Button
-                type="button"
-                fullWidth
-                size="md"
-                mt="sm"
-                radius="xl"
-                color="teal"
-                onClick={handleStartStudy}
-                data-testid="start-study-session"
-              >
-                Start study session
-              </Button>
-            </Stack>
+      <div className={classes.shell}>
+        <header className={classes.brandBar}>
+          <CrossweaveLogo height={38} />
+          <Text className={classes.instanceLabel}>A social space on Stacky</Text>
+        </header>
 
-            <Divider label="or" labelPosition="center" my="xl" />
-
-            <Text size="sm" fw={600} ta="center" mb="md" c="dimmed">
-              Continue with a Mastodon account
+        <div className={classes.layout}>
+          <section className={classes.introduction} aria-labelledby="welcome-title">
+            <Text className={classes.kicker}>Social conversation, with the missing context restored</Text>
+            <h1 id="welcome-title" className={classes.headline}>
+              Follow the conversation.<br />See how ideas connect.
+            </h1>
+            <Text className={classes.lede}>
+              CrossWeave is a Mastodon-powered community where posts stay familiar,
+              while related perspectives, evidence, and questions appear alongside them.
             </Text>
 
-            <form onSubmit={form.onSubmit(handleLogin)}>
-              <TextInput
-                required
-                radius="lg"
-                label="Mastodon Instance"
-                placeholder="instance domain"
-                {...form.getInputProps('instanceDomain')}
-              />
-              <Button type="submit" fullWidth loading={isLoading} mt="lg" radius="xl" color="gray" variant="light">
-                Continue with Mastodon
-              </Button>
-            </form>
-          </Paper>
-        </Container>
-      </Center>
-    </>
+            <ol className={classes.steps} aria-label="What you can do in CrossWeave">
+              <li><span><IconCheck size={16} /></span><div><strong>Read your real home timeline</strong><small>Posts from people you follow, fetched from Stacky.</small></div></li>
+              <li><span><IconCheck size={16} /></span><div><strong>Post and respond normally</strong><small>Your posts, likes, and bookmarks are saved to Mastodon.</small></div></li>
+              <li><span><IconCheck size={16} /></span><div><strong>Explore related responses</strong><small>CrossWeave adds context without changing the original post.</small></div></li>
+            </ol>
+
+            <div className={classes.threadPreview} aria-hidden="true">
+              <div className={classes.previewRail}><i /><i /><i /><i /></div>
+              <div className={classes.previewPost}><b /><span><i /><i /></span></div>
+              <div className={classes.previewBranch} />
+              <div className={classes.previewPost}><b /><span><i /><i /></span></div>
+              <div className={classes.previewContext}><em /><em /><em /></div>
+            </div>
+          </section>
+
+          <section className={classes.accessCard} aria-labelledby="access-title">
+            <div className={classes.cardHeader}>
+              <Text className={classes.cardEyebrow}>Your account</Text>
+              <h2 id="access-title" className={classes.cardTitle}>Sign in to CrossWeave</h2>
+              <Text className={classes.cardCopy}>
+                Continue with your Stacky account. You will confirm access on the Mastodon sign-in page.
+              </Text>
+            </div>
+
+            <Button
+              fullWidth
+              size="lg"
+              radius="md"
+              className={classes.primaryButton}
+              rightSection={<IconArrowRight size={18} />}
+              loading={isLoading}
+              onClick={handleLogin}
+              data-testid="mastodon-sign-in"
+            >
+              Sign in
+            </Button>
+
+            <Button
+              component="a"
+              href={ACCOUNT_REGISTRATION_URL}
+              fullWidth
+              size="md"
+              radius="md"
+              variant="outline"
+              className={classes.createButton}
+              leftSection={<IconUserPlus size={18} />}
+              rightSection={<IconExternalLink size={15} />}
+              data-testid="create-account"
+            >
+              Create an account
+            </Button>
+
+            <Text className={classes.privacyCopy}>
+              CrossWeave never receives your password. Authentication is handled by the Stacky Mastodon server.
+            </Text>
+
+            <Divider label="Want to look around first?" labelPosition="center" className={classes.divider} />
+
+            <button className={classes.demoButton} type="button" onClick={handleStartDemo} data-testid="start-study-session">
+              <span>
+                <strong>Explore the JSON demo</strong>
+                <small>No account needed · changes stay on this device</small>
+              </span>
+              <IconArrowRight size={18} />
+            </button>
+
+            <Text className={classes.terms}>
+              By continuing, you agree to follow the community rules.{' '}
+              <Anchor href={`${MASTODON_INSTANCE_URL}/about`} target="_blank" rel="noreferrer">
+                About this server
+              </Anchor>
+            </Text>
+          </section>
+        </div>
+      </div>
+    </main>
   );
 }
