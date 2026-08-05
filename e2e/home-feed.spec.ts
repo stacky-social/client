@@ -16,11 +16,53 @@ test.describe('Home timeline', () => {
   });
 
   test('shows real related responses and AI edits for an annotated focus post', async ({ page }) => {
+    // An existing participant may have the older, addition-only enrichment in
+    // localStorage. Read-only demo annotations should refresh without resetting
+    // their likes, bookmarks, follows, or authored posts.
+    await page.evaluate(() => {
+      const key = 'stacky:localStore:v1';
+      const state = JSON.parse(localStorage.getItem(key) || 'null');
+      const stacks = state?.posts?.['152053690']?.relatedStacks;
+      const michael = stacks?.find((stack: any) => stack.topPost?.id === '143196877');
+      if (michael) {
+        michael.topPost.rewrite = {
+          content: "To connect China's battery-factory lead with supply-chain practice, I work in sustainability for a leading European global brand that has 1000+ suppliers across the world.",
+          significant: true,
+          editSummary: 'Stale addition-only demo rewrite.',
+        };
+        localStorage.setItem(key, JSON.stringify(state));
+      }
+    });
+    await page.reload();
+
     const focus = page.locator('[data-store-feed-post="152053690"]');
     await focus.evaluate((element) => element.scrollIntoView({ block: 'center' }));
     await expect(focus.getByTestId('post')).toHaveAttribute('data-active', 'true');
     await expect(page.locator('[data-related-card]')).toHaveCount(10);
-    await expect(page.getByRole('button', { name: 'Modified by AI' }).first()).toBeVisible();
+
+    const michaelCard = page.locator('[data-post-id="143196877"]');
+    const badge = michaelCard.getByRole('button', { name: 'Modified by AI' });
+    const editedText = michaelCard.locator('[data-ai-edited-default]');
+    const inlineDiff = michaelCard.locator('[data-ai-inline-diff]');
+    await expect(badge).toBeVisible();
+    await expect(editedText).toContainText('I work on sustainability for a major European brand');
+    await expect(inlineDiff).toHaveAttribute('aria-hidden', 'true');
+    const beforeHover = await michaelCard.boundingBox();
+
+    await badge.hover();
+
+    await expect(inlineDiff).toHaveAttribute('aria-hidden', 'false');
+    const deletedText = (await inlineDiff.locator('del').allTextContents()).join('');
+    const insertedText = (await inlineDiff.locator('ins').allTextContents()).join('');
+    expect(deletedText).toContain('in');
+    expect(deletedText).toContain('leading');
+    expect(deletedText).toContain('global');
+    expect(insertedText).toContain("To connect China's battery-factory lead");
+    expect(insertedText).toContain('on');
+    expect(insertedText).toContain('major');
+    const afterHover = await michaelCard.boundingBox();
+    expect(afterHover?.width).toBeCloseTo(beforeHover!.width, 2);
+    expect(afterHover?.height).toBeCloseTo(beforeHover!.height, 2);
   });
 
   test('keeps the right column blank and the feed width stable for a post with no relations', async ({ page }) => {

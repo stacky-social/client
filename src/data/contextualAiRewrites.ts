@@ -45,8 +45,8 @@ const REWRITE_INSTRUCTIONS: Record<string, RewriteInstruction> = {
   },
   "152053690:143196877": {
     from: "I work in sustainability for a leading European global brand that has 1000+ suppliers across the world.",
-    to: "To connect China's battery-factory lead with supply-chain practice, I work in sustainability for a leading European global brand that has 1000+ suppliers across the world.",
-    editSummary: "Makes the supply-chain connection visible before the supporting example.",
+    to: "To connect China's battery-factory lead with supply-chain practice, I work on sustainability for a major European brand that has 1000+ suppliers across the world.",
+    editSummary: "Makes the supply-chain connection explicit and tightens the wording of the supporting example.",
   },
 };
 

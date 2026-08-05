@@ -337,26 +337,18 @@ function load(): LocalState {
     const posts: Record<string, Post> = { ...seed.posts, ...persistedPosts };
 
     // Migrate existing v1 browser data without discarding likes, bookmarks, or
-    // user-created posts. Older snapshots intentionally stored empty relation
-    // arrays, so restore only the seeded read-only enrichment fields here.
+    // user-created posts. Related stacks, annotations, and contextual rewrites
+    // are read-only fixture enrichment, so always refresh those fields from the
+    // latest seed instead of pinning a participant to a stale demo payload.
     for (const [id, seededPost] of Object.entries(seed.posts)) {
       const persistedPost = persistedPosts[id];
       if (!persistedPost) continue;
       posts[id] = {
         ...seededPost,
         ...persistedPost,
-        relatedStacks:
-          persistedPost.relatedStacks?.length > 0
-            ? persistedPost.relatedStacks
-            : seededPost.relatedStacks,
-        focusRelations:
-          persistedPost.focusRelations?.length > 0
-            ? persistedPost.focusRelations
-            : seededPost.focusRelations,
-        stackCount:
-          persistedPost.relatedStacks?.length > 0
-            ? persistedPost.stackCount
-            : seededPost.stackCount,
+        relatedStacks: seededPost.relatedStacks,
+        focusRelations: seededPost.focusRelations,
+        stackCount: seededPost.stackCount,
       };
     }
 
