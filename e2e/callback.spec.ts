@@ -14,4 +14,38 @@ test.describe('OAuth callback', () => {
     await expect(backLink).toBeVisible();
     await expect(backLink).toHaveAttribute('href', '/');
   });
+
+  test('stores only the returned user session and continues to the real home timeline', async ({ page }) => {
+    await page.route('**/api/auth/mastodon/callback', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        accessToken: 'test-access-token',
+        account: {
+          id: 'account-1',
+          username: 'river',
+          acct: 'river',
+          display_name: 'River Chen',
+          avatar: '/avatar/stacky_default.PNG',
+        },
+        instance: 'https://beta.stacky.social',
+      }),
+    }));
+    await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: '[]',
+    }));
+
+    await page.goto('/callback?code=test-code&state=test-state');
+    await expect(page).toHaveURL(/\/home$/);
+    const session = await page.evaluate(() => ({
+      token: localStorage.getItem('accessToken'),
+      account: JSON.parse(localStorage.getItem('currentUser') || 'null'),
+      instance: localStorage.getItem('mastodonInstance'),
+    }));
+    expect(session.token).toBe('test-access-token');
+    expect(session.account.acct).toBe('river');
+    expect(session.instance).toBe('https://beta.stacky.social');
+  });
 });

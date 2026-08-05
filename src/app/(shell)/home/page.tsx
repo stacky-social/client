@@ -1,9 +1,14 @@
 "use client";
 import React from 'react';
+import { Loader } from '@mantine/core';
 import Posts from '../../../components/Posts/Posts';
+import { MASTODON_INSTANCE_URL } from '../../../utils/mastodonApi';
+import { useAccessToken } from '../../../utils/useAccessToken';
 import classes from './Home.module.css';
 
 export default function Home() {
+    const { token, ready } = useAccessToken();
+
     return (
         <main className={classes.timeline} aria-labelledby="home-title">
             <header className={classes.header}>
@@ -16,12 +21,21 @@ export default function Home() {
                     Latest
                 </div>
             </header>
-            <Posts
-                source="home"
-                loadStackInfo
-                showSubmitAndSearch
-                showLoadMore={false}
-            />
+            {!ready ? (
+                <div style={{ display: 'grid', minHeight: 180, placeItems: 'center' }} aria-label="Loading your timeline">
+                    <Loader color="blue" size="sm" />
+                </div>
+            ) : (
+                <div data-feed-mode={token ? 'mastodon' : 'json-demo'}>
+                    <Posts
+                        apiUrl={token ? `${MASTODON_INSTANCE_URL}/api/v1/timelines/home` : undefined}
+                        source={token ? undefined : 'home'}
+                        loadStackInfo
+                        showSubmitAndSearch
+                        showLoadMore={Boolean(token)}
+                    />
+                </div>
+            )}
         </main>
     );
 }

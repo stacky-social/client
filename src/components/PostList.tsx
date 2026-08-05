@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { LoadingOverlay, Button, Box, Paper, Text, Anchor } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import Link from 'next/link';
@@ -7,6 +7,12 @@ import { Virtuoso } from 'react-virtuoso';
 import { PostType } from '../types/PostType';
 import Post from './Posts/Post';
 import axios from 'axios';
+import {
+    MASTODON_STATUS_CREATED_EVENT,
+    RELATED_POSTS_API_URL,
+    type MastodonStatus,
+} from '../utils/mastodonApi';
+import { nextMaxIdFromLink } from '../utils/mastodonPagination.mjs';
 import {
     useLocalStore,
     useHydrated,
@@ -70,13 +76,40 @@ function storeToPost(post: StorePost): PostType {
     };
 }
 
-const MastodonInstanceUrl = 'https://beta.stacky.social:3002';
+function mastodonStatusToPost(post: MastodonStatus, loadStackInfo: boolean): PostType {
+    return {
+        postId: post.id,
+        text: post.content,
+        author: post.account.display_name || post.account.username,
+        account: post.account.acct,
+        avatar: post.account.avatar,
+        createdAt: post.created_at,
+        replies: post.replies_count as unknown as PostType['replies'],
+        replies_count: post.replies_count,
+        stackCount: loadStackInfo ? null : -1,
+        favouritesCount: post.favourites_count,
+        favourited: post.favourited,
+        bookmarked: post.bookmarked,
+        mediaAttachments: (post.media_attachments || []).map((attachment) => attachment.url),
+        relatedStacks: [],
+        focusRelations: [],
+        inReplyToId: typeof post.in_reply_to_id === 'string' ? post.in_reply_to_id : null,
+        replyingToAccount: null,
+        previewCard: post.card ? {
+            title: post.card.title,
+            description: post.card.description,
+            image: post.card.image || undefined,
+            url: post.card.url,
+        } : null,
+    };
+}
 
 // Module-level cache survives component remounts during SPA navigation
 // without the size limits of sessionStorage
 interface PostListCache {
     posts: PostType[];
     maxId: string | null;
+    hasMore: boolean;
     timestamp: number;
     fetchedAt: number;
 }
@@ -167,6 +200,9 @@ const ApiFeed: React.FC<PostListProps> = ({
     const [loading, setLoading] = useState(() => !hasCachedData);
     const [loadingMore, setLoadingMore] = useState(false);
     const [maxId, setMaxId] = useState<string | null>(() => cachedSnapshot.current?.maxId ?? null);
+    const maxIdRef = useRef<string | null>(maxId);
+    maxIdRef.current = maxId;
+    const [hasMore, setHasMore] = useState(() => cachedSnapshot.current?.hasMore ?? Boolean(cachedSnapshot.current?.maxId));
     const hasAutoHighlightedFirstPostRef = useRef(false);
     const hasPublishedFirstPostStacksRef = useRef(false);
     const scrollStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -174,6 +210,7 @@ const ApiFeed: React.FC<PostListProps> = ({
     const manualActiveIdRef = useRef<string | null>(null);
     const manualLockRef = useRef(false);
     const fetchKeyRef = useRef<string | null>(null);
+    const loadMoreInFlightRef = useRef(false);
     const restoredScrollRef = useRef(false);
 
     // Currently-viewport-intersecting post nodes, keyed by data-post-id. Kept up
@@ -258,30 +295,6 @@ const ApiFeed: React.FC<PostListProps> = ({
         fetchPosts();
     }, [apiUrl, accessToken, loadStackInfo, ready]);
 
-    const mapResponseToPosts = (data: any[]): PostType[] =>
-        data.map((post: any) => ({
-            postId: post.id,
-            text: post.content,
-            author: post.account.username,
-            account: post.account.acct,
-            avatar: post.account.avatar,
-            createdAt: post.created_at,
-            replies: post.replies_count,
-            replies_count: post.replies_count,
-            stackCount: loadStackInfo ? null : -1,
-            favouritesCount: post.favourites_count,
-            favourited: post.favourited,
-            bookmarked: post.bookmarked,
-            mediaAttachments: (post.media_attachments || []).map((m: any) => m.url),
-            relatedStacks: [],
-            previewCard: post.card ? {
-                title: post.card.title,
-                description: post.card.description,
-                image: post.card.image || undefined,
-                url: post.card.url,
-            } : null
-        }));
-
     const fetchPosts = async (isLoadMore = false) => {
         try {
             if (isLoadMore) {
@@ -297,20 +310,30 @@ const ApiFeed: React.FC<PostListProps> = ({
                 headers,
                 params: {
                     limit: 40,
-                    ...(maxId && { max_id: maxId }) // 如果有 maxId 就加上 max_id 参数
+                    ...(isLoadMore && maxIdRef.current && { max_id: maxIdRef.current })
                 }
             });
 
-            const data: PostType[] = mapResponseToPosts(response.data);
+            const data: PostType[] = (response.data as MastodonStatus[])
+                .map((post) => mastodonStatusToPost(post, loadStackInfo));
 
-            setPosts((prevPosts) => isLoadMore ? [...prevPosts, ...data] : data);
-            if (data.length > 0) {
-                setMaxId(data[data.length - 1].postId);
-            }
+            setPosts((prevPosts) => {
+                if (!isLoadMore) return data;
+                const seen = new Set(prevPosts.map((post) => post.postId));
+                return [...prevPosts, ...data.filter((post) => !seen.has(post.postId))];
+            });
+            const linkedNextId = nextMaxIdFromLink(response.headers.link);
+            // Link is authoritative. The full-page fallback supports older or
+            // proxied Mastodon responses that strip the header.
+            const nextId = linkedNextId ?? (data.length === 40 ? data[data.length - 1]?.postId ?? null : null);
+            maxIdRef.current = nextId;
+            setMaxId(nextId);
+            setHasMore(Boolean(nextId));
 
-            if (loadStackInfo) {
-                await loadStackDataInBatches(data, 2);
-            }
+            // Timeline content is the critical path. Related metadata hydrates
+            // after the posts are visible, so a slow auxiliary service never
+            // blocks reading or pagination.
+            if (loadStackInfo) void loadStackDataInBatches(data, 2);
         } catch (error) {
             console.error('Error fetching Mastodon data:', error);
             notifications.show({
@@ -321,12 +344,14 @@ const ApiFeed: React.FC<PostListProps> = ({
         } finally {
             setLoading(false);
             setLoadingMore(false);
+            if (isLoadMore) loadMoreInFlightRef.current = false;
         }
     };
 
     const handleLoadMore = () => {
-        if (loadingMore || loading) return;
-        fetchPosts(true);
+        if (loadingMore || loading || !hasMore || !maxIdRef.current || loadMoreInFlightRef.current) return;
+        loadMoreInFlightRef.current = true;
+        void fetchPosts(true);
     };
 
     const getScrollAnchor = (): { postId: string; offsetFromViewport: number } | null => {
@@ -353,7 +378,8 @@ const ApiFeed: React.FC<PostListProps> = ({
                 params: { limit: 40 },
             });
 
-            const freshPosts: PostType[] = mapResponseToPosts(response.data);
+            const freshPosts: PostType[] = (response.data as MastodonStatus[])
+                .map((post) => mastodonStatusToPost(post, loadStackInfo));
 
             // Capture scroll anchor before updating state
             const anchor = getScrollAnchor();
@@ -383,10 +409,11 @@ const ApiFeed: React.FC<PostListProps> = ({
                 return merged;
             });
 
-            // Update maxId for Load More continuity
-            if (freshPosts.length > 0) {
-                setMaxId(freshPosts[freshPosts.length - 1].postId);
-            }
+            const linkedNextId = nextMaxIdFromLink(response.headers.link);
+            const nextId = linkedNextId ?? (freshPosts.length === 40 ? freshPosts[freshPosts.length - 1]?.postId ?? null : null);
+            maxIdRef.current = nextId;
+            setMaxId(nextId);
+            setHasMore(Boolean(nextId));
 
             // Restore scroll position after merge
             if (anchor) {
@@ -557,16 +584,14 @@ const ApiFeed: React.FC<PostListProps> = ({
         hasAutoHighlightedFirstPostRef.current = true;
     }, [posts, activePostId, handleStackIconClick, setActivePostId, loadStackInfo]);
 
-    const loadStackDataInBatches = async (posts: PostType[], batchSize: number) => {
+    const loadStackDataInBatches = useCallback(async (posts: PostType[], batchSize: number) => {
         for (let i = 0; i < posts.length; i += batchSize) {
             const batch = posts.slice(i, i + batchSize);
             await Promise.all(batch.map(async (post) => {
                 try {
-                    const headers: Record<string, string> = {};
-                    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-                    const response = await axios.get(`${MastodonInstanceUrl}/stacks/${post.postId}/related`, { headers });
-                    const stackData = response.data.relatedStacks || [];
-                    const stackCount = response.data.size;
+                    const response = await axios.get(`${RELATED_POSTS_API_URL}/stacks/${post.postId}/related`);
+                    const stackData = Array.isArray(response.data.relatedStacks) ? response.data.relatedStacks : [];
+                    const stackCount = Number.isFinite(response.data.size) ? response.data.size : stackData.length;
                     setPosts((prevPosts) =>
                         prevPosts.map((p) =>
                             p.postId === post.postId
@@ -575,11 +600,35 @@ const ApiFeed: React.FC<PostListProps> = ({
                         )
                     );
                 } catch (error) {
-                    console.error(`Error fetching stack data for post ${post.postId}:`, error);
+                    // Most Mastodon statuses will not have CrossWeave relations.
+                    // Resolve those lookups to a stable empty value so focus and
+                    // pagination never wait forever on an optional service.
+                    console.warn(`No related-post data for ${post.postId}:`, error);
+                    setPosts((prevPosts) =>
+                        prevPosts.map((candidate) =>
+                            candidate.postId === post.postId
+                                ? { ...candidate, stackCount: 0, relatedStacks: [] }
+                                : candidate
+                        )
+                    );
                 }
             }));
         }
-    };
+    }, []);
+
+    // A successful composer POST returns the canonical Mastodon status. Insert
+    // it immediately, then hydrate related-post metadata in the background.
+    useEffect(() => {
+        const onStatusCreated = (event: Event) => {
+            const status = (event as CustomEvent<MastodonStatus>).detail;
+            if (!status?.id) return;
+            const created = mastodonStatusToPost(status, loadStackInfo);
+            setPosts((current) => [created, ...current.filter((post) => post.postId !== created.postId)]);
+            if (loadStackInfo) void loadStackDataInBatches([created], 1);
+        };
+        window.addEventListener(MASTODON_STATUS_CREATED_EVENT, onStatusCreated);
+        return () => window.removeEventListener(MASTODON_STATUS_CREATED_EVENT, onStatusCreated);
+    }, [loadStackInfo, loadStackDataInBatches]);
 
     // Save to in-memory cache whenever posts update (even partially loaded stacks)
     useEffect(() => {
@@ -587,11 +636,12 @@ const ApiFeed: React.FC<PostListProps> = ({
         cacheSet(cacheKeyFor(apiUrl, accessToken), {
             posts,
             maxId,
+            hasMore,
             timestamp: Date.now(),
             fetchedAt: Date.now(),
         });
         pruneCache(postListCacheMap, MAX_CACHE_ENTRIES);
-    }, [posts, loading, apiUrl, maxId, accessToken]);
+    }, [posts, loading, apiUrl, maxId, hasMore, accessToken]);
 
     const renderPost = (_index: number, post: PostType) => (
         <div
@@ -630,7 +680,7 @@ const ApiFeed: React.FC<PostListProps> = ({
     );
 
     const Footer = () => {
-        if (!showLoadMore || loading) return null;
+        if (!showLoadMore || loading || !hasMore) return null;
         return (
             <div style={{ textAlign: 'center', margin: '20px 0' }}>
                 <Button onClick={handleLoadMore} disabled={loadingMore}
@@ -641,10 +691,24 @@ const ApiFeed: React.FC<PostListProps> = ({
         );
     };
 
+    const emptyCopy = apiUrl.includes('/bookmarks')
+        ? 'No Mastodon bookmarks yet.'
+        : apiUrl.includes('/favourites')
+            ? 'No liked Mastodon posts yet.'
+            : apiUrl.includes('/timelines/home')
+                ? 'Your Mastodon home timeline is empty.'
+                : 'No posts found.';
+
     return (
         <Box style={{ width: '100%', position: 'relative', minHeight: 80 }}>
             <LoadingOverlay visible={loading} overlayProps={{ radius: "sm", blur: 2 }} />
-            {!loading && (
+            {!loading && posts.length === 0 && (
+                <Paper withBorder radius="md" p="xl" style={{ textAlign: 'center', marginTop: 16 }} data-testid="api-feed-empty">
+                    <Text fw={600}>{emptyCopy}</Text>
+                    <Text size="sm" c="dimmed" mt={4}>There is nothing to show from the server right now.</Text>
+                </Paper>
+            )}
+            {!loading && posts.length > 0 && (
                 <Virtuoso
                     useWindowScroll
                     data={posts}
@@ -652,7 +716,7 @@ const ApiFeed: React.FC<PostListProps> = ({
                     computeItemKey={(_index: number, post: PostType) => post.postId}
                     // Auto-load the next page when the user nears the end (in
                     // addition to the explicit Load more button in the footer).
-                    endReached={showLoadMore ? () => handleLoadMore() : undefined}
+                    endReached={showLoadMore && hasMore ? () => handleLoadMore() : undefined}
                     increaseViewportBy={600}
                     components={{ Footer }}
                 />

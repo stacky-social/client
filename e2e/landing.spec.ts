@@ -1,57 +1,35 @@
 import { test, expect } from '@playwright/test';
 
-// Study Mode is the primary participant entry; Mastodon OAuth remains available
-// as the visually-secondary production login path.
 test.describe('Landing page', () => {
-  test('renders the primary study entry, secondary login, and branding', async ({ page }) => {
+  test('makes real account access primary and the JSON demo explicit', async ({ page }) => {
     await page.goto('/');
 
-    // Headline + subtitle.
-    await expect(page.getByText('Explore CrossWeave')).toBeVisible();
-    await expect(page.getByText('AI-Curated Democratic Discourse')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Start study session' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Follow the conversation. See how ideas connect.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Sign in to CrossWeave' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
 
-    // Instance input (labelled "Mastodon Instance") + Login button.
-    await expect(page.getByLabel('Mastodon Instance')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Continue with Mastodon' })).toBeVisible();
+    const createAccount = page.getByRole('link', { name: /Create an account/ });
+    await expect(createAccount).toHaveAttribute('href', 'https://beta.stacky.social/auth/sign_up');
+    await expect(page.getByRole('button', { name: /Explore the JSON demo/ })).toBeVisible();
 
-    // Brand lockup: the CrossWeave mark (one inline SVG) + wordmark.
-    await expect(page.getByRole('img', { name: 'CrossWeave logo' })).toHaveCount(1);
     await expect(page.getByText('CrossWeave', { exact: true })).toBeVisible();
+    await expect(page.getByRole('img', { name: 'CrossWeave logo' })).toHaveCount(1);
   });
 
-  test('rejects an invalid instance domain without navigating', async ({ page }) => {
+  test('starts OAuth through the same-origin secure route', async ({ page }) => {
+    await page.route('**/api/auth/mastodon/start', (route) => route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: '<p>OAuth handoff intercepted</p>',
+    }));
+    const requestPromise = page.waitForRequest('**/api/auth/mastodon/start');
+
     await page.goto('/');
+    await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await page.getByLabel('Mastodon Instance').fill('notadomain');
-    await page.getByRole('button', { name: 'Continue with Mastodon' }).click();
-
-    // Validation message appears (form regex: ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$).
-    await expect(page.getByText(/valid instance domain/i)).toBeVisible();
-
-    // No navigation occurred — still on "/".
-    expect(new URL(page.url()).pathname).toBe('/');
-  });
-
-  test('a valid instance builds the OAuth authorize URL', async ({ page }) => {
-    await page.goto('/');
-
-    // Block any outbound request to the chosen instance so we don't actually
-    // leave the app — we only want to inspect the URL the form builds.
-    await page.route('https://mastodon.social/**', (route) => route.abort());
-
-    const reqPromise = page.waitForRequest(/\/oauth\/authorize\?/);
-
-    await page.getByLabel('Mastodon Instance').fill('mastodon.social');
-    await page.getByRole('button', { name: 'Continue with Mastodon' }).click();
-
-    const req = await reqPromise;
-    const url = req.url();
-    expect(url).toContain('client_id=');
-    expect(url).toContain('redirect_uri=');
-    expect(url).toContain('response_type=code');
-    expect(url).toContain('scope=');
-    expect(url).toContain('state=mastodon.social');
+    const request = await requestPromise;
+    expect(new URL(request.url()).pathname).toBe('/api/auth/mastodon/start');
+    await expect(page.getByText('OAuth handoff intercepted')).toBeVisible();
   });
 
   test('starts and ends a clean local participant session', async ({ page }) => {
@@ -67,8 +45,9 @@ test.describe('Landing page', () => {
       sessionStorage.setItem('previousPath:/somewhere', '/old');
     });
 
-    await page.getByRole('button', { name: 'Start study session' }).click();
+    await page.getByRole('button', { name: /Explore the JSON demo/ }).click();
     await expect(page).toHaveURL(/\/home$/);
+    await expect(page.locator('[data-feed-mode="json-demo"]')).toBeVisible();
     await expect(page.getByRole('button', { name: 'End study session' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Experiment settings' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Logout' })).toHaveCount(0);
@@ -103,8 +82,6 @@ test.describe('Landing page', () => {
 
     await page.reload();
     await expect(page.getByRole('button', { name: 'End study session' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Experiment settings' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Logout' })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'End study session' }).click();
     await expect(page).toHaveURL(/\/$/);

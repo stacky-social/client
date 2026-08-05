@@ -1046,14 +1046,12 @@ function Post({
     setLikeCount((c) => Math.max(0, c + (wasLiked ? -1 : 1)));
 
     try {
-      // Persists to the local store (flips liked[] + favourites_count) and returns
-      // { ok: true, value: <new liked state> }. ok is always true in local mode,
-      // so this just confirms the optimistic update; the revert path is retained
-      // for the future swap back to REST.
+      // Persists to Mastodon when authenticated and to the local JSON store in
+      // demo mode, then confirms or reverts the optimistic state.
       const result = await toggleFavourite(id, wasLiked);
       if (!mountedRef.current) return;
       if (result.ok) {
-        // Confirm against the store's authoritative new state.
+        // Confirm against the active data source's authoritative state.
         setLiked(result.value);
         showUndoableAction({
           title: result.value ? 'Post liked' : 'Like removed',
@@ -1099,9 +1097,8 @@ function Post({
     setBookmarkedState(!wasBookmarked);
 
     try {
-      // Persists to the local store (flips bookmarked[]) and returns
-      // { ok: true, value: <new bookmarked state> }. ok is always true in local
-      // mode; the revert path is retained for the future swap back to REST.
+      // Persists to Mastodon when authenticated and to the local JSON store in
+      // demo mode, then confirms or reverts the optimistic state.
       const result = await toggleBookmark(id, wasBookmarked);
       if (!mountedRef.current) return;
       if (result.ok) {

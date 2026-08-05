@@ -14,10 +14,6 @@ import CrossweaveLogo from "./CrossweaveLogo";
 import { ExperimentPanel } from "./ExperimentPanel";
 import { endStudySession, useStudyMode } from "../../utils/studyMode";
 
-const MastodonInstanceUrl = "https://beta.stacky.social";
-const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
-const clientSecret = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_SECRET;
-
 /** Height of the sticky top nav bar (used by the shell for sticky offsets). */
 export const TOP_NAV_HEIGHT = 56;
 
@@ -44,14 +40,9 @@ export function TopNav() {
             typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
         try {
             if (accessToken) {
-                await fetch(`${MastodonInstanceUrl}/oauth/revoke`, {
+                await fetch('/api/auth/mastodon/revoke', {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        client_id: clientId,
-                        client_secret: clientSecret,
-                        token: accessToken,
-                    }),
+                    headers: { Authorization: `Bearer ${accessToken}` },
                 });
             }
         } catch (error) {
@@ -63,6 +54,7 @@ export function TopNav() {
             localStorage.removeItem("accessToken");
             localStorage.removeItem("currentUser");
             localStorage.removeItem("authCode");
+            localStorage.removeItem("mastodonInstance");
             // Session-scoped scroll/back-navigation keys shouldn't outlive the
             // login either.
             sessionStorage.clear();

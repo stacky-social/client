@@ -29,12 +29,15 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, show
     }, [activePostId, asideActivePostId, asideStacks, setFromPost]);
 
     return (
-        <div style={{ position: 'relative' }} data-home-timeline={source === 'home' ? 'true' : undefined}>
+        <div
+            style={{ position: 'relative' }}
+            data-home-timeline={source === 'home' || apiUrl?.includes('/timelines/home') ? 'true' : undefined}
+        >
             <div>
                 {showSubmitAndSearch && (
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: source === 'home' ? 0 : '2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: source === 'home' || apiUrl?.includes('/timelines/home') ? 0 : '2rem' }}>
                         <div style={{ width: '100%' }}>
-                            <SubmitPost appearance={source === 'home' ? 'timeline' : 'card'} />
+                            <SubmitPost appearance={source === 'home' || apiUrl?.includes('/timelines/home') ? 'timeline' : 'card'} />
                         </div>
                     </div>
                 )}
