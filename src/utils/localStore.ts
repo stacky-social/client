@@ -557,6 +557,23 @@ export function getHomeFeed(): Post[] {
 }
 
 /**
+ * JSON-backed posts authored by accounts the participant explicitly followed.
+ *
+ * Authenticated Home uses this as a temporary supplemental source beside the
+ * real Mastodon timeline. Once the curated corpus is imported into Mastodon,
+ * the same UI can rely on the server timeline and remove this adapter.
+ */
+export function getFollowedDemoFeed(): Post[] {
+  return memoized("followedDemo", () => {
+    const followed = new Set(state.following);
+    if (followed.size === 0) return [];
+    return Object.values(state.posts)
+      .filter((post) => followed.has(post.account.acct))
+      .sort(byNewest);
+  });
+}
+
+/**
  * Bookmarked posts, newest first.
  *
  * REST: GET /api/v1/bookmarks
@@ -760,8 +777,8 @@ export function toggleFollow(acct: string): { following: boolean } {
 
 /**
  * Distinct authors of the hashtag's posts — everyone whose post is in the feed,
- * excluding the local user. Backs the "Follow hashtag" action, which surfaces the
- * whole conversation on Home by following all of them.
+ * excluding the local user. Backs the "Follow demo feed" action, which surfaces
+ * the whole conversation on Home by following all of them.
  */
 export function getHashtagAuthors(): string[] {
   return memoized("hashtagAuthors", () => {

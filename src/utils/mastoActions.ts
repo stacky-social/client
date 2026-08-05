@@ -1,4 +1,8 @@
-import { toggleLike as storeToggleLike, toggleBookmark as storeToggleBookmark } from './localStore';
+import {
+  getPost as getStorePost,
+  toggleLike as storeToggleLike,
+  toggleBookmark as storeToggleBookmark,
+} from './localStore';
 import axios from 'axios';
 import { MASTODON_INSTANCE_URL } from './mastodonApi';
 
@@ -33,6 +37,9 @@ function getAccessToken(): string | null {
 export type ToggleResult = { ok: boolean; value: boolean };
 
 export async function toggleFavourite(postId: string, currentlyFavourited: boolean): Promise<ToggleResult> {
+  // Curated/demo posts remain JSON-backed during the migration. Their ids do
+  // not exist in Mastodon yet, even when the viewer is authenticated.
+  if (getStorePost(postId)) return storeToggleLike(postId);
   const token = getAccessToken();
   if (!token) return storeToggleLike(postId);
   try {
@@ -51,6 +58,7 @@ export async function toggleFavourite(postId: string, currentlyFavourited: boole
 }
 
 export async function toggleBookmark(postId: string, currentlyBookmarked: boolean): Promise<ToggleResult> {
+  if (getStorePost(postId)) return storeToggleBookmark(postId);
   const token = getAccessToken();
   if (!token) return storeToggleBookmark(postId);
   try {

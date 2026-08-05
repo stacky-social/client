@@ -65,6 +65,23 @@ test.describe('Mastodon-backed client mode', () => {
     expect(authorization).toMatch(/^Bearer backend-token-/);
   });
 
+  test('blends an explicitly followed demo feed into authenticated Home', async ({ page }) => {
+    await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([]),
+    }));
+
+    await page.goto('/ChineseEVs');
+    await page.getByRole('button', { name: 'Follow demo feed' }).click();
+    await expect(page.getByText('Following demo feed', { exact: true }).first()).toBeVisible();
+
+    await page.goto('/home');
+    await expect(page.locator('[data-feed-mode="mastodon"]')).toBeVisible();
+    await expect(page.locator('[data-feed-origin="demo"]').first()).toBeVisible();
+    await expect(page.getByText('Your Mastodon home timeline is empty.')).toHaveCount(0);
+  });
+
   test('publishes through Mastodon and prepends the canonical returned status', async ({ page }) => {
     await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) => route.fulfill({
       status: 200,

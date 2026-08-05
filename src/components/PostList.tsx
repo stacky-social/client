@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { LoadingOverlay, Button, Box, Paper, Text, Anchor } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import Link from 'next/link';
@@ -17,6 +17,7 @@ import {
     useLocalStore,
     useHydrated,
     getHomeFeed,
+    getFollowedDemoFeed,
     getBookmarks,
     getLiked,
     getPost,
@@ -162,6 +163,8 @@ interface PostListProps {
     setActivePostId: (id: string | null) => void;
     showLoadMore?: boolean;
     ready: boolean;
+    /** Blend explicitly followed JSON posts into an authenticated timeline. */
+    includeFollowedDemo?: boolean;
     /** When set, the feed reads reactively from the localStore instead of fetching `apiUrl`. */
     source?: FeedSource;
 }
@@ -187,6 +190,7 @@ const ApiFeed: React.FC<PostListProps> = ({
     setActivePostId,
     showLoadMore = false,
     ready,
+    includeFollowedDemo = false,
 }) => {
     // Check cache synchronously during initialization to avoid a loading flash.
     // Stored in a ref so subsequent renders don't re-evaluate the cache check.
@@ -197,6 +201,25 @@ const ApiFeed: React.FC<PostListProps> = ({
     const hasCachedData = !!cachedSnapshot.current;
 
     const [posts, setPosts] = useState<PostType[]>(() => cachedSnapshot.current?.posts ?? []);
+    const localHydrated = useHydrated();
+    const followedDemoStorePosts = useLocalStore(() => getFollowedDemoFeed());
+    const followedDemoPosts = useMemo(
+        () => includeFollowedDemo && localHydrated
+            ? followedDemoStorePosts.map(storeToPost)
+            : [],
+        [followedDemoStorePosts, includeFollowedDemo, localHydrated],
+    );
+    const followedDemoIds = useMemo(
+        () => new Set(followedDemoPosts.map((post) => post.postId)),
+        [followedDemoPosts],
+    );
+    const displayPosts = useMemo(() => {
+        const unique = new Map<string, PostType>();
+        for (const post of [...posts, ...followedDemoPosts]) unique.set(post.postId, post);
+        return Array.from(unique.values()).sort(
+            (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
+        );
+    }, [posts, followedDemoPosts]);
     const [loading, setLoading] = useState(() => !hasCachedData);
     const [loadingMore, setLoadingMore] = useState(false);
     const [maxId, setMaxId] = useState<string | null>(() => cachedSnapshot.current?.maxId ?? null);
@@ -259,7 +282,7 @@ const ApiFeed: React.FC<PostListProps> = ({
     // Mirror reactive values into refs so the scroll listener can attach ONCE
     // (stable deps) and still read the latest posts/activePostId/callbacks. This
     // avoids re-subscribing the window scroll listener on every posts update.
-    const postsRef = useRef(posts); postsRef.current = posts;
+    const postsRef = useRef(displayPosts); postsRef.current = displayPosts;
     const activePostIdRef = useRef(activePostId); activePostIdRef.current = activePostId;
     const handleStackIconClickRef = useRef(handleStackIconClick); handleStackIconClickRef.current = handleStackIconClick;
     const setActivePostIdRef = useRef(setActivePostId); setActivePostIdRef.current = setActivePostId;
@@ -549,8 +572,8 @@ const ApiFeed: React.FC<PostListProps> = ({
     // If the first post is already highlighted before its stacks load,
     // publish its related stacks to the aside once they arrive
     useEffect(() => {
-        if (!loadStackInfo || posts.length === 0) return;
-        const first = posts[0];
+        if (!loadStackInfo || displayPosts.length === 0) return;
+        const first = displayPosts[0];
         if (
             activePostId === first.postId &&
             Array.isArray(first.relatedStacks) &&
@@ -563,14 +586,14 @@ const ApiFeed: React.FC<PostListProps> = ({
             handleStackIconClick(first.relatedStacks, first.postId, adjustedPosition);
             hasPublishedFirstPostStacksRef.current = true;
         }
-    }, [posts, activePostId, loadStackInfo, handleStackIconClick]);
+    }, [displayPosts, activePostId, loadStackInfo, handleStackIconClick]);
 
     // Auto-highlight the first post once on initial page load only,
     // and wait until related stacks info is available when loadStackInfo is true
     useEffect(() => {
-        if (hasAutoHighlightedFirstPostRef.current || posts.length === 0 || activePostId) return;
+        if (hasAutoHighlightedFirstPostRef.current || displayPosts.length === 0 || activePostId) return;
 
-        const firstPost = posts[0];
+        const firstPost = displayPosts[0];
         if (loadStackInfo) {
             if (firstPost.stackCount === null) return;
         }
@@ -582,7 +605,7 @@ const ApiFeed: React.FC<PostListProps> = ({
         setActivePostId(firstPost.postId);
         handleStackIconClick(firstPost.relatedStacks, firstPost.postId, adjustedPosition);
         hasAutoHighlightedFirstPostRef.current = true;
-    }, [posts, activePostId, handleStackIconClick, setActivePostId, loadStackInfo]);
+    }, [displayPosts, activePostId, handleStackIconClick, setActivePostId, loadStackInfo]);
 
     const loadStackDataInBatches = useCallback(async (posts: PostType[], batchSize: number) => {
         for (let i = 0; i < posts.length; i += batchSize) {
@@ -646,6 +669,7 @@ const ApiFeed: React.FC<PostListProps> = ({
     const renderPost = (_index: number, post: PostType) => (
         <div
             data-post-id={post.postId}
+            data-feed-origin={followedDemoIds.has(post.postId) ? 'demo' : 'mastodon'}
             ref={(node) => registerPostNodeRef.current(node, post.postId)}
         >
             <Post
@@ -702,16 +726,16 @@ const ApiFeed: React.FC<PostListProps> = ({
     return (
         <Box style={{ width: '100%', position: 'relative', minHeight: 80 }}>
             <LoadingOverlay visible={loading} overlayProps={{ radius: "sm", blur: 2 }} />
-            {!loading && posts.length === 0 && (
+            {!loading && displayPosts.length === 0 && (
                 <Paper withBorder radius="md" p="xl" style={{ textAlign: 'center', marginTop: 16 }} data-testid="api-feed-empty">
                     <Text fw={600}>{emptyCopy}</Text>
                     <Text size="sm" c="dimmed" mt={4}>There is nothing to show from the server right now.</Text>
                 </Paper>
             )}
-            {!loading && posts.length > 0 && (
+            {!loading && displayPosts.length > 0 && (
                 <Virtuoso
                     useWindowScroll
-                    data={posts}
+                    data={displayPosts}
                     itemContent={renderPost}
                     computeItemKey={(_index: number, post: PostType) => post.postId}
                     // Auto-load the next page when the user nears the end (in

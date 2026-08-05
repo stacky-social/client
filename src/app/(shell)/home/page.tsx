@@ -30,6 +30,7 @@ export default function Home() {
                     <Posts
                         apiUrl={token ? `${MASTODON_INSTANCE_URL}/api/v1/timelines/home` : undefined}
                         source={token ? undefined : 'home'}
+                        includeFollowedDemo={Boolean(token)}
                         loadStackInfo
                         showSubmitAndSearch
                         showLoadMore={Boolean(token)}

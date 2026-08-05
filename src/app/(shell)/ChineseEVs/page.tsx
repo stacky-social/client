@@ -922,8 +922,8 @@ export default function ListyInjectionPage() {
   const participantCount = timelineStats?.participants ?? uniqueAuthors.size;
   const remainingPosts = Math.max(0, totalPosts - posts.length);
 
-  // "Follow hashtag" follows every participant so the whole conversation lands on
-  // Home. Gated on mount (the follow state lives in localStorage) to match SSR.
+  // Follow every demo participant so the JSON-backed conversation is blended
+  // into Home. This stays local until the curated corpus is imported to Mastodon.
   const hydrated = useHydrated();
   const hashtagFollowed = useLocalStore(() => areAllFollowing(getHashtagAuthors()));
   const handleFollowHashtag = () => {
@@ -935,14 +935,14 @@ export default function ListyInjectionPage() {
     const notificationId = `chinese-evs-follow-${Date.now()}`;
     notifications.show({
       id: notificationId,
-      title: wasFollowing ? "Hashtag unfollowed" : "Following #ChineseEVs",
+      title: wasFollowing ? "Demo feed unfollowed" : "Following demo feed",
       color: "blue",
       message: (
         <Group gap="xs" justify="space-between" wrap="nowrap">
           <Text size="sm">
             {wasFollowing
-              ? "Posts from this discussion were removed from Home."
-              : "Posts from this discussion will now appear on Home."}
+              ? "These curated posts were removed from Home."
+              : "These curated posts now appear on Home alongside Mastodon posts."}
           </Text>
           <Button
             variant="subtle"
@@ -977,7 +977,7 @@ export default function ListyInjectionPage() {
             size="sm"
             onClick={handleFollowHashtag}
           >
-            {hydrated && hashtagFollowed ? "Following hashtag" : "Follow hashtag"}
+            {hydrated && hashtagFollowed ? "Following demo feed" : "Follow demo feed"}
           </Button>
         </Group>
         <Divider my="md" />
@@ -995,6 +995,9 @@ export default function ListyInjectionPage() {
             <Text size="sm" c="dimmed" style={{ textAlign: "center" }}>Responses</Text>
           </div>
         </Group>
+        <Text size="xs" c="dimmed" mt="md">
+          Demo follows are saved on this device until the curated posts move to Mastodon.
+        </Text>
       </Paper>
 
       <Box style={{ width: "100%", position: "relative" }}>

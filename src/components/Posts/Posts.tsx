@@ -5,7 +5,7 @@ import PostList from '../PostList';
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { useAccessToken } from '../../utils/useAccessToken';
 
-export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, showLoadMore = false, source, }: { apiUrl?: string, loadStackInfo: boolean, showSubmitAndSearch: boolean, showLoadMore?: boolean; source?: "home" | "bookmarks" | "liked"; }) {
+export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, showLoadMore = false, source, includeFollowedDemo = false, }: { apiUrl?: string, loadStackInfo: boolean, showSubmitAndSearch: boolean, showLoadMore?: boolean; source?: "home" | "bookmarks" | "liked"; includeFollowedDemo?: boolean; }) {
     const { token: accessToken, ready } = useAccessToken();
     const [activePostId, setActivePostId] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -53,6 +53,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, show
                     activePostId={activePostId}
                     setActivePostId={setActivePostId}
                     showLoadMore={showLoadMore}
+                    includeFollowedDemo={includeFollowedDemo}
                 />
             </div>
             {/* Related stacks are now rendered in AppShell.Aside via context */}
