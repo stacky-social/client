@@ -200,6 +200,7 @@ test.describe('unified discovery and interactions', () => {
   test('expands legacy StackyInjection groups into modern related-post cards', async ({ page }) => {
     await page.setViewportSize({ width: 1720, height: 960 });
     const focus = status('legacy-focus', 'A legacy newsroom injection post');
+    const secondFocus = status('legacy-focus-2', `A second legacy newsroom injection post ${'with enough reading context '.repeat(45)}`);
     const longContext = 'additional context '.repeat(80);
     const firstRelated = status('legacy-related-1', 'unused', {
       content: `<p><strong>First expanded related response</strong> Their lives are online and one had a apple air tag before going to a ATM. ${longContext}
@@ -235,6 +236,8 @@ test.describe('unified discovery and interactions', () => {
       content_rewritten: '',
       rewrite: { content: '', significant: false },
     });
+    const otherLeader = status('other-related-1', 'Another focus post related leader');
+    const otherMember = status('other-related-2', 'Another focus post related member');
 
     await page.route('https://beta.stacky.social/api/v1/tags/StackyInjectionPost', (route) => route.fulfill({
       status: 200,
@@ -249,7 +252,7 @@ test.describe('unified discovery and interactions', () => {
     await page.route('https://beta.stacky.social/api/v1/timelines/tag/StackyInjectionPost**', (route) => route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify([focus]),
+      body: JSON.stringify([focus, secondFocus]),
     }));
     await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) => route.fulfill({
       status: 200,
@@ -277,6 +280,19 @@ test.describe('unified discovery and interactions', () => {
         ],
       }),
     }));
+    await page.route('https://beta.stacky.social:3002/stacks/legacy-focus-2/related', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        size: 2,
+        relatedStacks: [{
+          stackId: 'stack:other-values',
+          rel: 'values',
+          size: 2,
+          topPost: otherLeader,
+        }],
+      }),
+    }));
     await page.route('https://beta.stacky.social:3002/stacks/stack%3Alegacy-pointers/posts', (route) => route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -286,6 +302,11 @@ test.describe('unified discovery and interactions', () => {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify([agreeRelated]),
+    }));
+    await page.route('https://beta.stacky.social:3002/stacks/stack%3Aother-values/posts', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([otherLeader, otherMember]),
     }));
 
     await page.goto('/tag/StackyInjection');
@@ -328,11 +349,51 @@ test.describe('unified discovery and interactions', () => {
     const collapsedContent = page.locator('[data-related-card-content]').first();
     await expect(collapsedContent).toHaveAttribute('data-expanded', 'false');
     expect(await collapsedContent.evaluate((element) => getComputedStyle(element).maxHeight)).not.toBe('none');
-    await page.getByRole('button', { name: 'Read more' }).first().click();
+    await firstCard.getByRole('button', { name: 'Read more' }).click();
     await expect(collapsedContent).toHaveAttribute('data-expanded', 'true');
     expect(await collapsedContent.evaluate((element) => getComputedStyle(element).maxHeight)).toBe('none');
-    await page.getByRole('button', { name: 'See less' }).first().click();
+    await firstCard.getByRole('button', { name: 'See less' }).click();
     await expect(collapsedContent).toHaveAttribute('data-expanded', 'false');
+
+    // Once a legacy group has expanded, scrolling upward to revisit that focus
+    // must paint the final individual-card set atomically. Rendering the group
+    // leaders first and replacing them a microtask later makes one focus change
+    // look like two unrelated-panel changes.
+    await page.locator('[data-feed-origin="mastodon"]').evaluateAll((posts) => {
+      posts.forEach((post) => { (post as HTMLElement).style.minHeight = '620px'; });
+    });
+    const secondFocusCard = page.locator('[data-feed-origin="mastodon"][data-post-id="legacy-focus-2"]');
+    await secondFocusCard.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+    await expect(secondFocusCard.getByTestId('post')).toHaveAttribute('data-active', 'true');
+    await expect(page.getByText('Another focus post related member')).toBeVisible();
+    await expect(page.locator('[data-related-card]')).toHaveCount(2);
+
+    await page.evaluate(() => {
+      const snapshots: string[][] = [];
+      let last = '';
+      const snapshot = () => {
+        const ids = Array.from(document.querySelectorAll('[data-related-card]'))
+          .map((card) => card.querySelector('[data-post-id]')?.getAttribute('data-post-id') || '')
+          .filter(Boolean);
+        if (ids.length === 0) return;
+        const key = ids.join('|');
+        if (key !== last) {
+          last = key;
+          snapshots.push(ids);
+        }
+      };
+      (window as any).__relatedSnapshots = snapshots;
+      new MutationObserver(snapshot).observe(document.body, { childList: true, subtree: true });
+    });
+    const firstFocusCard = page.locator('[data-feed-origin="mastodon"][data-post-id="legacy-focus"]');
+    await firstFocusCard.evaluate((element) => element.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    await expect(firstFocusCard.getByTestId('post')).toHaveAttribute('data-active', 'true');
+    await expect(page.locator('[data-related-card]')).toHaveCount(3);
+    await page.waitForTimeout(50);
+    expect(await page.evaluate(() => (window as any).__relatedSnapshots)).toEqual([
+      ['other-related-1', 'other-related-2'],
+      ['legacy-related-1', 'legacy-related-2', 'legacy-related-3'],
+    ]);
 
     // The same legacy post must keep the modern presentation when it appears
     // in Home; this was the route-specific regression reported by users.

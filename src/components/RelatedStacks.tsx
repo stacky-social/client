@@ -148,6 +148,23 @@ const GROUP_GAP_PX = 12; // matches the parent's `gap: '0.75rem'`
 const GROUP_CORNER_R = 12;
 const RELATED_PAGE_SIZE = 10;
 const expandedStackPostsCache = new Map<string, Promise<PostType[]>>();
+// A feed revisit should render the already-expanded modern cards on its first
+// paint. The per-stack request cache above only stores Promises, so reading a
+// resolved Promise still schedules a second render (legacy leaders first,
+// expanded cards a microtask later). Cache the assembled result by the same
+// expansion signature used by the component to make upward scrolls atomic.
+const expandedRelatedStacksCache = new Map<string, RelatedStackType[]>();
+const MAX_EXPANDED_RELATED_CACHE = 80;
+
+function cacheExpandedRelatedStacks(key: string, stacks: RelatedStackType[]): void {
+  expandedRelatedStacksCache.delete(key);
+  expandedRelatedStacksCache.set(key, stacks);
+  while (expandedRelatedStacksCache.size > MAX_EXPANDED_RELATED_CACHE) {
+    const oldest = expandedRelatedStacksCache.keys().next().value;
+    if (oldest === undefined) break;
+    expandedRelatedStacksCache.delete(oldest);
+  }
+}
 
 async function loadExpandedStackPosts(stackId: string): Promise<PostType[]> {
   const cached = expandedStackPostsCache.get(stackId);
@@ -905,6 +922,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   } | null>(null);
   const relatedStacks = useMemo(() => {
     if (!expandGroups) return sourceRelatedStacks;
+    const cachedExpansion = expandedRelatedStacksCache.get(expansionKey);
+    if (cachedExpansion) return cachedExpansion;
     if (expandedGroupState?.key === expansionKey) return expandedGroupState.stacks;
     // Remove the badge and layered shell immediately while the individual
     // posts are fetched, so the retired presentation never flashes on screen.
@@ -913,8 +932,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
 
   useEffect(() => {
     if (!expandGroups || sourceRelatedStacks.length === 0) return;
+    const cachedExpansion = expandedRelatedStacksCache.get(expansionKey);
+    if (cachedExpansion) return;
     let cancelled = false;
     void expandLegacyGroups(sourceRelatedStacks).then((stacks) => {
+      cacheExpandedRelatedStacks(expansionKey, stacks);
       if (!cancelled) setExpandedGroupState({ key: expansionKey, stacks });
     });
     return () => { cancelled = true; };
