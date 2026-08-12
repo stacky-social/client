@@ -9,6 +9,8 @@ import { invalidatePostListCache } from '../../../../components/PostList';
 import ChineseEvsPage from '../../ChineseEVs/page';
 import { getHashtagDefinition } from '../../../../data/hashtagCatalog';
 import { MASTODON_INSTANCE_URL } from '../../../../utils/mastodonApi';
+import { useAccessToken } from '../../../../utils/useAccessToken';
+import { useRelatedStacks } from '../../related-stacks-context';
 
 interface TagHistory {
   day: string;
@@ -54,6 +56,9 @@ function MastodonTagPage({
   apiTag: string;
   description?: string;
 }) {
+  const { token: accessToken, ready: authReady } = useAccessToken();
+  const { enterFeedSurface } = useRelatedStacks();
+  const timelineUrl = `${MASTODON_INSTANCE_URL}/api/v1/timelines/tag/${encodeURIComponent(apiTag)}`;
 
   const rawCached = tagName ? tagDataCache.get(tagName) : undefined;
   const cached = rawCached && Date.now() - rawCached._ts < TAG_CACHE_TTL ? rawCached : undefined;
@@ -63,16 +68,23 @@ function MastodonTagPage({
   const [isFollowing, setIsFollowing] = useState(cached?.following ?? false);
   const [toggling, setToggling] = useState(false);
 
+  // Claim the route before either public read completes. If metadata or the
+  // timeline is empty/unavailable, the tag page must not inherit related posts
+  // selected on Home or #ChineseEVs from the long-lived shell provider.
+  useEffect(() => {
+    enterFeedSurface(`api:${timelineUrl}`);
+  }, [enterFeedSurface, timelineUrl]);
+
   const fetchTagData = useCallback(async (tag: string) => {
     try {
-      const accessToken = localStorage.getItem('accessToken');
+      setLoadError(false);
+      const headers: Record<string, string> = {};
+      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
       const response = await axios.get(`${MASTODON_INSTANCE_URL}/api/v1/tags/${encodeURIComponent(apiTag)}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers,
       });
       setTagData(response.data);
-      setIsFollowing(response.data.following);
+      setIsFollowing(Boolean(response.data.following));
       tagDataCache.set(tag, { ...response.data, _ts: Date.now() });
       if (tagDataCache.size > MAX_TAG_CACHE) {
         const oldest = tagDataCache.keys().next().value;
@@ -84,27 +96,21 @@ function MastodonTagPage({
     } finally {
       setLoading(false);
     }
-  }, [apiTag]);
+  }, [accessToken, apiTag]);
 
   useEffect(() => {
-    if (!tagName) return;
-    // The tag endpoint needs a bearer token — with no signed-in session the
-    // fetch is doomed, so show the explanation card immediately instead of
-    // hanging on "Loading..." (F-24).
-    const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) {
-      setLoadError(true);
-      setLoading(false);
-      return;
-    }
+    if (!tagName || !authReady) return;
+    // Mastodon hashtag metadata and timelines are public. Authentication only
+    // enriches metadata with the current user's follow state; it must never be
+    // required just to read a conversation.
     fetchTagData(tagName);
-  }, [fetchTagData, tagName]);
+  }, [authReady, fetchTagData, tagName]);
 
   const handleFollowToggle = async () => {
     if (toggling) return;
+    if (!accessToken) return;
     setToggling(true);
     try {
-      const accessToken = localStorage.getItem('accessToken');
       const url = isFollowing
         ? `${MASTODON_INSTANCE_URL}/api/v1/tags/${encodeURIComponent(apiTag)}/unfollow`
         : `${MASTODON_INSTANCE_URL}/api/v1/tags/${encodeURIComponent(apiTag)}/follow`;
@@ -190,9 +196,15 @@ function MastodonTagPage({
           <Button
             color={isFollowing ? 'red' : 'blue'}
             onClick={handleFollowToggle}
-            disabled={toggling}
+            disabled={toggling || !accessToken}
           >
-            {toggling ? 'Loading...' : (isFollowing ? 'Unfollow hashtag' : 'Follow hashtag')}
+            {toggling
+              ? 'Loading...'
+              : !accessToken
+                ? 'Sign in to follow'
+                : isFollowing
+                  ? 'Unfollow hashtag'
+                  : 'Follow hashtag'}
           </Button>
         </Group>
         <Divider my="md" />
@@ -212,7 +224,7 @@ function MastodonTagPage({
         )}
       </Paper>
       <div style={{ marginTop: '20px' }}>
-        <Posts apiUrl={`${MASTODON_INSTANCE_URL}/api/v1/timelines/tag/${encodeURIComponent(apiTag)}`} loadStackInfo={true} showSubmitAndSearch={false} />
+        <Posts apiUrl={timelineUrl} loadStackInfo={true} showSubmitAndSearch={false} />
       </div>
     </div>
   );

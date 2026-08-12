@@ -200,6 +200,49 @@ test.describe('Home timeline', () => {
     await expect(page.getByText('No related responses for this post.')).toHaveCount(0);
   });
 
+  test('clears retained related cards when a hashtag fails before its feed mounts', async ({ page }) => {
+    const focus = page.locator('[data-store-feed-post="152053690"]');
+    await focus.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+    await expect(focus.getByTestId('post')).toHaveAttribute('data-active', 'true');
+    await expect(page.locator('[data-related-card]').first()).toBeVisible();
+
+    await page.route('https://beta.stacky.social/api/v1/tags/StackyInjectionPost', (route) =>
+      route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }),
+    );
+    await page.goto('/tag/StackyInjection');
+
+    await expect(page.getByTestId('tag-load-error')).toBeVisible();
+    await expect(page.locator('[data-related-card]')).toHaveCount(0);
+    await expect(page.getByText('103 posts across all categories')).toHaveCount(0);
+  });
+
+  test('keeps the related panel blank when a hashtag timeline is empty', async ({ page }) => {
+    const focus = page.locator('[data-store-feed-post="152053690"]');
+    await focus.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+    await expect(focus.getByTestId('post')).toHaveAttribute('data-active', 'true');
+    await expect(page.locator('[data-related-card]').first()).toBeVisible();
+
+    await page.route('https://beta.stacky.social/api/v1/tags/StackyInjectionPost', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          name: 'StackyInjectionPost',
+          url: 'https://beta.stacky.social/tags/stackyinjectionpost',
+          history: [],
+        }),
+      }),
+    );
+    await page.route('https://beta.stacky.social/api/v1/timelines/tag/StackyInjectionPost**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+    await page.goto('/tag/StackyInjection');
+
+    await expect(page.getByTestId('api-feed-empty')).toContainText('No posts found.');
+    await expect(page.locator('[data-related-card]')).toHaveCount(0);
+    await expect(page.getByText('103 posts across all categories')).toHaveCount(0);
+  });
+
   test('uses the full reading width and hides the desktop related column on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();

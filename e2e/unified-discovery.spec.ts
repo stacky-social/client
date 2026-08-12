@@ -429,3 +429,41 @@ test.describe('unified discovery and interactions', () => {
     await expect(page.locator(`[data-feed-origin="demo"][data-post-id="${localId}"]`)).toBeVisible();
   });
 });
+
+test.describe('public Mastodon hashtag reading', () => {
+  test('loads #StackyInjection without requiring a login', async ({ page }) => {
+    const authorizations: string[] = [];
+    await page.route('https://beta.stacky.social/api/v1/tags/StackyInjectionPost', (route) => {
+      authorizations.push(route.request().headers().authorization || '');
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          name: 'StackyInjectionPost',
+          url: 'https://beta.stacky.social/tags/stackyinjectionpost',
+          history: [{ day: '1785888000', accounts: '1', uses: '1' }],
+        }),
+      });
+    });
+    await page.route('https://beta.stacky.social/api/v1/timelines/tag/StackyInjectionPost**', (route) => {
+      authorizations.push(route.request().headers().authorization || '');
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([status('public-tag-post', 'A public #StackyInjection post')]),
+      });
+    });
+    await page.route('https://beta.stacky.social:3002/stacks/**/related', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ relatedStacks: [], size: 0 }),
+    }));
+
+    await page.goto('/tag/StackyInjection');
+
+    await expect(page.getByText('A public #StackyInjection post')).toBeVisible();
+    await expect(page.getByTestId('tag-load-error')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Sign in to follow' })).toBeDisabled();
+    expect(authorizations).toEqual(['', '']);
+  });
+});
