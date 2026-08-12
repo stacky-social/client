@@ -854,7 +854,10 @@ function remapRelationsToRewrite(
   });
 }
 
-/** Window content around the first relation's content range. Returns adjusted relations with shifted offsets. */
+/** Window content around the first relation's emphasized comment (when present),
+ * otherwise around its broader content range. AI-diff bounds are only a fallback
+ * for cards without relation offsets: the relationship is the reason the card is
+ * in this pane and must remain visible in the collapsed view. */
 function windowContent(
   plain: string,
   relations: Relation[] | undefined,
@@ -868,9 +871,22 @@ function windowContent(
     return { text: plain, adjustedRelations: relations, hasPrefix: false, hasSuffix: false };
   }
   const first = relations?.[0];
-  const center = first ? Math.floor((first.contentStart + first.contentEnd) / 2) : WINDOW_CHARS;
-  const start = preferredBounds?.start ?? Math.max(0, center - WINDOW_CHARS);
-  const end = preferredBounds?.end ?? Math.min(plain.length, center + WINDOW_CHARS);
+  const hasCommentRange = !!first
+    && first.contentCommentEnd > first.contentCommentStart
+    && first.contentCommentStart >= first.contentStart
+    && first.contentCommentEnd <= first.contentEnd;
+  const relationCenter = first
+    ? Math.floor((
+      (hasCommentRange ? first.contentCommentStart : first.contentStart)
+      + (hasCommentRange ? first.contentCommentEnd : first.contentEnd)
+    ) / 2)
+    : null;
+  const start = relationCenter !== null
+    ? Math.max(0, relationCenter - WINDOW_CHARS)
+    : (preferredBounds?.start ?? 0);
+  const end = relationCenter !== null
+    ? Math.min(plain.length, relationCenter + WINDOW_CHARS)
+    : (preferredBounds?.end ?? Math.min(plain.length, totalChars));
   const text = plain.slice(start, end);
   const adjustedRelations = relations?.map((r, i) => ({
     ...r,

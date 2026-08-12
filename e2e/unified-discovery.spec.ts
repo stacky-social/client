@@ -240,6 +240,33 @@ test.describe('unified discovery and interactions', () => {
     const otherLeader = status('other-related-1', 'Another focus post related leader');
     const otherMember = status('other-related-2', 'Another focus post related member');
     const lowerLeader = status('lower-related-1', 'Lower focus post related leader');
+    const distantPrefix = 'Opening context before the actual relationship. '.repeat(14);
+    const distantRelationLead = 'The broad supporting passage continues with background detail. '.repeat(7);
+    const distantCrux = 'The specific bolded related crux must be visible.';
+    const distantRelationTail = ' The supporting passage closes after the emphasized point.'.repeat(3);
+    const distantOriginal = `${distantPrefix}${distantRelationLead}${distantCrux}${distantRelationTail}`;
+    const distantRelationStart = distantPrefix.length;
+    const distantCommentStart = distantPrefix.length + distantRelationLead.length;
+    const distantRelated = status('distant-related-1', 'unused', {
+      content: `<p>${distantOriginal}</p>`,
+      rewrite: {
+        content: `AI clarification added at the beginning. ${distantOriginal}`,
+        significant: true,
+        editSummary: 'Adds context before the original response.',
+      },
+      relations: [{
+        focusStart: 10,
+        focusEnd: 220,
+        contentStart: distantRelationStart,
+        contentEnd: distantOriginal.length,
+        focusCommentStart: 80,
+        focusCommentEnd: 120,
+        contentCommentStart: distantCommentStart,
+        contentCommentEnd: distantCommentStart + distantCrux.length,
+        category: 'framing',
+        topic: 'Distant related passage',
+      }],
+    });
 
     await page.route('https://beta.stacky.social/api/v1/tags/StackyInjectionPost', (route) => route.fulfill({
       status: 200,
@@ -299,13 +326,21 @@ test.describe('unified discovery and interactions', () => {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        size: 1,
-        relatedStacks: [{
-          stackId: 'stack:lower-evidence',
-          rel: 'evidence_personal',
-          size: 1,
-          topPost: lowerLeader,
-        }],
+        size: 2,
+        relatedStacks: [
+          {
+            stackId: 'stack:lower-evidence',
+            rel: 'evidence_personal',
+            size: 1,
+            topPost: lowerLeader,
+          },
+          {
+            stackId: 'stack:distant-framing',
+            rel: 'framing',
+            size: 1,
+            topPost: distantRelated,
+          },
+        ],
       }),
     }));
     await page.route('https://beta.stacky.social:3002/stacks/stack%3Alegacy-pointers/posts', (route) => route.fulfill({
@@ -380,12 +415,20 @@ test.describe('unified discovery and interactions', () => {
     await thirdFocusCard.evaluate((element) => element.scrollIntoView({ block: 'center' }));
     await expect(thirdFocusCard.getByTestId('post')).toHaveAttribute('data-active', 'true');
     await expect(page.getByText('Lower focus post related leader')).toBeVisible();
-    await expect(page.locator('[data-related-card]')).toHaveCount(1);
+    await expect(page.locator('[data-related-card]')).toHaveCount(2);
     const spanlessRelatedCard = page.locator('[data-related-card][data-related-category="evidence_personal"]');
     await expect(spanlessRelatedCard.locator('[data-related-tag][data-related-span="false"]')).toHaveAttribute(
       'aria-label',
       'Evidence (Personal)',
     );
+    const distantRelatedCard = page.locator('[data-related-card]').filter({
+      has: page.locator('[data-post-id="distant-related-1"]'),
+    });
+    const distantMark = distantRelatedCard.locator('mark[data-range-id="0"]');
+    await expect(distantRelatedCard.locator('[data-ai-edited-default]')).toContainText(distantCrux);
+    await expect(distantMark).toBeVisible();
+    await distantRelatedCard.hover();
+    await expect(distantMark.locator('span')).toHaveText(distantCrux);
 
     await page.evaluate(() => {
       const snapshots: string[][] = [];
@@ -414,7 +457,7 @@ test.describe('unified discovery and interactions', () => {
     )).toHaveCount(2);
     await page.waitForTimeout(50);
     expect(await page.evaluate(() => (window as any).__relatedSnapshots)).toEqual([
-      ['lower-related-1'],
+      ['lower-related-1', 'distant-related-1'],
       ['other-related-1', 'other-related-2'],
     ]);
 
