@@ -180,7 +180,7 @@ test.describe('Home timeline', () => {
     expect(afterHover?.height).toBeCloseTo(beforeHover!.height, 2);
   });
 
-  test('keeps the right column blank and the feed width stable for a post with no relations', async ({ page }) => {
+  test('shows a stable related-post empty state for a post with no relations', async ({ page }) => {
     await page.evaluate(() => {
       localStorage.setItem('stacky:experimentFlags:v1', JSON.stringify({ homeReplies: true }));
     });
@@ -195,8 +195,9 @@ test.describe('Home timeline', () => {
     await ordinaryReply.evaluate((element) => element.scrollIntoView({ block: 'center' }));
     await expect(ordinaryReply.getByTestId('post')).toHaveAttribute('data-active', 'true');
     await expect(page.locator('[data-related-card]')).toHaveCount(0);
-    await expect(page.getByTestId('home-related-empty')).toBeAttached();
-    await expect(page.getByText('No related responses for this post.')).toHaveCount(0);
+    const relatedEmpty = page.getByTestId('home-related-empty');
+    await expect(relatedEmpty.getByText('Related Posts', { exact: true })).toBeVisible();
+    await expect(relatedEmpty.getByText('No related posts yet.', { exact: true })).toBeVisible();
 
     const feedWidthWithoutRelations = (await page.getByTestId('feed').boundingBox())?.width;
     expect(feedWidthWithRelations).toBeDefined();

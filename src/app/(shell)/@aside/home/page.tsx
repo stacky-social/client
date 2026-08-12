@@ -6,6 +6,27 @@ import { ComposerFeedback } from "../../../../components/SubmitPost/ComposerFeed
 import { useRelatedStacks } from "../../related-stacks-context";
 import { getPost } from "../../../../utils/localStore";
 
+function EmptyRelatedPanel({ focusPostId }: { focusPostId?: string }) {
+  return (
+    <div
+      data-testid="home-related-empty"
+      data-related-focus-post-id={focusPostId}
+      role="status"
+      aria-live="polite"
+      style={{ width: "100%", paddingTop: "0.5rem" }}
+    >
+      <div style={{ padding: "1rem 0" }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
+          Related Posts
+        </div>
+        <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.45 }}>
+          No related posts yet.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HomeAside() {
   const pathname = usePathname();
   const router = useRouter();
@@ -28,8 +49,8 @@ export default function HomeAside() {
   }
 
   // PRIORITY 2 — active post: show its related panel when the payload contains
-  // responses. Posts with no relations keep the column geometrically stable but
-  // intentionally render no message, card, or invented fallback content.
+  // responses. Posts with no relations keep the column geometrically stable and
+  // preserve the panel hierarchy with a quiet, explicit empty state.
   if (activePostId) {
     if (relatedStacks && relatedStacks.length > 0) {
       return (
@@ -54,10 +75,10 @@ export default function HomeAside() {
         </div>
       );
     }
-    return <div data-testid="home-related-empty" data-related-focus-post-id={activePostId} aria-hidden="true" style={{ width: "100%", minHeight: 1 }} />;
+    return <EmptyRelatedPanel focusPostId={activePostId} />;
   }
 
-  // A blank mount keeps the Home feed width stable before the first post is
-  // selected; otherwise the shell would jump from one column to two on load.
-  return <div data-testid="home-related-empty" aria-hidden="true" style={{ width: "100%", minHeight: 1 }} />;
+  // Keep the Home layout and its information hierarchy stable before the first
+  // post is selected instead of presenting an unexplained empty column.
+  return <EmptyRelatedPanel />;
 }
