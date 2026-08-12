@@ -1,0 +1,398 @@
+import { expect, test, type Page } from '@playwright/test';
+
+const account = {
+  id: 'account-1',
+  username: 'river',
+  acct: 'river',
+  display_name: 'River Chen',
+  avatar: '/avatar/stacky_default.PNG',
+  followers_count: 12,
+  following_count: 8,
+  statuses_count: 4,
+  note: '<p>Battery systems researcher.</p>',
+};
+
+function status(id: string, content: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id,
+    content: `<p>${content}</p>`,
+    created_at: '2026-08-05T12:00:00.000Z',
+    account,
+    replies_count: 2,
+    favourites_count: 7,
+    favourited: false,
+    bookmarked: false,
+    media_attachments: [],
+    card: null,
+    ...overrides,
+  };
+}
+
+async function authenticate(page: Page, suffix: string) {
+  await page.addInitScript(({ account, suffix }) => {
+    localStorage.setItem('accessToken', `unified-token-${suffix}`);
+    localStorage.setItem('currentUser', JSON.stringify(account));
+  }, { account, suffix });
+}
+
+test.describe('unified discovery and interactions', () => {
+  test.beforeEach(async ({ page }, testInfo) => {
+    await authenticate(page, `${testInfo.testId}-${testInfo.retry}`);
+    await page.route('https://beta.stacky.social:3002/stacks/**/related', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ relatedStacks: [], size: 0 }),
+    }));
+    await page.route('https://beta.stacky.social:3002/posts/feedback', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ advice: [], praise: [], simulatedReplies: [] }),
+    }));
+  });
+
+  test('search combines saved and Mastodon hashtags, people, and posts', async ({ page }) => {
+    let searchAuthorization = '';
+    await page.route('https://beta.stacky.social/api/v2/search**', (route) => {
+      searchAuthorization = route.request().headers().authorization || '';
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          accounts: [account],
+          statuses: [status('live-search', 'Remote battery manufacturing result')],
+          hashtags: [{ name: 'BatteryFuture', url: 'https://beta.stacky.social/tags/batteryfuture' }],
+        }),
+      });
+    });
+    await page.route('https://beta.stacky.social/api/v1/statuses/live-search', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(status('live-search', 'Remote battery manufacturing result')),
+    }));
+    await page.route('https://beta.stacky.social/api/v1/statuses/live-search/context', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ancestors: [], descendants: [] }),
+    }));
+
+    await page.goto('/search');
+    await expect(page.getByRole('button', { name: 'Open #ChineseEVs hashtag' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open #StackyInjection hashtag' })).toBeVisible();
+
+    await page.getByLabel('Search hashtags, people, and posts').fill('battery');
+    await expect(page.getByRole('button', { name: 'Open #BatteryFuture hashtag' })).toBeVisible();
+    await expect(page.locator('[data-search-origin="local"]').filter({ hasText: /battery/i }).first()).toBeVisible();
+    const remotePost = page.locator('[data-search-origin="mastodon"]').filter({ hasText: 'Remote battery manufacturing result' });
+    await expect(remotePost).toBeVisible();
+    expect(searchAuthorization).toMatch(/^Bearer unified-token-/);
+
+    await remotePost.click();
+    await expect(page).toHaveURL(/\/posts\/live-search$/);
+    await expect(page.getByText('Remote battery manufacturing result')).toBeVisible();
+  });
+
+  test('keeps hashtag discovery usable on a phone-sized screen', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/search');
+
+    const chineseEvs = page.getByRole('button', { name: 'Open #ChineseEVs hashtag' });
+    const stackyInjection = page.getByRole('button', { name: 'Open #StackyInjection hashtag' });
+    await expect(chineseEvs).toBeVisible();
+    await expect(stackyInjection).toBeVisible();
+
+    const viewportFits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+    expect(viewportFits).toBe(true);
+  });
+
+  test('opens a Mastodon person from search and follows them on the server', async ({ page }) => {
+    await page.route('https://beta.stacky.social/api/v2/search**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ accounts: [account], statuses: [], hashtags: [] }),
+    }));
+    await page.route('https://beta.stacky.social/api/v1/accounts/account-1', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(account),
+    }));
+    await page.route('https://beta.stacky.social/api/v1/accounts/account-1/statuses**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([status('profile-post', 'A post on the live profile')]),
+    }));
+    await page.route('https://beta.stacky.social/api/v1/accounts/relationships**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{ id: 'account-1', following: false }]),
+    }));
+    let followed = false;
+    await page.route('https://beta.stacky.social/api/v1/accounts/account-1/follow', (route) => {
+      followed = true;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ following: true }) });
+    });
+
+    await page.goto('/search');
+    await page.getByLabel('Search hashtags, people, and posts').fill('River Chen');
+    const person = page.locator('[data-search-origin="mastodon"]').filter({ hasText: '@river' }).first();
+    await person.click();
+
+    await expect(page).toHaveURL(/\/user\/river\?source=mastodon&id=account-1$/);
+    await expect(page.getByText('Battery systems researcher.')).toBeVisible();
+    await expect(page.getByText('A post on the live profile')).toBeVisible();
+    await page.getByRole('button', { name: 'Follow', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Unfollow', exact: true })).toBeVisible();
+    expect(followed).toBe(true);
+  });
+
+  test('following a Mastodon hashtag refreshes Home and adds its posts', async ({ page }) => {
+    let followed = false;
+    let homeRequests = 0;
+    await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) => {
+      homeRequests += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          status('base-home', 'Existing Home post'),
+        ]),
+      });
+    });
+    await page.route('https://beta.stacky.social/api/v1/tags/StackyInjectionPost', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        name: 'StackyInjectionPost',
+        url: 'https://beta.stacky.social/tags/stackyinjectionpost',
+        following: followed,
+        history: [{ day: '1785888000', accounts: '0', uses: '0' }],
+      }),
+    }));
+    await page.route('https://beta.stacky.social/api/v1/timelines/tag/StackyInjectionPost**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([status('tagged-home', 'A #StackyInjection conversation')]),
+    }));
+    await page.route('https://beta.stacky.social/api/v1/tags/StackyInjectionPost/follow', (route) => {
+      followed = true;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ following: true }) });
+    });
+
+    await page.goto('/home');
+    await expect(page.getByText('Existing Home post')).toBeVisible();
+    await page.goto('/tag/StackyInjection');
+    await expect(page.getByText('Earlier New York Times, Fox News, and community conversations')).toBeVisible();
+    await expect(page.getByText('0', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('A #StackyInjection conversation')).toBeVisible();
+    await page.getByRole('button', { name: 'Follow hashtag' }).click();
+    await expect(page.getByRole('button', { name: 'Unfollow hashtag' })).toBeVisible();
+
+    await page.goto('/home');
+    await expect(page.getByText('A #StackyInjection conversation')).toBeVisible();
+    await expect(page.locator('[data-feed-origin="mastodon"]').filter({ hasText: '#StackyInjection' })).toBeVisible();
+    expect(homeRequests).toBeGreaterThanOrEqual(2);
+  });
+
+  test('expands legacy StackyInjection groups into modern related-post cards', async ({ page }) => {
+    await page.setViewportSize({ width: 1720, height: 960 });
+    const focus = status('legacy-focus', 'A legacy newsroom injection post');
+    const longContext = 'additional context '.repeat(80);
+    const firstRelated = status('legacy-related-1', 'unused', {
+      content: `<p><strong>First expanded related response</strong> ${longContext}
+        <a href="https://example.com/report" target="_blank">
+          <span class="invisible">https://</span><span class="ellipsis">example.com</span><span class="invisible">/report</span>
+        </a> Published: 2025-09-05T19:48:47Z</p>`,
+      content_rewritten: '',
+      rewrite: {
+        content: `First expanded related response⌈.⌉ ${longContext}⌊[Link to article:⌋ ⌈https://example.com/report]⌉`,
+        significant: true,
+      },
+    });
+    const secondRelated = status('legacy-related-2', 'Second expanded related response', {
+      content_rewritten: '',
+      rewrite: { content: '', significant: false },
+    });
+    const agreeRelated = status('legacy-related-3', 'A third response in the agree category', {
+      content_rewritten: '',
+      rewrite: { content: '', significant: false },
+    });
+
+    await page.route('https://beta.stacky.social/api/v1/tags/StackyInjectionPost', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        name: 'StackyInjectionPost',
+        url: 'https://beta.stacky.social/tags/stackyinjectionpost',
+        following: false,
+        history: [],
+      }),
+    }));
+    await page.route('https://beta.stacky.social/api/v1/timelines/tag/StackyInjectionPost**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([focus]),
+    }));
+    await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([focus]),
+    }));
+    await page.route('https://beta.stacky.social:3002/stacks/legacy-focus/related', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        size: 3,
+        relatedStacks: [
+          {
+            stackId: 'stack:legacy-pointers',
+            rel: 'pointers',
+            size: 2,
+            topPost: firstRelated,
+          },
+          {
+            stackId: 'stack:legacy-agree',
+            rel: 'agree',
+            size: 1,
+            topPost: agreeRelated,
+          },
+        ],
+      }),
+    }));
+    await page.route('https://beta.stacky.social:3002/stacks/stack%3Alegacy-pointers/posts', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([firstRelated, secondRelated]),
+    }));
+    await page.route('https://beta.stacky.social:3002/stacks/stack%3Alegacy-agree/posts', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([agreeRelated]),
+    }));
+
+    await page.goto('/tag/StackyInjection');
+
+    await expect(page.locator('[data-ai-edited-default]').filter({ hasText: 'First expanded related response' })).toBeVisible();
+    await expect(page.getByText('Second expanded related response')).toBeVisible();
+    await expect(page.getByText('A third response in the agree category')).toBeVisible();
+    await expect(page.locator('[data-related-card]')).toHaveCount(3);
+    await expect(page.locator('[data-related-stack-count]')).toHaveCount(0);
+    await expect(page.locator('[data-related-stack-layer]')).toHaveCount(0);
+    const firstCard = page.locator('[data-related-card]').first();
+    await expect(firstCard.locator('[data-related-card-content]')).not.toContainText('Published:');
+    await expect(firstCard.locator('[data-related-card-content]')).not.toContainText('https://');
+    await expect(firstCard.locator('[data-related-card-content]')).not.toContainText(/[⌊⌋⌈⌉\[\]]/);
+    await expect(firstCard.getByRole('link', { name: 'Read article · example.com' })).toHaveAttribute('href', 'https://example.com/report');
+
+    await page.getByRole('button', { name: 'Show Pointers filter' }).click();
+    await expect(page.getByText('2 Pointers posts')).toBeVisible();
+    await expect(page.locator('[data-related-card]')).toHaveCount(2);
+    await expect(page.locator('[data-related-card][data-related-category="pointers"]')).toHaveCount(2);
+    await page.getByRole('button', { name: 'Show Agree filter' }).click();
+    await expect(page.getByText('1 Agree post')).toBeVisible();
+    await expect(page.locator('[data-related-card][data-related-category="agree"]')).toHaveCount(1);
+    await page.getByRole('button', { name: 'Remove Agree filter' }).click();
+    await expect(page.locator('[data-related-card]')).toHaveCount(3);
+
+    const collapsedContent = page.locator('[data-related-card-content]').first();
+    await expect(collapsedContent).toHaveAttribute('data-expanded', 'false');
+    expect(await collapsedContent.evaluate((element) => getComputedStyle(element).maxHeight)).not.toBe('none');
+    await page.getByRole('button', { name: 'Read more' }).first().click();
+    await expect(collapsedContent).toHaveAttribute('data-expanded', 'true');
+    expect(await collapsedContent.evaluate((element) => getComputedStyle(element).maxHeight)).toBe('none');
+    await page.getByRole('button', { name: 'See less' }).first().click();
+    await expect(collapsedContent).toHaveAttribute('data-expanded', 'false');
+
+    // The same legacy post must keep the modern presentation when it appears
+    // in Home; this was the route-specific regression reported by users.
+    await page.goto('/home');
+    await expect(page.getByText('A legacy newsroom injection post')).toBeVisible();
+    await expect(page.locator('[data-ai-edited-default]').filter({ hasText: 'First expanded related response' })).toBeVisible();
+    await expect(page.locator('[data-related-card]')).toHaveCount(3);
+    await expect(page.locator('[data-related-stack-count]')).toHaveCount(0);
+    await expect(page.locator('[data-related-stack-layer]')).toHaveCount(0);
+    await expect(page.locator('[data-related-card-content]').first()).toHaveAttribute('data-expanded', 'false');
+  });
+
+  test('interleaves followed #ChineseEVs posts without adding source labels', async ({ page }) => {
+    await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        status('live-1', 'Live one'),
+        status('live-2', 'Live two'),
+        status('live-3', 'Live three'),
+        status('live-4', 'Live four'),
+      ]),
+    }));
+
+    await page.goto('/tag/ChineseEVs');
+    await page.getByRole('button', { name: 'Follow hashtag' }).click();
+    await page.goto('/home');
+
+    const origins = page.locator('[data-feed-origin]');
+    await expect(origins.nth(0)).toHaveAttribute('data-feed-origin', 'mastodon');
+    await expect(origins.nth(1)).toHaveAttribute('data-feed-origin', 'mastodon');
+    await expect(origins.nth(2)).toHaveAttribute('data-feed-origin', 'mastodon');
+    await expect(origins.nth(3)).toHaveAttribute('data-feed-origin', 'demo');
+    await expect(origins.nth(3)).not.toContainText(/JSON|Mastodon|curated/i);
+  });
+
+  test('keeps like, bookmark, and share behavior consistent across both sources', async ({ page }) => {
+    await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([status('live-action', 'Backend interaction target')]),
+    }));
+    await page.route('https://beta.stacky.social/api/v1/favourites**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([status('live-action', 'Backend interaction target', { favourited: true })]),
+    }));
+    await page.route('https://beta.stacky.social/api/v1/bookmarks**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([status('live-action', 'Backend interaction target', { bookmarked: true })]),
+    }));
+    const backendActions: string[] = [];
+    await page.route('https://beta.stacky.social/api/v1/statuses/live-action/favourite', (route) => {
+      backendActions.push('favourite');
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ favourited: true }) });
+    });
+    await page.route('https://beta.stacky.social/api/v1/statuses/live-action/bookmark', (route) => {
+      backendActions.push('bookmark');
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ bookmarked: true }) });
+    });
+
+    await page.goto('/tag/ChineseEVs');
+    await page.getByRole('button', { name: 'Follow hashtag' }).click();
+    await page.goto('/home');
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: async (value: string) => sessionStorage.setItem('copied-link', value) },
+      });
+    });
+
+    const backendCard = page.locator('[data-feed-origin="mastodon"]').first();
+    const localCard = page.locator('[data-feed-origin="demo"]').first();
+    await backendCard.getByRole('button', { name: 'Like', exact: true }).click();
+    await backendCard.getByRole('button', { name: 'Bookmark', exact: true }).click();
+    await backendCard.getByRole('button', { name: 'Share post' }).click();
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('copied-link'))).toContain('/posts/live-action');
+
+    const localId = await localCard.getAttribute('data-post-id');
+    expect(localId).toBeTruthy();
+    await localCard.getByRole('button', { name: 'Like', exact: true }).click();
+    await localCard.getByRole('button', { name: 'Bookmark', exact: true }).click();
+    await localCard.getByRole('button', { name: 'Share post' }).click();
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('copied-link'))).toContain(`/ChineseEVs/posts/${localId}`);
+    expect(backendActions).toEqual(['favourite', 'bookmark']);
+
+    await page.goto('/liked');
+    await expect(page.locator('[data-feed-origin="mastodon"]')).toContainText('Backend interaction target');
+    await expect(page.locator(`[data-feed-origin="demo"][data-post-id="${localId}"]`)).toBeVisible();
+
+    await page.goto('/bookmarks');
+    await expect(page.locator('[data-feed-origin="mastodon"]')).toContainText('Backend interaction target');
+    await expect(page.locator(`[data-feed-origin="demo"][data-post-id="${localId}"]`)).toBeVisible();
+  });
+});

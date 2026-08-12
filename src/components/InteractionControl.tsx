@@ -15,7 +15,7 @@ export default function InteractionControl({ icon, label, ariaLabel, onClick, ac
   const [hovered, setHovered] = useState(false);
 
   const baseColor = '#555555';
-  const hoverColor = '#3b82f6';
+  const hoverColor = '#45a99e';
 
   const isActive = hovered || active;
 
@@ -54,7 +54,7 @@ export default function InteractionControl({ icon, label, ariaLabel, onClick, ac
         size={34}
         color={isActive ? hoverColor : baseColor}
         style={{
-          backgroundColor: hovered ? 'rgba(75, 116, 220, 0.06)' : 'transparent',
+          backgroundColor: hovered ? 'rgba(69, 169, 158, 0.09)' : 'transparent',
           transition: 'background-color 230ms 60ms ease-in-out, color 230ms 60ms ease-in-out, transform 230ms 60ms ease-in-out',
           pointerEvents: 'none',
         }}
@@ -90,5 +90,4 @@ export default function InteractionControl({ icon, label, ariaLabel, onClick, ac
     </div>
   );
 }
-
 

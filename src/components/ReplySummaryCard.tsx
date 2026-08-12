@@ -35,7 +35,7 @@ export default function ReplySummaryCard({ replies, relationsOf }: ReplySummaryC
     <Paper
       withBorder
       data-testid="reply-summary-card"
-      style={{ borderRadius: 8, borderStyle: "dashed", background: "#fcfcf9", marginBottom: "0.75rem" }}
+      style={{ borderRadius: 8, borderStyle: "dashed", background: "#ffffff", marginBottom: "0.75rem" }}
     >
       <button
         type="button"
@@ -48,7 +48,7 @@ export default function ReplySummaryCard({ replies, relationsOf }: ReplySummaryC
           padding: "10px 14px", textAlign: "left",
         }}
       >
-        <IconSparkles size={16} color="#5a71a8" />
+        <IconSparkles size={16} color="#45a99e" />
         <Text size="sm" fw={600} c="#374151">
           {open ? `Summary of ${digest.total} ${digest.total === 1 ? "reply" : "replies"}` : `Summarize these ${digest.total} ${digest.total === 1 ? "reply" : "replies"}`}
         </Text>

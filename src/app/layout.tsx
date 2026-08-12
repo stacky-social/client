@@ -5,6 +5,8 @@ import "../styles/globals.css";
 import { MantineProvider, ColorSchemeScript } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import { theme } from "../../theme";
+import { Suspense } from "react";
+import SessionUrlTracker from "../components/SessionUrlTracker";
 
 export const metadata = { title: "CrossWeave", description: "AI-Curated Democratic Discourse" };
 
@@ -18,6 +20,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <MantineProvider theme={theme}>
           <Notifications />
+          <Suspense fallback={null}>
+            <SessionUrlTracker />
+          </Suspense>
           {children}
         </MantineProvider>
       </body>

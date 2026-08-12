@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pushUndoEntry, ringTopMatchesScope } from '../../src/utils/highlightStoreCore.mjs';
+import {
+  detailFocusIdFromPath,
+  pushUndoEntry,
+  ringTopMatchesScope,
+} from '../../src/utils/highlightStoreCore.mjs';
 
 // WS6 Back-undo ring — the pure push/cap/scope-match invariants. The React store
 // (highlightStore.ts) layers the live ring + the single history sentinel on top
@@ -80,4 +84,11 @@ test('ringTopMatchesScope only inspects the TOP entry', () => {
 test('ringTopMatchesScope is false for a null/absent scope', () => {
   assert.equal(ringTopMatchesScope([entry('A', 1)], null), false);
   assert.equal(ringTopMatchesScope([entry('A', 1)], undefined), false);
+});
+
+test('detailFocusIdFromPath scopes both curated and live post routes', () => {
+  assert.equal(detailFocusIdFromPath('/ChineseEVs/posts/curated-42'), 'curated-42');
+  assert.equal(detailFocusIdFromPath('/posts/live-42'), 'live-42');
+  assert.equal(detailFocusIdFromPath('/posts/encoded%20id/'), 'encoded id');
+  assert.equal(detailFocusIdFromPath('/home'), null);
 });

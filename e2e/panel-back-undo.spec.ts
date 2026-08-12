@@ -1,11 +1,8 @@
 import { test, expect, Page } from '@playwright/test';
 import mockData from '../src/app/FakeData/listy-injection.json';
 
-// T6 — Back-button undo (single-sentinel ring) + the W6-1 replaceState switch.
-// These are the AUTOMATABLE guardrails from the ticket; the browser-behaviour
-// ones that resist reliable automation (hard-refresh mid-undo → one dead Back,
-// the phantom-sentinel navigate case) are driven manually in a prod build per
-// the report. The suite runs on the SAME committed fixture the app ships.
+// Shareable filter history. Every filter/sort state has a URL representation,
+// browser Back restores the preceding state, and growth is bounded at 24 entries.
 
 type Rel = { topic?: string; category?: string };
 type Related = { id: string; relations?: Rel[] };
@@ -22,6 +19,16 @@ const entry = (mockData as unknown as Entry[]).find((e) => {
 })!;
 const FOCUS_ID = entry.focusPost.id;
 const DETAIL_URL = `/ChineseEVs/posts/${FOCUS_ID}`;
+const OTHER_ENTRY = (mockData as unknown as Entry[]).find((candidate) => {
+  if (candidate.focusPost.id === FOCUS_ID) return false;
+  const categories = new Set(
+    (candidate.relatedPosts ?? [])
+      .flatMap((post) => (post.relations ?? []).map((relation) => relation.category))
+      .filter(Boolean),
+  );
+  return categories.size > 1;
+})!;
+const OTHER_DETAIL_URL = `/ChineseEVs/posts/${OTHER_ENTRY.focusPost.id}`;
 
 // The aside category chips (FilterChip): a button in the aside column carrying
 // aria-pressed + an aria-label ending in "filter". Scoped tightly so it never
@@ -33,30 +40,28 @@ const chip = (page: Page) =>
 // to") filter (writes ?fs). Same selector the focus-highlighting suite uses.
 const focusMark = (page: Page) => page.locator('[data-testid="focus-reveal"] mark[data-fs]').first();
 
-test.describe('T6 · Back-button undo ring', () => {
-  test('W6-1: filter → wait past the URL-sync debounce → browser Back UNDOES (sentinel survived replaceState)', async ({ page }) => {
-    await page.goto(DETAIL_URL);
+test.describe('Shareable related-post filter history', () => {
+  test('category filter gets a shareable URL and browser Back restores the clean state', async ({ page }) => {
+    await page.goto(`${DETAIL_URL}?flags=summaryCard:0`);
     const firstChip = chip(page).first();
     await expect(firstChip).toBeVisible();
     await expect(firstChip).toHaveAttribute('aria-pressed', 'false');
 
-    // Apply the filter, then WAIT past the 300ms debounce so useUrlSync's
-    // history.replaceState fires. If that write stranded/clobbered the sentinel,
-    // the Back below would LEAVE the route instead of undoing.
     await firstChip.click();
     await expect(firstChip).toHaveAttribute('aria-pressed', 'true');
     await page.waitForURL(/[?&]fc=/, { timeout: 2000 }); // address bar reflects ?fc
+    expect(new URL(page.url()).searchParams.get('flags')).toBe('summaryCard:0');
 
     await page.goBack();
 
-    // Undone: chip inactive again, ?fc gone from the URL, and we are STILL on the
-    // detail route (the Back was consumed by the ring, not a navigation).
+    // Undone: chip inactive, ?fc gone, and still on the detail route.
     await expect(chip(page).first()).toHaveAttribute('aria-pressed', 'false');
     await expect(page).toHaveURL(new RegExp(`${FOCUS_ID}(?:\\?|$)`));
     await expect(page).not.toHaveURL(/[?&]fc=/);
+    expect(new URL(page.url()).searchParams.get('flags')).toBe('summaryCard:0');
   });
 
-  test('replaceState keeps the address bar AND useSearchParams in sync across successive writes', async ({ page }) => {
+  test('successive writes keep the address bar and useSearchParams synchronized', async ({ page }) => {
     await page.goto(DETAIL_URL);
     const firstChip = chip(page).first();
     await expect(firstChip).toBeVisible();
@@ -77,36 +82,150 @@ test.describe('T6 · Back-button undo ring', () => {
     expect(new URL(page.url()).searchParams.get('fc'), 'deselect drops ?fc').toBeNull();
   });
 
-  test('cap-5: 6 interactions → 5 Backs each stay on the route, the 6th LEAVES it (no orphan dead-Back)', async ({ page }) => {
+  test('24 transitions push; the 25th replaces instead of growing browser history', async ({ page }) => {
     // Give the detail route a prior entry to leave TO.
     await page.goto('/ChineseEVs');
     await page.goto(DETAIL_URL);
     const firstChip = chip(page).first();
     await expect(firstChip).toBeVisible();
 
-    // Six real, undoable filter mutations (toggle the same chip on/off ×6). Only
-    // the last five snapshots survive the cap-5 ring; the single sentinel is
-    // shared across all six, so there is exactly one extra history entry.
-    for (let i = 0; i < 6; i++) {
+    const initialHistoryLength = await page.evaluate(() => history.length);
+    for (let i = 0; i < 25; i++) {
       await firstChip.click();
-      await page.waitForTimeout(60);
+      await page.waitForTimeout(20);
     }
-    await page.waitForTimeout(400); // let the last debounced write settle
+    const cappedHistoryLength = await page.evaluate(() => history.length);
+    expect(cappedHistoryLength - initialHistoryLength).toBe(24);
 
-    // Five Backs each undo one step WITHOUT leaving the detail route.
-    for (let i = 0; i < 5; i++) {
+    // All 24 retained transitions are real Back steps on the detail route.
+    for (let i = 0; i < 24; i++) {
       await page.goBack();
-      await page.waitForTimeout(120);
+      await page.waitForTimeout(25);
       await expect(page, `Back #${i + 1} stays on the detail route`).toHaveURL(
         new RegExp(`/ChineseEVs/posts/${FOCUS_ID}`),
       );
     }
 
-    // The ring is now empty → the next Back leaves the route (back to the feed),
-    // not a no-op dead-Back on a stranded sentinel.
+    // The next Back is ordinary route navigation—there is no orphan/dead entry.
     await page.goBack();
     await expect(page).toHaveURL(/\/ChineseEVs(?:\?.*)?$/);
     await expect(page).not.toHaveURL(/\/posts\//);
+  });
+
+  test('a different post receives a fresh 24-step budget after ordinary SPA navigation', async ({ page }) => {
+    await page.goto(DETAIL_URL);
+    const firstChip = chip(page).first();
+    await expect(firstChip).toBeVisible();
+
+    // Fill this post's complete filter-history budget.
+    for (let i = 0; i < 24; i++) {
+      await firstChip.click();
+      await page.waitForTimeout(20);
+    }
+
+    // Reproduce ordinary navigation that does not call
+    // navigateFromPanelScope (TopNav/Link routes take this path). Next patches
+    // pushState and performs the same same-document App Router transition.
+    await page.evaluate((url) => history.pushState(null, '', url), OTHER_DETAIL_URL);
+    await expect(page).toHaveURL(new RegExp(`${OTHER_ENTRY.focusPost.id}(?:\\?|$)`));
+    const otherChip = chip(page).first();
+    await expect(otherChip).toBeVisible();
+
+    const beforeNewPostFilter = await page.evaluate(() => history.length);
+    await otherChip.click();
+    await page.waitForURL(/[?&]fc=/);
+    expect(await page.evaluate(() => history.length)).toBe(beforeNewPostFilter + 1);
+
+    // The first filter on the new post is a genuine Back step, not a replace
+    // forced by abandoned snapshots from the previous post.
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`${OTHER_ENTRY.focusPost.id}(?:\\?|$)`));
+    await expect(page).not.toHaveURL(/[?&]fc=/);
+    await expect(chip(page).first()).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('tab, category, passage, and topic states serialize and Back restores each prior state', async ({ page }) => {
+    await page.goto(DETAIL_URL);
+
+    const likedTab = page.getByRole('tab', { name: 'Most liked' });
+    await expect(likedTab).toBeVisible();
+    await likedTab.click();
+    await page.waitForURL(/[?&]tab=liked(?:&|$)/);
+
+    const firstChip = chip(page).first();
+    await firstChip.click();
+    await page.waitForURL(/[?&]fc=/);
+    const categoryValue = new URL(page.url()).searchParams.get('fc');
+    expect(categoryValue).toBeTruthy();
+
+    const mark = focusMark(page);
+    await mark.click();
+    await page.waitForURL(/[?&]fs=/);
+    await expect(page).not.toHaveURL(/[?&]fc=/);
+
+    const relationTag = page.locator('[data-related-card] [data-related-tag]').first();
+    await expect(relationTag).toBeVisible();
+    await relationTag.click();
+    await page.waitForURL(/[?&]ft=/);
+    const topicUrl = new URL(page.url());
+    expect(topicUrl.searchParams.get('fo')).toBe('aside');
+    expect(topicUrl.searchParams.get('fa')).toBeTruthy();
+    expect(Number(topicUrl.searchParams.get('fi'))).toBeGreaterThanOrEqual(0);
+    await expect(page.getByTestId('active-group-anchor').first()).toBeVisible();
+
+    await page.goBack();
+    await expect(page).toHaveURL(/[?&]fs=/);
+    await expect(page).not.toHaveURL(/[?&]ft=/);
+
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`[?&]fc=${encodeURIComponent(categoryValue!)}`));
+    await expect(page.locator('[data-testid="col-aside"] button[aria-pressed="true"][aria-label$="filter"]').first()).toBeVisible();
+
+    await page.goBack();
+    await expect(page).toHaveURL(/[?&]tab=liked(?:&|$)/);
+    await expect(page).not.toHaveURL(/[?&](?:fc|fs|ft)=/);
+    await expect(likedTab).toHaveAttribute('aria-selected', 'true');
+
+    await page.goBack();
+    await expect(page).not.toHaveURL(/[?&]tab=/);
+    await expect(page.getByRole('tab', { name: 'Top' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('a copied topic-filter URL hydrates the grouping after a cold reload', async ({ page }) => {
+    await page.goto(DETAIL_URL);
+    const relationTag = page.locator('[data-related-card] [data-related-tag]').first();
+    await relationTag.click();
+    await page.waitForURL(/[?&]ft=/);
+    const sharedUrl = page.url();
+
+    await page.goto('/ChineseEVs');
+    await page.goto(sharedUrl);
+
+    const hydrated = new URL(page.url());
+    expect(hydrated.searchParams.get('ft')).toBeTruthy();
+    expect(hydrated.searchParams.get('fo')).toBe('aside');
+    await expect(page.locator('[data-related-card]').first()).toBeVisible();
+    await expect(page.getByTestId('active-group-anchor').first()).toBeVisible();
+  });
+
+  test('a syntactically valid but stale topic tuple is removed once related data resolves', async ({ page }) => {
+    await page.goto(`${DETAIL_URL}?ft=No+longer+present&fo=aside&fa=missing-card&fi=0`);
+
+    // The panel has loaded real related data, so the URL anchor can now be
+    // checked semantically rather than merely parsed for valid syntax.
+    await expect(page.locator('[data-related-card]').first()).toBeVisible();
+    await page.waitForURL((url) => !url.searchParams.has('ft'));
+    const healed = new URL(page.url());
+    for (const key of ['ft', 'fo', 'fa', 'fi']) expect(healed.searchParams.has(key)).toBe(false);
+    await expect(page.getByTestId('active-group-anchor')).toHaveCount(0);
+
+    // Reply-origin tuples resolve against the thread's relation map rather than
+    // the aside's cards, but obey the same atomic healing contract.
+    await page.goto(`${DETAIL_URL}?ft=No+longer+present&fo=replies&fa=missing-reply&fi=0`);
+    await expect(page.getByRole('tab', { name: 'Top' })).toBeVisible();
+    await page.waitForURL((url) => !url.searchParams.has('ft'));
+    const healedReply = new URL(page.url());
+    for (const key of ['ft', 'fo', 'fa', 'fi']) expect(healedReply.searchParams.has(key)).toBe(false);
   });
 
   test('passage filter (focus-post span) is undoable: apply → wait → Back undoes it', async ({ page }) => {
@@ -155,7 +274,7 @@ test.describe('T6 · Back-button undo ring', () => {
     await expect(page).toHaveURL(new RegExp(`/ChineseEVs/posts/${FOCUS_ID}`));
   });
 
-  test('W6-4: the visible Back button consumes a panel undo before navigating', async ({ page }) => {
+  test('the in-app Back control remains route navigation; browser Back owns filter history', async ({ page }) => {
     // ?from seeds BackButton's previousPath so the visible control renders.
     await page.goto(`${DETAIL_URL}?from=999999999`);
     const backBtn = page.getByRole('button', { name: /Back/ });
@@ -165,12 +284,12 @@ test.describe('T6 · Back-button undo ring', () => {
     await expect(firstChip).toBeVisible();
     await firstChip.click();
     await expect(firstChip).toHaveAttribute('aria-pressed', 'true');
-    await page.waitForTimeout(350); // past the debounce
+    await page.waitForTimeout(50);
 
-    // Clicking the visible Back consumes the undo (chip clears) and DOES NOT
-    // navigate to the previousPath — browser Back and UI Back agree.
+    // The visible control means "Back to the prior post" and intentionally
+    // follows its recorded route. Filter-by-filter undo belongs to the browser
+    // Back stack, whose URLs are shareable.
     await backBtn.click();
-    await expect(chip(page).first()).toHaveAttribute('aria-pressed', 'false');
-    await expect(page).toHaveURL(new RegExp(`/ChineseEVs/posts/${FOCUS_ID}`));
+    await expect(page).toHaveURL(/\/ChineseEVs\/posts\/999999999/);
   });
 });

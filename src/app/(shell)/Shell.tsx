@@ -189,7 +189,7 @@ export default function Shell({
                         // top:0`, so any top padding on this scroll container leaves a
                         // transparent strip above the header that scrolled cards show
                         // through. An opaque background keeps the panel solid.
-                        background: "#FCFBF5",
+                        background: "#ffffff",
                         // Container-query context: related cards detect a narrow panel
                         // (its width depends on the slider ratio, not just the viewport).
                         containerType: "inline-size",

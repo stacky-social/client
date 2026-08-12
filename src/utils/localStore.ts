@@ -40,6 +40,7 @@ import type {
 } from "../types/PostType";
 import { getMockFocusRelations, getMockRelatedStacks, getMockReplyCount } from "./mockPostResolver";
 import { resolveReplyCount } from "./replyCount.mjs";
+import { normalizeHashtag } from "../data/hashtagCatalog";
 
 // ─── Exported data shapes ────────────────────────────────────────────────────
 
@@ -128,6 +129,8 @@ export interface LocalState {
   bookmarked: string[];
   /** Followed account acct keys. */
   following: string[];
+  /** Frontend-backed hashtags followed until their posts move to Mastodon. */
+  followingTags: string[];
   /** postId -> user-authored replies (also mirrored into `posts`). */
   comments: Record<string, Comment[]>;
   /** The local "current user". */
@@ -304,6 +307,7 @@ function seedState(meOverride?: Account): LocalState {
     liked: [],
     bookmarked: [],
     following: [],
+    followingTags: [],
     comments: {},
     me,
   };
@@ -359,12 +363,24 @@ function load(): LocalState {
       };
     }
 
+    const persistedFollowing = parsed.following ?? [];
+    // Migrate the previous "follow every demo author" implementation into an
+    // actual hashtag follow. Account follows remain intact for profile pages.
+    const seededDemoAuthors = new Set(
+      Object.values(seed.posts)
+        .map((post) => post.account.acct)
+        .filter((acct) => acct !== seed.me.acct),
+    );
+    const followedEveryDemoAuthor = seededDemoAuthors.size > 0 &&
+      Array.from(seededDemoAuthors).every((acct) => persistedFollowing.includes(acct));
+
     return {
       posts,
       accounts: parsed.accounts ?? seed.accounts,
       liked: parsed.liked ?? [],
       bookmarked: parsed.bookmarked ?? [],
-      following: parsed.following ?? [],
+      following: persistedFollowing,
+      followingTags: parsed.followingTags ?? (followedEveryDemoAuthor ? ["chineseevs"] : []),
       comments: persistedComments,
       me: parsed.me ?? seed.me,
     };
@@ -449,6 +465,7 @@ function mutate(mutator: (draft: LocalState) => LocalState | void): void {
     liked: [...state.liked],
     bookmarked: [...state.bookmarked],
     following: [...state.following],
+    followingTags: [...state.followingTags],
     comments: { ...state.comments },
     me: state.me,
   };
@@ -564,15 +581,14 @@ export function getHomeFeed(): Post[] {
  */
 export function getFollowedDemoFeed(): Post[] {
   return memoized("followedDemo", () => {
-    const followed = new Set(state.following);
-    if (followed.size === 0) return [];
+    if (!state.followingTags.includes("chineseevs")) return [];
     // Match the actual /ChineseEVs timeline contract: its feed contains focus
     // posts, while ancestors, replies, and related responses belong inside the
     // focus/detail experience. Returning every stored record here buried focus
     // posts beneath newer standalone replies that correctly had no related pane.
     const focusPostIds = new Set(entries.map((entry) => entry.focusPost.id));
     return Object.values(state.posts)
-      .filter((post) => focusPostIds.has(post.id) && followed.has(post.account.acct))
+      .filter((post) => focusPostIds.has(post.id))
       .sort(byNewest);
   });
 }
@@ -777,6 +793,25 @@ export function toggleFollow(acct: string): { following: boolean } {
     }
   });
   return { following: isNowFollowing };
+}
+
+/** Follow or unfollow a frontend-backed hashtag. */
+export function toggleTagFollow(tag: string): { following: boolean } {
+  ensureHydrated();
+  const normalized = normalizeHashtag(tag);
+  const following = !state.followingTags.includes(normalized);
+  mutate((draft) => {
+    draft.followingTags = following
+      ? [...draft.followingTags.filter((item) => item !== normalized), normalized]
+      : draft.followingTags.filter((item) => item !== normalized);
+  });
+  return { following };
+}
+
+/** Whether a frontend-backed hashtag is followed on this device. */
+export function isFollowingTag(tag: string): boolean {
+  ensureHydrated();
+  return state.followingTags.includes(normalizeHashtag(tag));
 }
 
 /**

@@ -62,26 +62,71 @@ test.describe('Mastodon-backed client mode', () => {
     await expect(page.locator('[data-feed-mode="mastodon"]')).toBeVisible();
     await expect(page.getByText('A post returned by the Mastodon home timeline.')).toBeVisible();
     await expect(page.locator('[data-store-feed-post]')).toHaveCount(0);
+    await expect(page.getByRole('main')).toHaveCSS('border-left-width', '0px');
+    await expect(page.getByRole('main')).toHaveCSS('border-right-width', '0px');
+    await expect(page.getByRole('main')).toHaveCSS('box-shadow', 'none');
+    await expect(page.getByRole('main')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(page.getByRole('main')).toHaveCSS('overflow', 'visible');
+    const homeCard = page.locator('[data-post-id="live-1"] [data-testid="post"]');
+    await expect(homeCard).toHaveCSS('border-radius', '10px');
+    expect(await homeCard.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe('none');
     expect(authorization).toMatch(/^Bearer backend-token-/);
   });
 
-  test('blends an explicitly followed demo feed into authenticated Home', async ({ page }) => {
+  test('keeps the final two Home posts reachable by viewport focus', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(Array.from(
+        { length: 6 },
+        (_, index) => status(`focus-${index + 1}`, `Focus runway post ${index + 1}`),
+      )),
+    }));
+
+    await page.goto('/home');
+    await expect(page.getByText('Focus runway post 6')).toBeAttached();
+    await expect(page.locator('[data-feed-focus-runway="true"]')).toHaveCSS('padding-bottom', '450px');
+
+    const centerPost = async (postId: string) => {
+      await page.evaluate((id) => {
+        const element = document.querySelector(`[data-post-id="${id}"]`);
+        if (!(element instanceof HTMLElement)) throw new Error(`Missing post ${id}`);
+        const rect = element.getBoundingClientRect();
+        const target = window.scrollY + rect.top + rect.height / 2 - window.innerHeight / 2;
+        window.scrollTo(0, target);
+      }, postId);
+      await expect(page.locator(`[data-post-id="${postId}"] [data-testid="post"]`))
+        .toHaveAttribute('data-active', 'true');
+      await expect.poll(() => page.evaluate((id) => {
+        const element = document.querySelector(`[data-post-id="${id}"]`);
+        if (!(element instanceof HTMLElement)) return Number.POSITIVE_INFINITY;
+        const rect = element.getBoundingClientRect();
+        return Math.abs(rect.top + rect.height / 2 - window.innerHeight / 2);
+      }, postId)).toBeLessThan(20);
+    };
+
+    await centerPost('focus-5');
+    await centerPost('focus-6');
+  });
+
+  test('blends an explicitly followed hashtag into authenticated Home', async ({ page }) => {
     await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) => route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify([]),
     }));
 
-    await page.goto('/ChineseEVs');
-    await page.getByRole('button', { name: 'Follow demo feed' }).click();
-    await expect(page.getByText('Following demo feed', { exact: true }).first()).toBeVisible();
+    await page.goto('/tag/ChineseEVs');
+    await page.getByRole('button', { name: 'Follow hashtag' }).click();
+    await expect(page.getByRole('button', { name: 'Unfollow hashtag' })).toBeVisible();
 
     await page.goto('/home');
     await expect(page.locator('[data-feed-mode="mastodon"]')).toBeVisible();
     await expect(page.locator('[data-feed-origin="demo"]').first()).toBeVisible();
     await expect(page.locator('[data-related-card]').first()).toBeVisible();
     await expect(page.getByText('Your Mastodon home timeline is empty.')).toHaveCount(0);
-    await expect(page.getByRole('main')).toHaveCSS('background-color', 'rgb(252, 251, 245)');
+    await expect(page.getByRole('main')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   });
 
   test('publishes through Mastodon and prepends the canonical returned status', async ({ page }) => {
@@ -182,5 +227,47 @@ test.describe('Mastodon-backed client mode', () => {
       'POST /api/v1/statuses/live-1/favourite',
       'POST /api/v1/statuses/live-1/bookmark',
     ]);
+  });
+
+  test('browser Back restores the prior reply tab on a live post detail route', async ({ page }) => {
+    const focus = status('live-detail', 'A live Mastodon detail post.');
+    const reply = {
+      ...status('live-reply', 'A reply that makes the tab strip visible.'),
+      in_reply_to_id: 'live-detail',
+    };
+
+    await page.route('https://beta.stacky.social/api/v1/accounts/verify_credentials', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(account),
+    }));
+    await page.route('https://beta.stacky.social/api/v1/statuses/live-detail', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(focus),
+    }));
+    await page.route('https://beta.stacky.social/api/v1/statuses/live-detail/context', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ancestors: [], descendants: [reply] }),
+    }));
+    await page.route('https://beta.stacky.social:3002/replies/live-detail/summary', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ summary: 'A concise live-thread summary.' }),
+    }));
+
+    await page.goto('/posts/live-detail');
+    const timeTab = page.getByRole('tab', { name: 'Time' });
+    await expect(timeTab).toHaveAttribute('aria-selected', 'true');
+
+    await page.getByRole('tab', { name: 'Summary' }).click();
+    await page.waitForURL(/[?&]tab=summary(?:&|$)/);
+    await expect(page.getByText('A concise live-thread summary.')).toBeVisible();
+
+    await page.goBack();
+    await expect(page).not.toHaveURL(/[?&]tab=/);
+    await expect(timeTab).toHaveAttribute('aria-selected', 'true');
+    await expect(page).toHaveURL(/\/posts\/live-detail(?:\?.*)?$/);
   });
 });

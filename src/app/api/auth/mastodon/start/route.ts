@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MASTODON_INSTANCE_URL } from '../../../../../utils/mastodonApi';
+import { mastodonOAuthRedirectUri } from '../../../../../utils/oauthRedirect.mjs';
 
 export const dynamic = 'force-dynamic';
 
 const OAUTH_STATE_COOKIE = 'crossweave_oauth_state';
 const OAUTH_REDIRECT_COOKIE = 'crossweave_oauth_redirect';
 const OAUTH_SCOPES = 'read write follow';
-
-function appOrigin(request: NextRequest): string {
-  return (process.env.APP_URL || request.nextUrl.origin).replace(/\/$/, '');
-}
 
 export async function GET(request: NextRequest) {
   const clientId = process.env.NEXT_PUBLIC_MASTODON_OAUTH_CLIENT_ID;
@@ -21,7 +18,10 @@ export async function GET(request: NextRequest) {
   }
 
   const state = crypto.randomUUID();
-  const redirectUri = `${appOrigin(request)}/callback`;
+  const redirectUri = mastodonOAuthRedirectUri({
+    requestOrigin: request.nextUrl.origin,
+    configuredOrigin: process.env.OAUTH_REDIRECT_ORIGIN,
+  });
   const authorizationUrl = new URL('/oauth/authorize', MASTODON_INSTANCE_URL);
   authorizationUrl.searchParams.set('client_id', clientId);
   authorizationUrl.searchParams.set('redirect_uri', redirectUri);

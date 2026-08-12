@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import RelatedStacks from "../../../../components/RelatedStacks";
 import { ComposerFeedback } from "../../../../components/SubmitPost/ComposerFeedback";
 import { useRelatedStacks } from "../../related-stacks-context";
+import { getPost } from "../../../../utils/localStore";
 
 export default function HomeAside() {
   const pathname = usePathname();
@@ -39,13 +40,15 @@ export default function HomeAside() {
             onStackClick={() => {}}
             showupdate={showUpdate}
             sourcePostId={activePostId ?? undefined}
+            expandGroups
             // No feed on this route registers a navigate callback, so
             // triggerNavigate would silently no-op (F-17) — route directly
             // to the demo detail page instead. Seed previousPath so the
             // detail page's Back button renders and returns here.
             onPostNavigate={(postId) => {
-              sessionStorage.setItem(`previousPath:/ChineseEVs/posts/${postId}`, pathname);
-              router.push(`/ChineseEVs/posts/${postId}`);
+              const route = getPost(postId) ? `/ChineseEVs/posts/${postId}` : `/posts/${postId}`;
+              sessionStorage.setItem(`previousPath:${route}`, pathname);
+              router.push(route);
             }}
           />
         </div>

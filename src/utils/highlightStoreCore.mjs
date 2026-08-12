@@ -108,6 +108,20 @@ export function ringTopMatchesScope(ring, scope) {
   return top.pathname === scope.pathname && top.focusId === scope.focusId;
 }
 
+/** Derive the focus id from either detail-route family. The live Mastodon
+ *  `/posts/[id]` page has no matching @aside route, so it cannot rely on the
+ *  related-panel mount to publish `currentPanelFocusId`; URL-derived scope
+ *  keeps tab/filter history undoable there too. */
+export function detailFocusIdFromPath(pathname) {
+  const match = /^\/(?:ChineseEVs\/)?posts\/([^/]+)\/?$/.exec(pathname ?? '');
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
 /** Validate a restored topic interaction against the CURRENT focus data.
  *  `resolveTopicKey(anchor, origin)` returns the topic key that currently lives
  *  at the interaction's anchor (or null/undefined if that span is gone). The

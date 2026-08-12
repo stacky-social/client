@@ -52,7 +52,6 @@ import {
   beginUndoablePanelInteractionIfDetail,
   setReplyBaseOrder,
   currentPanelScope,
-  consumePanelUndo,
   navigateFromPanelScope,
 } from "../../../../../utils/highlightStore";
 
@@ -267,6 +266,18 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     return rels[anchor.rangeIndex]?.topic ?? null;
   });
   useEffect(() => () => registerReplyTopicResolver(null), []);
+
+  // The reply pane owns the data needed to validate a reply-origin deep link.
+  // Wait until the requested focus post (and its reply map) has loaded, then
+  // heal a syntactically valid tuple whose claimed anchor/topic no longer
+  // exists. Aside-origin tuples are validated by RelatedStacks after its data
+  // arrives, so each pane validates only the anchor domain it understands.
+  useEffect(() => {
+    if (post?.id !== id || !topicInteraction || topicInteraction.origin !== "replies") return;
+    const rels = replyRelationsById.get(topicInteraction.anchor.postId) ?? [];
+    const currentTopic = rels[topicInteraction.anchor.rangeIndex]?.topic ?? null;
+    if (currentTopic !== topicInteraction.topicKey) clearTopicInteraction();
+  }, [id, post?.id, replyRelationsById, topicInteraction]);
 
   // ── Cross-pane grouping / filtering (T7) ─────────────────────────────────
   // The reply pane's role is DERIVED from the single shared `topicInteraction`:
@@ -747,19 +758,6 @@ export default function MockPostView({ params }: { params: { id: string } }) {
     allowedTabs: allowedTabsFor(flags.replySortTabs),
   });
 
-  // WS6: route-owned popstate listener for panel Back-undo. Installed in a client
-  // effect (never at module import) so it is SSR-safe and lives only while the
-  // detail route is mounted. On Back, consumePanelUndo undoes one panel step iff
-  // the ring's top matches the current {pathname, focus} (in-memory detection);
-  // otherwise it is a no-op and the browser navigation proceeds normally.
-  useEffect(() => {
-    const onPopState = () => {
-      consumePanelUndo();
-    };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
-
   // H5: seed BackButton sessionStorage from ?from= when opening a shared link
   useEffect(() => {
     const fromId = searchParamsObj?.get("from");
@@ -773,6 +771,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
 
   const handleTabChange = (value: string | null) => {
     if (!value) return;
+    beginUndoablePanelInteractionIfDetail(id);
     // Explicit re-sort: the user asked for a fresh ordering, so the permanent
     // cluster arrangement yields (permanence rule's one escape hatch besides
     // Back-undo). With a cluster still active, the write-through effect
@@ -1028,7 +1027,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
         {showThread && mergedReplies.length > 0 && flags.replySortTabs && (
           <Paper
             style={{
-              // Transparent so the cream page background (body #FCFBF5) shows
+              // Transparent so the bright-white application canvas shows
               // through around the white reply cards, matching the aside pane —
               // the left column read as a solid white block before.
               backgroundColor: "transparent",
@@ -1047,7 +1046,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
                 with a handful of comments a sort control is noise — show the
                 thread newest-first, as a traditional interface would. */}
             {totalTopLevelReplies > 5 && (
-              <Tabs color="#002379" value={activeTab} onChange={handleTabChange}>
+              <Tabs color="#45a99e" value={activeTab} onChange={handleTabChange}>
                 <Tabs.List style={{ marginBottom: "1rem" }} data-testid="reply-sort-tabs">
                   {([["top", "Top"], ["time", "Newest"], ["liked", "Most liked"]] as const).map(([val, label]) => (
                     <Tabs.Tab
@@ -1130,7 +1129,7 @@ export default function MockPostView({ params }: { params: { id: string } }) {
               width: "100%",
             }}
           >
-            <Tabs color="#002379" defaultValue="time" value={activeTab} onChange={handleTabChange}>
+            <Tabs color="#45a99e" defaultValue="time" value={activeTab} onChange={handleTabChange}>
               <Tabs.List style={{ marginBottom: "1rem" }}>
                 {(["time", "recommended", "stacked", "summary"] as const).map((tab) => (
                   <Tabs.Tab

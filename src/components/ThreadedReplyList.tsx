@@ -158,7 +158,7 @@ const expanderStyle: React.CSSProperties = {
   border: "none",
   padding: "2px 0",
   cursor: "pointer",
-  color: "#5a71a8",
+  color: "#1c2b4a",
   fontWeight: 600,
   fontSize: 13,
 };

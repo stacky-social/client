@@ -1,13 +1,13 @@
 .page {
-  --navy: #14213d;
-  --cream: #fcfbf5;
-  --green: #4e8f78;
+  --navy: #1c2b4a;
+  --canvas: #ffffff;
+  --teal: #45a99e;
   min-height: 100vh;
   color: var(--navy);
   background:
-    radial-gradient(circle at 14% 18%, rgba(78, 143, 120, 0.1), transparent 27rem),
-    radial-gradient(circle at 84% 76%, rgba(216, 167, 46, 0.1), transparent 25rem),
-    var(--cream);
+    radial-gradient(circle at 14% 18%, rgba(69, 169, 158, 0.08), transparent 27rem),
+    radial-gradient(circle at 84% 76%, rgba(240, 168, 62, 0.08), transparent 25rem),
+    var(--canvas);
 }
 
 .weaveRail {
@@ -19,10 +19,10 @@
   grid-template-rows: repeat(4, 1fr);
 }
 
-.weaveRail span:nth-child(1) { background: #d97757; }
-.weaveRail span:nth-child(2) { background: #d8a72e; }
-.weaveRail span:nth-child(3) { background: #4e8f78; }
-.weaveRail span:nth-child(4) { background: #5a71a8; }
+.weaveRail span:nth-child(1) { background: #e15c52; }
+.weaveRail span:nth-child(2) { background: #f0a83e; }
+.weaveRail span:nth-child(3) { background: #45a99e; }
+.weaveRail span:nth-child(4) { background: #1c2b4a; }
 
 .shell {
   width: min(1160px, calc(100% - 3rem));
@@ -59,7 +59,7 @@
 
 .kicker,
 .cardEyebrow {
-  color: var(--green);
+  color: var(--teal);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.13em;
@@ -101,7 +101,7 @@
   place-items: center;
   margin-top: 1px;
   color: #fff;
-  background: var(--green);
+  background: var(--teal);
   border-radius: 50%;
 }
 .steps strong { display: block; font-size: 0.95rem; }
@@ -122,17 +122,17 @@
   border-radius: 14px;
 }
 .previewRail { display: grid; overflow: hidden; border-radius: 8px; }
-.previewRail i:nth-child(1) { background: #d97757; }
-.previewRail i:nth-child(2) { background: #d8a72e; }
-.previewRail i:nth-child(3) { background: #4e8f78; }
-.previewRail i:nth-child(4) { background: #5a71a8; }
+.previewRail i:nth-child(1) { background: #e15c52; }
+.previewRail i:nth-child(2) { background: #f0a83e; }
+.previewRail i:nth-child(3) { background: #45a99e; }
+.previewRail i:nth-child(4) { background: #1c2b4a; }
 .previewPost { display: grid; grid-template-columns: 30px 1fr; gap: 0.75rem; align-content: start; padding: 0.35rem 0; }
 .previewPost b { width: 30px; height: 30px; background: #d9ddd8; border-radius: 50%; }
 .previewPost span { display: grid; gap: 0.55rem; padding-top: 0.25rem; }
 .previewPost i { display: block; height: 7px; background: #d9ddd8; border-radius: 8px; }
 .previewPost i:last-child { width: 72%; }
 .previewPost:nth-of-type(4) { position: absolute; left: 66px; bottom: 6px; width: 55%; transform: scale(0.75); transform-origin: left bottom; }
-.previewBranch { position: absolute; left: 48px; top: 46px; width: 20px; height: 46px; border: solid #bcc4c7; border-width: 0 0 2px 2px; border-radius: 0 0 0 14px; }
+.previewBranch { position: absolute; left: 54px; top: 50px; width: 14px; height: 42px; border: solid #bcc4c7; border-width: 0 0 2px 2px; border-radius: 0 0 0 14px; }
 .previewContext { display: grid; align-content: center; gap: 7px; padding-left: 0.8rem; border-left: 1px solid #c7cbc4; }
 .previewContext em { height: 8px; background: rgba(78, 143, 120, 0.28); border-radius: 8px; }
 .previewContext em:nth-child(2) { background: rgba(90, 113, 168, 0.25); }
@@ -160,7 +160,7 @@
 .primaryButton { height: 48px; background: var(--navy); font-weight: 750; }
 .primaryButton:hover { background: #27385d; }
 .createButton { height: 44px; margin-top: 0.8rem; color: var(--navy); border-color: #9fa7b4; font-weight: 700; }
-.createButton:hover { background: #f4f4ef; }
+.createButton:hover { background: #eef8f6; }
 .privacyCopy { margin: 0.8rem 0 0; color: #7a8291; font-size: 0.72rem; line-height: 1.5; }
 .divider { margin: 1.55rem 0 1.1rem; color: #7a8291; font-size: 0.73rem; }
 
@@ -172,13 +172,13 @@
   padding: 0.85rem 0.95rem;
   color: var(--navy);
   text-align: left;
-  background: #f5f4ed;
-  border: 1px solid #deddd3;
+  background: #f8fafb;
+  border: 1px solid #dfe4ea;
   border-radius: 10px;
   cursor: pointer;
   transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
 }
-.demoButton:hover { background: #efeee5; border-color: #babbae; transform: translateY(-1px); }
+.demoButton:hover { background: #eef8f6; border-color: #45a99e; transform: translateY(-1px); }
 .demoButton strong { display: block; font-size: 0.86rem; }
 .demoButton small { display: block; margin-top: 0.18rem; color: #747d8d; font-size: 0.71rem; }
 .terms { margin-top: 1.1rem; color: #7a8291; font-size: 0.7rem; line-height: 1.5; text-align: center; }

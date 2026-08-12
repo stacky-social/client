@@ -13,6 +13,7 @@ import { format, formatDistanceToNow, differenceInDays } from 'date-fns';
  */
 export function formatPostDate(input: string | Date): string {
   const d = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(d.getTime())) return 'Date unavailable';
   const now = new Date();
   const days = differenceInDays(now, d);
   // Future or clock-skewed dates: avoid "in about 3 hours ago".

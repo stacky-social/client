@@ -35,7 +35,7 @@ export default function LandingPage() {
       <div className={classes.shell}>
         <header className={classes.brandBar}>
           <CrossweaveLogo height={38} />
-          <Text className={classes.instanceLabel}>A social space on Stacky</Text>
+          <Text className={classes.instanceLabel}>Mastodon-powered</Text>
         </header>
 
         <div className={classes.layout}>
@@ -50,7 +50,7 @@ export default function LandingPage() {
             </Text>
 
             <ol className={classes.steps} aria-label="What you can do in CrossWeave">
-              <li><span><IconCheck size={16} /></span><div><strong>Read your real home timeline</strong><small>Posts from people you follow, fetched from Stacky.</small></div></li>
+              <li><span><IconCheck size={16} /></span><div><strong>Read your real home timeline</strong><small>Posts from people and conversations you follow.</small></div></li>
               <li><span><IconCheck size={16} /></span><div><strong>Post and respond normally</strong><small>Your posts, likes, and bookmarks are saved to Mastodon.</small></div></li>
               <li><span><IconCheck size={16} /></span><div><strong>Explore related responses</strong><small>CrossWeave adds context without changing the original post.</small></div></li>
             </ol>
@@ -69,7 +69,7 @@ export default function LandingPage() {
               <Text className={classes.cardEyebrow}>Your account</Text>
               <h2 id="access-title" className={classes.cardTitle}>Sign in to CrossWeave</h2>
               <Text className={classes.cardCopy}>
-                Continue with your Stacky account. You will confirm access on the Mastodon sign-in page.
+                Continue with Mastodon. You will confirm access on its sign-in page.
               </Text>
             </div>
 
@@ -102,7 +102,7 @@ export default function LandingPage() {
             </Button>
 
             <Text className={classes.privacyCopy}>
-              CrossWeave never receives your password. Authentication is handled by the Stacky Mastodon server.
+              CrossWeave · Mastodon-powered
             </Text>
 
             <Divider label="Want to look around first?" labelPosition="center" className={classes.divider} />

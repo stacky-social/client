@@ -14,7 +14,8 @@ test.describe('study-mode local flows', () => {
     const hashtag = page.getByRole('button', { name: 'Open #ChineseEVs hashtag' });
     await expect(hashtag).toContainText('#ChineseEVs');
     await hashtag.click();
-    await expect(page).toHaveURL(/\/ChineseEVs$/);
+    await expect(page).toHaveURL(/\/tag\/ChineseEVs$/);
+    await expect(page.getByRole('button', { name: 'Follow hashtag' })).toBeVisible();
   });
 
   test('opens a user-created home post and its reply on local detail routes', async ({ page }) => {

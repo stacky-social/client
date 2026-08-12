@@ -19,8 +19,10 @@ type RelatedStacksContextValue = {
   setFromPost: (
     stacks: RelatedStacksArray,
     postId: string,
-    options?: { force?: boolean; highlightPostId?: string | null }
+    options?: { force?: boolean; highlightPostId?: string | null; surfaceKey?: string }
   ) => void;
+  /** Enter a feed surface, clearing context retained from another route once. */
+  enterFeedSurface: (surfaceKey: string) => void;
   showUpdate: boolean;
   clear: () => void;
   /** A related-post id to pin + emphasise in the aside (from a shared "pairing" link). */
@@ -45,6 +47,7 @@ export function RelatedStacksProvider({ children }: { children: React.ReactNode 
   // committed values, so two calls in one tick don't race on a stale render closure.
   const activePostIdRef = useRef<string | null>(activePostId);
   const relatedStacksRef = useRef<RelatedStacksArray>(relatedStacks);
+  const feedSurfaceKeyRef = useRef<string | null>(null);
 
   const apply = useCallback(
     (nextActive: string | null, nextStacks: RelatedStacksArray, nextHighlight: string | null = null) => {
@@ -62,14 +65,26 @@ export function RelatedStacksProvider({ children }: { children: React.ReactNode 
     apply(null, [], null);
   }, [apply]);
 
+  const enterFeedSurface = useCallback((surfaceKey: string) => {
+    if (feedSurfaceKeyRef.current === surfaceKey) return;
+    feedSurfaceKeyRef.current = surfaceKey;
+    apply(null, [], null);
+  }, [apply]);
+
   const setFromPost = useCallback(
     (
       stacks: RelatedStacksArray,
       postId: string,
-      options?: { force?: boolean; highlightPostId?: string | null }
+      options?: { force?: boolean; highlightPostId?: string | null; surfaceKey?: string }
     ) => {
       const nextStacks = Array.isArray(stacks) ? stacks : [];
       const nextHighlight = options?.highlightPostId ?? null;
+      // Feed publishers claim their stable surface. Detail pages and other
+      // publishers deliberately clear that claim, so returning to the same feed
+      // after viewing a post still counts as a route transition. A feed's own
+      // hydration/remount keeps the same key and therefore does not wipe the
+      // focus it just published.
+      feedSurfaceKeyRef.current = options?.surfaceKey ?? null;
 
       if (options?.force) {
         // Skip no-op updates so the aside doesn't re-render (and replay framer-motion)
@@ -104,6 +119,7 @@ export function RelatedStacksProvider({ children }: { children: React.ReactNode 
       activePostId,
       previousPostId,
       setFromPost,
+      enterFeedSurface,
       showUpdate: activePostId !== previousPostId,
       clear,
       highlightPostId,
@@ -111,7 +127,7 @@ export function RelatedStacksProvider({ children }: { children: React.ReactNode 
       composerFeedback,
       setComposerFeedback,
     }),
-    [relatedStacks, activePostId, previousPostId, setFromPost, clear, highlightPostId, composerFeedback]
+    [relatedStacks, activePostId, previousPostId, setFromPost, enterFeedSurface, clear, highlightPostId, composerFeedback]
   );
 
   return <RelatedStacksContext.Provider value={value}>{children}</RelatedStacksContext.Provider>;
@@ -122,5 +138,4 @@ export function useRelatedStacks() {
   if (!ctx) throw new Error("useRelatedStacks must be used within RelatedStacksProvider");
   return ctx;
 }
-
 

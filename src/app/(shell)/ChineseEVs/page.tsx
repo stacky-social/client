@@ -12,7 +12,7 @@ import { useRelatedStacks } from "../related-stacks-context";
 import { firstTypeRelations } from "../../../utils/relationFirstType.mjs";
 import { registerNavigateCallback } from "../../../utils/highlightStore";
 import ReplySection from "../../../components/ReplySection";
-import { useLocalStore, useHydrated, getHashtagAuthors, followAll, unfollowAll, areAllFollowing } from "../../../utils/localStore";
+import { useLocalStore, useHydrated, isFollowingTag, toggleTagFollow } from "../../../utils/localStore";
 import { DEMO_TIMELINE_PAGE_SIZE, getChineseEvTimelinePage, type TimelineStats } from "../../../services/demoApiClient";
 import { getMockReplyCount } from "../../../utils/mockPostResolver";
 
@@ -927,35 +927,32 @@ export default function ListyInjectionPage() {
   const participantCount = timelineStats?.participants ?? uniqueAuthors.size;
   const remainingPosts = Math.max(0, totalPosts - posts.length);
 
-  // Follow every demo participant so the JSON-backed conversation is blended
-  // into Home. This stays local until the curated corpus is imported to Mastodon.
+  // Follow the conversation as a hashtag so it behaves like a normal social
+  // feed even while its posts are still served by the frontend adapter.
   const hydrated = useHydrated();
   const localPosts = useLocalStore((snapshot) => snapshot.posts);
-  const hashtagFollowed = useLocalStore(() => areAllFollowing(getHashtagAuthors()));
+  const hashtagFollowed = useLocalStore(() => isFollowingTag("ChineseEVs"));
   const handleFollowHashtag = () => {
-    const authors = getHashtagAuthors();
-    const wasFollowing = areAllFollowing(authors);
-    if (wasFollowing) unfollowAll(authors);
-    else followAll(authors);
+    const wasFollowing = isFollowingTag("ChineseEVs");
+    toggleTagFollow("ChineseEVs");
 
     const notificationId = `chinese-evs-follow-${Date.now()}`;
     notifications.show({
       id: notificationId,
-      title: wasFollowing ? "Demo feed unfollowed" : "Following demo feed",
+      title: wasFollowing ? "Unfollowed #ChineseEVs" : "Following #ChineseEVs",
       color: "blue",
       message: (
         <Group gap="xs" justify="space-between" wrap="nowrap">
           <Text size="sm">
             {wasFollowing
-              ? "These curated posts were removed from Home."
-              : "These curated posts now appear on Home alongside Mastodon posts."}
+              ? "Posts from this conversation were removed from Home."
+              : "Posts from this conversation now appear on Home."}
           </Text>
           <Button
             variant="subtle"
             size="compact-xs"
             onClick={() => {
-              if (wasFollowing) followAll(authors);
-              else unfollowAll(authors);
+              toggleTagFollow("ChineseEVs");
               notifications.hide(notificationId);
             }}
           >
@@ -983,7 +980,7 @@ export default function ListyInjectionPage() {
             size="sm"
             onClick={handleFollowHashtag}
           >
-            {hydrated && hashtagFollowed ? "Following demo feed" : "Follow demo feed"}
+            {hydrated && hashtagFollowed ? "Unfollow hashtag" : "Follow hashtag"}
           </Button>
         </Group>
         <Divider my="md" />
@@ -1002,7 +999,7 @@ export default function ListyInjectionPage() {
           </div>
         </Group>
         <Text size="xs" c="dimmed" mt="md">
-          Demo follows are saved on this device until the curated posts move to Mastodon.
+          Follow this hashtag to weave these conversations into Home.
         </Text>
       </Paper>
 

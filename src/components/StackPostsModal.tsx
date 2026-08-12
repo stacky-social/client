@@ -223,7 +223,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
               dangerouslySetInnerHTML={{ __html: stack.topPost.content }}
             />
             {isOverflowing && (
-              <div style={{ color: '#5a71a8' }}>
+              <div style={{ color: '#1c2b4a' }}>
               [read more]
               </div>
             )}
@@ -232,13 +232,13 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
         <Divider style={{marginTop:'1rem'}} />
         <Group style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
           <Button variant="subtle" size="sm" radius="lg">
-            <IconMessageCircle size={20} style={{ color: '#002379' }} /> <Text style={{ color: '#002379' }} ml={4}>{stack.topPost.replies_count}</Text>
+            <IconMessageCircle size={20} style={{ color: '#45a99e' }} /> <Text style={{ color: '#1c2b4a' }} ml={4}>{stack.topPost.replies_count}</Text>
           </Button>
           <Button variant="subtle" size="sm" radius="lg">
-            {stack.topPost.favourited ? <IconHeartFilled size={20} style={{ color: '#002379' }} /> : <IconHeart size={20} style={{ color: '#002379' }} />} <Text style={{ color: '#002379' }} ml={4}>{stack.topPost.favourites_count}</Text>
+            {stack.topPost.favourited ? <IconHeartFilled size={20} style={{ color: '#e15c52' }} /> : <IconHeart size={20} style={{ color: '#1c2b4a' }} />} <Text style={{ color: '#1c2b4a' }} ml={4}>{stack.topPost.favourites_count}</Text>
           </Button>
           <Button variant="subtle" size="sm" radius="lg">
-            {stack.topPost.bookmarked ? <IconBookmarkFilled size={20} style={{ color: '#002379' }} /> : <IconBookmark size={20} style={{ color: '#002379' }} />}
+            {stack.topPost.bookmarked ? <IconBookmarkFilled size={20} style={{ color: '#f0a83e' }} /> : <IconBookmark size={20} style={{ color: '#1c2b4a' }} />}
           </Button>
         </Group>
       </Paper>
@@ -271,14 +271,14 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
       removeScrollProps={{ removeScrollBar: false }}
       overlayProps={{
         backgroundOpacity: 0.55,
-        color:'#fefefb',
+        color:'#ffffff',
         blur: 3,
       }}
-      styles={{body: { backgroundColor: '#fefefb'}, content:{maxWidth:'1200px'}}}
+      styles={{body: { backgroundColor: '#ffffff'}, content:{maxWidth:'1200px'}}}
       withCloseButton={false}
     >
     <div
-    style={{backgroundColor: '#fefefb',padding:'2rem'}}
+    style={{backgroundColor: '#ffffff',padding:'2rem'}}
     >
     <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List>

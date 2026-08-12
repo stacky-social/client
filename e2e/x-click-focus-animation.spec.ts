@@ -40,11 +40,21 @@ const PIN_TOP = 64;
 // specific reply by id. (These anchors are all top-level; grandchildren, which
 // T8 collapses by default, are not involved.)
 async function revealTopLevelReplies(page: import('@playwright/test').Page) {
+  const target = page.locator(`[data-post-id="${REPLY_ID}"]`).first();
   for (let i = 0; i < 6; i++) {
     const more = page.getByRole('button', { name: /^\d+ more repl/i });
+    // The reply thread is deliberately deferred until after the focus post
+    // paints. Under a loaded parallel run, checking `count()` immediately can
+    // race that render and falsely conclude there is nothing to reveal.
+    await expect.poll(
+      async () => (await target.count()) + (await more.count()),
+      { timeout: 10_000, message: 'reply thread or its pagination control should render' },
+    ).toBeGreaterThan(0);
+    if ((await target.count()) > 0) return;
     if ((await more.count()) === 0) break;
     await more.first().click();
   }
+  await expect(target).toBeVisible({ timeout: 10_000 });
 }
 
 test.describe('X-style click-to-focus (scroll-pin + fade)', () => {

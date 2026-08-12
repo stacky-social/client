@@ -14,6 +14,27 @@ test.describe('Landing page', () => {
 
     await expect(page.getByText('CrossWeave', { exact: true })).toBeVisible();
     await expect(page.getByRole('img', { name: 'CrossWeave logo' })).toHaveCount(1);
+    await expect(page.getByText('CrossWeave · Mastodon-powered', { exact: true })).toBeVisible();
+    await expect(page.getByText(/Stacky/)).toHaveCount(0);
+
+    const connector = await page.evaluate(() => {
+      const preview = document.querySelector('[class*="threadPreview"]');
+      const avatars = preview?.querySelectorAll('[class*="previewPost"] b');
+      const branch = preview?.querySelector('[class*="previewBranch"]');
+      const top = avatars?.[0]?.getBoundingClientRect();
+      const lower = avatars?.[1]?.getBoundingClientRect();
+      const line = branch?.getBoundingClientRect();
+      if (!top || !lower || !line) return null;
+      return {
+        topCenterDelta: Math.abs(line.left - ((top.left + top.right) / 2)),
+        topJoinDelta: Math.abs(line.top - top.bottom),
+        lowerJoinDelta: Math.abs(line.right - lower.left),
+      };
+    });
+    expect(connector).not.toBeNull();
+    expect(connector!.topCenterDelta).toBeLessThanOrEqual(1);
+    expect(connector!.topJoinDelta).toBeLessThanOrEqual(3);
+    expect(connector!.lowerJoinDelta).toBeLessThanOrEqual(3);
   });
 
   test('starts OAuth through the same-origin secure route', async ({ page }) => {

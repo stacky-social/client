@@ -52,8 +52,8 @@ export default function BackButton() {
       style={{ marginBottom: '1rem' }}
     >
       <Group gap={6}>
-        <IconArrowLeft size={18} color="#324e93" />
-        <Text size="sm" fw={600} c="#324e93">
+        <IconArrowLeft size={18} color="#1c2b4a" />
+        <Text size="sm" fw={600} c="#1c2b4a">
           {displayLabel ? `Back to ${displayLabel}` : 'Back'}
         </Text>
       </Group>

@@ -19,7 +19,7 @@ export const TOP_NAV_HEIGHT = 56;
 
 const LINKS = [
     { link: "/home", label: "Home", Icon: IconHome },
-    { link: "/ChineseEVs", label: "Demo feed", Icon: IconMessages },
+    { link: "/tag/ChineseEVs", label: "#ChineseEVs", Icon: IconMessages },
     { link: "/search", label: "Search", Icon: IconSearch },
     { link: "/bookmarks", label: "Bookmarks", Icon: IconBookmark },
     { link: "/liked", label: "Liked", Icon: IconHeart },
@@ -80,7 +80,7 @@ export function TopNav() {
                 alignItems: "center",
                 gap: 8,
                 padding: "0 16px",
-                background: "#FCFBF5",
+                background: "#ffffff",
                 borderBottom: "1px solid rgba(0,0,0,0.08)",
             }}
         >
@@ -106,7 +106,7 @@ export function TopNav() {
                         <Tooltip key={link} label={label} withArrow>
                             <ActionIcon
                                 variant={active ? "light" : "subtle"}
-                                color={active ? "blue" : "gray"}
+                                color={active ? "crossweaveTeal" : "gray"}
                                 size="lg"
                                 aria-label={label}
                                 data-active={active || undefined}

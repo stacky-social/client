@@ -17,6 +17,7 @@ export default function AiModifiedDisclosure({
 }: AiModifiedDisclosureProps) {
   const descriptionId = useId();
   const lastPointerTypeRef = useRef<string | null>(null);
+  const activeAtPointerDownRef = useRef(active);
 
   useEffect(() => {
     if (!active) return;
@@ -34,6 +35,10 @@ export default function AiModifiedDisclosure({
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => {
         lastPointerTypeRef.current = event.pointerType;
+        // Touching a button also focuses it before `click`, and focus reveals
+        // the diff. Preserve the pre-gesture state so that focus cannot turn a
+        // first tap into an accidental reveal-then-hide toggle.
+        activeAtPointerDownRef.current = active;
       }}
       onPointerEnter={(event) => {
         if (event.pointerType !== "touch") onActiveChange(true);
@@ -51,7 +56,13 @@ export default function AiModifiedDisclosure({
         aria-describedby={descriptionId}
         onClick={(event) => {
           event.stopPropagation();
-          if (lastPointerTypeRef.current === "touch") onActiveChange(!active);
+          const pointerType = lastPointerTypeRef.current;
+          // Do not let a previous finger gesture misclassify a later keyboard
+          // activation, whose synthesized click has no preceding pointerdown.
+          lastPointerTypeRef.current = null;
+          if (pointerType === "touch" && event.detail > 0) {
+            onActiveChange(!activeAtPointerDownRef.current);
+          }
           else onActiveChange(true);
         }}
       >

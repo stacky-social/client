@@ -288,7 +288,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
                   left: `${15 - 5 * idx}px`,
                   width: cardWidth,
                   height: `${cardHeights[index] || 0}px`,
-                  backgroundColor: '#5a71a8',
+                  backgroundColor: '#45a99e',
                   zIndex: idx + 1,
                   boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
                   border: '1.5px solid white',

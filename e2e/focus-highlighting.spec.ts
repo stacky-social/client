@@ -43,6 +43,7 @@ const DRIVER = `
         return { mark, div, cp, mp: findProps(mark) };
       },
       enter: (i, withMark) => { const c = window.__hl.cardFor(i); if (c.cp && c.cp.onMouseEnter) c.cp.onMouseEnter(mkEvt(c.div)); if (withMark && c.mp) { const r = c.mark.getBoundingClientRect(); const ev = { currentTarget: c.mark, target: c.mark, relatedTarget: document.body, clientX: r.left + 2, clientY: r.top + r.height / 2, pointerType: 'mouse', preventDefault(){}, stopPropagation(){}, nativeEvent: {} }; /* single-contributor marks resolve on enter; overlap marks resolve the hovered band via mouse MOVE (Y position) */ if (c.mp.onMouseEnter) c.mp.onMouseEnter(ev); if (c.mp.onMouseMove) c.mp.onMouseMove(ev); if (c.mp.onPointerMove) c.mp.onPointerMove(ev); } return !!c.cp; },
+      enterContribution: (i, bandIdx) => { const c = window.__hl.cardFor(i); if (c.cp && c.cp.onMouseEnter) c.cp.onMouseEnter(mkEvt(c.div)); if (!c.mp) return false; const rects = Array.from(c.mark.getClientRects()); const r = rects[0] || c.mark.getBoundingClientRect(); const bands = Number(c.mark.dataset.overlapBands || 1); const band = Math.max(0, Math.min(bands - 1, bandIdx == null ? 0 : bandIdx)); const ev = { currentTarget: c.mark, target: c.mark, relatedTarget: document.body, clientX: r.left + 2, clientY: r.top + r.height * ((band + 0.5) / bands), pointerType: 'mouse', preventDefault(){}, stopPropagation(){}, nativeEvent: {} }; if (c.mp.onMouseEnter) c.mp.onMouseEnter(ev); if (c.mp.onMouseMove) c.mp.onMouseMove(ev); if (c.mp.onPointerMove) c.mp.onPointerMove(ev); return true; },
       leave: (i) => { const c = window.__hl.cardFor(i); if (c.mp && c.mp.onMouseLeave) c.mp.onMouseLeave(mkEvt(c.div)); if (c.cp && c.cp.onMouseLeave) c.cp.onMouseLeave(mkEvt(c.div)); },
       clickCardSpan: (i) => { const mark = aside.querySelectorAll('mark')[i]; const r = mark.getBoundingClientRect(); mark.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: r.left + 2, clientY: r.top + 2 })); },
     };
@@ -236,23 +237,31 @@ test.describe('Focus-post highlighting', () => {
     await expect(page.locator('[data-related-card]').first()).toBeVisible();
     await page.evaluate(DRIVER);
 
-    // Map the aside's marks (same order __hl.cardFor uses) to their owning card,
-    // so we can drive TWO contributions on the SAME card and prove the focus post
-    // follows the specific hovered span. Deterministic: no cursor hovering.
+    // Map the aside's contribution targets (same mark order __hl.cardFor uses)
+    // to their owning card, so we can drive TWO contributions on the SAME card
+    // and prove the focus post follows the specific hovered span. Coincident
+    // contributions intentionally render as bands inside one striped mark, so a
+    // target is a mark index plus an optional band index. Deterministic: no
+    // cursor hovering.
     const grouped = (await page.evaluate(() => {
       const aside = document.querySelector('aside') || document.querySelector('[class*="aside" i]');
       const marks = Array.from(aside!.querySelectorAll('mark'));
-      const byCard = new Map<Element, number[]>();
+      const byCard = new Map<Element, Array<{ markIdx: number; bandIdx: number | null }>>();
       marks.forEach((m, i) => {
         const card = m.closest('[data-related-card]');
         if (!card) return;
         const arr = byCard.get(card) ?? [];
-        arr.push(i);
+        const bands = Number((m as HTMLElement).dataset.overlapBands || 1);
+        if (bands > 1) {
+          for (let bandIdx = 0; bandIdx < bands; bandIdx++) arr.push({ markIdx: i, bandIdx });
+        } else {
+          arr.push({ markIdx: i, bandIdx: null });
+        }
         byCard.set(card, arr);
       });
-      // cards with ≥2 contribution marks, as arrays of global mark indices
+      // Cards with ≥2 contributions, including striped bands that share a mark.
       return Array.from(byCard.values()).filter((a) => a.length >= 2);
-    })) as number[][];
+    })) as Array<Array<{ markIdx: number; bandIdx: number | null }>>;
 
     expect(grouped.length, 'need a card with ≥2 contributions').toBeGreaterThan(0);
 
@@ -279,11 +288,14 @@ test.describe('Focus-post highlighting', () => {
         };
       });
 
-    const settledScrollTop = async (globalMarkIdx: number) => {
+    const settledScrollTop = async (target: { markIdx: number; bandIdx: number | null }) => {
       // reset, then drive card + specific-mark (Level-2) hover synchronously
-      await page.evaluate((i: number) => (window as any).__hl.leave(i), globalMarkIdx);
+      await page.evaluate((i: number) => (window as any).__hl.leave(i), target.markIdx);
       await page.waitForTimeout(250);
-      await page.evaluate((i: number) => (window as any).__hl.enter(i, true), globalMarkIdx);
+      await page.evaluate(
+        ({ markIdx, bandIdx }) => (window as any).__hl.enterContribution(markIdx, bandIdx),
+        target
+      );
       // Wait for the smooth scroll to STABILIZE: two consecutive equal reads that
       // are line-aligned with a passage shown. Requiring stability rules out
       // sampling the pre-scroll (old) position, which was the flake.
@@ -294,16 +306,16 @@ test.describe('Focus-post highlighting', () => {
         if (s.lineAligned && s.anyIn && prev !== null && s.scrollTop === prev) return s.scrollTop;
         prev = s.scrollTop;
       }
-      throw new Error(`mark ${globalMarkIdx}: focus window never stabilized`);
+      throw new Error(`mark ${target.markIdx}, band ${target.bandIdx ?? 0}: focus window never stabilized`);
     };
 
     // For at least one card, two of its contributions must settle the focus post
     // at DIFFERENT line-aligned positions — proving the scroll follows the
     // SPECIFIC hovered span, not the card's largest passage (the reported bug).
     let proven = false;
-    for (const markIdxs of grouped) {
+    for (const targets of grouped) {
       const tops = new Set<number>();
-      for (const gi of markIdxs.slice(0, 4)) tops.add(await settledScrollTop(gi));
+      for (const target of targets.slice(0, 4)) tops.add(await settledScrollTop(target));
       if (tops.size >= 2) { proven = true; break; }
     }
 

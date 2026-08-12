@@ -37,6 +37,41 @@ export interface MastodonStatus {
   [key: string]: unknown;
 }
 
+export interface MastodonHashtag {
+  name: string;
+  url: string;
+  history?: Array<{ day: string; uses: string; accounts: string }>;
+}
+
+export interface MastodonSearchResults {
+  accounts: MastodonAccount[];
+  statuses: MastodonStatus[];
+  hashtags: MastodonHashtag[];
+}
+
+export async function searchMastodon(
+  accessToken: string,
+  query: string,
+  signal?: AbortSignal,
+): Promise<MastodonSearchResults> {
+  const params = new URLSearchParams({
+    q: query,
+    resolve: "true",
+    limit: "10",
+  });
+  const response = await fetch(`${MASTODON_INSTANCE_URL}/api/v2/search?${params}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal,
+  });
+  if (!response.ok) throw new Error(`Mastodon search failed with ${response.status}`);
+  const data = await response.json();
+  return {
+    accounts: Array.isArray(data?.accounts) ? data.accounts : [],
+    statuses: Array.isArray(data?.statuses) ? data.statuses : [],
+    hashtags: Array.isArray(data?.hashtags) ? data.hashtags : [],
+  };
+}
+
 export async function createMastodonStatus(
   accessToken: string,
   status: string,

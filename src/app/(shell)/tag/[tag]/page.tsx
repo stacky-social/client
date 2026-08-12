@@ -1,12 +1,14 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Text, Paper, Divider, Group, Button, Anchor } from '@mantine/core';
 import axios from 'axios';
 import Posts from '../../../../components/Posts/Posts';
-
-const MastodonInstanceUrl = 'https://beta.stacky.social';
+import { invalidatePostListCache } from '../../../../components/PostList';
+import ChineseEvsPage from '../../ChineseEVs/page';
+import { getHashtagDefinition } from '../../../../data/hashtagCatalog';
+import { MASTODON_INSTANCE_URL } from '../../../../utils/mastodonApi';
 
 interface TagHistory {
   day: string;
@@ -29,6 +31,29 @@ const MAX_TAG_CACHE = 20;
 export default function TagPage() {
   const params = useParams();
   const tagName = Array.isArray(params.tag) ? params.tag[0] : params.tag;
+  const definition = getHashtagDefinition(tagName ?? '');
+
+  if (definition?.local) return <ChineseEvsPage />;
+  if (!tagName) return null;
+
+  return (
+    <MastodonTagPage
+      tagName={tagName}
+      apiTag={definition?.apiTag ?? tagName}
+      description={definition?.description}
+    />
+  );
+}
+
+function MastodonTagPage({
+  tagName,
+  apiTag,
+  description,
+}: {
+  tagName: string;
+  apiTag: string;
+  description?: string;
+}) {
 
   const rawCached = tagName ? tagDataCache.get(tagName) : undefined;
   const cached = rawCached && Date.now() - rawCached._ts < TAG_CACHE_TTL ? rawCached : undefined;
@@ -38,24 +63,10 @@ export default function TagPage() {
   const [isFollowing, setIsFollowing] = useState(cached?.following ?? false);
   const [toggling, setToggling] = useState(false);
 
-  useEffect(() => {
-    if (!tagName) return;
-    // The tag endpoint needs a bearer token — with no signed-in session the
-    // fetch is doomed, so show the explanation card immediately instead of
-    // hanging on "Loading..." (F-24).
-    const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) {
-      setLoadError(true);
-      setLoading(false);
-      return;
-    }
-    fetchTagData(tagName);
-  }, [tagName]);
-
-  const fetchTagData = async (tag: string) => {
+  const fetchTagData = useCallback(async (tag: string) => {
     try {
       const accessToken = localStorage.getItem('accessToken');
-      const response = await axios.get(`${MastodonInstanceUrl}/api/v1/tags/${encodeURIComponent(tag)}`, {
+      const response = await axios.get(`${MASTODON_INSTANCE_URL}/api/v1/tags/${encodeURIComponent(apiTag)}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -73,7 +84,21 @@ export default function TagPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiTag]);
+
+  useEffect(() => {
+    if (!tagName) return;
+    // The tag endpoint needs a bearer token — with no signed-in session the
+    // fetch is doomed, so show the explanation card immediately instead of
+    // hanging on "Loading..." (F-24).
+    const accessToken = localStorage.getItem('accessToken');
+    if (!accessToken) {
+      setLoadError(true);
+      setLoading(false);
+      return;
+    }
+    fetchTagData(tagName);
+  }, [fetchTagData, tagName]);
 
   const handleFollowToggle = async () => {
     if (toggling) return;
@@ -81,8 +106,8 @@ export default function TagPage() {
     try {
       const accessToken = localStorage.getItem('accessToken');
       const url = isFollowing
-        ? `${MastodonInstanceUrl}/api/v1/tags/${encodeURIComponent(tagName)}/unfollow`
-        : `${MastodonInstanceUrl}/api/v1/tags/${encodeURIComponent(tagName)}/follow`;
+        ? `${MASTODON_INSTANCE_URL}/api/v1/tags/${encodeURIComponent(apiTag)}/unfollow`
+        : `${MASTODON_INSTANCE_URL}/api/v1/tags/${encodeURIComponent(apiTag)}/follow`;
 
       await axios.post(url, {}, {
         headers: {
@@ -91,6 +116,7 @@ export default function TagPage() {
       });
 
       setIsFollowing(!isFollowing);
+      invalidatePostListCache('/api/v1/timelines/home');
       // Update cache with new following state
       if (tagData && tagName) {
         tagDataCache.set(tagName, { ...tagData, following: !isFollowing, _ts: Date.now() });
@@ -120,7 +146,7 @@ export default function TagPage() {
         <Text size="xl">#{tagName}</Text>
         <Divider my="md" />
         <Text size="sm" c="dimmed">
-          Couldn&apos;t load this tag. It may require a signed-in session with a reachable backend.
+          Couldn&apos;t load this conversation right now. Check your connection and try again.
         </Text>
         <Group mt="md" gap="xl">
           <Anchor component={Link} href="/home" size="sm" fw={600}>
@@ -137,6 +163,16 @@ export default function TagPage() {
   if (loading || !tagData) {
     return <div>Loading...</div>;
   }
+
+  const postCount = tagData.history.reduce(
+    (total: number, day: TagHistory) => total + Number.parseInt(day.uses, 10),
+    0,
+  );
+  const participantCount = tagData.history.reduce(
+    (total: number, day: TagHistory) => total + Number.parseInt(day.accounts, 10),
+    0,
+  );
+  const showCounts = postCount > 0 || participantCount > 0 || !description;
 
   return (
     <div>
@@ -161,23 +197,22 @@ export default function TagPage() {
         </Group>
         <Divider my="md" />
 
-        <Group style={{ justifyContent: 'center', gap: '2rem' }}>
-          <div>
-            <Text size="lg" style={{ textAlign: 'center' }}>
-              {tagData.history.reduce((acc: number, day: TagHistory) => acc + parseInt(day.uses), 0)}
-            </Text>
-            <Text size="sm" c="dimmed" style={{ textAlign: 'center' }}>Posts</Text>
-          </div>
-          <div>
-            <Text size="lg" style={{ textAlign: 'center' }}>
-              {tagData.history.reduce((acc: number, day: TagHistory) => acc + parseInt(day.accounts), 0)}
-            </Text>
-            <Text size="sm" c="dimmed" style={{ textAlign: 'center' }}>Participants</Text>
-          </div>
-        </Group>
+        {description && <Text size="sm" c="dimmed">{description}</Text>}
+        {showCounts && (
+          <Group mt={description ? 'md' : undefined} style={{ justifyContent: 'center', gap: '2rem' }}>
+            <div>
+              <Text size="lg" style={{ textAlign: 'center' }}>{postCount}</Text>
+              <Text size="sm" c="dimmed" style={{ textAlign: 'center' }}>Posts</Text>
+            </div>
+            <div>
+              <Text size="lg" style={{ textAlign: 'center' }}>{participantCount}</Text>
+              <Text size="sm" c="dimmed" style={{ textAlign: 'center' }}>Participants</Text>
+            </div>
+          </Group>
+        )}
       </Paper>
       <div style={{ marginTop: '20px' }}>
-        <Posts apiUrl={`${MastodonInstanceUrl}/api/v1/timelines/tag/${encodeURIComponent(tagName)}`} loadStackInfo={true} showSubmitAndSearch={false} />
+        <Posts apiUrl={`${MASTODON_INSTANCE_URL}/api/v1/timelines/tag/${encodeURIComponent(apiTag)}`} loadStackInfo={true} showSubmitAndSearch={false} />
       </div>
     </div>
   );

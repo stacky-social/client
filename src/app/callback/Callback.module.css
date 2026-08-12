@@ -3,10 +3,10 @@
   min-height: 100vh;
   padding: 1.5rem;
   place-items: center;
-  color: #14213d;
+  color: #1c2b4a;
   background:
-    radial-gradient(circle at 25% 20%, rgba(78, 143, 120, 0.12), transparent 24rem),
-    #fcfbf5;
+    radial-gradient(circle at 25% 20%, rgba(69, 169, 158, 0.1), transparent 24rem),
+    #ffffff;
 }
 
 .card {
@@ -31,8 +31,8 @@
   background: #eef1f5;
   border-radius: 50%;
 }
-.statusIcon[data-status='success'] { background: #4e8f78; }
-.statusIcon[data-status='error'] { background: #b8574b; }
+.statusIcon[data-status='success'] { background: #45a99e; }
+.statusIcon[data-status='error'] { background: #e15c52; }
 .card h1 { margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 1.8rem; }
 .message { margin-top: 0.55rem; color: #667085; line-height: 1.55; }
 .actions { display: grid; gap: 1rem; width: 100%; margin-top: 1.5rem; }

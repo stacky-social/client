@@ -181,7 +181,6 @@ export function SubmitPost({ appearance = 'card' }: { appearance?: 'card' | 'tim
           value={postText}
           onChange={(event) => setPostText(event.currentTarget.value)}
           className={classes.textarea}
-          styles={{ input: { padding: 0 } }}
         />
 
           {feedbackError && (

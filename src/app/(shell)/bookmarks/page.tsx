@@ -14,6 +14,7 @@ export default function Bookmarks() {
             loadStackInfo
             showSubmitAndSearch
             showLoadMore={Boolean(token)}
+            localSupplement={token ? 'bookmarks' : undefined}
         />
     );
 }

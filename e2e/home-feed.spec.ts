@@ -21,6 +21,61 @@ test.describe('Home timeline', () => {
     ).toContainText('20');
   });
 
+  test('keeps the composer distinct from the white feed without restoring post rails', async ({ page }) => {
+    const composer = page.getByRole('region', { name: 'Create a post' });
+    const textbox = page.getByRole('textbox', { name: 'Post text' });
+
+    const composerStyle = await composer.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        backgroundImage: style.backgroundImage,
+        borderColor: style.borderTopColor,
+        borderWidth: style.borderTopWidth,
+        boxShadow: style.boxShadow,
+      };
+    });
+    expect(composerStyle.backgroundImage).toContain('linear-gradient');
+    expect(composerStyle.borderWidth).toBe('1px');
+    expect(composerStyle.borderColor).not.toBe('rgb(255, 255, 255)');
+    expect(composerStyle.boxShadow).not.toBe('none');
+
+    const textboxStyle = await textbox.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const placeholder = getComputedStyle(element, '::placeholder');
+      const rgb = (value: string) => value.match(/[\d.]+/g)?.slice(0, 3).map(Number) ?? [];
+      const luminance = (value: string) => {
+        const channels = rgb(value).map((channel) => {
+          const normalized = channel / 255;
+          return normalized <= 0.04045
+            ? normalized / 12.92
+            : ((normalized + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+      };
+      const light = Math.max(luminance(placeholder.color), luminance(style.backgroundColor));
+      const dark = Math.min(luminance(placeholder.color), luminance(style.backgroundColor));
+      return {
+        backgroundColor: style.backgroundColor,
+        borderWidth: style.borderTopWidth,
+        placeholderContrast: (light + 0.05) / (dark + 0.05),
+      };
+    });
+    expect(textboxStyle.backgroundColor).toBe('rgb(255, 255, 255)');
+    expect(textboxStyle.borderWidth).toBe('1px');
+    expect(textboxStyle.placeholderContrast).toBeGreaterThanOrEqual(4.5);
+
+    await textbox.focus();
+    await expect.poll(async () => textbox.evaluate((element) => getComputedStyle(element).borderTopColor))
+      .toBe('rgb(47, 127, 118)');
+
+    const ordinaryPost = page.locator('[data-store-feed-post="152052643"]').getByTestId('post');
+    const postRails = await ordinaryPost.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { left: style.borderLeftWidth, right: style.borderRightWidth };
+    });
+    expect(postRails).toEqual({ left: '0px', right: '0px' });
+  });
+
   test('repairs a stale persisted reply count from the authoritative seed', async ({ page }) => {
     await page.evaluate(() => {
       const key = 'stacky:localStore:v1';
@@ -101,6 +156,22 @@ test.describe('Home timeline', () => {
     const feedWidthWithoutRelations = (await page.getByTestId('feed').boundingBox())?.width;
     expect(feedWidthWithRelations).toBeDefined();
     expect(feedWidthWithoutRelations).toBeCloseTo(feedWidthWithRelations!, 2);
+  });
+
+  test('clears retained related cards when an empty feed is entered', async ({ page }) => {
+    const focus = page.locator('[data-store-feed-post="152053690"]');
+    await focus.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+    await expect(focus.getByTestId('post')).toHaveAttribute('data-active', 'true');
+    await expect(page.locator('[data-related-card]').first()).toBeVisible();
+
+    // Top-nav transitions keep the shell provider and parallel aside alive.
+    // The destination has no post that could publish a replacement focus, so
+    // feed entry itself must clear Home's retained context.
+    await page.getByRole('button', { name: 'Bookmarks' }).click();
+    await expect(page).toHaveURL(/\/bookmarks$/);
+    await expect(page.getByTestId('store-feed-empty')).toContainText('No bookmarks yet.');
+    await expect(page.locator('[data-related-card]')).toHaveCount(0);
+    await expect(page.getByText('No related responses for this post.')).toHaveCount(0);
   });
 
   test('uses the full reading width and hides the desktop related column on mobile', async ({ page }) => {

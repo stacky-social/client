@@ -1,14 +1,20 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useSearchParams, usePathname } from "next/navigation";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import {
+  activateAsideTopic,
+  activateReplyTopic,
+  clearAll,
+  consumePanelHistoryWriteMode,
+  consumePanelUndo,
   setCategoryFilter,
   setPassageFilter,
   useHighlightStore,
   filteredHistoryState,
   registerUrlSyncFlush,
 } from "./highlightStore";
+import { parseFilterInteraction, serializeFilterSearch } from "./filterUrlState.mjs";
 import { LEGACY_TABS, SORT_TABS } from "./replyTabs.mjs";
 
 export interface UrlSyncOptions {
@@ -52,13 +58,15 @@ function isValidTab(v: string): boolean {
 /**
  * Synchronizes URL search params with local/store state for the post-detail route.
  *
- * Read direction (hydration):
- *   ?tab    → setActiveTab()
- *   ?fc     → setCategoryFilter() (atomic; replace-not-stack)
- *   ?fs     → setPassageFilter() (atomic; deferred until plainPostText is available)
+ * Read direction (initial hydration + browser Back/Forward restoration):
+ *   ?tab                 → setActiveTab()
+ *   ?fc                  → setCategoryFilter() (atomic; replace-not-stack)
+ *   ?fs                  → setPassageFilter() (deferred until post text loads)
+ *   ?ft + ?fo + ?fa + ?fi → topic grouping/cross-pane filter + anchor
  *
- * Write direction (debounced):
- *   activeTab + filterCategories + responseFilter → history.replaceState(pathname + ?params)
+ * Write direction:
+ *   The complete state is pushed as a real, shareable URL until the bounded
+ *   24-step filter stack is full; subsequent transitions replace its top.
  *
  * ?stackId and ?from are preserved (pass-through) and not modified here.
  */
@@ -72,7 +80,8 @@ export function useUrlSync({
 }: UrlSyncOptions): void {
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const { filterCategories, responseFilter } = useHighlightStore();
+  const router = useRouter();
+  const { filterCategories, responseFilter, topicInteraction } = useHighlightStore();
 
   // Tracks whether we have completed the initial hydration for the current pathname.
   // Reset when the pathname changes (i.e., user navigated to a different post).
@@ -81,19 +90,33 @@ export function useUrlSync({
   const tabHydratedRef = useRef(false);
   // Tracks whether we triggered onHydratedTab for the current mount.
   const hydratedTabCalledRef = useRef(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const foreignTabTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Popstate changes the URL first; these refs tell the hydration effects to
+  // reconcile absent params too (e.g. Back from ?fc=agree to the clean state).
+  const restoringHistoryRef = useRef(false);
+  // URL hydration mutates the same state observed by the write effect. Suppress
+  // that effect for the hydration render so it cannot echo stale pre-hydration
+  // state back over the URL that the user just opened/Backed to.
+  const suppressNextWriteRef = useRef(false);
 
-  // Expose a flush so a WS6 Back-undo restore can cancel any pending delayed
-  // history write — otherwise a fast double-Back could fire a stale replaceState
-  // against the wrong entry after the ring already moved on.
+  // One shared popstate boundary serves both mock and Mastodon detail routes.
+  // The in-memory snapshot restores exact base ordering while the URL effects
+  // below restore every public/shareable filter dimension.
   useEffect(() => {
-    registerUrlSyncFlush(() => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-        debounceRef.current = null;
-      }
-    });
-    return () => registerUrlSyncFlush(null);
+    registerUrlSyncFlush(() => {});
+    const onPopState = () => {
+      hydratedRef.current = false;
+      tabHydratedRef.current = false;
+      hydratedTabCalledRef.current = false;
+      restoringHistoryRef.current = true;
+      suppressNextWriteRef.current = true;
+      consumePanelUndo();
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      registerUrlSyncFlush(null);
+    };
   }, []);
 
   // Reset hydration gate when the route changes.
@@ -101,6 +124,8 @@ export function useUrlSync({
     hydratedRef.current = false;
     tabHydratedRef.current = false;
     hydratedTabCalledRef.current = false;
+    restoringHistoryRef.current = false;
+    suppressNextWriteRef.current = false;
   }, [pathname]);
 
   // ── TAB HYDRATION: gated on the active tab set ───────────────────────────
@@ -112,153 +137,116 @@ export function useUrlSync({
   // searchParams change re-runs this effect with no ?tab= left to apply.
   const allowedKey = allowedTabs ? allowedTabs.join(",") : "";
   useEffect(() => {
+    if (foreignTabTimerRef.current) {
+      clearTimeout(foreignTabTimerRef.current);
+      foreignTabTimerRef.current = null;
+    }
     if (tabHydratedRef.current) return;
     const tabParam = searchParams.get("tab");
     if (!tabParam || !isValidTab(tabParam)) {
       tabHydratedRef.current = true;
+      if (restoringHistoryRef.current && activeTab !== defaultTab) {
+        suppressNextWriteRef.current = true;
+        setActiveTab(defaultTab);
+      }
       return;
     }
-    if (allowedTabs && !allowedTabs.includes(tabParam)) return; // foreign for now — retry on allowedTabs change
+    if (allowedTabs && !allowedTabs.includes(tabParam)) {
+      // Persisted flags settle just after hydration. Keep a valid candidate
+      // briefly so a legitimate tab can become allowed. If it remains foreign,
+      // normalize through the App Router: this matters for same-document
+      // Back/Forward arrivals where an address-bar-only replace can otherwise
+      // leave Next rendering the previous post under the new pathname.
+      suppressNextWriteRef.current = true;
+      setActiveTab(defaultTab);
+      foreignTabTimerRef.current = setTimeout(() => {
+        foreignTabTimerRef.current = null;
+        tabHydratedRef.current = true;
+        const params = new URLSearchParams(window.location.search);
+        params.delete("tab");
+        const nextSearch = params.toString();
+        router.replace(pathname + (nextSearch ? `?${nextSearch}` : ""), { scroll: false });
+      }, 300);
+      return () => {
+        if (foreignTabTimerRef.current) {
+          clearTimeout(foreignTabTimerRef.current);
+          foreignTabTimerRef.current = null;
+        }
+      };
+    }
     tabHydratedRef.current = true;
+    suppressNextWriteRef.current = true;
     setActiveTab(tabParam);
     if (!hydratedTabCalledRef.current) {
       hydratedTabCalledRef.current = true;
       onHydratedTab?.(tabParam);
     }
-  }, [pathname, searchParams, allowedKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pathname, searchParams, allowedKey, activeTab, defaultTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── HYDRATION: filter categories ─────────────────────────────────────────
-  // Runs once per pathname (i.e., once per post ID). Reads URL params and
-  // initializes highlightStore.
+  // ── HYDRATION: all related-post interaction dimensions ───────────────────
+  // On first load, an explicit URL state wins over per-focus in-memory restore.
+  // With no filter params, ordinary in-app navigation keeps that saved state.
+  // On Back/Forward, however, an absent param intentionally means "clean" and
+  // therefore clears the store.
   useEffect(() => {
     if (hydratedRef.current) return;
+    const parsed = parseFilterInteraction(searchParams, plainPostText);
+    if (parsed.kind === "pending-passage") return;
+
     hydratedRef.current = true;
+    const hasManagedFilterParam = ["fc", "fs", "ft", "fo", "fa", "fi"]
+      .some((key) => searchParams.has(key));
 
-    // fc (filter categories — CSV). A ?fc link overrides the restored panel
-    // filters; with no ?fc we leave the per-focus-post state alone — setPanelFocus
-    // (in RelatedStacks) has already restored or cleared it. Wiping here would
-    // undo that restore on every back-navigation.
-    const fcParam = searchParams.get("fc");
-    if (fcParam) {
-      const cats = new Set(fcParam.split(",").map((c) => c.trim()).filter(Boolean));
-      if (cats.size > 0) {
-        // Atomic setter → replace-not-stack holds on deep-links (a ?fc link is
-        // the active interaction, clearing any restored topic/passage).
-        setCategoryFilter(cats);
+    if (parsed.kind === "category") {
+      suppressNextWriteRef.current = true;
+      setCategoryFilter(new Set(parsed.categories));
+    } else if (parsed.kind === "passage") {
+      suppressNextWriteRef.current = true;
+      setPassageFilter(parsed.span);
+    } else if (parsed.kind === "topic") {
+      suppressNextWriteRef.current = true;
+      if (parsed.interaction.origin === "aside") {
+        activateAsideTopic(parsed.interaction);
+      } else {
+        activateReplyTopic(parsed.interaction);
       }
+    } else if (restoringHistoryRef.current || hasManagedFilterParam) {
+      suppressNextWriteRef.current = true;
+      clearAll();
     }
-
-    // fs (filter focus span) — text reconstruction deferred to the effect below
-  }, [pathname, searchParams]);  // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── SPAN HYDRATION: deferred until post content loads ────────────────────
-  // ?fs=start-end can only be applied once we have the post's plain text to
-  // reconstruct the `text` field of responseFilter.
-  const fsHydratedRef = useRef(false);
-
-  useEffect(() => {
-    // Reset when pathname changes
-    fsHydratedRef.current = false;
-  }, [pathname]);
-
-  useEffect(() => {
-    if (fsHydratedRef.current) return;
-    if (!plainPostText) return; // wait for post to load
-
-    const fsParam = searchParams.get("fs");
-    if (!fsParam) {
-      fsHydratedRef.current = true;
-      return;
-    }
-
-    const parts = fsParam.split("-").map(Number);
-    if (parts.length !== 2 || parts.some((n) => isNaN(n))) {
-      fsHydratedRef.current = true;
-      return;
-    }
-
-    const [start, end] = parts;
-    if (!Number.isInteger(start) || !Number.isInteger(end)) {
-      // Reject non-integer offsets like "10.5-20.5"
-      fsHydratedRef.current = true;
-      return;
-    }
-    if (start < 0 || end <= start || start >= plainPostText.length) {
-      // Offsets out of range — silently skip; post content may have changed
-      fsHydratedRef.current = true;
-      return;
-    }
-
-    const safeEnd = Math.min(end, plainPostText.length);
-    const text = plainPostText.slice(start, safeEnd);
-    // Atomic setter → a ?fs deep-link is the active interaction (clears any
-    // restored topic/category), keeping replace-not-stack coherent.
-    setPassageFilter({ start, end: safeEnd, text });
-    fsHydratedRef.current = true;
+    restoringHistoryRef.current = false;
   }, [plainPostText, pathname, searchParams]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── WRITE: debounced URL update when UI state changes ────────────────────
-  // Writes via history.replaceState (not push) so filter toggles don't pollute
-  // history. Preserves ?stackId, ?from and ?related (set by other parts of the app).
+  // ── WRITE: complete, bounded, shareable state ─────────────────────────────
   useEffect(() => {
-    // Clear any pending debounce up front so a stale write can't fire against an
-    // out-of-date path, even if this effect early-returns below.
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
+    if (!hydratedRef.current || !tabHydratedRef.current) return;
+    if (suppressNextWriteRef.current) {
+      suppressNextWriteRef.current = false;
+      return;
     }
 
-    // Don't write until we've finished hydrating — would immediately overwrite the
-    // URL params we just read.
-    if (!hydratedRef.current) return;
-
-    const params = new URLSearchParams();
-
-    // Only encode a non-default tab
-    if (activeTab && activeTab !== defaultTab) {
-      params.set("tab", activeTab);
-    }
-
-    if (filterCategories.size > 0) {
-      params.set("fc", Array.from(filterCategories).sort().join(","));
-    }
-
-    if (responseFilter !== null) {
-      params.set("fs", `${responseFilter.start}-${responseFilter.end}`);
-    }
-
-    // Pass through params managed by other parts of the app
-    const stackId = searchParams.get("stackId");
-    if (stackId) params.set("stackId", stackId);
-    const from = searchParams.get("from");
-    if (from) params.set("from", from);
-    // `related` (Share-pairing links): without this pass-through the first
-    // debounced replace silently stripped it, so re-copying the visible URL
-    // lost the pairing (audit F-46).
-    const related = searchParams.get("related");
-    if (related) params.set("related", related);
-
-    const newSearch = params.toString();
+    const newSearch = serializeFilterSearch({
+      currentSearch: searchParams.toString(),
+      activeTab,
+      defaultTab,
+      filterCategories,
+      responseFilter,
+      topicInteraction,
+    });
     const currentSearch = searchParams.toString();
-    if (newSearch === currentSearch) return; // already up to date
+    if (newSearch === currentSearch) {
+      // Defensive: a no-op gesture must not leak its pending push decision into
+      // a later programmatic normalization.
+      consumePanelHistoryWriteMode();
+      return;
+    }
 
-    debounceRef.current = setTimeout(() => {
-      const newUrl = pathname + (newSearch ? "?" + newSearch : "");
-      // WS6/W6-1: write via Next's PATCHED window.history.replaceState (NOT
-      // App Router router.replace). router.replace would REPLACE the current
-      // entry's state and could strand the undo sentinel; more importantly, this
-      // path keeps the entry in place (so the sentinel survives) while a FILTERED
-      // state (no __NA/_N) makes the patch re-sync useSearchParams/usePathname
-      // to the new URL. No scroll side effect either (App Router's replace would
-      // otherwise yank the user away from the replies they are filtering).
-      window.history.replaceState(filteredHistoryState(), "", newUrl);
-    }, 300);
-
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-        debounceRef.current = null;
-      }
-    };
-  }, [activeTab, defaultTab, filterCategories, responseFilter, pathname, searchParams]);
+    const newUrl = pathname + (newSearch ? "?" + newSearch : "");
+    const mode = consumePanelHistoryWriteMode();
+    window.history[mode === "push" ? "pushState" : "replaceState"](
+      filteredHistoryState(),
+      "",
+      newUrl,
+    );
+  }, [activeTab, defaultTab, filterCategories, responseFilter, topicInteraction, pathname, searchParams]);
 }

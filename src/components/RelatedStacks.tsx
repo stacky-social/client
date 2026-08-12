@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Anchor } from '@mantine/core';
-import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare } from '@tabler/icons-react';
+import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconExternalLink } from '@tabler/icons-react';
 import { CATEGORY_COLORS, CATEGORY_LABELS, iconMapping, getCategoryColors, type CategoryStyle } from '../utils/categoryStyles';
 import { formatPostDate } from '../utils/formatPostDate';
 import RelatedStackCount from './RelatedStackCount';
@@ -20,7 +20,9 @@ import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
 import { showUndoableAction } from '../utils/actionNotifications';
 import AiModifiedDisclosure from './AiModifiedDisclosure';
 import { createAlignedWordDiffWindow, createWordDiff } from '../utils/wordDiff.mjs';
-import { useHydrated, useLocalStore } from '../utils/localStore';
+import { getPost, useHydrated, useLocalStore } from '../utils/localStore';
+import { RELATED_POSTS_API_URL } from '../utils/mastodonApi';
+import { extractMastodonLinks, mastodonLinkHost, normalizeMastodonText } from '../utils/mastodonContent.mjs';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -39,6 +41,14 @@ interface PostType {
   };
   content_rewritten: string;
   rewrite: { content: string; significant: boolean; editSummary?: string };
+  card?: {
+    provider_name?: string;
+    published_at?: string | null;
+    title?: string;
+    url?: string;
+  } | null;
+  url?: string | null;
+  uri?: string | null;
   /** Offset-based relations between this post and the focus post */
   relations?: Relation[];
 }
@@ -48,6 +58,38 @@ interface RelatedStackType {
   rel: string;
   size: number;
   topPost: PostType;
+}
+
+function categoryKey(value: string | null | undefined): string {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+/** Legacy Mastodon groups classify the stack itself (`rel`) and often do not
+ * repeat offset annotations on every expanded member. Treat both locations as
+ * the same category contract so chip counts and chip results cannot diverge. */
+function categoriesOfStack(stack: RelatedStackType): Set<string> {
+  const categories = new Set<string>();
+  const stackCategory = categoryKey(stack.rel);
+  if (stackCategory) categories.add(stackCategory);
+  for (const relation of stack.topPost.relations ?? []) {
+    const relationCategory = categoryKey(relation.category);
+    if (relationCategory) categories.add(relationCategory);
+  }
+  return categories;
+}
+
+function stackMatchesCategories(stack: RelatedStackType, filters: Set<string>): boolean {
+  if (filters.size === 0) return true;
+  const categories = categoriesOfStack(stack);
+  return Array.from(filters).every((filter) => categories.has(categoryKey(filter)));
+}
+
+/** Offset-annotated study posts must preserve their exact plain-text geometry.
+ * Legacy Mastodon cards have no offsets, so they can safely receive the fuller
+ * HTML/URL/publication-metadata normalization they need. */
+function relatedCardText(post: PostType, value: string): string {
+  if ((post.relations?.length ?? 0) > 0) return value.replace(/<[^>]*>/g, '');
+  return normalizeMastodonText(value);
 }
 
 interface RelatedStacksProps {
@@ -73,6 +115,8 @@ interface RelatedStacksProps {
    *   gated by the `crossPaneFiltering` flag.
    */
   mode?: 'aside-only' | 'detail-cross-pane';
+  /** Expand legacy grouped results into one modern related-post card per post. */
+  expandGroups?: boolean;
 }
 
 // ─── Category colors ─────────────────────────────────────────────────────────
@@ -96,6 +140,72 @@ const GROUP_GAP_PX = 12; // matches the parent's `gap: '0.75rem'`
 // the vertical rail (top-left on the header row, bottom-left on the bottom rule).
 const GROUP_CORNER_R = 12;
 const RELATED_PAGE_SIZE = 10;
+const expandedStackPostsCache = new Map<string, Promise<PostType[]>>();
+
+async function loadExpandedStackPosts(stackId: string): Promise<PostType[]> {
+  const cached = expandedStackPostsCache.get(stackId);
+  if (cached) return cached;
+
+  const request = fetch(
+    `${RELATED_POSTS_API_URL}/stacks/${encodeURIComponent(stackId)}/posts`,
+  ).then(async (response) => {
+    if (!response.ok) throw new Error(`Stack expansion failed with ${response.status}`);
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  });
+
+  // Cache the in-flight request as well as its result. React Strict Mode can
+  // mount an effect twice in development; sharing the promise keeps that from
+  // doubling the legacy expansion traffic.
+  expandedStackPostsCache.set(stackId, request);
+  try {
+    return await request;
+  } catch (error) {
+    expandedStackPostsCache.delete(stackId);
+    throw error;
+  }
+}
+
+function asIndividualCard(stack: RelatedStackType, post: PostType): RelatedStackType {
+  return {
+    ...stack,
+    stackId: `${stack.stackId}::${post.id}`,
+    size: 1,
+    topPost: {
+      ...post,
+      // Older stack-post responses do not always repeat relation ranges on
+      // every member. Keep them when present and inherit the group anchor only
+      // as a fallback so the card remains filterable in the modern panel.
+      relations: post.relations ?? stack.topPost.relations,
+    },
+  };
+}
+
+async function expandLegacyGroups(stacks: RelatedStackType[]): Promise<RelatedStackType[]> {
+  const expanded = await Promise.all(stacks.map(async (stack) => {
+    if (!Number.isFinite(stack.size) || stack.size <= 1) {
+      return [{ ...stack, size: 1 }];
+    }
+    try {
+      const posts = await loadExpandedStackPosts(stack.stackId);
+      return posts.length > 0
+        ? posts.map((post) => asIndividualCard(stack, post))
+        : [{ ...stack, size: 1 }];
+    } catch {
+      // A related response remains useful even if the optional expansion
+      // endpoint is unavailable. Keep the top post, but never fall back to the
+      // retired stack badge/layer treatment on this surface.
+      return [{ ...stack, size: 1 }];
+    }
+  }));
+
+  const seen = new Set<string>();
+  return expanded.flat().filter((stack) => {
+    if (seen.has(stack.topPost.id)) return false;
+    seen.add(stack.topPost.id);
+    return true;
+  });
+}
 
 // ─── Missing-topic diagnostic (rate-limited) ─────────────────────────────────
 // Surface data-integrity issues (relations with no `topic`) in study logs
@@ -220,13 +330,13 @@ function FilterChip({ category, count, active, previewActive, previewDim, onClic
  * Decides whether clicking `candidate` should ADD it to the current filter set
  * (conjunction non-empty) or SWITCH to it exclusively.
  *
- * Real AND semantics: for each stack, collect every distinct `category` across
- * `stack.topPost.relations`.  If any stack covers every category in
+ * Real AND semantics: for each stack, collect the stack-level legacy `rel` plus
+ * every distinct `category` across `stack.topPost.relations`. If any stack covers every category in
  * (currentFilters ∪ {candidate}), there would be at least one result — ADD.
  * Otherwise SWITCH.
  *
  * When currentFilters is empty the candidate set is just {candidate}, so any
- * stack that has candidate in its relations satisfies the check → always ADD,
+ * stack that has candidate in either source satisfies the check → always ADD,
  * which is correct for the first selection.
  */
 function decideFilterMode(
@@ -236,15 +346,7 @@ function decideFilterMode(
 ): 'ADD' | 'SWITCH' {
   const candidateSet = new Set(currentFilters);
   candidateSet.add(candidate);
-  const found = stacks.some(stack => {
-    const cats = new Set<string>();
-    for (const r of stack.topPost.relations ?? []) {
-      cats.add(r.category);
-    }
-    let allPresent = true;
-    candidateSet.forEach(c => { if (!cats.has(c)) allPresent = false; });
-    return allPresent;
-  });
+  const found = stacks.some((stack) => stackMatchesCategories(stack, candidateSet));
   return found ? 'ADD' : 'SWITCH';
 }
 
@@ -268,11 +370,7 @@ function decideGroupFilterMode(
   need.add(candidate);
   for (const stack of stacks) {
     if (!groupMemberIds.has(stack.topPost.id)) continue;
-    const cats = new Set<string>();
-    for (const r of stack.topPost.relations ?? []) cats.add(r.category);
-    let allPresent = true;
-    need.forEach(c => { if (!cats.has(c)) allPresent = false; });
-    if (allPresent) return 'STACK';
+    if (stackMatchesCategories(stack, need)) return 'STACK';
   }
   return 'SWITCH';
 }
@@ -299,11 +397,7 @@ function decideResponseFilterMode(
     const rels = stack.topPost.relations ?? [];
     const responds = rels.some(r => r.focusStart < responseFilter.end && responseFilter.start < r.focusEnd);
     if (!responds) continue;
-    const cats = new Set<string>();
-    for (const r of rels) cats.add(r.category);
-    let allPresent = true;
-    need.forEach(c => { if (!cats.has(c)) allPresent = false; });
-    if (allPresent) return 'STACK';
+    if (stackMatchesCategories(stack, need)) return 'STACK';
   }
   return 'SWITCH';
 }
@@ -749,9 +843,6 @@ function windowContent(
   if (expanded || plain.length <= totalChars) {
     return { text: plain, adjustedRelations: relations, hasPrefix: false, hasSuffix: false };
   }
-  if ((!relations || relations.length === 0) && !preferredBounds) {
-    return { text: plain, adjustedRelations: relations, hasPrefix: false, hasSuffix: false };
-  }
   const first = relations?.[0];
   const center = first ? Math.floor((first.contentStart + first.contentEnd) / 2) : WINDOW_CHARS;
   const start = preferredBounds?.start ?? Math.max(0, center - WINDOW_CHARS);
@@ -796,7 +887,32 @@ function similarityScore(textA: string, textB: string): number {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth = "100%", onStackClick, showupdate, onOpenModalWithStackId, onPostNavigate, sourcePostId, highlightPostId, mode = 'aside-only' }) => {
+const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRelatedStacks, cardWidth = "100%", onStackClick, showupdate, onOpenModalWithStackId, onPostNavigate, sourcePostId, highlightPostId, mode = 'aside-only', expandGroups = false }) => {
+  const expansionKey = useMemo(
+    () => sourceRelatedStacks.map((stack) => `${stack.stackId}:${stack.size}:${stack.topPost.id}`).join('|'),
+    [sourceRelatedStacks],
+  );
+  const [expandedGroupState, setExpandedGroupState] = useState<{
+    key: string;
+    stacks: RelatedStackType[];
+  } | null>(null);
+  const relatedStacks = useMemo(() => {
+    if (!expandGroups) return sourceRelatedStacks;
+    if (expandedGroupState?.key === expansionKey) return expandedGroupState.stacks;
+    // Remove the badge and layered shell immediately while the individual
+    // posts are fetched, so the retired presentation never flashes on screen.
+    return sourceRelatedStacks.map((stack) => ({ ...stack, size: 1 }));
+  }, [expandGroups, expandedGroupState, expansionKey, sourceRelatedStacks]);
+
+  useEffect(() => {
+    if (!expandGroups || sourceRelatedStacks.length === 0) return;
+    let cancelled = false;
+    void expandLegacyGroups(sourceRelatedStacks).then((stacks) => {
+      if (!cancelled) setExpandedGroupState({ key: expansionKey, stacks });
+    });
+    return () => { cancelled = true; };
+  }, [expandGroups, expansionKey, sourceRelatedStacks]);
+
   const router = useRouter();
   // Single source of truth for the focus post: the related cards are, by
   // definition, related TO the active post. Using the context here means the
@@ -887,6 +1003,22 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     },
     [relatedStacks],
   );
+
+  // URL parsing can establish that a topic tuple is syntactically valid before
+  // the related data is available. Once this detail pane has real card data,
+  // resolve the tuple against the claimed anchor and heal stale copied URLs as
+  // one atomic clear. The non-empty guard is the important readiness boundary:
+  // validating against the initial loading `[]` would erase valid cold links.
+  useEffect(() => {
+    if (
+      mode !== 'detail-cross-pane' ||
+      relatedStacks.length === 0 ||
+      !topicInteraction ||
+      topicInteraction.origin !== 'aside'
+    ) return;
+    const currentTopic = resolveTopicKey(topicInteraction.anchor, topicInteraction.origin);
+    if (currentTopic !== topicInteraction.topicKey) clearTopicInteraction();
+  }, [mode, relatedStacks, resolveTopicKey, topicInteraction]);
   // C2: hover preview state for filter chips
   const [chipHovered, setChipHovered] = useState<string | null>(null);
   // Interaction mode: hover (mouse/pen) vs tap (touch). Adaptive — the most
@@ -939,8 +1071,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     for (const stack of relatedStacks) {
       const rewrite = stack.topPost.rewrite;
       if (!rewrite?.significant || !rewrite.content) continue;
-      const original = (stack.topPost.content || '').replace(/<[^>]*>/g, '');
-      const revised = rewrite.content.replace(/<[^>]*>/g, '');
+      const original = relatedCardText(stack.topPost, stack.topPost.content || '');
+      const revised = relatedCardText(stack.topPost, rewrite.content);
       diffs.set(stack.topPost.id, {
         collapsed: createAlignedWordDiffWindow(original, revised, WINDOW_CHARS * 2),
         expanded: createAlignedWordDiffWindow(original, revised, original.length),
@@ -1084,7 +1216,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const categories = useMemo(() => {
     const map = new Map<string, number>();
     for (const stack of relatedStacks) {
-      const cat = stack.rel || 'uncategorized';
+      const cat = categoryKey(stack.rel) || 'uncategorized';
       map.set(cat, (map.get(cat) ?? 0) + 1);
     }
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
@@ -1097,11 +1229,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
   const categoryStackCount = useMemo(() => {
     const real = new Map<string, number>();
     for (const stack of relatedStacks) {
-      const seen = new Set<string>();
-      for (const r of stack.topPost.relations ?? []) {
-        seen.add(r.category);
-      }
-      seen.forEach(c => real.set(c, (real.get(c) ?? 0) + 1));
+      categoriesOfStack(stack).forEach((category) => {
+        real.set(category, (real.get(category) ?? 0) + 1);
+      });
     }
     const augmented = new Map<string, number>();
     real.forEach((count, category) => {
@@ -1213,13 +1343,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     if (anchorId === null) {
       let result = workingStacks;
       if (filterCategories.size > 0) {
-        result = result.filter((s) => {
-          const cats = new Set<string>();
-          for (const r of s.topPost.relations ?? []) cats.add(r.category);
-          let allPresent = true;
-          filterCategories.forEach(c => { if (!cats.has(c)) allPresent = false; });
-          return allPresent;
-        });
+        result = result.filter((stack) => stackMatchesCategories(stack, filterCategories));
       }
       // Span filter — keep stacks whose relations overlap the clicked span's
       // focus region ("focus on the N related posts linked to this span"). This
@@ -1239,13 +1363,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       // Anchor not found — return as-is.
       let result = [...workingStacks];
       if (filterCategories.size > 0) {
-        result = result.filter((s) => {
-          const cats = new Set<string>();
-          for (const r of s.topPost.relations ?? []) cats.add(r.category);
-          let allPresent = true;
-          filterCategories.forEach(c => { if (!cats.has(c)) allPresent = false; });
-          return allPresent;
-        });
+        result = result.filter((stack) => stackMatchesCategories(stack, filterCategories));
       }
       return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic, groupMemberIds };
     }
@@ -1300,13 +1418,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       // No matches to group — return workingStacks (filtered).
       let result = [...workingStacks];
       if (filterCategories.size > 0) {
-        result = result.filter((s) => {
-          const cats = new Set<string>();
-          for (const r of s.topPost.relations ?? []) cats.add(r.category);
-          let allPresent = true;
-          filterCategories.forEach(c => { if (!cats.has(c)) allPresent = false; });
-          return allPresent;
-        });
+        result = result.filter((stack) => stackMatchesCategories(stack, filterCategories));
       }
       return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic, groupMemberIds };
     }
@@ -1342,11 +1454,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       result = result.filter((s) => {
         if (s.topPost.id === anchorId) return true; // anchor always visible while grouped
         if (!groupMemberIds.has(s.topPost.id)) return false; // intersection: group members only
-        const cats = new Set<string>();
-        for (const r of s.topPost.relations ?? []) cats.add(r.category);
-        let allPresent = true;
-        filterCategories.forEach(c => { if (!cats.has(c)) allPresent = false; });
-        return allPresent;
+        return stackMatchesCategories(s, filterCategories);
       });
     }
 
@@ -1493,8 +1601,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
     if (newStackId) navParams.set("stackId", newStackId);
     if (sourcePostId) navParams.set("from", sourcePostId);
     const search = navParams.toString();
-    const url = `/posts/${postId}${search ? "?" + search : ""}`;
-    sessionStorage.setItem(`previousPath:/posts/${postId}`, window.location.pathname);
+    const route = getPost(postId) ? `/ChineseEVs/posts/${postId}` : `/posts/${postId}`;
+    const url = `${route}${search ? "?" + search : ""}`;
+    sessionStorage.setItem(`previousPath:${route}`, window.location.pathname);
     sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
     router.push(url);
   };
@@ -1900,9 +2009,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
       <div style={{
         position: 'sticky', top: 0, zIndex: 10,
         // Breathing room so the first row of filter chips doesn't touch the top
-        // bar. The padding is part of the sticky (cream) header, so scrolled cards
+        // bar. The padding is part of the sticky white header, so scrolled cards
         // still pass cleanly underneath it.
-        background: '#FCFBF5', paddingTop: '0.75rem', paddingBottom: '0.5rem',
+        background: '#ffffff', paddingTop: '0.75rem', paddingBottom: '0.5rem',
       }}>
         {categories.length > 1 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginBottom: "0.75rem" }}>
@@ -1948,7 +2057,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             block markers (header chip / footer / connector rail) only. */}
         {(responseFilter !== null || activeTopicFilterKey) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-            <Text size="xs" fw={600} c="#5a71a8" style={{ fontSize: 11, flexShrink: 0 }}>
+            <Text size="xs" fw={600} c="#1c2b4a" style={{ fontSize: 11, flexShrink: 0 }}>
               Filtered by:
             </Text>
             {responseFilter !== null && (
@@ -2008,16 +2117,26 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           const aiDiff = aiDiffSet ? (isExpanded ? aiDiffSet.expanded : aiDiffSet.collapsed) : undefined;
           const isAiEditActive = activeAiEditPostId === stack.topPost.id && !!aiDiff;
 
-          // Strip HTML so the text matches the relations' PLAIN-text offsets.
-          // The mock resolver wraps card content as `<p>…</p>`, which both leaks
-          // literal tags into view and shifts every highlight by the tag length;
-          // the focus post already strips before highlighting, so mirror that.
-          const plainContent = (stack.topPost.content || '').replace(/<[^>]*>/g, '');
+          // Offset-annotated study cards retain their exact legacy plain-text
+          // geometry. Unannotated Mastodon cards instead receive full parsing:
+          // split URL spans, Published metadata, rewrite brackets, and entities
+          // are presentation transport details and must not leak into prose.
+          const plainContent = relatedCardText(stack.topPost, stack.topPost.content || '');
           const rels = stack.topPost.relations;
           // Contextual rewrites are the published/default card text. The
           // original survives only inside the hover/focus track-changes layer.
           const visibleContent = aiDiffSet?.revisedContent ?? plainContent;
           const visibleRelations = aiDiffSet?.revisedRelations ?? rels;
+          const articleUrl = stack.topPost.card?.url
+            || extractMastodonLinks(stack.topPost.content || '')[0]
+            || extractMastodonLinks(stack.topPost.rewrite?.content || '')[0]
+            || null;
+          const articleHost = articleUrl ? mastodonLinkHost(articleUrl) : '';
+          // Mastodon's status timestamp is the canonical feed date. Preview-card
+          // published_at frequently lands near midnight UTC and can shift to the
+          // previous calendar day in the user's timezone, contradicting the
+          // imported status date and the source feed.
+          const displayDate = stack.topPost.created_at;
 
           // Smart windowing: show only the highlighted portion unless expanded
           const { text: visibleText, adjustedRelations, hasPrefix, hasSuffix } =
@@ -2348,7 +2467,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
           const bottomRuleEl = null;
 
           const scheduleCardHover = () => {
-            if (isTouch || isTouchRef.current || panelScrollingRef.current) return;
+            // Read the synchronously-updated pointer ref, not React state. On a
+            // hybrid laptop the capture-phase `pointermove` switches this ref
+            // to mouse before the same gesture reaches the card; `isTouch` may
+            // still contain the preceding touch mode until React commits.
+            if (isTouchRef.current || panelScrollingRef.current) return;
             const pid = stack.topPost.id;
             if (hoveredCardId === pid || pendingHoverCardIdRef.current === pid) return;
             if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
@@ -2366,6 +2489,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
             <div
               key={stack.stackId}
               data-related-card
+              data-related-category={categoryKey(stack.rel) || 'uncategorized'}
               style={{
                 position: 'relative',
                 // Indented cards carry a left margin; subtracting it from the width
@@ -2397,6 +2521,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 transition: 'filter 200ms ease',
               }}
               onMouseMove={(e) => {
+                if (isTouchRef.current) return;
                 const el = paperRefs.current[index];
                 if (!el) return;
                 const rect = el.getBoundingClientRect();
@@ -2411,7 +2536,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 setHoveredIndex((prev) => (prev === nextIdx ? prev : nextIdx));
               }}
               onMouseLeave={() => {
-                if (isTouch) return;
+                if (isTouchRef.current) return;
                 // Only clear bottom-edge hoveredIndex here. Cross-highlight state
                 // (hoveredCardIndex, hoveredSidebarPost, etc.) is owned by the
                 // inner Paper's onMouseEnter/Leave. Clearing it here races with
@@ -2449,13 +2574,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                 data-post-id={stack.topPost.id}
                 onClick={(e) => handleCardClick(e, stack.topPost.id, stack.stackId)}
                 onMouseEnter={() => {
-                  if (isTouch || panelScrollingRef.current) return;
+                  if (isTouchRef.current || panelScrollingRef.current) return;
                   setHoveredIndex(null);
                   scheduleCardHover();
                 }}
                 onMouseMove={scheduleCardHover}
                 onMouseLeave={(e) => {
-                  if (isTouch) return;
+                  if (isTouchRef.current) return;
                   // A6: ignore Paper-leave events where the mouse went to a
                   // sibling that is still part of the SAME card container
                   // (bottom-edge zone, stack-shadow layers). Without this guard
@@ -2506,7 +2631,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                     style={{ color: '#011445', fontWeight: 700, fontSize: 'var(--mantine-font-size-sm)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {stack.topPost.account.display_name}
                   </Anchor>
-                  <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>· {formatPostDate(stack.topPost.created_at)}</Text>
+                  <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>· {formatPostDate(displayDate)}</Text>
                 </div>
                 {/* Category tags — icon-only and pushed right. Kept on one line so
                     author and date retain the readable portion of the header. */}
@@ -2546,13 +2671,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                           key={cat}
                           data-related-tag
                           aria-label={CATEGORY_LABELS[cat] ?? cat}
-                          onMouseEnter={(e) => { if (!isTouch) { setHoveredCategory(cat); scheduleTagScroll(index, indices[0]); } tagHover(e.clientX, e.clientY); }}
-                          onMouseLeave={() => { if (!isTouch) { setHoveredCategory(null); cancelTagScroll(); } hideTooltip(); }}
+                          onMouseEnter={(e) => { if (!isTouchRef.current) { setHoveredCategory(cat); scheduleTagScroll(index, indices[0]); tagHover(e.clientX, e.clientY); } }}
+                          onMouseLeave={() => { if (!isTouchRef.current) { setHoveredCategory(null); cancelTagScroll(); hideTooltip(); } }}
                           onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; tagHover(e.clientX, e.clientY); }}
                           onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTooltip(); }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (isTouch) {
+                            if (isTouchRef.current) {
                               // Touch: tap toggles category highlight; second tap on same category triggers rerank on first matching range
                               if (hoveredCategory === cat && tappedCardPostId === stack.topPost.id) {
                                 handleToggleAnchor(stack.topPost.id, indices[0]);
@@ -2720,7 +2845,20 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                       </Text>
                     </div>
                   )}
-                  <div className={`ai-edit-text-stage${isAiEditActive ? ' is-active' : ''}`}>
+                  <div
+                    className={`ai-edit-text-stage${isAiEditActive ? ' is-active' : ''}`}
+                    data-related-card-content
+                    data-expanded={isExpanded ? 'true' : 'false'}
+                    style={{
+                      // Legacy responses often lack relation offsets, so
+                      // character windowing alone cannot guarantee a stable
+                      // narrow-panel card height. Keep the published and AI
+                      // diff layers in the same clipped geometry until the
+                      // explicit Read more action expands the card.
+                      maxHeight: isExpanded ? undefined : '10.85rem',
+                      overflow: isExpanded ? 'visible' : 'hidden',
+                    }}
+                  >
                     <Text
                       component="p"
                       size="sm"
@@ -2756,11 +2894,37 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                     )}
                   </div>
 
+                  {articleUrl && (
+                    <Anchor
+                      href={articleUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      data-related-article-link
+                      size="xs"
+                      underline="hover"
+                      onClick={(event: React.MouseEvent) => event.stopPropagation()}
+                      onMouseDown={(event: React.MouseEvent) => event.stopPropagation()}
+                      onMouseUp={(event: React.MouseEvent) => event.stopPropagation()}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        marginTop: '0.3rem',
+                        marginBottom: '0.35rem',
+                        color: '#2f6f68',
+                        fontWeight: 650,
+                      }}
+                    >
+                      <IconExternalLink size={13} aria-hidden />
+                      Read article{articleHost ? ` · ${articleHost}` : ''}
+                    </Anchor>
+                  )}
+
                   {/* Read more / See less */}
                   {(isTruncated || isExpanded) && (
                     <Anchor
                       component="button" type="button" size="sm" underline="hover"
-                      styles={{ root: { padding: 0, background: 'none', color: '#5a71a8', fontWeight: 600, cursor: 'pointer', marginBottom: '0.4rem', display: 'block' } }}
+                      styles={{ root: { padding: 0, background: 'none', color: '#1c2b4a', fontWeight: 600, cursor: 'pointer', marginBottom: '0.4rem', display: 'block' } }}
                       onClick={(e: React.MouseEvent) => {
                         e.stopPropagation();
                         setExpandedCards(prev => ({ ...prev, [stack.stackId]: !isExpanded }));
@@ -2799,9 +2963,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
                         // sourcePostId prop if given, else the context's active post.
                         const origin = window.location.origin;
                         const focusId = sourcePostId ?? ctxActivePostId;
+                        const sharedId = focusId ?? stack.topPost.id;
+                        const route = getPost(sharedId) ? '/ChineseEVs/posts/' : '/posts/';
                         const url = focusId
-                          ? `${origin}/ChineseEVs/posts/${focusId}?related=${stack.topPost.id}`
-                          : `${origin}/ChineseEVs/posts/${stack.topPost.id}`;
+                          ? `${origin}${route}${focusId}?related=${stack.topPost.id}`
+                          : `${origin}${route}${stack.topPost.id}`;
                         copyLink(url, focusId ? "Pairing link copied" : "Post link copied");
                       }} />
                   </Group>
@@ -2819,12 +2985,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks, cardWidth 
               <div aria-hidden style={{
                 position: 'absolute', left: 0, right: 0, height: EDGE_HOVER_HEIGHT,
                 bottom: -EDGE_HOVER_HEIGHT, zIndex: 2, pointerEvents: 'auto', background: 'transparent',
-              }} onMouseEnter={() => setHoveredIndex(index)} onMouseLeave={() => setHoveredIndex(null)} />
+              }} onMouseEnter={() => { if (!isTouchRef.current) setHoveredIndex(index); }} onMouseLeave={() => { if (!isTouchRef.current) setHoveredIndex(null); }} />
 
               {stack.size !== null && stack.size > 1 && (
                 <>
                   {[...Array(2)].map((_, idx) => (
-                    <div key={idx} aria-hidden style={{
+                    <div key={idx} data-related-stack-layer aria-hidden style={{
                       position: 'absolute', inset: 0,
                       transform: `translate(${6 - 3 * idx}px, ${12 - 6 * idx + (isCardHovered ? 20 - (idx * 10) : 0)}px)`,
                       width: '100%', backgroundColor: '#ffffff', borderRadius: '10px',

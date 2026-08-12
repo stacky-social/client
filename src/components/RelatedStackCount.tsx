@@ -18,6 +18,7 @@ const RelatedStackCount: React.FC<RelatedStackCountProps> = ({ count, onClick, t
 
   return (
     <Paper
+      data-related-stack-count
       onClick={handleClick}
       style={{
         position: 'absolute',
@@ -56,7 +57,7 @@ const RelatedStackCount: React.FC<RelatedStackCountProps> = ({ count, onClick, t
               position: 'absolute',
               right: -10,
               top: -8,
-              color: '#5a71a8',
+              color: '#45a99e',
               transform: 'rotate(-45deg)',
             }}
             aria-hidden="true"

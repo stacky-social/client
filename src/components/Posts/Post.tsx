@@ -1150,13 +1150,11 @@ function Post({
 
   const handleShare = () => {
     // Copy the in-app post link so a recipient lands on this post's focus view
-    // (related responses in the aside). The route prefix follows the surface the
-    // post is being shared FROM: live-backend surfaces (/posts, /tag) link to the
-    // API-backed detail page — their ids don't exist in the mock resolver — while
-    // every store/demo surface links to the mock-backed detail route.
-    const pathname = window.location.pathname;
-    const isLiveSurface = pathname.startsWith('/posts') || pathname.startsWith('/tag');
-    const url = `${window.location.origin}${isLiveSurface ? '/posts/' : '/ChineseEVs/posts/'}${id}`;
+    // (related responses in the aside). Route from the post's identity, not the
+    // current page: Home, Likes, Bookmarks, search and hashtag feeds can all mix
+    // Mastodon and frontend-backed posts in the same viewport.
+    const route = getPost(id) ? '/ChineseEVs/posts/' : '/posts/';
+    const url = `${window.location.origin}${route}${id}`;
     copyLink(url, "Post link copied");
   };
 
@@ -1264,17 +1262,19 @@ function Post({
         style={{
           position: 'relative',
           width: "100%",
-          backgroundColor: isTimeline && hovered ? '#fbfcff' : '#fff',
+          backgroundColor: isTimeline && hovered ? '#f5fbfa' : '#fff',
           zIndex: 5,
           borderRadius: isTimeline ? 0 : '10px',
           borderStyle: 'solid',
           borderWidth: isTimeline ? '0 0 1px' : '2px',
           borderColor: isTimeline
             ? '#e3e2dc'
-            : (isActive ? 'rgb(156, 184, 255)' : '#e7e7e7'),
+            : (isActive ? '#45a99e' : '#dfe4ea'),
           boxShadow: isTimeline
-            ? (isActive ? 'inset 3px 0 0 #5a71a8' : 'none')
-            : (isActive ? 'rgba(0, 0, 0, 0.18) 0px 12px 24px, rgba(0, 0, 0, 0.12) 0px 6px 12px' : 'none'),
+            ? (isActive ? 'inset 3px 0 0 #45a99e' : 'none')
+            : (isActive
+                ? '0 14px 30px rgba(28, 43, 74, 0.16), 0 5px 12px rgba(28, 43, 74, 0.10)'
+                : '0 2px 9px rgba(28, 43, 74, 0.055)'),
           transform: !isTimeline && isActive ? 'translateY(-2px)' : 'none',
           // Border switches instantly (not transitioned) so the active outline
           // can't be caught mid-fade showing the inactive colour during scroll
@@ -1489,7 +1489,7 @@ function Post({
             root: {
               padding: 0,
               background: 'none',
-              color: '#5a71a8',
+              color: '#1c2b4a',
               fontWeight: 600,
               cursor: 'pointer',
               '&:hover': {

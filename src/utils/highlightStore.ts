@@ -7,7 +7,9 @@ import {
   validateTopicInteraction,
   pushUndoEntry,
   ringTopMatchesScope,
+  detailFocusIdFromPath,
 } from "./highlightStoreCore.mjs";
+import { FILTER_HISTORY_CAP, historyWriteMode } from "./filterUrlState.mjs";
 // Re-export the pure selectors/topic-key helper so components import them from
 // the store surface (the .mjs holds the framework-free, unit-tested logic).
 export {
@@ -462,12 +464,27 @@ export function setPanelFocus(
   }
   currentPanelFocusId = focusId;
   const saved = focusId ? panelStateByFocus.get(focusId) : undefined;
+  // The @aside parallel route can mount after the detail page's passive URL
+  // hydration. In that order, a normal focus restore must not overwrite the
+  // explicit shared filter that is already live in the store. If the URL owns
+  // an interaction, useUrlSync will finish (or has finished) hydrating it.
+  const urlOwnsInteraction =
+    typeof window !== "undefined" &&
+    ["fc", "fs", "ft", "fo", "fa", "fi"].some((key) =>
+      new URLSearchParams(window.location.search).has(key),
+    );
   // A span click on a non-focused post focuses it AND filters by that span. The
   // filter is stashed as "pending" and applied here — after the saved-panel
   // restore that would otherwise wipe it on the focus switch.
-  let incomingResponseFilter = saved ? saved.responseFilter : null;
+  let incomingResponseFilter = urlOwnsInteraction
+    ? state.responseFilter
+    : saved
+      ? saved.responseFilter
+      : null;
   // Restore the atomic interaction, validated against the incoming focus data.
-  let incomingTopicInteraction = saved
+  let incomingTopicInteraction = urlOwnsInteraction
+    ? state.topicInteraction
+    : saved
     ? resolveTopicKey
       ? validateTopicInteraction(saved.topicInteraction, resolveTopicKey)
       : saved.topicInteraction
@@ -481,7 +498,11 @@ export function setPanelFocus(
   }
   state = {
     ...state,
-    filterCategories: saved ? new Set(saved.filterCategories) : new Set(),
+    filterCategories: urlOwnsInteraction
+      ? new Set(state.filterCategories)
+      : saved
+        ? new Set(saved.filterCategories)
+        : new Set(),
     reRankAnchorIds: saved ? [...saved.reRankAnchorIds] : [],
     anchoredRangeByPost: saved ? { ...saved.anchoredRangeByPost } : {},
     responseFilter: incomingResponseFilter,
@@ -559,18 +580,11 @@ export function triggerNavigate(postId: string): void {
   if (_navigateCallback) _navigateCallback(postId);
 }
 
-// ─── WS6: Back-button undo (single-sentinel ring) ───────────────────────────
-// Detail-route only. Model:
-//  • An in-memory ring of pre-interaction PanelSnapshots (incl. baseOrderIds),
-//    scoped by {pathname, focusId}, cap 5 (older states drop, non-undoable).
-//  • Exactly ONE extra same-URL history "sentinel" entry while the ring is
-//    non-empty (push on the first interaction after empty; re-push after each
-//    Back-restore if states remain; do NOT re-push when the ring empties → the
-//    next Back leaves the route). ring non-empty ⟺ current entry is the sentinel.
-//  • popstate detection is IN-MEMORY: on Back we compare location.pathname +
-//    focus to the ring's top scope (never history.state), and undo if it matches.
-// The route installs the popstate listener in a client effect (see
-// consumePanelUndo); this module owns the ring + the sentinel bookkeeping.
+// ─── Shareable Back-button filter history ───────────────────────────────────
+// Detail-route only. Every genuine filter transition gets a real URL entry and
+// a matching in-memory snapshot (for exact base-order restoration). The stack
+// is capped at 24. Once full, further transitions replace the newest browser
+// entry, preventing an unbounded trail; after Back frees a slot, Push resumes.
 
 export interface PanelScope {
   pathname: string;
@@ -583,14 +597,18 @@ interface UndoEntry {
   snapshot: PanelSnapshot;
 }
 
-const UNDO_RING_CAP = 5;
 let panelUndoRing: UndoEntry[] = [];
+let pendingHistoryWriteMode: "push" | "replace" | null = null;
 
 /** The current {pathname, focusId} scope, from the live URL + the focus the
  *  panel is showing. Undo entries are pushed and matched against this. */
 export function currentPanelScope(): PanelScope | null {
   if (typeof window === "undefined") return null;
-  return { pathname: window.location.pathname, focusId: currentPanelFocusId ?? "" };
+  const pathname = window.location.pathname;
+  return {
+    pathname,
+    focusId: detailFocusIdFromPath(pathname) ?? currentPanelFocusId ?? "",
+  };
 }
 
 /**
@@ -610,15 +628,6 @@ export function filteredHistoryState(): Record<string, unknown> {
   void __NA;
   void _N;
   return rest;
-}
-
-/** Push the single same-URL sentinel entry through Next's PATCHED pushState (so
- *  Next copies its internals into it — otherwise a Back that LANDS on the
- *  sentinel would trip Next's `location.reload()` fallback). No url arg keeps
- *  the current URL and skips a redundant router restore. */
-function pushSentinel(): void {
-  if (typeof window === "undefined") return;
-  window.history.pushState(filteredHistoryState(), "");
 }
 
 /** URL-sync debounce flush — registered by useUrlSync so a restore can cancel a
@@ -672,17 +681,38 @@ export function beginPanelInteraction(
   scope: PanelScope,
   currentVisibleOrderIds?: string[] | null,
 ): void {
-  const wasEmpty = panelUndoRing.length === 0;
-  panelUndoRing = pushUndoEntry(
-    panelUndoRing,
-    { pathname: scope.pathname, focusId: scope.focusId, snapshot: snapshotPanel() },
-    UNDO_RING_CAP,
+  // The bounded browser-history budget belongs to one detail-post scope. A
+  // normal TopNav/Link navigation does not pass through
+  // navigateFromPanelScope, so prune abandoned snapshots here before deciding
+  // whether this genuine gesture may push. Otherwise 24 interactions on an old
+  // post permanently force every later post into replace-only history.
+  panelUndoRing = panelUndoRing.filter(
+    (entry) => entry.pathname === scope.pathname && entry.focusId === scope.focusId,
   );
-  if (wasEmpty) pushSentinel();
+  const mode = historyWriteMode(panelUndoRing.length, FILTER_HISTORY_CAP);
+  pendingHistoryWriteMode = mode;
+  // A replace does not create a browser Back step, so it must not create a
+  // snapshot either. The current ring top already matches the URL entry Back
+  // will land on.
+  if (mode === "push") {
+    panelUndoRing = pushUndoEntry(
+      panelUndoRing,
+      { pathname: scope.pathname, focusId: scope.focusId, snapshot: snapshotPanel() },
+      FILTER_HISTORY_CAP,
+    );
+  }
   if (currentVisibleOrderIds) {
     // Non-render: no notify — the caller's atomic action coalesces it in.
     state = { ...state, baseOrderIds: [...currentVisibleOrderIds] };
   }
+}
+
+/** Consume the write decision captured at the user-gesture boundary. URL
+ * hydration/programmatic normalization has no boundary and therefore replaces. */
+export function consumePanelHistoryWriteMode(): "push" | "replace" {
+  const mode = pendingHistoryWriteMode ?? "replace";
+  pendingHistoryWriteMode = null;
+  return mode;
 }
 
 /** Set the aside base order WITHOUT recording an undo entry — the feed
@@ -716,7 +746,10 @@ export function setReplyBaseOrder(orderIds: string[]): void {
  */
 export function beginUndoablePanelInteractionIfDetail(focusId?: string): boolean {
   const scope = currentPanelScope();
-  if (!scope || !scope.pathname.startsWith("/ChineseEVs/posts/")) return false;
+  if (
+    !scope ||
+    (!scope.pathname.startsWith("/ChineseEVs/posts/") && !scope.pathname.startsWith("/posts/"))
+  ) return false;
   if (focusId !== undefined && scope.focusId !== focusId) return false;
   beginPanelInteraction(scope, null);
   return true;
@@ -729,30 +762,27 @@ export function hasPanelUndo(scope?: PanelScope | null): boolean {
 }
 
 /**
- * Consume one undo step. Assumes the browser has just Backed OFF the sentinel
- * onto the entry below it (the popstate handler calls this; the visible Back
- * button routes through `window.history.back()` so the same thing happens).
- * Pops the ring's top, clears any pending URL-sync write, restores the snapshot
- * atomically, and re-pushes the sentinel iff states remain. Returns false (no-op)
- * when the current scope has no undoable entry, so a real Back navigates away.
+ * Consume one undo step after browser Back lands on the preceding filter URL.
+ * The URL codec restores the shareable dimensions; this snapshot also restores
+ * the exact permanent panel/reply ordering that is intentionally not put in a
+ * public URL.
  */
 export function consumePanelUndo(): boolean {
   const scope = currentPanelScope();
   if (!ringTopMatchesScope(panelUndoRing, scope)) return false;
   const entry = panelUndoRing[panelUndoRing.length - 1];
   panelUndoRing = panelUndoRing.slice(0, -1);
+  pendingHistoryWriteMode = null;
   if (_urlSyncFlush) _urlSyncFlush();
   applyPanelSnapshot(entry.snapshot);
-  if (panelUndoRing.length > 0) pushSentinel();
   return true;
 }
 
 /**
  * Commit the outgoing panel state and navigate away from the current focus
- * scope (WS3 X-click + any related-post navigation). A history entry can't be
- * deleted, so when we're sitting ON the sentinel we `replace` OVER it (collapsing
- * it so Back doesn't hit a stranded sentinel — critique W6-2); otherwise `push`.
- * The ring for the outgoing focus is cleared. Exported for T2.
+ * scope (WS3 X-click + any related-post navigation). Filter entries are real
+ * URLs now, so no sentinel needs collapsing; clear the in-memory snapshots and
+ * perform the caller's normal navigation push.
  */
 export function navigateFromPanelScope(
   url: string,
@@ -761,14 +791,15 @@ export function navigateFromPanelScope(
   if (currentPanelFocusId) {
     panelStateByFocus.set(currentPanelFocusId, snapshotPanel());
   }
-  const onSentinel = panelUndoRing.length > 0;
   panelUndoRing = panelUndoRing.filter((e) => e.focusId !== currentPanelFocusId);
-  (onSentinel ? navigate.replace : navigate.push)(url);
+  pendingHistoryWriteMode = null;
+  navigate.push(url);
 }
 
 /** Test/reset seam: drop the whole undo ring (does not touch history). */
 export function resetPanelUndoRing(): void {
   panelUndoRing = [];
+  pendingHistoryWriteMode = null;
 }
 
 // ─── Hook ───────────────────────────────────────────────────────────────────

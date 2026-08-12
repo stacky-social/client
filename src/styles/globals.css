@@ -1,5 +1,14 @@
 /* styles/globals.css */
 
+:root {
+    --cw-navy: #1c2b4a;
+    --cw-teal: #45a99e;
+    --cw-coral: #e15c52;
+    --cw-amber: #f0a83e;
+    --cw-canvas: #ffffff;
+    --cw-line: #dfe4ea;
+}
+
 /* Auto-hide scrollbar: visible only while scrolling or on hover */
 html {
     scrollbar-gutter: stable;
@@ -58,7 +67,7 @@ html::-webkit-scrollbar-thumb:hover {
 
 /* Resizable shell columns: body background = gutter color; suppress horizontal scroll. */
 body {
-    background-color: #FCFBF5;
+    background-color: var(--cw-canvas);
     overflow-x: hidden;
 }
 
@@ -94,7 +103,7 @@ body {
     border-radius: 8px;
     /* border in the panel's background colour gives the thumb visual padding,
        so it looks like a deliberate pill rather than the OS scrollbar. */
-    border: 2px solid #fcfbf5;
+    border: 2px solid var(--cw-canvas);
 }
 .aside-scroll::-webkit-scrollbar-thumb:hover {
     background: rgba(28, 43, 74, 0.5);

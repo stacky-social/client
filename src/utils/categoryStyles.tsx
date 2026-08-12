@@ -11,22 +11,28 @@ import {
 
 export interface CategoryStyle { bg: string; border: string; text: string }
 
+// Category meaning remains icon- and label-specific, while color is deliberately
+// constrained to the four lobes of the CrossWeave mark. Reusing these palettes
+// makes highlights, filter chips, and relation tags feel like one system.
+const BRAND_TEAL: CategoryStyle = { bg: "#e3f4f2", border: "#45a99e", text: "#246f68" };
+const BRAND_CORAL: CategoryStyle = { bg: "#fbe8e6", border: "#e15c52", text: "#9e3d36" };
+const BRAND_AMBER: CategoryStyle = { bg: "#fff3df", border: "#f0a83e", text: "#8a5a16" };
+const BRAND_NAVY: CategoryStyle = { bg: "#e8edf5", border: "#1c2b4a", text: "#1c2b4a" };
+
 export const CATEGORY_COLORS: Record<string, CategoryStyle> = {
-  agree:              { bg: "#d4f9d3", border: "#4caf50", text: "#1b5e20" },
-  disagree:           { bg: "#ffe0e0", border: "#f44336", text: "#b71c1c" },
-  predictions:        { bg: "#fff3cd", border: "#ff9800", text: "#e65100" },
-  evidence_public:    { bg: "#e3f2fd", border: "#2196f3", text: "#0d47a1" },
-  evidence_personal:  { bg: "#f3e5f5", border: "#9c27b0", text: "#4a148c" },
-  connections:        { bg: "#e0f2f1", border: "#009688", text: "#004d40" },
-  questions:          { bg: "#fce4ec", border: "#e91e63", text: "#880e4f" },
-  humor:              { bg: "#fff8e1", border: "#ffc107", text: "#ff6f00" },
-  values:             { bg: "#ede7f6", border: "#673ab7", text: "#311b92" },
-  framing:            { bg: "#e0f7fa", border: "#00bcd4", text: "#006064" },
-  proposals:          { bg: "#e8eaf6", border: "#3f51b5", text: "#1a237e" },
-  // Distinct from proposals (they were identical, a latent color-identity
-  // confound for the cross-highlight condition the moment pointers appear).
-  pointers:           { bg: "#efebe9", border: "#795548", text: "#3e2723" },
-  uncategorized:      { bg: "#f5f5f5", border: "#9e9e9e", text: "#424242" },
+  agree: BRAND_TEAL,
+  disagree: BRAND_CORAL,
+  predictions: BRAND_AMBER,
+  evidence_public: BRAND_NAVY,
+  evidence_personal: BRAND_CORAL,
+  connections: BRAND_TEAL,
+  questions: BRAND_CORAL,
+  humor: BRAND_AMBER,
+  values: BRAND_TEAL,
+  framing: BRAND_NAVY,
+  proposals: BRAND_NAVY,
+  pointers: BRAND_AMBER,
+  uncategorized: BRAND_NAVY,
 };
 
 export const CATEGORY_LABELS: Record<string, string> = {

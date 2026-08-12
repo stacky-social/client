@@ -61,13 +61,14 @@ test.describe('Related-card navigation & interaction guards', () => {
     const groupIndicator = page.getByTestId('active-group-anchor');
     await expect(groupIndicator).toHaveCount(0);
 
-    const urlBefore = page.url();
+    const pathBefore = new URL(page.url()).pathname;
     await tag.click();
 
     // The tag's own action fires (panel groups) ...
     await expect(groupIndicator.first()).toBeVisible();
     // ... and the card-level navigation did NOT (stopPropagation held).
-    expect(page.url()).toBe(urlBefore);
+    expect(new URL(page.url()).pathname).toBe(pathBefore);
+    await expect(page).toHaveURL(/[?&]ft=/);
   });
 
   test('B1.1: scrolling clears level-one hover and does not activate cards under a stationary pointer', async ({ page }) => {

@@ -94,7 +94,7 @@ export default function ReplyFilterBar({
         aria-label="Clear all reply filters"
         style={{
           background: "none", border: "none", cursor: "pointer",
-          color: "#5a71a8", fontSize: 11, fontWeight: 600, padding: "2px 4px",
+          color: "#1c2b4a", fontSize: 11, fontWeight: 600, padding: "2px 4px",
         }}
       >
         clear

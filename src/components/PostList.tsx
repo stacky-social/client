@@ -8,11 +8,13 @@ import { PostType } from '../types/PostType';
 import Post from './Posts/Post';
 import axios from 'axios';
 import {
+    MASTODON_INSTANCE_URL,
     MASTODON_STATUS_CREATED_EVENT,
     RELATED_POSTS_API_URL,
     type MastodonStatus,
 } from '../utils/mastodonApi';
 import { nextMaxIdFromLink } from '../utils/mastodonPagination.mjs';
+import { weaveTimeline } from '../utils/weaveTimeline.mjs';
 import {
     useLocalStore,
     useHydrated,
@@ -26,6 +28,8 @@ import {
 
 /** Local (no-backend) feed sources backed by the localStore. */
 export type FeedSource = 'home' | 'bookmarks' | 'liked';
+export type LocalSupplementSource = 'followed' | 'bookmarks' | 'liked';
+const EMPTY_STORE_POSTS: StorePost[] = [];
 
 /** Friendly first line of the store-backed empty state, per feed source (F-23). */
 const EMPTY_FEED_COPY: Record<FeedSource, string> = {
@@ -39,6 +43,19 @@ function selectStoreFeed(source: FeedSource): StorePost[] {
     switch (source) {
         case 'home':
             return getHomeFeed();
+        case 'bookmarks':
+            return getBookmarks();
+        case 'liked':
+            return getLiked();
+        default:
+            return EMPTY_STORE_POSTS;
+    }
+}
+
+function selectLocalSupplement(source?: LocalSupplementSource): StorePost[] {
+    switch (source) {
+        case 'followed':
+            return getFollowedDemoFeed();
         case 'bookmarks':
             return getBookmarks();
         case 'liked':
@@ -118,6 +135,13 @@ const postListCacheMap = new Map<string, PostListCache>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_ENTRIES = 20;
 
+/** Drop cached API feeds whose URL contains `pathFragment`. */
+export function invalidatePostListCache(pathFragment: string): void {
+    for (const key of Array.from(postListCacheMap.keys())) {
+        if (key.includes(pathFragment)) postListCacheMap.delete(key);
+    }
+}
+
 /** Evict expired entries and cap total size (LRU — see cacheGet/cacheSet which refresh recency) */
 function pruneCache<V extends { timestamp: number }>(cache: Map<string, V>, max: number) {
     const now = Date.now();
@@ -163,8 +187,10 @@ interface PostListProps {
     setActivePostId: (id: string | null) => void;
     showLoadMore?: boolean;
     ready: boolean;
-    /** Blend explicitly followed JSON posts into an authenticated timeline. */
-    includeFollowedDemo?: boolean;
+    /** Blend the matching local collection into an authenticated Mastodon feed. */
+    localSupplement?: LocalSupplementSource;
+    /** Mastodon hashtags whose followed timelines should be woven into Home. */
+    remoteSupplementTags?: readonly string[];
     /** When set, the feed reads reactively from the localStore instead of fetching `apiUrl`. */
     source?: FeedSource;
 }
@@ -179,7 +205,117 @@ const PostList: React.FC<PostListProps> = (props) => {
     return <ApiFeed {...props} />;
 };
 
-const ApiFeed: React.FC<PostListProps> = ({
+const ApiFeed: React.FC<PostListProps> = (props) => {
+    if (props.localSupplement || props.remoteSupplementTags?.length) {
+        return <SupplementedApiFeed {...props} />;
+    }
+    return <ApiFeedCore {...props} />;
+};
+
+const SupplementedApiFeed: React.FC<PostListProps> = (props) => {
+    const localHydrated = useHydrated();
+    const localPosts = useLocalStore(() => selectLocalSupplement(props.localSupplement));
+    const [remotePosts, setRemotePosts] = useState<PostType[]>([]);
+    const [remoteLoading, setRemoteLoading] = useState(Boolean(props.remoteSupplementTags?.length));
+    const remoteTagKey = (props.remoteSupplementTags ?? []).join('|');
+
+    useEffect(() => {
+        const tags = remoteTagKey.split('|').filter(Boolean);
+        if (!props.ready || !props.accessToken || tags.length === 0) {
+            setRemotePosts([]);
+            setRemoteLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        let cancelled = false;
+        const headers = { Authorization: `Bearer ${props.accessToken}` };
+
+        const load = async () => {
+            setRemoteLoading(true);
+            try {
+                const followedTimelines = await Promise.all(tags.map(async (tag) => {
+                    const metadata = await axios.get(
+                        `${MASTODON_INSTANCE_URL}/api/v1/tags/${encodeURIComponent(tag)}`,
+                        { headers, signal: controller.signal },
+                    );
+                    if (!metadata.data?.following) return [] as MastodonStatus[];
+                    const timeline = await axios.get(
+                        `${MASTODON_INSTANCE_URL}/api/v1/timelines/tag/${encodeURIComponent(tag)}`,
+                        { headers, params: { limit: 10 }, signal: controller.signal },
+                    );
+                    return Array.isArray(timeline.data) ? timeline.data as MastodonStatus[] : [];
+                }));
+
+                const seen = new Set<string>();
+                const statuses = followedTimelines.flat().filter((status) => {
+                    if (!status?.id || seen.has(status.id)) return false;
+                    seen.add(status.id);
+                    return true;
+                });
+                const mapped = statuses.map((status) => mastodonStatusToPost(status, props.loadStackInfo));
+                // Show the followed-tag posts as soon as Mastodon returns them;
+                // relation metadata is optional and hydrates in the background.
+                if (!cancelled) {
+                    setRemotePosts(mapped);
+                    setRemoteLoading(false);
+                }
+
+                for (let index = 0; index < statuses.length; index += 2) {
+                    const batch = await Promise.all(statuses.slice(index, index + 2).map(async (status) => {
+                        const post = mastodonStatusToPost(status, props.loadStackInfo);
+                        if (!props.loadStackInfo) return post;
+                        try {
+                            const related = await axios.get(
+                                `${RELATED_POSTS_API_URL}/stacks/${status.id}/related`,
+                                { signal: controller.signal },
+                            );
+                            const relatedStacks = Array.isArray(related.data?.relatedStacks)
+                                ? related.data.relatedStacks
+                                : [];
+                            const stackCount = Number.isFinite(related.data?.size)
+                                ? related.data.size
+                                : relatedStacks.length;
+                            return { ...post, stackCount, relatedStacks };
+                        } catch (error) {
+                            if (controller.signal.aborted) throw error;
+                            return { ...post, stackCount: 0, relatedStacks: [] };
+                        }
+                    }));
+                    if (!cancelled) {
+                        const hydratedById = new Map(batch.map((post) => [post.postId, post]));
+                        setRemotePosts((current) => current.map((post) => hydratedById.get(post.postId) ?? post));
+                    }
+                }
+            } catch (error) {
+                if (!cancelled && !controller.signal.aborted) setRemotePosts([]);
+            } finally {
+                if (!cancelled) setRemoteLoading(false);
+            }
+        };
+
+        void load();
+        return () => {
+            cancelled = true;
+            controller.abort();
+        };
+    }, [props.accessToken, props.loadStackInfo, props.ready, remoteTagKey]);
+
+    return (
+        <ApiFeedCore
+            {...props}
+            localSupplementStorePosts={localHydrated ? localPosts : EMPTY_STORE_POSTS}
+            remoteSupplementPosts={remotePosts}
+            remoteSupplementLoading={remoteLoading}
+        />
+    );
+};
+
+const ApiFeedCore: React.FC<PostListProps & {
+    localSupplementStorePosts?: StorePost[];
+    remoteSupplementPosts?: PostType[];
+    remoteSupplementLoading?: boolean;
+}> = ({
     apiUrl,
     handleStackIconClick,
     loadStackInfo,
@@ -190,7 +326,9 @@ const ApiFeed: React.FC<PostListProps> = ({
     setActivePostId,
     showLoadMore = false,
     ready,
-    includeFollowedDemo = false,
+    localSupplementStorePosts = EMPTY_STORE_POSTS,
+    remoteSupplementPosts = [],
+    remoteSupplementLoading = false,
 }) => {
     // Check cache synchronously during initialization to avoid a loading flash.
     // Stored in a ref so subsequent renders don't re-evaluate the cache check.
@@ -201,25 +339,25 @@ const ApiFeed: React.FC<PostListProps> = ({
     const hasCachedData = !!cachedSnapshot.current;
 
     const [posts, setPosts] = useState<PostType[]>(() => cachedSnapshot.current?.posts ?? []);
-    const localHydrated = useHydrated();
-    const followedDemoStorePosts = useLocalStore(() => getFollowedDemoFeed());
-    const followedDemoPosts = useMemo(
-        () => includeFollowedDemo && localHydrated
-            ? followedDemoStorePosts.map(storeToPost)
-            : [],
-        [followedDemoStorePosts, includeFollowedDemo, localHydrated],
+    const localSupplementPosts = useMemo(
+        () => localSupplementStorePosts.map(storeToPost),
+        [localSupplementStorePosts],
     );
-    const followedDemoIds = useMemo(
-        () => new Set(followedDemoPosts.map((post) => post.postId)),
-        [followedDemoPosts],
+    const localSupplementIds = useMemo(
+        () => new Set(localSupplementPosts.map((post) => post.postId)),
+        [localSupplementPosts],
     );
-    const displayPosts = useMemo(() => {
-        const unique = new Map<string, PostType>();
-        for (const post of [...posts, ...followedDemoPosts]) unique.set(post.postId, post);
-        return Array.from(unique.values()).sort(
-            (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
-        );
-    }, [posts, followedDemoPosts]);
+    const supplementalPosts = useMemo(
+        // Alternate bundled and Mastodon followed conversations before weaving
+        // them into Home. This keeps either source from being buried when the
+        // server's ordinary home timeline is empty or very short.
+        () => weaveTimeline(localSupplementPosts, remoteSupplementPosts, 1),
+        [localSupplementPosts, remoteSupplementPosts],
+    );
+    const displayPosts = useMemo(
+        () => weaveTimeline(posts, supplementalPosts),
+        [posts, supplementalPosts],
+    );
     const [loading, setLoading] = useState(() => !hasCachedData);
     const [loadingMore, setLoadingMore] = useState(false);
     const [maxId, setMaxId] = useState<string | null>(() => cachedSnapshot.current?.maxId ?? null);
@@ -603,6 +741,11 @@ const ApiFeed: React.FC<PostListProps> = ({
         const adjustedPosition = { top: rect.top + window.scrollY, height: rect.height };
 
         setActivePostId(firstPost.postId);
+        // This call already publishes the first post's loaded related data.
+        // Mark it before invoking the parent callback so the companion effect
+        // above cannot publish the same post again after context updates and
+        // accidentally trigger the manual "same post toggles off" behavior.
+        hasPublishedFirstPostStacksRef.current = true;
         handleStackIconClick(firstPost.relatedStacks, firstPost.postId, adjustedPosition);
         hasAutoHighlightedFirstPostRef.current = true;
     }, [displayPosts, activePostId, handleStackIconClick, setActivePostId, loadStackInfo]);
@@ -669,7 +812,7 @@ const ApiFeed: React.FC<PostListProps> = ({
     const renderPost = (_index: number, post: PostType) => (
         <div
             data-post-id={post.postId}
-            data-feed-origin={followedDemoIds.has(post.postId) ? 'demo' : 'mastodon'}
+            data-feed-origin={localSupplementIds.has(post.postId) ? 'demo' : 'mastodon'}
             ref={(node) => registerPostNodeRef.current(node, post.postId)}
         >
             <Post
@@ -708,7 +851,7 @@ const ApiFeed: React.FC<PostListProps> = ({
         return (
             <div style={{ textAlign: 'center', margin: '20px 0' }}>
                 <Button onClick={handleLoadMore} disabled={loadingMore}
-                    style={{ backgroundColor: '#324e93', color: '#fff' }}>
+                    style={{ backgroundColor: '#1c2b4a', color: '#fff' }}>
                     {loadingMore ? 'Loading' : 'Load more'}
                 </Button>
             </div>
@@ -726,7 +869,7 @@ const ApiFeed: React.FC<PostListProps> = ({
     return (
         <Box style={{ width: '100%', position: 'relative', minHeight: 80 }}>
             <LoadingOverlay visible={loading} overlayProps={{ radius: "sm", blur: 2 }} />
-            {!loading && displayPosts.length === 0 && (
+            {!loading && !remoteSupplementLoading && displayPosts.length === 0 && (
                 <Paper withBorder radius="md" p="xl" style={{ textAlign: 'center', marginTop: 16 }} data-testid="api-feed-empty">
                     <Text fw={600}>{emptyCopy}</Text>
                     <Text size="sm" c="dimmed" mt={4}>There is nothing to show from the server right now.</Text>

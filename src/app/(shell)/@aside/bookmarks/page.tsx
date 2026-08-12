@@ -38,6 +38,7 @@ export default function BookmarksAside() {
             onStackClick={() => {}}
             showupdate={showUpdate}
             sourcePostId={activePostId ?? undefined}
+            expandGroups
             // No feed on this route registers a navigate callback, so
             // triggerNavigate would silently no-op (F-17) — route directly
             // to the demo detail page instead. Seed previousPath so the

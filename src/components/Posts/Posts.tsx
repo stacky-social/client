@@ -5,17 +5,23 @@ import PostList from '../PostList';
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { useAccessToken } from '../../utils/useAccessToken';
 
-export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, showLoadMore = false, source, includeFollowedDemo = false, }: { apiUrl?: string, loadStackInfo: boolean, showSubmitAndSearch: boolean, showLoadMore?: boolean; source?: "home" | "bookmarks" | "liked"; includeFollowedDemo?: boolean; }) {
+export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, showLoadMore = false, source, localSupplement, remoteSupplementTags, }: { apiUrl?: string, loadStackInfo: boolean, showSubmitAndSearch: boolean, showLoadMore?: boolean; source?: "home" | "bookmarks" | "liked"; localSupplement?: "followed" | "bookmarks" | "liked"; remoteSupplementTags?: readonly string[]; }) {
     const { token: accessToken, ready } = useAccessToken();
     const [activePostId, setActivePostId] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isExpandModalOpen, setIsExpandModalOpen] = useState(false);
 
-    const { setFromPost, activePostId: asideActivePostId, relatedStacks: asideStacks, clear } = useRelatedStacks();
+    const { setFromPost, enterFeedSurface, activePostId: asideActivePostId, relatedStacks: asideStacks } = useRelatedStacks();
+    const isHomeTimeline = source === 'home' || apiUrl?.includes('/timelines/home');
+    const feedSurfaceKey = source ? `store:${source}` : `api:${apiUrl ?? ''}`;
 
-    // Start each feed visit with a clean aside — clears any related panel left
-    // over from a previous focus so it never shows orphaned (no highlighted post).
-    useEffect(() => { clear(); }, [clear]);
+    // Parallel-route context outlives individual feed pages. Claim the stable
+    // feed identity once on entry so an empty destination cannot display the
+    // previous page's related cards. Publishing from this same feed records the
+    // same key first, so hydration/remounts do not erase a newly selected post.
+    useEffect(() => {
+        enterFeedSurface(feedSurfaceKey);
+    }, [enterFeedSurface, feedSurfaceKey]);
 
     const handleStackIconClick = useCallback((incomingRelatedStacks: any[], postId: string, _position: { top: number, height: number }) => {
         const togglingOff = postId === asideActivePostId && Array.isArray(asideStacks) && asideStacks.length > 0;
@@ -23,19 +29,26 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, show
         // the same contract a real timeline/related-post API will satisfy and
         // avoids a demo-only resolver silently inventing data for empty posts.
         const stacksToPublish = Array.isArray(incomingRelatedStacks) ? incomingRelatedStacks : [];
-        setFromPost(stacksToPublish, postId);
+        setFromPost(stacksToPublish, postId, { surfaceKey: feedSurfaceKey });
         setActivePostId(togglingOff ? null : postId);
         setIsExpandModalOpen(false);
-    }, [activePostId, asideActivePostId, asideStacks, setFromPost]);
+    }, [asideActivePostId, asideStacks, feedSurfaceKey, setFromPost]);
 
     return (
         <div
-            style={{ position: 'relative' }}
-            data-home-timeline={source === 'home' || apiUrl?.includes('/timelines/home') ? 'true' : undefined}
+            style={{
+                position: 'relative',
+                // The active post is chosen nearest the viewport midpoint. A
+                // half-viewport runway after Home lets the final posts reach
+                // that line; it adds scroll range without resizing any card.
+                paddingBottom: isHomeTimeline ? '50vh' : undefined,
+            }}
+            data-home-timeline={isHomeTimeline ? 'true' : undefined}
+            data-feed-focus-runway={isHomeTimeline ? 'true' : undefined}
         >
             <div>
                 {showSubmitAndSearch && (
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: source === 'home' || apiUrl?.includes('/timelines/home') ? 0 : '2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: isHomeTimeline ? 0 : '2rem' }}>
                         <div style={{ width: '100%' }}>
                             <SubmitPost appearance={source === 'home' || apiUrl?.includes('/timelines/home') ? 'timeline' : 'card'} />
                         </div>
@@ -53,7 +66,8 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, show
                     activePostId={activePostId}
                     setActivePostId={setActivePostId}
                     showLoadMore={showLoadMore}
-                    includeFollowedDemo={includeFollowedDemo}
+                    localSupplement={localSupplement}
+                    remoteSupplementTags={remoteSupplementTags}
                 />
             </div>
             {/* Related stacks are now rendered in AppShell.Aside via context */}

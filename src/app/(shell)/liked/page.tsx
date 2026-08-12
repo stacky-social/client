@@ -14,6 +14,7 @@ export default function Liked() {
             loadStackInfo
             showSubmitAndSearch
             showLoadMore={Boolean(token)}
+            localSupplement={token ? 'liked' : undefined}
         />
     );
 }

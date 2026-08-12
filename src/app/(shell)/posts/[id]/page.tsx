@@ -15,6 +15,7 @@ import { useRelatedStacks } from "../../related-stacks-context";
 import { useUrlSync } from "../../../../utils/useUrlSync";
 import { LEGACY_TABS } from "../../../../utils/replyTabs.mjs";
 import { useLocalStore, useHydrated, getComments } from "../../../../utils/localStore";
+import { beginUndoablePanelInteractionIfDetail } from "../../../../utils/highlightStore";
 
 // -------------------- Types --------------------
 interface Account {
@@ -520,6 +521,7 @@ export default function PostView({ params }: { params: { id: string } }) {
 
   const handleTabChange = async (value: string | null) => {
     if (!value) return;
+    beginUndoablePanelInteractionIfDetail(id);
     setActiveTab(value);
 
     const actions: Record<string, (() => Promise<void>) | undefined> = {
@@ -641,7 +643,7 @@ export default function PostView({ params }: { params: { id: string } }) {
               width: "100%",
             }}
           >
-            <Tabs color="#002379" defaultValue="time" value={activeTab} onChange={handleTabChange}>
+            <Tabs color="#45a99e" defaultValue="time" value={activeTab} onChange={handleTabChange}>
               <Tabs.List style={{ marginBottom: "1rem" }}>
                 {(["time", "recommended", "stacked", "summary"] as const).map((tab) => (
                   <Tabs.Tab
@@ -706,4 +708,3 @@ export default function PostView({ params }: { params: { id: string } }) {
     </div>
   );
 }
-
