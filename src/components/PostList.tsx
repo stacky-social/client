@@ -15,6 +15,7 @@ import {
 } from '../utils/mastodonApi';
 import { nextMaxIdFromLink } from '../utils/mastodonPagination.mjs';
 import { weaveTimeline } from '../utils/weaveTimeline.mjs';
+import { useExperimentFlags } from '../utils/experimentFlags';
 import {
     useLocalStore,
     useHydrated,
@@ -39,10 +40,10 @@ const EMPTY_FEED_COPY: Record<FeedSource, string> = {
 };
 
 /** Read the posts for a store-backed feed source. */
-function selectStoreFeed(source: FeedSource): StorePost[] {
+function selectStoreFeed(source: FeedSource, includeHomeReplies = false): StorePost[] {
     switch (source) {
         case 'home':
-            return getHomeFeed();
+            return getHomeFeed(includeHomeReplies);
         case 'bookmarks':
             return getBookmarks();
         case 'liked':
@@ -52,10 +53,10 @@ function selectStoreFeed(source: FeedSource): StorePost[] {
     }
 }
 
-function selectLocalSupplement(source?: LocalSupplementSource): StorePost[] {
+function selectLocalSupplement(source?: LocalSupplementSource, includeHomeReplies = false): StorePost[] {
     switch (source) {
         case 'followed':
-            return getFollowedDemoFeed();
+            return getFollowedDemoFeed(includeHomeReplies);
         case 'bookmarks':
             return getBookmarks();
         case 'liked':
@@ -213,8 +214,9 @@ const ApiFeed: React.FC<PostListProps> = (props) => {
 };
 
 const SupplementedApiFeed: React.FC<PostListProps> = (props) => {
+    const { homeReplies } = useExperimentFlags();
     const localHydrated = useHydrated();
-    const localPosts = useLocalStore(() => selectLocalSupplement(props.localSupplement));
+    const localPosts = useLocalStore(() => selectLocalSupplement(props.localSupplement, homeReplies));
     const [remotePosts, setRemotePosts] = useState<PostType[]>([]);
     const [remoteLoading, setRemoteLoading] = useState(Boolean(props.remoteSupplementTags?.length));
     const remoteTagKey = (props.remoteSupplementTags ?? []).join('|');
@@ -330,6 +332,8 @@ const ApiFeedCore: React.FC<PostListProps & {
     remoteSupplementPosts = [],
     remoteSupplementLoading = false,
 }) => {
+    const { homeReplies } = useExperimentFlags();
+    const isHomeTimeline = apiUrl.includes('/timelines/home');
     // Check cache synchronously during initialization to avoid a loading flash.
     // Stored in a ref so subsequent renders don't re-evaluate the cache check.
     const initialCacheRef = useRef(() => {
@@ -354,10 +358,12 @@ const ApiFeedCore: React.FC<PostListProps & {
         () => weaveTimeline(localSupplementPosts, remoteSupplementPosts, 1),
         [localSupplementPosts, remoteSupplementPosts],
     );
-    const displayPosts = useMemo(
-        () => weaveTimeline(posts, supplementalPosts),
-        [posts, supplementalPosts],
-    );
+    const displayPosts = useMemo(() => {
+        const woven = weaveTimeline(posts, supplementalPosts);
+        return isHomeTimeline && !homeReplies
+            ? woven.filter((post) => !post.inReplyToId)
+            : woven;
+    }, [homeReplies, isHomeTimeline, posts, supplementalPosts]);
     const [loading, setLoading] = useState(() => !hasCachedData);
     const [loadingMore, setLoadingMore] = useState(false);
     const [maxId, setMaxId] = useState<string | null>(() => cachedSnapshot.current?.maxId ?? null);
@@ -911,10 +917,11 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
     setActivePostId,
 }) => {
     const router = useRouter();
+    const { homeReplies } = useExperimentFlags();
     // Re-renders on any store mutation (post/like/bookmark/follow) so the feed
     // stays live without a manual refresh.
     const hydrated = useHydrated();
-    const storePosts = useLocalStore(() => selectStoreFeed(source));
+    const storePosts = useLocalStore(() => selectStoreFeed(source, homeReplies));
     // Render empty on the server + first client render (the store reads
     // localStorage, which the server can't see) so hydration matches; fill in
     // immediately after mount.

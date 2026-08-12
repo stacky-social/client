@@ -19,7 +19,7 @@ export default function Home() {
             <header className={classes.header}>
                 <div>
                     <h1 id="home-title" className={classes.title}>Home</h1>
-                    <p className={classes.subtitle}>Curated and followed conversations</p>
+                    <p className={classes.subtitle}>Posts from accounts and hashtags you follow</p>
                 </div>
                 <div className={classes.latest} aria-label="Timeline sorted by latest activity">
                     <span aria-hidden="true" />

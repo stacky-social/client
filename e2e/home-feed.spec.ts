@@ -2,23 +2,44 @@ import { expect, test } from '@playwright/test';
 
 test.describe('Home timeline', () => {
   test.beforeEach(async ({ page }) => {
+    await page.goto('/tag/ChineseEVs');
+    await page.getByRole('button', { name: 'Follow hashtag' }).click();
     await page.goto('/home');
     await expect(page.getByRole('heading', { name: 'Home', level: 1 })).toBeVisible();
   });
 
-  test('renders a structured starter timeline with reply provenance', async ({ page }) => {
+  test('renders only focus posts from a followed conversation by default', async ({ page }) => {
     await expect(page.locator('[data-store-feed-post]')).toHaveCount(6);
-    await expect(page.getByText('Curated and followed conversations')).toBeVisible();
-    await expect(page.getByTestId('reply-context')).toHaveCount(3);
-    await expect(
-      page.locator('[data-store-feed-post="152052643"]').getByText('Replying to @totem'),
-    ).toBeVisible();
+    await expect(page.getByText('Posts from accounts and hashtags you follow')).toBeVisible();
+    await expect(page.getByTestId('reply-context')).toHaveCount(0);
+    await expect(page.locator('[data-store-feed-post="152052643"]')).toHaveCount(0);
     // Ana's source count is 20 even though this curated demo only includes four
     // thread descendants and 103 separately-related posts. Neither collection
     // is added to the visible reply counter.
     await expect(
       page.locator('[data-store-feed-post="152053690"]').getByRole('button', { name: 'Reply' }),
     ).toContainText('20');
+  });
+
+  test('removes an unfollowed conversation from Home', async ({ page }) => {
+    await page.goto('/tag/ChineseEVs');
+    await page.getByRole('button', { name: 'Unfollow hashtag' }).click();
+    await page.goto('/home');
+
+    await expect(page.getByTestId('store-feed-empty')).toContainText('Your feed is empty.');
+    await expect(page.locator('[data-store-feed-post]')).toHaveCount(0);
+  });
+
+  test('shows standalone replies only when the Home replies experiment is enabled', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('stacky:experimentFlags:v1', JSON.stringify({ homeReplies: true }));
+    });
+    await page.reload();
+
+    const reply = page.locator('[data-store-feed-post="152052643"]');
+    await expect(reply).toBeVisible();
+    await expect(reply.getByText('Replying to @totem')).toBeVisible();
+    await expect(page.getByTestId('reply-context').first()).toBeVisible();
   });
 
   test('keeps the composer distinct from the white feed without restoring post rails', async ({ page }) => {
@@ -68,8 +89,8 @@ test.describe('Home timeline', () => {
     await expect.poll(async () => textbox.evaluate((element) => getComputedStyle(element).borderTopColor))
       .toBe('rgb(47, 127, 118)');
 
-    const ordinaryPost = page.locator('[data-store-feed-post="152052643"]').getByTestId('post');
-    const postRails = await ordinaryPost.evaluate((element) => {
+    const timelinePost = page.locator('[data-store-feed-post="152053690"]').getByTestId('post');
+    const postRails = await timelinePost.evaluate((element) => {
       const style = getComputedStyle(element);
       return { left: style.borderLeftWidth, right: style.borderRightWidth };
     });
@@ -141,6 +162,11 @@ test.describe('Home timeline', () => {
   });
 
   test('keeps the right column blank and the feed width stable for a post with no relations', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('stacky:experimentFlags:v1', JSON.stringify({ homeReplies: true }));
+    });
+    await page.reload();
+
     const focus = page.locator('[data-store-feed-post="152053690"]');
     await focus.evaluate((element) => element.scrollIntoView({ block: 'center' }));
     await expect(page.locator('[data-related-card]').first()).toBeVisible();

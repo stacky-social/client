@@ -8,7 +8,7 @@ const account = {
   avatar: '/avatar/stacky_default.PNG',
 };
 
-function status(id: string, content: string) {
+function status(id: string, content: string, overrides: Record<string, unknown> = {}) {
   return {
     id,
     content: `<p>${content}</p>`,
@@ -20,6 +20,7 @@ function status(id: string, content: string) {
     bookmarked: false,
     media_attachments: [],
     card: null,
+    ...overrides,
   };
 }
 
@@ -71,6 +72,27 @@ test.describe('Mastodon-backed client mode', () => {
     await expect(homeCard).toHaveCSS('border-radius', '10px');
     expect(await homeCard.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe('none');
     expect(authorization).toMatch(/^Bearer backend-token-/);
+  });
+
+  test('hides Mastodon replies on Home unless the experiment is enabled', async ({ page }) => {
+    await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        status('root-post', 'A followed account post'),
+        status('reply-post', 'A reply from a followed account', { in_reply_to_id: 'root-post' }),
+      ]),
+    }));
+
+    await page.goto('/home');
+    await expect(page.getByText('A followed account post')).toBeVisible();
+    await expect(page.getByText('A reply from a followed account')).toHaveCount(0);
+
+    await page.evaluate(() => {
+      localStorage.setItem('stacky:experimentFlags:v1', JSON.stringify({ homeReplies: true }));
+    });
+    await page.reload();
+    await expect(page.getByText('A reply from a followed account')).toBeVisible();
   });
 
   test('keeps the final two Home posts reachable by viewport focus', async ({ page }) => {

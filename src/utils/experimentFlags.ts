@@ -26,6 +26,7 @@ import {
 // condition is recoverable from its logs.
 
 export interface ExperimentFlags {
+  homeReplies: boolean;
   suppressThreadPosts: boolean;
   replyContributions: boolean;
   crossPaneFiltering: boolean;
@@ -45,6 +46,7 @@ export const FLAG_META: Array<{
   description: string;
   dependsOn?: Array<keyof ExperimentFlags>;
 }> = [
+  { key: "homeReplies", label: "Replies in Home", description: "Include replies as standalone Home timeline items. Full conversation views always keep their replies." },
   { key: "suppressThreadPosts", label: "Hide thread posts in related panel", description: "Posts already shown as ancestors or replies are suppressed from the right pane." },
   { key: "replyContributions", label: "Reply contributions", description: "Replies show colored contribution spans and category badges." },
   { key: "crossPaneFiltering", label: "Cross-pane filtering", description: "Chips, passage, and topic filters apply to the replies list too — with a visible filter bar.", dependsOn: ["replySortTabs", "suppressThreadPosts"] },

@@ -545,50 +545,52 @@ function memoized<T>(key: string, compute: () => T): T {
 // Each function notes the Mastodon endpoint it will call when swapped to REST.
 
 /**
- * Home timeline: posts authored by (following ∪ me), newest first.
- * Empty until you follow someone or post.
+ * Home timeline: posts authored by (following ∪ me), plus posts from
+ * followed frontend-backed hashtags, newest first. Replies are an explicit
+ * experiment and are excluded unless requested by the caller.
  *
  * REST: GET /api/v1/timelines/home
  */
-export function getHomeFeed(): Post[] {
-  return memoized("home", () => {
+export function getHomeFeed(includeReplies = false): Post[] {
+  return memoized(`home:${includeReplies ? "with-replies" : "posts-only"}`, () => {
     const sources = new Set<string>([state.me.acct, ...state.following]);
-    const personal = Object.values(state.posts).filter((p) => sources.has(p.account.acct));
+    const personal = Object.values(state.posts).filter((post) =>
+      sources.has(post.account.acct) && (includeReplies || !post.in_reply_to_id)
+    );
+    const followedHashtags = getFollowedDemoFeed(includeReplies);
 
-    // A fresh local profile still needs a meaningful Home to evaluate. This is
-    // the simulated equivalent of a backend "For you" blend: three focus posts
-    // with annotated related responses, interleaved with three ordinary replies
-    // that deliberately have no related payload. Following and self-authored
-    // posts merge into the same chronological timeline without duplicates.
-    const starterIds = [
-      "152053690", "152052643", "152047717",
-      "149294079", "149289030", "143203257",
-    ];
-    const starter = starterIds
-      .map((id) => state.posts[id])
-      .filter((post): post is Post => !!post);
-    return Array.from(new Map([...personal, ...starter].map((post) => [post.id, post])).values())
+    return Array.from(
+      new Map([...personal, ...followedHashtags].map((post) => [post.id, post])).values(),
+    )
       .sort(byNewest);
   });
 }
 
 /**
- * JSON-backed posts authored by accounts the participant explicitly followed.
+ * JSON-backed posts belonging to a frontend-backed hashtag the participant
+ * explicitly followed.
  *
  * Authenticated Home uses this as a temporary supplemental source beside the
  * real Mastodon timeline. Once the curated corpus is imported into Mastodon,
  * the same UI can rely on the server timeline and remove this adapter.
  */
-export function getFollowedDemoFeed(): Post[] {
-  return memoized("followedDemo", () => {
+export function getFollowedDemoFeed(includeReplies = false): Post[] {
+  return memoized(`followedDemo:${includeReplies ? "with-replies" : "posts-only"}`, () => {
     if (!state.followingTags.includes("chineseevs")) return [];
-    // Match the actual /ChineseEVs timeline contract: its feed contains focus
-    // posts, while ancestors, replies, and related responses belong inside the
-    // focus/detail experience. Returning every stored record here buried focus
-    // posts beneath newer standalone replies that correctly had no related pane.
-    const focusPostIds = new Set(entries.map((entry) => entry.focusPost.id));
+
+    // The normal condition mirrors /ChineseEVs: focus posts appear in Home,
+    // while ancestors, replies, and related responses stay in the full thread.
+    // The experiment adds only actual reply records—never ancestors or semantic
+    // related-post cards—so the timeline contract remains understandable.
+    const timelineIds = new Set<string>();
+    for (const entry of entries) {
+      timelineIds.add(entry.focusPost.id);
+      if (includeReplies) {
+        for (const reply of entry.replies ?? []) timelineIds.add(reply.id);
+      }
+    }
     return Object.values(state.posts)
-      .filter((post) => focusPostIds.has(post.id))
+      .filter((post) => timelineIds.has(post.id))
       .sort(byNewest);
   });
 }

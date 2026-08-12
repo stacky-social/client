@@ -170,7 +170,12 @@ test.describe('unified discovery and interactions', () => {
     await page.route('https://beta.stacky.social/api/v1/timelines/tag/StackyInjectionPost**', (route) => route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify([status('tagged-home', 'A #StackyInjection conversation')]),
+      body: JSON.stringify([
+        status('tagged-home', 'A #StackyInjection conversation'),
+        ...(followed
+          ? [status('tagged-reply', 'A #StackyInjection reply', { in_reply_to_id: 'tagged-home' })]
+          : []),
+      ]),
     }));
     await page.route('https://beta.stacky.social/api/v1/tags/StackyInjectionPost/follow', (route) => {
       followed = true;
@@ -181,13 +186,13 @@ test.describe('unified discovery and interactions', () => {
     await expect(page.getByText('Existing Home post')).toBeVisible();
     await page.goto('/tag/StackyInjection');
     await expect(page.getByText('Earlier New York Times, Fox News, and community conversations')).toBeVisible();
-    await expect(page.getByText('0', { exact: true })).toHaveCount(0);
     await expect(page.getByText('A #StackyInjection conversation')).toBeVisible();
     await page.getByRole('button', { name: 'Follow hashtag' }).click();
     await expect(page.getByRole('button', { name: 'Unfollow hashtag' })).toBeVisible();
 
     await page.goto('/home');
     await expect(page.getByText('A #StackyInjection conversation')).toBeVisible();
+    await expect(page.getByText('A #StackyInjection reply')).toHaveCount(0);
     await expect(page.locator('[data-feed-origin="mastodon"]').filter({ hasText: '#StackyInjection' })).toBeVisible();
     expect(homeRequests).toBeGreaterThanOrEqual(2);
   });

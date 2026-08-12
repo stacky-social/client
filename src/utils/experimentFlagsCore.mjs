@@ -4,9 +4,13 @@
 
 /** Thread-display experiment conditions (demo posture). Most default ON;
  *  toggling one OFF yields the ablation/control behavior for that feature. A
- *  few default OFF where the demo posture is the ablation itself (summary
- *  hidden; filters replace rather than stack). */
+ *  few default OFF where the demo posture is the ablation itself (Home replies
+ *  hidden; summary hidden; filters replace rather than stack). */
 export const DEFAULT_FLAGS = {
+  /** Include reply statuses as standalone items in Home. Default OFF while the
+   *  mixed-source timeline behavior is evaluated. Replies remain available in
+   *  each post's full conversation view. */
+  homeReplies: false,
   /** D1 — hide posts that already appear in the thread from the related panel */
   suppressThreadPosts: true,
   /** Replies render colored contribution spans + category badges */

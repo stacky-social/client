@@ -10,10 +10,11 @@ import {
 } from '../../src/utils/experimentFlagsCore.mjs';
 
 // Demo posture: most conditions default ON, but summaryCard (summary hidden)
-// and filterStacking (filters replace, not stack) default OFF.
-const DEFAULT_OFF = new Set(['summaryCard', 'filterStacking']);
+// filterStacking (filters replace, not stack), and standalone Home replies
+// default OFF.
+const DEFAULT_OFF = new Set(['homeReplies', 'summaryCard', 'filterStacking']);
 
-test('flags carry the demo-posture defaults (most on, summary + stacking off)', () => {
+test('flags carry the demo-posture defaults (most on, explicit ablations off)', () => {
   const keys = Object.keys(DEFAULT_FLAGS);
   assert.ok(keys.length >= 7, 'expected at least 7 flags');
   for (const [k, v] of Object.entries(DEFAULT_FLAGS)) {
@@ -22,7 +23,8 @@ test('flags carry the demo-posture defaults (most on, summary + stacking off)', 
   }
 });
 
-test('summaryCard and filterStacking default to false', () => {
+test('summaryCard, filterStacking, and Home replies default to false', () => {
+  assert.equal(DEFAULT_FLAGS.homeReplies, false);
   assert.equal(DEFAULT_FLAGS.summaryCard, false);
   assert.equal(DEFAULT_FLAGS.filterStacking, false);
 });
