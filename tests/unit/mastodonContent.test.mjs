@@ -31,6 +31,21 @@ test('resolves backend track-change brackets to clean edited prose', () => {
   assert.deepEqual(extractMastodonLinks(rewrite), ['https://www.cnn.com/story']);
 });
 
+test('unwraps legacy square-bracket delimiters inside inserted punctuation and words', () => {
+  const rewrite = "Their lives are online⌈[,]⌉ and one had ⌊[a a]⌋⌈[an A]⌉pple ⌊[air tag]⌋⌈[AirTag]⌉ before going to ⌊[a]⌋⌈[an]⌉ ATM.";
+  const edited = 'Their lives are online, and one had an Apple AirTag before going to an ATM.';
+
+  assert.equal(resolveMastodonRevision(rewrite), edited);
+  assert.equal(normalizeMastodonText(rewrite), edited);
+});
+
+test('preserves ordinary square brackets outside track-change insertions', () => {
+  assert.equal(
+    resolveMastodonRevision('Keep [editor note], add ⌈[clear context]⌉.'),
+    'Keep [editor note], add clear context.',
+  );
+});
+
 test('keeps human link labels while exposing the destination separately', () => {
   const html = '<p>See <a href="https://example.com/report">the full report</a> for details.</p>';
   assert.equal(normalizeMastodonText(html), 'See the full report for details.');

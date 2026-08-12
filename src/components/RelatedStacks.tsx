@@ -22,7 +22,7 @@ import AiModifiedDisclosure from './AiModifiedDisclosure';
 import { createAlignedWordDiffWindow, createWordDiff } from '../utils/wordDiff.mjs';
 import { getPost, useHydrated, useLocalStore } from '../utils/localStore';
 import { RELATED_POSTS_API_URL } from '../utils/mastodonApi';
-import { extractMastodonLinks, mastodonLinkHost, normalizeMastodonText } from '../utils/mastodonContent.mjs';
+import { extractMastodonLinks, mastodonLinkHost, normalizeMastodonText, resolveMastodonRevision } from '../utils/mastodonContent.mjs';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -88,7 +88,14 @@ function stackMatchesCategories(stack: RelatedStackType, filters: Set<string>): 
  * Legacy Mastodon cards have no offsets, so they can safely receive the fuller
  * HTML/URL/publication-metadata normalization they need. */
 function relatedCardText(post: PostType, value: string): string {
-  if ((post.relations?.length ?? 0) > 0) return value.replace(/<[^>]*>/g, '');
+  // Revision notation is never part of the authored text. Resolve it even on
+  // offset-annotated cards; contextual rewrites remap those relation offsets
+  // immediately after this conversion. Applying only the full normalizer to
+  // unannotated cards left legacy annotated AI rewrites displaying ⌈[,]⌉ and
+  // ⌈[an]⌉ as literal brackets in the default edited view.
+  if ((post.relations?.length ?? 0) > 0) {
+    return resolveMastodonRevision(value).replace(/<[^>]*>/g, '');
+  }
   return normalizeMastodonText(value);
 }
 

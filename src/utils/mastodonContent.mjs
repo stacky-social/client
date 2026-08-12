@@ -56,7 +56,22 @@ export function extractMastodonLinks(input) {
 export function resolveMastodonRevision(input) {
   return String(input ?? '')
     .replace(/⌊[\s\S]*?⌋/g, '')
-    .replace(/⌈([\s\S]*?)⌉/g, '$1')
+    .replace(/⌈([\s\S]*?)⌉/g, (_match, inserted) => {
+      // Some legacy enrichment responses wrap the inserted payload twice:
+      // the ceiling marks identify it as an insertion, while square brackets
+      // delimit the inserted token itself (for example ⌈[,]⌉ or ⌈[an]⌉).
+      // The brackets are transport notation, not authored prose. Only unwrap a
+      // balanced pair spanning the whole insertion so ordinary square-bracket
+      // text outside track changes remains untouched.
+      const insertion = String(inserted);
+      const leadingWhitespace = insertion.match(/^\s*/)?.[0] ?? '';
+      const trailingWhitespace = insertion.match(/\s*$/)?.[0] ?? '';
+      const trimmed = insertion.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        return `${leadingWhitespace}${trimmed.slice(1, -1)}${trailingWhitespace}`;
+      }
+      return insertion;
+    })
     .replace(/[⌊⌋⌈⌉]/g, '');
 }
 

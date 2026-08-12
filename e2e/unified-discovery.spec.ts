@@ -197,15 +197,30 @@ test.describe('unified discovery and interactions', () => {
     const focus = status('legacy-focus', 'A legacy newsroom injection post');
     const longContext = 'additional context '.repeat(80);
     const firstRelated = status('legacy-related-1', 'unused', {
-      content: `<p><strong>First expanded related response</strong> ${longContext}
+      content: `<p><strong>First expanded related response</strong> Their lives are online and one had a apple air tag before going to a ATM. ${longContext}
         <a href="https://example.com/report" target="_blank">
           <span class="invisible">https://</span><span class="ellipsis">example.com</span><span class="invisible">/report</span>
         </a> Published: 2025-09-05T19:48:47Z</p>`,
       content_rewritten: '',
       rewrite: {
-        content: `First expanded related response⌈.⌉ ${longContext}⌊[Link to article:⌋ ⌈https://example.com/report]⌉`,
+        content: `First expanded related response⌈[.]⌉ Their lives are online⌈[,]⌉ and one had ⌊[a a]⌋⌈[an A]⌉pple ⌊[air tag]⌋⌈[AirTag]⌉ before going to ⌊[a]⌋⌈[an]⌉ ATM. ${longContext}`,
         significant: true,
       },
+      // Reproduce the reported backend shape: the legacy card carries offset
+      // annotations as well as a track-changes rewrite. Annotated cards used to
+      // bypass revision parsing in order to preserve their original geometry.
+      relations: [{
+        focusStart: 0,
+        focusEnd: 31,
+        contentStart: 0,
+        contentEnd: 31,
+        focusCommentStart: 0,
+        focusCommentEnd: 31,
+        contentCommentStart: 0,
+        contentCommentEnd: 31,
+        category: 'pointers',
+        topic: 'Newsroom context',
+      }],
     });
     const secondRelated = status('legacy-related-2', 'Second expanded related response', {
       content_rewritten: '',
@@ -270,17 +285,30 @@ test.describe('unified discovery and interactions', () => {
 
     await page.goto('/tag/StackyInjection');
 
-    await expect(page.locator('[data-ai-edited-default]').filter({ hasText: 'First expanded related response' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Modified by AI' })).toBeVisible();
     await expect(page.getByText('Second expanded related response')).toBeVisible();
     await expect(page.getByText('A third response in the agree category')).toBeVisible();
     await expect(page.locator('[data-related-card]')).toHaveCount(3);
     await expect(page.locator('[data-related-stack-count]')).toHaveCount(0);
     await expect(page.locator('[data-related-stack-layer]')).toHaveCount(0);
     const firstCard = page.locator('[data-related-card]').first();
-    await expect(firstCard.locator('[data-related-card-content]')).not.toContainText('Published:');
-    await expect(firstCard.locator('[data-related-card-content]')).not.toContainText('https://');
+    await expect(firstCard.locator('[data-ai-edited-default]')).toContainText(
+      'Their lives are online, and one had an Apple AirTag before going to an ATM.',
+    );
+    await expect(firstCard.locator('[data-ai-edited-default]')).not.toContainText('Published:');
+    await expect(firstCard.locator('[data-ai-edited-default]')).not.toContainText('https://');
     await expect(firstCard.locator('[data-related-card-content]')).not.toContainText(/[⌊⌋⌈⌉\[\]]/);
     await expect(firstCard.getByRole('link', { name: 'Read article · example.com' })).toHaveAttribute('href', 'https://example.com/report');
+
+    const aiBadge = firstCard.getByRole('button', { name: 'Modified by AI' });
+    const cardBeforeDiff = await firstCard.boundingBox();
+    await aiBadge.hover();
+    await expect(firstCard.locator('[data-ai-inline-diff]')).toHaveAttribute('aria-hidden', 'false');
+    await expect(firstCard.locator('[data-ai-inline-diff]')).not.toContainText(/[⌊⌋⌈⌉\[\]]/);
+    await expect(firstCard.locator('[data-ai-inline-diff]').locator('ins')).toContainText(['.', ',', 'an', 'Apple', 'AirTag', 'an']);
+    const cardWithDiff = await firstCard.boundingBox();
+    expect(cardWithDiff?.width).toBeCloseTo(cardBeforeDiff!.width, 2);
+    expect(cardWithDiff?.height).toBeCloseTo(cardBeforeDiff!.height, 2);
 
     await page.getByRole('button', { name: 'Show Pointers filter' }).click();
     await expect(page.getByText('2 Pointers posts')).toBeVisible();
@@ -305,7 +333,7 @@ test.describe('unified discovery and interactions', () => {
     // in Home; this was the route-specific regression reported by users.
     await page.goto('/home');
     await expect(page.getByText('A legacy newsroom injection post')).toBeVisible();
-    await expect(page.locator('[data-ai-edited-default]').filter({ hasText: 'First expanded related response' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Modified by AI' })).toBeVisible();
     await expect(page.locator('[data-related-card]')).toHaveCount(3);
     await expect(page.locator('[data-related-stack-count]')).toHaveCount(0);
     await expect(page.locator('[data-related-stack-layer]')).toHaveCount(0);
