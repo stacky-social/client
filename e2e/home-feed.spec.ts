@@ -209,7 +209,8 @@ test.describe('Home timeline', () => {
     await page.route('https://beta.stacky.social/api/v1/tags/StackyInjectionPost', (route) =>
       route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }),
     );
-    await page.goto('/tag/StackyInjection');
+    await page.getByRole('button', { name: 'Search' }).click();
+    await page.getByRole('button', { name: 'Open #StackyInjection hashtag' }).click();
 
     await expect(page.getByTestId('tag-load-error')).toBeVisible();
     await expect(page.locator('[data-related-card]')).toHaveCount(0);
@@ -236,7 +237,8 @@ test.describe('Home timeline', () => {
     await page.route('https://beta.stacky.social/api/v1/timelines/tag/StackyInjectionPost**', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
     );
-    await page.goto('/tag/StackyInjection');
+    await page.getByRole('button', { name: 'Search' }).click();
+    await page.getByRole('button', { name: 'Open #StackyInjection hashtag' }).click();
 
     await expect(page.getByTestId('api-feed-empty')).toContainText('No posts found.');
     await expect(page.locator('[data-related-card]')).toHaveCount(0);
