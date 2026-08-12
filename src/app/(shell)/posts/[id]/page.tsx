@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
 import { Anchor, Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
@@ -85,7 +85,8 @@ function stripHtmlToPlain(html: string): string {
 }
 
 // -------------------- Component --------------------
-export default function PostView({ params }: { params: { id: string } }) {
+export default function PostView() {
+  const params = useParams<{ id: string }>();
   const router = useRouter();
   const searchParamsObj = useSearchParams();
   const { id } = params;

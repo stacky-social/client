@@ -22,7 +22,7 @@ End-to-end tests use **Playwright** (`e2e/*.spec.ts` — 6 spec files, 18 tests)
 
 ## Tech Stack
 
-- **Framework**: Next.js 14 (App Router) with TypeScript
+- **Framework**: Next.js 15 (App Router) with TypeScript
 - **Runtime**: Node.js 22.x
 - **Package manager**: pnpm
 - **UI library**: Mantine v7 (AppShell, components, hooks, notifications)

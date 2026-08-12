@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Anchor, Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
 import Link from "next/link";
 import { notifications } from "@mantine/notifications";
@@ -123,7 +123,8 @@ function getStoreReplies(id: string, posts: Record<string, StorePost>): MockPost
   return out as unknown as MockPostType[];
 }
 
-export default function MockPostView({ params }: { params: { id: string } }) {
+export default function MockPostView() {
+  const params = useParams<{ id: string }>();
   const router = useRouter();
   const searchParamsObj = useSearchParams();
   const { id } = params;
