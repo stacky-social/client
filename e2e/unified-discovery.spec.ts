@@ -201,6 +201,7 @@ test.describe('unified discovery and interactions', () => {
     await page.setViewportSize({ width: 1720, height: 960 });
     const focus = status('legacy-focus', 'A legacy newsroom injection post');
     const secondFocus = status('legacy-focus-2', `A second legacy newsroom injection post ${'with enough reading context '.repeat(45)}`);
+    const thirdFocus = status('legacy-focus-3', `A third legacy newsroom injection post ${'with enough reading context '.repeat(45)}`);
     const longContext = 'additional context '.repeat(80);
     const firstRelated = status('legacy-related-1', 'unused', {
       content: `<p><strong>First expanded related response</strong> Their lives are online and one had a apple air tag before going to a ATM. ${longContext}
@@ -238,6 +239,7 @@ test.describe('unified discovery and interactions', () => {
     });
     const otherLeader = status('other-related-1', 'Another focus post related leader');
     const otherMember = status('other-related-2', 'Another focus post related member');
+    const lowerLeader = status('lower-related-1', 'Lower focus post related leader');
 
     await page.route('https://beta.stacky.social/api/v1/tags/StackyInjectionPost', (route) => route.fulfill({
       status: 200,
@@ -252,7 +254,7 @@ test.describe('unified discovery and interactions', () => {
     await page.route('https://beta.stacky.social/api/v1/timelines/tag/StackyInjectionPost**', (route) => route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify([focus, secondFocus]),
+      body: JSON.stringify([focus, secondFocus, thirdFocus]),
     }));
     await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) => route.fulfill({
       status: 200,
@@ -293,6 +295,19 @@ test.describe('unified discovery and interactions', () => {
         }],
       }),
     }));
+    await page.route('https://beta.stacky.social:3002/stacks/legacy-focus-3/related', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        size: 1,
+        relatedStacks: [{
+          stackId: 'stack:lower-evidence',
+          rel: 'evidence_personal',
+          size: 1,
+          topPost: lowerLeader,
+        }],
+      }),
+    }));
     await page.route('https://beta.stacky.social:3002/stacks/stack%3Alegacy-pointers/posts', (route) => route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -308,7 +323,6 @@ test.describe('unified discovery and interactions', () => {
       contentType: 'application/json',
       body: JSON.stringify([otherLeader, otherMember]),
     }));
-
     await page.goto('/tag/StackyInjection');
 
     await expect(page.getByRole('button', { name: 'Modified by AI' })).toBeVisible();
@@ -355,18 +369,18 @@ test.describe('unified discovery and interactions', () => {
     await firstCard.getByRole('button', { name: 'See less' }).click();
     await expect(collapsedContent).toHaveAttribute('data-expanded', 'false');
 
-    // Once a legacy group has expanded, scrolling upward to revisit that focus
-    // must paint the final individual-card set atomically. Rendering the group
-    // leaders first and replacing them a microtask later makes one focus change
-    // look like two unrelated-panel changes.
+    // Scrolling upward to a legacy focus for the first time must paint its final
+    // individual-card set atomically. Rendering the group leader first and
+    // replacing it a microtask later makes one focus change look like two pane
+    // changes. Jump over the middle post so its expansion is not cached first.
     await page.locator('[data-feed-origin="mastodon"]').evaluateAll((posts) => {
       posts.forEach((post) => { (post as HTMLElement).style.minHeight = '620px'; });
     });
-    const secondFocusCard = page.locator('[data-feed-origin="mastodon"][data-post-id="legacy-focus-2"]');
-    await secondFocusCard.evaluate((element) => element.scrollIntoView({ block: 'center' }));
-    await expect(secondFocusCard.getByTestId('post')).toHaveAttribute('data-active', 'true');
-    await expect(page.getByText('Another focus post related member')).toBeVisible();
-    await expect(page.locator('[data-related-card]')).toHaveCount(2);
+    const thirdFocusCard = page.locator('[data-feed-origin="mastodon"][data-post-id="legacy-focus-3"]');
+    await thirdFocusCard.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+    await expect(thirdFocusCard.getByTestId('post')).toHaveAttribute('data-active', 'true');
+    await expect(page.getByText('Lower focus post related leader')).toBeVisible();
+    await expect(page.locator('[data-related-card]')).toHaveCount(1);
 
     await page.evaluate(() => {
       const snapshots: string[][] = [];
@@ -385,14 +399,15 @@ test.describe('unified discovery and interactions', () => {
       (window as any).__relatedSnapshots = snapshots;
       new MutationObserver(snapshot).observe(document.body, { childList: true, subtree: true });
     });
-    const firstFocusCard = page.locator('[data-feed-origin="mastodon"][data-post-id="legacy-focus"]');
-    await firstFocusCard.evaluate((element) => element.scrollIntoView({ block: 'center', behavior: 'smooth' }));
-    await expect(firstFocusCard.getByTestId('post')).toHaveAttribute('data-active', 'true');
-    await expect(page.locator('[data-related-card]')).toHaveCount(3);
+    const secondFocusCard = page.locator('[data-feed-origin="mastodon"][data-post-id="legacy-focus-2"]');
+    await secondFocusCard.evaluate((element) => element.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    await expect(secondFocusCard.getByTestId('post')).toHaveAttribute('data-active', 'true');
+    await expect(page.getByText('Another focus post related member')).toBeVisible();
+    await expect(page.locator('[data-related-card]')).toHaveCount(2);
     await page.waitForTimeout(50);
     expect(await page.evaluate(() => (window as any).__relatedSnapshots)).toEqual([
+      ['lower-related-1'],
       ['other-related-1', 'other-related-2'],
-      ['legacy-related-1', 'legacy-related-2', 'legacy-related-3'],
     ]);
 
     // The same legacy post must keep the modern presentation when it appears

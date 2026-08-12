@@ -916,22 +916,36 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     () => sourceRelatedStacks.map((stack) => `${stack.stackId}:${stack.size}:${stack.topPost.id}`).join('|'),
     [sourceRelatedStacks],
   );
+  const requiresGroupExpansion = expandGroups && sourceRelatedStacks.some((stack) => stack.size > 1);
   const [expandedGroupState, setExpandedGroupState] = useState<{
     key: string;
     stacks: RelatedStackType[];
   } | null>(null);
-  const relatedStacks = useMemo(() => {
-    if (!expandGroups) return sourceRelatedStacks;
+  const lastSettledStacksRef = useRef<RelatedStackType[]>([]);
+  const relatedStackResolution = useMemo(() => {
+    if (!requiresGroupExpansion) {
+      return { stacks: sourceRelatedStacks, settled: true };
+    }
     const cachedExpansion = expandedRelatedStacksCache.get(expansionKey);
-    if (cachedExpansion) return cachedExpansion;
-    if (expandedGroupState?.key === expansionKey) return expandedGroupState.stacks;
-    // Remove the badge and layered shell immediately while the individual
-    // posts are fetched, so the retired presentation never flashes on screen.
-    return sourceRelatedStacks.map((stack) => ({ ...stack, size: 1 }));
-  }, [expandGroups, expandedGroupState, expansionKey, sourceRelatedStacks]);
+    if (cachedExpansion) return { stacks: cachedExpansion, settled: true };
+    if (expandedGroupState?.key === expansionKey) {
+      return { stacks: expandedGroupState.stacks, settled: true };
+    }
+    // Keep the previous final pane stable while the incoming legacy groups
+    // expand. Rendering the new group leaders here would change the pane once,
+    // then change it again when their individual posts arrive.
+    return { stacks: lastSettledStacksRef.current, settled: false };
+  }, [expandedGroupState, expansionKey, requiresGroupExpansion, sourceRelatedStacks]);
+  const relatedStacks = relatedStackResolution.stacks;
 
   useEffect(() => {
-    if (!expandGroups || sourceRelatedStacks.length === 0) return;
+    if (relatedStackResolution.settled) {
+      lastSettledStacksRef.current = relatedStackResolution.stacks;
+    }
+  }, [relatedStackResolution]);
+
+  useEffect(() => {
+    if (!requiresGroupExpansion) return;
     const cachedExpansion = expandedRelatedStacksCache.get(expansionKey);
     if (cachedExpansion) return;
     let cancelled = false;
@@ -940,7 +954,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       if (!cancelled) setExpandedGroupState({ key: expansionKey, stacks });
     });
     return () => { cancelled = true; };
-  }, [expandGroups, expansionKey, sourceRelatedStacks]);
+  }, [expansionKey, requiresGroupExpansion, sourceRelatedStacks]);
 
   const router = useRouter();
   // Single source of truth for the focus post: the related cards are, by
