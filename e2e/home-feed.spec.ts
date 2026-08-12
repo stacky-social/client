@@ -93,6 +93,7 @@ test.describe('Home timeline', () => {
     const postCardStyle = await homePost.evaluate((element) => {
       const style = getComputedStyle(element);
       return {
+        background: style.backgroundColor,
         left: style.borderLeftWidth,
         right: style.borderRightWidth,
         radius: style.borderRadius,
@@ -103,6 +104,12 @@ test.describe('Home timeline', () => {
     expect(postCardStyle.right).toBe('2px');
     expect(postCardStyle.radius).toBe('10px');
     expect(postCardStyle.shadow).not.toBe('none');
+    expect(postCardStyle.background).toBe('rgb(255, 255, 255)');
+
+    // A previous Home-only appearance stored pointer hover in React state,
+    // which could remain green after scrolling on mouse + touchscreen laptops.
+    await homePost.hover();
+    await expect(homePost).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   });
 
   test('repairs a stale persisted reply count from the authoritative seed', async ({ page }) => {
