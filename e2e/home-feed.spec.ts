@@ -42,7 +42,7 @@ test.describe('Home timeline', () => {
     await expect(page.getByTestId('reply-context').first()).toBeVisible();
   });
 
-  test('keeps the composer distinct from the white feed without restoring post rails', async ({ page }) => {
+  test('keeps the composer distinct while reusing the ChineseEVs post cards', async ({ page }) => {
     const composer = page.getByRole('region', { name: 'Create a post' });
     const textbox = page.getByRole('textbox', { name: 'Post text' });
 
@@ -89,12 +89,20 @@ test.describe('Home timeline', () => {
     await expect.poll(async () => textbox.evaluate((element) => getComputedStyle(element).borderTopColor))
       .toBe('rgb(47, 127, 118)');
 
-    const timelinePost = page.locator('[data-store-feed-post="152053690"]').getByTestId('post');
-    const postRails = await timelinePost.evaluate((element) => {
+    const homePost = page.locator('[data-store-feed-post="152053690"]').getByTestId('post');
+    const postCardStyle = await homePost.evaluate((element) => {
       const style = getComputedStyle(element);
-      return { left: style.borderLeftWidth, right: style.borderRightWidth };
+      return {
+        left: style.borderLeftWidth,
+        right: style.borderRightWidth,
+        radius: style.borderRadius,
+        shadow: style.boxShadow,
+      };
     });
-    expect(postRails).toEqual({ left: '0px', right: '0px' });
+    expect(postCardStyle.left).toBe('2px');
+    expect(postCardStyle.right).toBe('2px');
+    expect(postCardStyle.radius).toBe('10px');
+    expect(postCardStyle.shadow).not.toBe('none');
   });
 
   test('repairs a stale persisted reply count from the authoritative seed', async ({ page }) => {
@@ -141,7 +149,11 @@ test.describe('Home timeline', () => {
     const editedText = michaelCard.locator('[data-ai-edited-default]');
     const inlineDiff = michaelCard.locator('[data-ai-inline-diff]');
     await expect(badge).toBeVisible();
-    await expect(editedText).toContainText('I work on sustainability for a major European brand');
+    // The collapsed card opens on the annotated relationship span, even when
+    // the AI rewrite also contains edits much earlier in the post.
+    await expect(editedText.locator('mark[data-range-id="0"]')).toContainText(
+      'Only geopolitics and supply chain risk',
+    );
     await expect(inlineDiff).toHaveAttribute('aria-hidden', 'true');
     const beforeHover = await michaelCard.boundingBox();
 

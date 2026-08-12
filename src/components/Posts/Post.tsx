@@ -832,9 +832,7 @@ interface PostProps {
   /** Count of displayed replies linked to a span union — merged into the
    *  focused post's dwell tooltip on the thread view (honest two-pane counts). */
   replyCountForSpans?: (ranges: Array<{ fs: number; fe: number }>) => number;
-  /** Timeline cards form one continuous stream; card is the default everywhere else. */
-  appearance?: 'card' | 'timeline';
-  /** Parent account handle displayed as reply provenance in timeline views. */
+  /** Parent account handle displayed as reply provenance in feed views. */
   replyingToAccount?: string | null;
 }
 
@@ -866,7 +864,6 @@ function Post({
   activeClusterTopic = null,
   relatedCountForSpans,
   replyCountForSpans,
-  appearance = 'card',
   replyingToAccount = null,
 }: PostProps) {
   const router = useRouter();
@@ -896,9 +893,6 @@ function Post({
   // ActiveHighlightedContent (fixed-window mode) — no reveal state lives here.
   const isTextExpandedRef = useRef(isTextExpanded);
   isTextExpandedRef.current = isTextExpanded;
-  const [hovered, setHovered] = useState(false);
-  const isTimeline = appearance === 'timeline';
-
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>(initialCard ? [initialCard] : []);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
   const { html: displayText, publishedDate, articleUrl } = useMemo(
@@ -1253,7 +1247,7 @@ function Post({
   };
 
   return (
-    <div style={{ position: 'relative', marginBottom: isTimeline ? 0 : '1rem'}}>
+    <div style={{ position: 'relative', marginBottom: '1rem' }}>
       <Paper
         ref={paperRef}
         data-testid="post"
@@ -1262,20 +1256,16 @@ function Post({
         style={{
           position: 'relative',
           width: "100%",
-          backgroundColor: isTimeline && hovered ? '#f5fbfa' : '#fff',
+          backgroundColor: '#fff',
           zIndex: 5,
-          borderRadius: isTimeline ? 0 : '10px',
+          borderRadius: '10px',
           borderStyle: 'solid',
-          borderWidth: isTimeline ? '0 0 1px' : '2px',
-          borderColor: isTimeline
-            ? '#e3e2dc'
-            : (isActive ? '#45a99e' : '#dfe4ea'),
-          boxShadow: isTimeline
-            ? (isActive ? 'inset 3px 0 0 #45a99e' : 'none')
-            : (isActive
-                ? '0 14px 30px rgba(28, 43, 74, 0.16), 0 5px 12px rgba(28, 43, 74, 0.10)'
-                : '0 2px 9px rgba(28, 43, 74, 0.055)'),
-          transform: !isTimeline && isActive ? 'translateY(-2px)' : 'none',
+          borderWidth: '2px',
+          borderColor: isActive ? '#45a99e' : '#dfe4ea',
+          boxShadow: isActive
+            ? '0 14px 30px rgba(28, 43, 74, 0.16), 0 5px 12px rgba(28, 43, 74, 0.10)'
+            : '0 2px 9px rgba(28, 43, 74, 0.055)',
+          transform: isActive ? 'translateY(-2px)' : 'none',
           // Border switches instantly (not transitioned) so the active outline
           // can't be caught mid-fade showing the inactive colour during scroll
           // re-renders (R-FEED-5). Elevation/lift still animate.
@@ -1285,8 +1275,6 @@ function Post({
           paddingTop: '1rem',
           cursor: 'pointer',
         }}
-        onMouseEnter={() => { setHovered(true); }}
-        onMouseLeave={() => { setHovered(false); }}
       >
 {/* The stack / category-count icon column on the focus post is permanently
     removed (RG-1 / R-NOSTACK-1). Related stacks live in the aside panel, not in a

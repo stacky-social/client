@@ -1061,7 +1061,6 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                         initialCard={post.previewCard || null}
                         focusRelations={post.focusRelations}
                         replyingToAccount={post.replyingToAccount}
-                        appearance={source === 'home' ? 'timeline' : 'card'}
                     />
                 </div>
             ))}
