@@ -33,7 +33,7 @@ export default function HomeAside() {
   if (activePostId) {
     if (relatedStacks && relatedStacks.length > 0) {
       return (
-        <div style={{ width: "100%" }}>
+        <div style={{ width: "100%" }} data-related-focus-post-id={activePostId}>
           <RelatedStacks
             relatedStacks={relatedStacks}
             cardWidth="100%"
@@ -54,7 +54,7 @@ export default function HomeAside() {
         </div>
       );
     }
-    return <div data-testid="home-related-empty" aria-hidden="true" style={{ width: "100%", minHeight: 1 }} />;
+    return <div data-testid="home-related-empty" data-related-focus-post-id={activePostId} aria-hidden="true" style={{ width: "100%", minHeight: 1 }} />;
   }
 
   // A blank mount keeps the Home feed width stable before the first post is

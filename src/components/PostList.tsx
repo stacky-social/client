@@ -26,6 +26,11 @@ import {
     getPost,
     type Post as StorePost,
 } from '../utils/localStore';
+import {
+    onStableWindowScroll,
+    selectStableFeedFocus,
+    type FeedFocusCandidate,
+} from '../utils/stableFeedFocus';
 
 /** Local (no-backend) feed sources backed by the localStore. */
 export type FeedSource = 'home' | 'bookmarks' | 'liked';
@@ -372,7 +377,6 @@ const ApiFeedCore: React.FC<PostListProps & {
     const [hasMore, setHasMore] = useState(() => cachedSnapshot.current?.hasMore ?? Boolean(cachedSnapshot.current?.maxId));
     const hasAutoHighlightedFirstPostRef = useRef(false);
     const hasPublishedFirstPostStacksRef = useRef(false);
-    const scrollStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastUserActivateRef = useRef<number>(0);
     const manualActiveIdRef = useRef<string | null>(null);
     const manualLockRef = useRef(false);
@@ -615,7 +619,9 @@ const ApiFeedCore: React.FC<PostListProps & {
         }
     };
 
-    // Auto-select the post whose center is nearest the viewport center.
+    // Auto-select a post after scrolling settles. The current post is retained
+    // inside a hysteresis band so tiny trackpad reversals do not make the focus
+    // marker and entire related-post panel oscillate between adjacent cards.
     // Reads the DOM ([data-post-id]) rather than a refs array so it works with
     // virtualization (only the mounted/visible posts exist in the DOM).
     useEffect(() => {
@@ -641,48 +647,40 @@ const ApiFeedCore: React.FC<PostListProps & {
                 manualLockRef.current = false; // no longer visible; allow auto-selection again
             }
 
-            const viewportCenter = window.innerHeight / 2;
-            let bestId: string | null = null;
-            let bestRect: DOMRect | null = null;
-            let bestDistance = Number.POSITIVE_INFINITY;
-
             // Only the currently-intersecting nodes (maintained by the
             // IntersectionObserver) are candidates, so we read rects for a
             // handful of visible nodes instead of every rendered [data-post-id].
-            // The same visibility guard is kept so the chosen "active" post is
-            // identical to the old full-document scan even if an observer entry
-            // is momentarily stale. Plain for-of (not forEach) so TS control-flow
-            // analysis tracks the bestId/bestRect assignments for narrowing below.
+            const candidates: Array<FeedFocusCandidate<PostType>> = [];
             for (const [id, el] of Array.from(visiblePostElsRef.current.entries())) {
                 const rect = el.getBoundingClientRect();
                 if (rect.bottom <= 0 || rect.top >= window.innerHeight) continue; // not visible
-                const center = rect.top + rect.height / 2;
-                const distance = Math.abs(center - viewportCenter);
-                if (distance < bestDistance) {
-                    bestDistance = distance;
-                    bestId = id;
-                    bestRect = rect;
-                }
+                const post = currentPosts.find((candidate) => candidate.postId === id);
+                if (post) candidates.push({ id, value: post, rect });
             }
 
-            if (bestId && bestRect && bestId !== activePostIdRef.current) {
-                const post = currentPosts.find((p) => p.postId === bestId);
-                if (post) {
-                    setActivePostIdRef.current(post.postId);
-                    const adjustedPosition = { top: bestRect.top + window.scrollY, height: bestRect.height };
-                    handleStackIconClickRef.current(post.relatedStacks, post.postId, adjustedPosition);
-                }
+            const selected = selectStableFeedFocus({
+                candidates,
+                currentId: activePostIdRef.current,
+                viewportHeight: window.innerHeight,
+                mode: 'center',
+            });
+            if (selected && selected.id !== activePostIdRef.current) {
+                setActivePostIdRef.current(selected.id);
+                const adjustedPosition = {
+                    top: selected.rect.top + window.scrollY,
+                    height: selected.rect.height,
+                };
+                handleStackIconClickRef.current(
+                    selected.value.relatedStacks,
+                    selected.id,
+                    adjustedPosition,
+                );
             }
         };
 
-        const handleScroll = () => {
-            if (scrollStopTimeoutRef.current) {
-                clearTimeout(scrollStopTimeoutRef.current);
-            }
-            scrollStopTimeoutRef.current = setTimeout(() => {
-                if (Date.now() - lastUserActivateRef.current < 400) return;
-                evaluateActiveByCenter();
-            }, 40);
+        const evaluateAfterManualGuard = () => {
+            if (Date.now() - lastUserActivateRef.current < 400) return;
+            evaluateActiveByCenter();
         };
 
         // The IntersectionObserver delivers its first entries asynchronously, so
@@ -690,10 +688,9 @@ const ApiFeedCore: React.FC<PostListProps & {
         // initial evaluation one frame so it runs against a populated set
         // (preserving the old on-mount auto-selection by viewport center).
         const initialRaf = requestAnimationFrame(() => evaluateActiveByCenter());
-        window.addEventListener('scroll', handleScroll, { passive: true } as AddEventListenerOptions);
+        const stopListening = onStableWindowScroll(evaluateAfterManualGuard);
         return () => {
-            window.removeEventListener('scroll', handleScroll as EventListener);
-            if (scrollStopTimeoutRef.current) clearTimeout(scrollStopTimeoutRef.current);
+            stopListening();
             cancelAnimationFrame(initialRaf);
             postObserverRef.current?.disconnect();
             postObserverRef.current = null;
@@ -939,14 +936,29 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
     postMapRef.current = new Map(posts.map((post) => [post.postId, post]));
     const stackHandlerRef = useRef(handleStackIconClick);
     stackHandlerRef.current = handleStackIconClick;
+    // Manual clicks win until that card leaves the viewport. This mirrors the
+    // API feed and prevents the scroll-settle callback from immediately undoing
+    // an explicit user choice.
+    const lastUserActivateRef = useRef<number>(0);
+    const manualActiveIdRef = useRef<string | null>(null);
+    const manualLockRef = useRef(false);
 
     useEffect(() => {
         if (source !== 'home' || !hydrated || postsRef.current.length === 0) return;
-        let scrollTimer: ReturnType<typeof setTimeout> | null = null;
 
         const evaluate = () => {
-            const viewportCenter = window.innerHeight / 2;
-            let best: { post: PostType; rect: DOMRect; distance: number } | null = null;
+            if (manualLockRef.current && manualActiveIdRef.current) {
+                const manualElement = document.querySelector<HTMLElement>(
+                    `[data-store-feed-post="${CSS.escape(manualActiveIdRef.current)}"]`,
+                );
+                if (manualElement) {
+                    const rect = manualElement.getBoundingClientRect();
+                    if (rect.bottom > 0 && rect.top < window.innerHeight) return;
+                }
+                manualLockRef.current = false;
+            }
+
+            const candidates: Array<FeedFocusCandidate<PostType>> = [];
             const elements = Array.from(
                 document.querySelectorAll<HTMLElement>('[data-store-feed-post]'),
             );
@@ -956,37 +968,31 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                 const postId = element.dataset.storeFeedPost;
                 const post = postId ? postMapRef.current.get(postId) : undefined;
                 if (!post) continue;
-                const distance = Math.abs(rect.top + rect.height / 2 - viewportCenter);
-                if (!best || distance < best.distance) best = { post, rect, distance };
+                candidates.push({ id: post.postId, value: post, rect });
             }
 
-            if (!best || best.post.postId === activePostIdRef.current) return;
-            activePostIdRef.current = best.post.postId;
-            setActivePostId(best.post.postId);
-            stackHandlerRef.current(best.post.relatedStacks, best.post.postId, {
-                top: best.rect.top + window.scrollY,
-                height: best.rect.height,
+            const selected = selectStableFeedFocus({
+                candidates,
+                currentId: activePostIdRef.current,
+                viewportHeight: window.innerHeight,
+                mode: 'center',
+            });
+            if (!selected || selected.id === activePostIdRef.current) return;
+            activePostIdRef.current = selected.id;
+            setActivePostId(selected.id);
+            stackHandlerRef.current(selected.value.relatedStacks, selected.id, {
+                top: selected.rect.top + window.scrollY,
+                height: selected.rect.height,
             });
         };
 
         const initialFrame = requestAnimationFrame(evaluate);
-        const onScroll = () => {
-            if (scrollTimer) clearTimeout(scrollTimer);
-            scrollTimer = setTimeout(evaluate, 50);
-        };
-        window.addEventListener('scroll', onScroll, { passive: true });
+        const stopListening = onStableWindowScroll(evaluate);
         return () => {
             cancelAnimationFrame(initialFrame);
-            if (scrollTimer) clearTimeout(scrollTimer);
-            window.removeEventListener('scroll', onScroll);
+            stopListening();
         };
     }, [hydrated, source, setActivePostId]);
-
-    // Mirror the apiUrl path's manual-selection bookkeeping so clicking a post
-    // both highlights it and (when relatedStacks exist) drives the aside.
-    const lastUserActivateRef = useRef<number>(0);
-    const manualActiveIdRef = useRef<string | null>(null);
-    const manualLockRef = useRef(false);
 
     // Empty state (F-23): once hydrated, a zero-post feed shows a friendly card
     // pointing at the always-available demo thread instead of a blank page.

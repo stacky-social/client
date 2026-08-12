@@ -27,6 +27,7 @@ export default function ListyInjectionAside() {
     return (
       <div
         style={{ width: "100%", paddingTop: "0.5rem" }}
+        data-related-focus-post-id={activePostId}
         role="status"
         aria-live="polite"
       >
@@ -43,7 +44,7 @@ export default function ListyInjectionAside() {
   }
 
   return (
-    <div style={{ width: "100%" }}>
+    <div style={{ width: "100%" }} data-related-focus-post-id={activePostId}>
       <RelatedStacks
         relatedStacks={relatedStacks}
         cardWidth="100%"

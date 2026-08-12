@@ -15,6 +15,11 @@ import ReplySection from "../../../components/ReplySection";
 import { useLocalStore, useHydrated, isFollowingTag, toggleTagFollow } from "../../../utils/localStore";
 import { DEMO_TIMELINE_PAGE_SIZE, getChineseEvTimelinePage, type TimelineStats } from "../../../services/demoApiClient";
 import { getMockReplyCount } from "../../../utils/mockPostResolver";
+import {
+  onStableWindowScroll,
+  selectStableFeedFocus,
+  type FeedFocusCandidate,
+} from "../../../utils/stableFeedFocus";
 
 // ── Thread line constants ────────────────────────────────────────────────────
 const THREAD_LINE_COLOR = "#ccd1dc";
@@ -665,62 +670,46 @@ export default function ListyInjectionPage() {
   // Keep ref in sync
   useEffect(() => { activePostIdRef.current = activePostId; }, [activePostId]);
 
-  // Scroll-based focus detection (feed mode only).
-  // Top-anchored: a post becomes active once its top crosses the active line
-  // (30% from the viewport top), and stays active until the next post crosses.
-  // Distance-to-center would let the SECOND post win at scroll-top on tall
-  // viewports because the first post's center sits too far above the middle.
+  // Scroll-based focus detection (feed mode only). Focus is recalculated once
+  // the gesture settles and retained inside a Schmitt-trigger band around the
+  // 30% line. This prevents A -> B -> A flashes in the focus rail, relation
+  // tags and related cards during small trackpad direction corrections.
   useEffect(() => {
     if (inThreadMode) return;
-    let rafId = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        const activeY = window.innerHeight * 0.3;
-        let bestIdx = -1;
-        for (let i = 0; i < postRefs.current.length; i++) {
-          const el = postRefs.current[i];
-          if (!el) continue;
-          if (el.getBoundingClientRect().top <= activeY) bestIdx = i;
-        }
-        // Fallback: nothing has crossed the line yet (page hasn't scrolled),
-        // pick the first visible post so something is always active.
-        if (bestIdx === -1) {
-          for (let i = 0; i < postRefs.current.length; i++) {
-            const el = postRefs.current[i];
-            if (!el) continue;
-            const rect = el.getBoundingClientRect();
-            if (rect.bottom > 0 && rect.top < window.innerHeight) { bestIdx = i; break; }
-          }
-        }
-        // Bottom-of-feed guard (R-FEED-3): on a tall viewport the last post's
-        // top can sit below the 30% active line even at max scroll, leaving
-        // nothing active. When scrolled to the bottom, the last rendered post
-        // is what's in view.
-        const atBottom =
-          window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
-        if (atBottom) {
-          for (let i = postRefs.current.length - 1; i >= 0; i--) {
-            if (postRefs.current[i]) { bestIdx = i; break; }
-          }
-        }
-        if (bestIdx >= 0) {
-          const post = posts[bestIdx];
-          if (post && post.postId !== activePostIdRef.current) {
-            activePostIdRef.current = post.postId;
-            setActivePostId(post.postId);
-            setFromPostRef.current(post.relatedStacks, post.postId, { force: true });
-          }
-        }
+    const evaluate = () => {
+      const candidates: Array<FeedFocusCandidate<(typeof posts)[number]>> = [];
+      for (let index = 0; index < postRefs.current.length; index += 1) {
+        const element = postRefs.current[index];
+        const post = posts[index];
+        if (!element || !post) continue;
+        candidates.push({ id: post.postId, value: post, rect: element.getBoundingClientRect() });
+      }
+
+      const selected = selectStableFeedFocus({
+        candidates,
+        currentId: activePostIdRef.current,
+        viewportHeight: window.innerHeight,
+        mode: "top-line",
+        anchorRatio: 0.3,
+        atBottom:
+          window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2,
       });
+      if (selected && selected.id !== activePostIdRef.current) {
+        activePostIdRef.current = selected.id;
+        setActivePostId(selected.id);
+        setFromPostRef.current(selected.value.relatedStacks, selected.id, { force: true });
+      }
     };
     // Skip the mount-time onScroll() while a back-nav restoration is in
     // flight — the restore effect has already set the right active post,
     // and we don't want to clobber it with bestIdx=0 (top of feed) before
     // scrollTo lands. Subsequent scroll events still fire normally.
-    if (!isRestoringRef.current) onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(rafId); };
+    const initialFrame = !isRestoringRef.current ? requestAnimationFrame(evaluate) : 0;
+    const stopListening = onStableWindowScroll(evaluate);
+    return () => {
+      stopListening();
+      if (initialFrame) cancelAnimationFrame(initialFrame);
+    };
   }, [posts, inThreadMode]);
 
   const handleStackIconClick = useCallback(
