@@ -381,6 +381,11 @@ test.describe('unified discovery and interactions', () => {
     await expect(thirdFocusCard.getByTestId('post')).toHaveAttribute('data-active', 'true');
     await expect(page.getByText('Lower focus post related leader')).toBeVisible();
     await expect(page.locator('[data-related-card]')).toHaveCount(1);
+    const spanlessRelatedCard = page.locator('[data-related-card][data-related-category="evidence_personal"]');
+    await expect(spanlessRelatedCard.locator('[data-related-tag][data-related-span="false"]')).toHaveAttribute(
+      'aria-label',
+      'Evidence (Personal)',
+    );
 
     await page.evaluate(() => {
       const snapshots: string[][] = [];
@@ -404,6 +409,9 @@ test.describe('unified discovery and interactions', () => {
     await expect(secondFocusCard.getByTestId('post')).toHaveAttribute('data-active', 'true');
     await expect(page.getByText('Another focus post related member')).toBeVisible();
     await expect(page.locator('[data-related-card]')).toHaveCount(2);
+    await expect(page.locator(
+      '[data-related-card][data-related-category="values"] [data-related-tag][data-related-span="false"][aria-label="Values"]',
+    )).toHaveCount(2);
     await page.waitForTimeout(50);
     expect(await page.evaluate(() => (window as any).__relatedSnapshots)).toEqual([
       ['lower-related-1'],

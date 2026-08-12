@@ -2689,18 +2689,34 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       if (!seen.has(cat)) { seen.add(cat); tags.push({ cat, indices: [ri] }); }
                       else { tags.find(t => t.cat === cat)?.indices.push(ri); }
                     }
+                    // Mastodon/legacy related endpoints can classify the
+                    // relationship at stack level without returning character
+                    // offsets for the related post. The contribution type is
+                    // still meaningful, so preserve it as a category tag even
+                    // though there is no span to cross-highlight.
+                    const stackCategory = categoryKey(stack.rel);
+                    if (tags.length === 0 && stackCategory) {
+                      tags.push({ cat: stackCategory, indices: [] });
+                    }
                     const hri = isCardActive ? (isCardTapped ? tappedRangeIndex : hoveredHighlightRangeIndex) : null;
                     const hcat = isCardActive ? hoveredCategory : null;
                     return tags.map(({ cat, indices }) => {
                       const tc = getCategoryColors(cat);
+                      const hasSpecificSpan = indices.length > 0;
                       const anyDirected = hri !== null || hcat !== null;
                       const tagBright = !anyDirected || indices.includes(hri ?? -1) || hcat === cat;
                       // Tag tooltip should match the highlight-text tooltip: show the
                       // TOPIC of the first relation of this category (the same relation
-                      // a click would anchor on), and the count for THAT topic.
-                      const tagRangeIdx = indices[0];
-                      const tagTopic = topicOf(rels[tagRangeIdx], stack.stackId, tagRangeIdx);
-                      const otherCount = Math.max(0, (topicTotal.get(tagTopic) ?? 0) - 1);
+                      // a click would anchor on), and the count for THAT topic. A
+                      // spanless stack-level tag falls back to its category label/count.
+                      const tagRangeIdx = indices[0] ?? -1;
+                      const tagTopic = hasSpecificSpan
+                        ? topicOf(rels[tagRangeIdx], stack.stackId, tagRangeIdx)
+                        : (CATEGORY_LABELS[cat] ?? cat);
+                      const tagTotal = hasSpecificSpan
+                        ? topicTotal.get(tagTopic)
+                        : categoryStackCount.get(cat);
+                      const otherCount = Math.max(0, (tagTotal ?? 0) - 1);
                       const tagHover = (clientX: number, clientY: number) => {
                         showTooltip({
                           content: buildTooltipLabel(tagTopic, otherCount, tc.text),
@@ -2713,13 +2729,20 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                         <div
                           key={cat}
                           data-related-tag
+                          data-related-span={hasSpecificSpan ? 'true' : 'false'}
                           aria-label={CATEGORY_LABELS[cat] ?? cat}
-                          onMouseEnter={(e) => { if (!isTouchRef.current) { setHoveredCategory(cat); scheduleTagScroll(index, indices[0]); tagHover(e.clientX, e.clientY); } }}
+                          onMouseEnter={(e) => { if (!isTouchRef.current) { setHoveredCategory(cat); if (hasSpecificSpan) scheduleTagScroll(index, tagRangeIdx); tagHover(e.clientX, e.clientY); } }}
                           onMouseLeave={() => { if (!isTouchRef.current) { setHoveredCategory(null); cancelTagScroll(); hideTooltip(); } }}
                           onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; tagHover(e.clientX, e.clientY); }}
                           onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTooltip(); }}
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (!hasSpecificSpan) {
+                              setHoveredCategory(null);
+                              hideTooltip();
+                              handleFilterChipClick(cat);
+                              return;
+                            }
                             if (isTouchRef.current) {
                               // Touch: tap toggles category highlight; second tap on same category triggers rerank on first matching range
                               if (hoveredCategory === cat && tappedCardPostId === stack.topPost.id) {
