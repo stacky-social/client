@@ -7,6 +7,7 @@ export const RELATED_POSTS_API_URL = (
 ).replace(/\/$/, '');
 
 export const MASTODON_STATUS_CREATED_EVENT = 'crossweave:mastodon-status-created';
+export const MASTODON_STATUS_DELETED_EVENT = 'crossweave:mastodon-status-deleted';
 export const MASTODON_STATUS_MAX_LENGTH = 500;
 
 export interface MastodonAccount {
@@ -97,4 +98,11 @@ export async function createMastodonStatus(
 
 export function publishCreatedMastodonStatus(status: MastodonStatus): void {
   window.dispatchEvent(new CustomEvent(MASTODON_STATUS_CREATED_EVENT, { detail: status }));
+}
+
+/** Notify every mounted timeline that a successfully deleted status is gone. */
+export function publishDeletedMastodonStatus(postId: string): void {
+  window.dispatchEvent(new CustomEvent(MASTODON_STATUS_DELETED_EVENT, {
+    detail: { postId },
+  }));
 }

@@ -685,6 +685,71 @@ export function createPost(text: string): Post {
   return post;
 }
 
+export type DeletePostResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+/**
+ * Delete a local post authored by the current user.
+ *
+ * The ownership check lives here as well as in the UI so a caller cannot delete
+ * seeded/demo content by invoking the store directly. Personal collections and
+ * reply indexes are cleaned in the same mutation, which keeps Home, Likes,
+ * Bookmarks, profiles, and local thread views in sync immediately.
+ *
+ * REST: DELETE /api/v1/statuses/{id}
+ */
+export function deletePost(id: string): DeletePostResult {
+  ensureHydrated();
+  const target = state.posts[id];
+  if (!target) return { ok: false, error: "Post not found." };
+  if (target.account.acct !== state.me.acct) {
+    return { ok: false, error: "You can only delete your own posts." };
+  }
+
+  mutate((draft) => {
+    delete draft.posts[id];
+    draft.liked = draft.liked.filter((postId) => postId !== id);
+    draft.bookmarked = draft.bookmarked.filter((postId) => postId !== id);
+
+    // Remove the status from every parent's reply index. The broad scan also
+    // repairs older persisted stores whose comment was indexed under a stale
+    // parent id.
+    for (const [parentId, comments] of Object.entries(draft.comments)) {
+      const remaining = comments.filter((comment) => comment.id !== id);
+      if (remaining.length === 0) delete draft.comments[parentId];
+      else if (remaining.length !== comments.length) draft.comments[parentId] = remaining;
+    }
+
+    // A deleted parent no longer has a local thread collection. Descendant
+    // statuses remain individually addressable, matching Mastodon's behavior
+    // when a status with replies is deleted.
+    delete draft.comments[id];
+
+    const parentId = target.in_reply_to_id;
+    if (parentId) {
+      const parent = draft.posts[parentId];
+      if (parent) {
+        draft.posts[parentId] = {
+          ...parent,
+          replies_count: Math.max(0, parent.replies_count - 1),
+        };
+      }
+    } else {
+      // createPost increments this counter; keep the inverse operation paired.
+      const me = draft.accounts[draft.me.acct];
+      if (me) {
+        draft.accounts[draft.me.acct] = {
+          ...me,
+          statuses_count: Math.max(0, me.statuses_count - 1),
+        };
+      }
+    }
+  });
+
+  return { ok: true };
+}
+
 /**
  * Add a comment (reply) authored by `me` to `postId`. Persisted, retrievable via
  * getComments, and added to the post pool so thread components can render it.

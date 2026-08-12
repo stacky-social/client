@@ -1,10 +1,11 @@
 import {
+  deletePost as storeDeletePost,
   getPost as getStorePost,
   toggleLike as storeToggleLike,
   toggleBookmark as storeToggleBookmark,
 } from './localStore';
 import axios from 'axios';
-import { MASTODON_INSTANCE_URL } from './mastodonApi';
+import { MASTODON_INSTANCE_URL, publishDeletedMastodonStatus } from './mastodonApi';
 
 // ─── Local (no-backend) mode ──────────────────────────────────────────────────
 //
@@ -35,6 +36,7 @@ function getAccessToken(): string | null {
  *   so callers can fall back to it, and they should surface the failure to the user.
  */
 export type ToggleResult = { ok: boolean; value: boolean };
+export type DeleteStatusResult = { ok: true } | { ok: false; error: string };
 
 export async function toggleFavourite(postId: string, currentlyFavourited: boolean): Promise<ToggleResult> {
   // Curated/demo posts remain JSON-backed during the migration. Their ids do
@@ -73,5 +75,38 @@ export async function toggleBookmark(postId: string, currentlyBookmarked: boolea
   } catch (error) {
     console.error('toggleBookmark failed:', error);
     return { ok: false, value: currentlyBookmarked };
+  }
+}
+
+/**
+ * Delete a status from whichever source owns it.
+ *
+ * Curated/user-created local statuses are removed from the persisted demo store;
+ * live statuses use Mastodon's standard delete endpoint. Both paths publish one
+ * browser event so every mounted feed can evict the status and its cached copy.
+ */
+export async function deleteStatus(postId: string): Promise<DeleteStatusResult> {
+  if (getStorePost(postId)) {
+    const result = storeDeletePost(postId);
+    if (result.ok) publishDeletedMastodonStatus(postId);
+    return result;
+  }
+
+  const token = getAccessToken();
+  if (!token) return { ok: false, error: 'Sign in to delete this post.' };
+
+  try {
+    await axios.delete(`${MASTODON_INSTANCE_URL}/api/v1/statuses/${postId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: REQUEST_TIMEOUT_MS,
+    });
+    publishDeletedMastodonStatus(postId);
+    return { ok: true };
+  } catch (error: unknown) {
+    console.error('deleteStatus failed:', error);
+    const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+    if (status === 403) return { ok: false, error: 'You can only delete your own posts.' };
+    if (status === 404) return { ok: false, error: 'This post has already been deleted.' };
+    return { ok: false, error: 'Could not delete this post. Please try again.' };
   }
 }

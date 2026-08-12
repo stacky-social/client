@@ -10,6 +10,7 @@ import axios from 'axios';
 import {
     MASTODON_INSTANCE_URL,
     MASTODON_STATUS_CREATED_EVENT,
+    MASTODON_STATUS_DELETED_EVENT,
     RELATED_POSTS_API_URL,
     type MastodonStatus,
 } from '../utils/mastodonApi';
@@ -106,6 +107,7 @@ function mastodonStatusToPost(post: MastodonStatus, loadStackInfo: boolean): Pos
         text: post.content,
         author: post.account.display_name || post.account.username,
         account: post.account.acct,
+        accountId: post.account.id,
         avatar: post.account.avatar,
         createdAt: post.created_at,
         replies: post.replies_count as unknown as PostType['replies'],
@@ -180,6 +182,15 @@ function cacheGet(key: string): PostListCache | null {
 function cacheSet(key: string, value: PostListCache) {
     postListCacheMap.delete(key);
     postListCacheMap.set(key, value);
+}
+
+/** Remove a deleted status from every token-scoped timeline snapshot. */
+function removePostFromAllCaches(postId: string) {
+    for (const [key, value] of Array.from(postListCacheMap.entries())) {
+        const posts = value.posts.filter((post) => post.postId !== postId);
+        if (posts.length === value.posts.length) continue;
+        cacheSet(key, { ...value, posts, timestamp: Date.now() });
+    }
 }
 
 interface PostListProps {
@@ -348,6 +359,7 @@ const ApiFeedCore: React.FC<PostListProps & {
     const hasCachedData = !!cachedSnapshot.current;
 
     const [posts, setPosts] = useState<PostType[]>(() => cachedSnapshot.current?.posts ?? []);
+    const [deletedPostIds, setDeletedPostIds] = useState<Set<string>>(() => new Set());
     const localSupplementPosts = useMemo(
         () => localSupplementStorePosts.map(storeToPost),
         [localSupplementStorePosts],
@@ -364,11 +376,12 @@ const ApiFeedCore: React.FC<PostListProps & {
         [localSupplementPosts, remoteSupplementPosts],
     );
     const displayPosts = useMemo(() => {
-        const woven = weaveTimeline(posts, supplementalPosts);
+        const woven = weaveTimeline(posts, supplementalPosts)
+            .filter((post) => !deletedPostIds.has(post.postId));
         return isHomeTimeline && !homeReplies
             ? woven.filter((post) => !post.inReplyToId)
             : woven;
-    }, [homeReplies, isHomeTimeline, posts, supplementalPosts]);
+    }, [deletedPostIds, homeReplies, isHomeTimeline, posts, supplementalPosts]);
     const [loading, setLoading] = useState(() => !hasCachedData);
     const [loadingMore, setLoadingMore] = useState(false);
     const [maxId, setMaxId] = useState<string | null>(() => cachedSnapshot.current?.maxId ?? null);
@@ -785,19 +798,42 @@ const ApiFeedCore: React.FC<PostListProps & {
         }
     }, []);
 
-    // A successful composer POST returns the canonical Mastodon status. Insert
-    // it immediately, then hydrate related-post metadata in the background.
+    // Successful create/delete actions fan out to every mounted timeline. The
+    // delete path also tombstones supplemental hashtag results and cached pages,
+    // so a deleted status cannot reappear when navigating Back.
     useEffect(() => {
         const onStatusCreated = (event: Event) => {
             const status = (event as CustomEvent<MastodonStatus>).detail;
             if (!status?.id) return;
             const created = mastodonStatusToPost(status, loadStackInfo);
+            setDeletedPostIds((current) => {
+                if (!current.has(created.postId)) return current;
+                const next = new Set(current);
+                next.delete(created.postId);
+                return next;
+            });
             setPosts((current) => [created, ...current.filter((post) => post.postId !== created.postId)]);
             if (loadStackInfo) void loadStackDataInBatches([created], 1);
         };
+        const onStatusDeleted = (event: Event) => {
+            const postId = (event as CustomEvent<{ postId?: string }>).detail?.postId;
+            if (!postId) return;
+            setDeletedPostIds((current) => new Set(current).add(postId));
+            setPosts((current) => current.filter((post) => post.postId !== postId));
+            removePostFromAllCaches(postId);
+            if (activePostId === postId) {
+                manualActiveIdRef.current = null;
+                manualLockRef.current = false;
+                setActivePostId(null);
+            }
+        };
         window.addEventListener(MASTODON_STATUS_CREATED_EVENT, onStatusCreated);
-        return () => window.removeEventListener(MASTODON_STATUS_CREATED_EVENT, onStatusCreated);
-    }, [loadStackInfo, loadStackDataInBatches]);
+        window.addEventListener(MASTODON_STATUS_DELETED_EVENT, onStatusDeleted);
+        return () => {
+            window.removeEventListener(MASTODON_STATUS_CREATED_EVENT, onStatusCreated);
+            window.removeEventListener(MASTODON_STATUS_DELETED_EVENT, onStatusDeleted);
+        };
+    }, [activePostId, loadStackInfo, loadStackDataInBatches, setActivePostId]);
 
     // Save to in-memory cache whenever posts update (even partially loaded stacks)
     useEffect(() => {
@@ -823,6 +859,7 @@ const ApiFeedCore: React.FC<PostListProps & {
                 text={post.text}
                 author={post.author}
                 account={post.account}
+                accountId={post.accountId}
                 avatar={post.avatar}
                 repliesCount={post.replies_count}
                 createdAt={post.createdAt}

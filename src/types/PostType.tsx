@@ -20,6 +20,8 @@ export interface PostType {
     text: string;
     author: string;
     account: string;
+    /** Stable Mastodon account id, when the status came from the live API. */
+    accountId?: string;
     avatar: string;
     replies: any[];
     createdAt: string;

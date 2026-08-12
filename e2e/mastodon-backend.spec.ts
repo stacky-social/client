@@ -74,6 +74,42 @@ test.describe('Mastodon-backed client mode', () => {
     expect(authorization).toMatch(/^Bearer backend-token-/);
   });
 
+  test('deletes my Mastodon post through the backend and removes it from the timeline', async ({ page }) => {
+    const otherAccount = { ...account, id: 'account-2', username: 'other', acct: 'other', display_name: 'Other person' };
+    let deleteAuthorization = '';
+    let deleteMethod = '';
+
+    await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        status('live-own', 'A post I can delete.'),
+        status('live-other', 'Someone else’s post.', { account: otherAccount }),
+      ]),
+    }));
+    await page.route('https://beta.stacky.social/api/v1/statuses/live-own', (route) => {
+      deleteAuthorization = route.request().headers().authorization || '';
+      deleteMethod = route.request().method();
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(status('live-own', 'A post I can delete.')) });
+    });
+
+    await page.goto('/home');
+    const ownPost = page.locator('[data-feed-origin][data-post-id="live-own"]');
+    const otherPost = page.locator('[data-feed-origin][data-post-id="live-other"]');
+    await expect(ownPost.getByRole('button', { name: 'More post actions' })).toBeVisible();
+    await expect(otherPost.getByRole('button', { name: 'More post actions' })).toHaveCount(0);
+
+    await ownPost.getByRole('button', { name: 'More post actions' }).click();
+    await page.getByRole('menuitem', { name: 'Delete post' }).click();
+    await page.getByRole('dialog', { name: 'Delete post?' }).getByRole('button', { name: 'Delete' }).click();
+
+    await expect(page.getByText('Post deleted', { exact: true })).toBeVisible();
+    await expect(page.locator('[data-feed-origin][data-post-id="live-own"]')).toHaveCount(0);
+    await expect(otherPost).toBeVisible();
+    expect(deleteMethod).toBe('DELETE');
+    expect(deleteAuthorization).toMatch(/^Bearer backend-token-/);
+  });
+
   test('hides Mastodon replies on Home unless the experiment is enabled', async ({ page }) => {
     await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) => route.fulfill({
       status: 200,

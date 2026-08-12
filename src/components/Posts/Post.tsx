@@ -2,9 +2,9 @@
 
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, useId } from 'react';
 import { useRouter } from 'next/navigation';
-import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor } from '@mantine/core';
+import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor, Button, Menu, Modal } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconShare } from '@tabler/icons-react';
+import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconShare, IconDots, IconTrash } from '@tabler/icons-react';
 import { copyLink } from '../../utils/share';
 import { format } from 'date-fns';
 import { formatPostDate } from '../../utils/formatPostDate';
@@ -12,8 +12,9 @@ import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
 import { PreviewCardType } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
-import { toggleFavourite, toggleBookmark } from '../../utils/mastoActions';
-import { getPost, isLiked as storeIsLiked, isBookmarked as storeIsBookmarked } from '../../utils/localStore';
+import { toggleFavourite, toggleBookmark, deleteStatus } from '../../utils/mastoActions';
+import { getMe, getPost, isLiked as storeIsLiked, isBookmarked as storeIsBookmarked } from '../../utils/localStore';
+import { getCurrentUser } from '../../utils/getCurrentUser';
 import { useHighlightStore, setPassageFilter, clearResponseFilter, setPendingResponseFilter, setFilterCategories, setFocusHoverRanges, beginUndoablePanelInteractionIfDetail } from '../../utils/highlightStore';
 import { CATEGORY_COLORS, CATEGORY_LABELS, categoryIcon, getCategoryColors } from '../../utils/categoryStyles';
 import { renderMultiHighlightHtml } from '../../utils/focusHighlightHtml.mjs';
@@ -793,6 +794,8 @@ interface PostProps {
   text: string;
   author: string;
   account: string;
+  /** Stable Mastodon account id, used for exact owner-only action gating. */
+  accountId?: string;
   avatar: string;
   repliesCount: number;
   createdAt: string;
@@ -841,6 +844,7 @@ function Post({
   text,
   author,
   account,
+  accountId,
   avatar,
   repliesCount,
   createdAt,
@@ -867,6 +871,7 @@ function Post({
   replyingToAccount = null,
 }: PostProps) {
   const router = useRouter();
+  const { clear: clearRelatedStacks } = useRelatedStacks();
   const [cardHeight, setCardHeight] = useState(0);
   const paperRef = useRef<HTMLDivElement>(null);
 
@@ -885,6 +890,10 @@ function Post({
   const [likeCount, setLikeCount] = useState(favouritesCount);
   const [replyCount, setReplyCount] = useState(repliesCount);
   const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleted, setIsDeleted] = useState(false);
   const [mediaAttachments, setMediaAttachments] = useState<string[]>(initialMedia);
   const isActive = activePostId === id;
   const [isExpanded, setIsExpanded] = useState(isActive);
@@ -909,6 +918,30 @@ function Post({
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
+
+  // Ownership is resolved after hydration so the server and first client render
+  // match. Local posts use the local-store identity; Mastodon posts prefer the
+  // immutable account id and fall back to the exact `acct` string.
+  useEffect(() => {
+    const stored = getPost(id);
+    if (stored) {
+      setCanDelete(stored.account.acct === getMe().acct);
+      return;
+    }
+
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      setCanDelete(false);
+      return;
+    }
+    const sameId = Boolean(accountId && currentUser.id && String(accountId) === String(currentUser.id));
+    const normalizedRenderedAcct = account.trim().replace(/^@/, '').toLowerCase();
+    const normalizedCurrentAcct = String(currentUser.acct ?? currentUser.username ?? '')
+      .trim()
+      .replace(/^@/, '')
+      .toLowerCase();
+    setCanDelete(sameId || Boolean(normalizedRenderedAcct && normalizedRenderedAcct === normalizedCurrentAcct));
+  }, [account, accountId, id]);
 
   // Re-sync interaction state from the store whenever the rendered post id (or its
   // incoming props) changes — under feed virtualization a Post instance can be
@@ -1152,6 +1185,39 @@ function Post({
     copyLink(url, "Post link copied");
   };
 
+  const handleDelete = async () => {
+    if (!canDelete || isDeleting) return;
+    setIsDeleting(true);
+    const result = await deleteStatus(id);
+
+    if (!result.ok) {
+      if (mountedRef.current) setIsDeleting(false);
+      notifications.show({
+        title: 'Post not deleted',
+        message: result.error,
+        color: 'red',
+      });
+      return;
+    }
+
+    if (isActive) clearRelatedStacks();
+    if (mountedRef.current) {
+      setDeleteModalOpen(false);
+      setIsDeleted(true);
+      setIsDeleting(false);
+    }
+    notifications.show({
+      title: 'Post deleted',
+      message: 'Your post was permanently deleted.',
+      color: 'green',
+    });
+
+    const currentPath = decodeURIComponent(window.location.pathname);
+    if (currentPath === `/posts/${id}` || currentPath === `/ChineseEVs/posts/${id}`) {
+      router.replace('/home');
+    }
+  };
+
   const handleStackCountClick = async () => {
     setIsExpanded(true);
     const position = paperRef.current ? paperRef.current.getBoundingClientRect() : { top: 0, height: 0 };
@@ -1246,6 +1312,8 @@ function Post({
     }
   };
 
+  if (isDeleted) return null;
+
   return (
     <div style={{ position: 'relative', marginBottom: '1rem' }}>
       <Paper
@@ -1281,6 +1349,40 @@ function Post({
     per-post icon column. Do NOT reinstate this — it has regressed via merges
     before (it reappeared on the detail route via `stackCount={p.stackCount}`). */}
 
+        {canDelete && (
+          <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 7 }}>
+            <Menu position="bottom-end" shadow="md" width={176} withinPortal>
+              <Menu.Target>
+                <UnstyledButton
+                  aria-label="More post actions"
+                  title="More post actions"
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 6,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#5f6b7a',
+                    background: '#fff',
+                  }}
+                >
+                  <IconDots size={19} aria-hidden="true" />
+                </UnstyledButton>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item
+                  color="red"
+                  leftSection={<IconTrash size={16} aria-hidden="true" />}
+                  onClick={() => setDeleteModalOpen(true)}
+                >
+                  Delete post
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          </div>
+        )}
+
         <div
           onClick={handleSingleClick}
           onKeyDown={(e) => {
@@ -1293,7 +1395,7 @@ function Post({
           tabIndex={0}
           style={{ width: '100%', cursor: 'pointer' }}
         >
-          <Group wrap="nowrap" gap="xs" style={{ alignItems: 'center' }}>
+          <Group wrap="nowrap" gap="xs" style={{ alignItems: 'center', paddingRight: canDelete ? 34 : 0 }}>
             <UnstyledButton onClick={handleNavigateToUser} className="avatarHoverDim">
               <Avatar src={avatar} alt={author} radius="xl" />
             </UnstyledButton>
@@ -1567,6 +1669,28 @@ function Post({
           </Group>
         </div>
       </Paper>
+      <Modal
+        opened={deleteModalOpen}
+        onClose={() => { if (!isDeleting) setDeleteModalOpen(false); }}
+        title="Delete post?"
+        centered
+        size="sm"
+        closeOnClickOutside={!isDeleting}
+        closeOnEscape={!isDeleting}
+        withCloseButton={!isDeleting}
+      >
+        <Text size="sm" c="dimmed">
+          This permanently removes the post. This action can’t be undone.
+        </Text>
+        <Group justify="flex-end" mt="lg">
+          <Button variant="default" onClick={() => setDeleteModalOpen(false)} disabled={isDeleting}>
+            Cancel
+          </Button>
+          <Button color="red" leftSection={<IconTrash size={16} />} loading={isDeleting} onClick={handleDelete}>
+            Delete
+          </Button>
+        </Group>
+      </Modal>
       {/* AnnotationModal hidden in local mode (see hidden Annotate trigger above).
       <AnnotationModal
         isOpen={annotationModalOpen}
