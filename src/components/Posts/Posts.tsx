@@ -5,7 +5,7 @@ import PostList from '../PostList';
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { useAccessToken } from '../../utils/useAccessToken';
 
-export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch, showLoadMore = false, source, localSupplement, remoteSupplementTags, }: { apiUrl?: string, loadStackInfo: boolean, showSubmitAndSearch: boolean, showLoadMore?: boolean; source?: "home" | "bookmarks" | "liked"; localSupplement?: "followed" | "bookmarks" | "liked"; remoteSupplementTags?: readonly string[]; }) {
+export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch = false, showLoadMore = false, source, localSupplement, remoteSupplementTags, }: { apiUrl?: string, loadStackInfo: boolean, showSubmitAndSearch?: boolean, showLoadMore?: boolean; source?: "home" | "bookmarks" | "liked"; localSupplement?: "followed" | "bookmarks" | "liked"; remoteSupplementTags?: readonly string[]; }) {
     const { token: accessToken, ready } = useAccessToken();
     const [activePostId, setActivePostId] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);

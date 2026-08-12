@@ -12,7 +12,6 @@ export default function Liked() {
             apiUrl={token ? `${MASTODON_INSTANCE_URL}/api/v1/favourites` : undefined}
             source={token ? undefined : 'liked'}
             loadStackInfo
-            showSubmitAndSearch
             showLoadMore={Boolean(token)}
             localSupplement={token ? 'liked' : undefined}
         />

@@ -12,7 +12,6 @@ export default function Bookmarks() {
             apiUrl={token ? `${MASTODON_INSTANCE_URL}/api/v1/bookmarks` : undefined}
             source={token ? undefined : 'bookmarks'}
             loadStackInfo
-            showSubmitAndSearch
             showLoadMore={Boolean(token)}
             localSupplement={token ? 'bookmarks' : undefined}
         />

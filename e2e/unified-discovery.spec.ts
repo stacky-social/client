@@ -550,10 +550,14 @@ test.describe('unified discovery and interactions', () => {
     await page.goto('/liked');
     await expect(page.locator('[data-feed-origin="mastodon"]')).toContainText('Backend interaction target');
     await expect(page.locator(`[data-feed-origin="demo"][data-post-id="${localId}"]`)).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Create a post' })).toHaveCount(0);
+    await expect(page.getByText('Start a conversation', { exact: true })).toHaveCount(0);
 
     await page.goto('/bookmarks');
     await expect(page.locator('[data-feed-origin="mastodon"]')).toContainText('Backend interaction target');
     await expect(page.locator(`[data-feed-origin="demo"][data-post-id="${localId}"]`)).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Create a post' })).toHaveCount(0);
+    await expect(page.getByText('Start a conversation', { exact: true })).toHaveCount(0);
   });
 });
 
