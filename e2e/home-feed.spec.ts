@@ -11,6 +11,8 @@ test.describe('Home timeline', () => {
   test('renders only focus posts from a followed conversation by default', async ({ page }) => {
     await expect(page.locator('[data-store-feed-post]')).toHaveCount(6);
     await expect(page.getByText('Posts from accounts and hashtags you follow')).toBeVisible();
+    await expect(page.getByText('Latest', { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('Timeline sorted by latest activity')).toHaveCount(0);
     await expect(page.getByTestId('reply-context')).toHaveCount(0);
     await expect(page.locator('[data-store-feed-post="152052643"]')).toHaveCount(0);
     // Ana's source count is 20 even though this curated demo only includes four

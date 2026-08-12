@@ -21,10 +21,6 @@ export default function Home() {
                     <h1 id="home-title" className={classes.title}>Home</h1>
                     <p className={classes.subtitle}>Posts from accounts and hashtags you follow</p>
                 </div>
-                <div className={classes.latest} aria-label="Timeline sorted by latest activity">
-                    <span aria-hidden="true" />
-                    Latest
-                </div>
             </header>
             {!ready ? (
                 <div className={classes.loadingState} aria-label="Loading your timeline">
