@@ -32,7 +32,7 @@ combined state.
 | `fi` | non-negative integer | none | with `ft` | yes | Relation-range index within the anchor post |
 | `from` | `{post-id}` | none | one-shot on mount (seeds `previousPath`) | no | Back-link source — sets `sessionStorage['previousPath:/.../posts/{current}']` so BackButton can render |
 | `stackId` | `{stack-id}` | none | pass-through | pass-through | Preserved across navigation; not modified by `useUrlSync` |
-| `related` | `{post-id}` | none | one-shot on page mount | pass-through | Shared-pairing emphasis: the matching related card in the aside is emphasised and scrolled into view |
+| `related` | `{post-id}` | none | one-shot on page mount | pass-through | Shared-pairing context: the matching related card is rendered (even beyond the first page), scrolled into view, and transiently emphasised |
 | `flags` | comma-separated `flagKey:0\|1` entries | persisted/default condition | consumed by the experiment store, then pass-through | pass-through | Session-only study-condition provenance; filter writes and session trails preserve it without persisting it to local storage |
 
 A topic state is accepted only when all four `ft`, `fo`, `fa`, and `fi` fields
@@ -61,8 +61,11 @@ Written by the aside's **"Share pairing"** action, which copies
 `…/ChineseEVs/posts/{focusId}?related={relatedId}` to the clipboard (sharing the
 focus post itself omits the param). On page mount the detail route reads
 `related` once and passes it to the aside as `highlightPostId`: the matching
-related card is emphasised and smooth-scrolled into view. If the id isn't among
-the post's related responses (stale/invalid link, or the post was suppressed
+related card is rendered even when it falls beyond the initial ten cards, then
+emphasised and smooth-scrolled into view. The emphasis clears after the reader
+meaningfully scrolls the related pane; the query param remains so reload or a
+new recipient can reconstruct the shared context. If the id isn't among the
+post's related responses (stale/invalid link, or the post was suppressed
 into the thread) the page still renders normally and shows a "Pairing
 unavailable" notice.
 
@@ -97,6 +100,9 @@ parameters.
 4. **Back/Forward restoration:** `popstate` restores the public URL dimensions
    plus an in-memory snapshot of exact panel/reply ordering. Snapshot matching
    is scoped by both detail pathname and focus id, including live `/posts/[id]`.
+   The related pane also stores a tab-session viewport snapshot (semantic card
+   id + offset, pagination depth, and a raw-pixel fallback), so card-height
+   changes and detail-route round trips do not erase the reader's place.
 5. **Passage text reconstruction:** `?fs=12-89` carries offsets only. The `text`
    field of `responseFilter` is reconstructed from
    `plainPostText.slice(start, end)` after the post loads.
@@ -124,6 +130,10 @@ A topic URL uses a complete atomic tuple, for example:
 ```
 /ChineseEVs/posts/112880124583497150?ft=Battery+supply&fo=aside&fa=112880100000000000&fi=2
 ```
+
+When `fo=aside`, a cold/shared load scrolls the related pane to the beginning of
+that grouped block once. A viewport saved by Back/Forward navigation takes
+precedence, so an existing reader is returned to their own prior position.
 
 ## Compatibility with the future production route
 

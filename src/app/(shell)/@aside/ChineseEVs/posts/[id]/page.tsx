@@ -11,7 +11,24 @@ export default function MockPostAside() {
   const router = useRouter();
   const focusPostId = typeof params?.id === "string" ? params.id : undefined;
 
-  if (!relatedStacks || relatedStacks.length === 0) return null;
+  if (!relatedStacks || relatedStacks.length === 0) {
+    return (
+      <div
+        style={{ width: "100%", padding: "1.5rem 0" }}
+        data-related-focus-post-id={focusPostId}
+        data-testid="detail-related-empty"
+        role="status"
+        aria-live="polite"
+      >
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
+          Related Posts
+        </div>
+        <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.45 }}>
+          No related posts yet.
+        </div>
+      </div>
+    );
+  }
 
   // Override the default /posts/[id] navigation so we stay on the mock-backed route.
   // Manually attaches ?from= to preserve the back-link source.

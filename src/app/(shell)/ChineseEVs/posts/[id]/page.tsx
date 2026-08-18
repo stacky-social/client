@@ -685,7 +685,6 @@ export default function MockPostView() {
           ...mockPost,
           replies_count: resolveReplyCount(
             getMockReplyCount(id),
-            0,
             userComments.length,
           ),
         }
@@ -1186,7 +1185,6 @@ export default function MockPostView() {
           </Paper>
         )}
 
-        <div style={{ height: "100vh" }} />
       </div>
     </div>
   );

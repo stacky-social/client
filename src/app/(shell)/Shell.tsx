@@ -170,6 +170,11 @@ export default function Shell({
                         top: TOP_NAV_HEIGHT,
                         height: `calc(100vh - ${TOP_NAV_HEIGHT}px)`,
                         overflowY: "auto",
+                        // We explicitly preserve a semantic card anchor when
+                        // panel content changes. Disable the browser's separate
+                        // scroll-anchoring heuristic so expanding a card cannot
+                        // silently fight that restoration and shift the pane.
+                        overflowAnchor: "none",
                         // NOT "visible": with overflow-y auto this is a scroll
                         // container, so a visible x-axis is impossible ("visible"
                         // computes to auto — which made the pane horizontally

@@ -1,5 +1,4 @@
 export function resolveReplyCount(
-  sourceCount: number,
-  knownDirectReplies?: number,
+  visibleSeededReplies: number,
   localReplies?: number,
 ): number;

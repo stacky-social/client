@@ -15,12 +15,11 @@ test.describe('Home timeline', () => {
     await expect(page.getByLabel('Timeline sorted by latest activity')).toHaveCount(0);
     await expect(page.getByTestId('reply-context')).toHaveCount(0);
     await expect(page.locator('[data-store-feed-post="152052643"]')).toHaveCount(0);
-    // Ana's source count is 20 even though this curated demo only includes four
-    // thread descendants and 103 separately-related posts. Neither collection
-    // is added to the visible reply counter.
+    // The count is an affordance: all four replies it promises can be opened in
+    // the thread. Separately-related posts are never added to this number.
     await expect(
       page.locator('[data-store-feed-post="152053690"]').getByRole('button', { name: 'Reply' }),
-    ).toContainText('20');
+    ).toContainText('4');
   });
 
   test('removes an unfollowed conversation from Home', async ({ page }) => {
@@ -114,7 +113,7 @@ test.describe('Home timeline', () => {
     await expect(homePost).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   });
 
-  test('repairs a stale persisted reply count from the authoritative seed', async ({ page }) => {
+  test('repairs a stale persisted reply count from the visible thread graph', async ({ page }) => {
     await page.evaluate(() => {
       const key = 'stacky:localStore:v1';
       const state = JSON.parse(localStorage.getItem(key) || 'null');
@@ -125,7 +124,7 @@ test.describe('Home timeline', () => {
 
     await expect(
       page.locator('[data-store-feed-post="152053690"]').getByRole('button', { name: 'Reply' }),
-    ).toContainText('20');
+    ).toContainText('4');
   });
 
   test('shows real related responses and AI edits for an annotated focus post', async ({ page }) => {

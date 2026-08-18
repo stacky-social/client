@@ -11,7 +11,7 @@ import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import { notifications } from '@mantine/notifications';
 import { copyLink } from '../utils/share';
 import { useRelatedStacks } from '../app/(shell)/related-stacks-context';
-import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, setCategoryFilter, activateAsideTopic, clearTopicInteraction, clearResponseFilter, setPanelFocus, savePanelScroll, getPanelScroll, useHighlightStore, topicKeyOf, asideGrouping, asideTopicFilter, relationsMatchTopic, resolveReplyTopicKey, beginPanelInteraction, setPanelBaseOrder, currentPanelScope, beginUndoablePanelInteractionIfDetail } from '../utils/highlightStore';
+import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, setCategoryFilter, activateAsideTopic, clearTopicInteraction, clearResponseFilter, setPanelFocus, savePanelViewport, getPanelViewport, useHighlightStore, topicKeyOf, asideGrouping, asideTopicFilter, relationsMatchTopic, resolveReplyTopicKey, beginPanelInteraction, setPanelBaseOrder, currentPanelScope, beginUndoablePanelInteractionIfDetail, type PanelViewportSnapshot } from '../utils/highlightStore';
 import FilterByChip from './FilterByChip';
 import { useExperimentFlags } from '../utils/experimentFlags';
 import { reorderForAnchor } from '../utils/reorderForAnchor';
@@ -978,7 +978,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // share-a-pairing link always anchors on the focus post even if a given aside
   // forgot to thread the sourcePostId prop (which is what produced the "share
   // opens the related post instead of the pairing" bug).
-  const { activePostId: ctxActivePostId } = useRelatedStacks();
+  const { activePostId: ctxActivePostId, setHighlightPostId } = useRelatedStacks();
   const localHydrated = useHydrated();
   const localPosts = useLocalStore((snapshot) => snapshot.posts);
   const localFocusId = sourcePostId ?? ctxActivePostId;
@@ -999,18 +999,43 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // activate the card intentionally.
   const panelScrollingRef = useRef(false);
   const panelScrollEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const highlightPostIdRef = useRef<string | null>(highlightPostId ?? null);
+  const highlightScrollBaselineRef = useRef<number | null>(null);
+  const programmaticHighlightScrollRef = useRef(false);
+  const highlightScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  highlightPostIdRef.current = highlightPostId ?? null;
   // Shared-pairing highlight: scroll the emphasised card into view when arriving
   // via a …?related={id} link (or when the highlight target changes).
   const highlightCardRef = useRef<HTMLDivElement | null>(null);
+  const revealedHighlightRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!highlightPostId) return;
+    if (!highlightPostId) {
+      revealedHighlightRef.current = null;
+      highlightScrollBaselineRef.current = null;
+      programmaticHighlightScrollRef.current = false;
+      return;
+    }
+    const revealKey = `${sourcePostId ?? ctxActivePostId ?? ''}:${highlightPostId}`;
+    if (revealedHighlightRef.current === revealKey) return;
     const el = highlightCardRef.current;
     if (!el) return;
     const t = setTimeout(() => {
+      revealedHighlightRef.current = revealKey;
+      programmaticHighlightScrollRef.current = true;
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (highlightScrollTimerRef.current) clearTimeout(highlightScrollTimerRef.current);
+      highlightScrollTimerRef.current = setTimeout(() => {
+        const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+        highlightScrollBaselineRef.current = aside?.scrollTop ?? null;
+        programmaticHighlightScrollRef.current = false;
+        highlightScrollTimerRef.current = null;
+      }, 220);
     }, 150);
-    return () => clearTimeout(t);
-  }, [highlightPostId, relatedStacks]);
+    return () => {
+      clearTimeout(t);
+      if (highlightScrollTimerRef.current) clearTimeout(highlightScrollTimerRef.current);
+    };
+  }, [highlightPostId, relatedStacks, sourcePostId, ctxActivePostId]);
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [favouritedOverride, setFavouritedOverride] = useState<Record<string, boolean>>({});
   const [bookmarkedOverride, setBookmarkedOverride] = useState<Record<string, boolean>>({});
@@ -1119,6 +1144,18 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // Per-card expanded state, keyed by stackId
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const [visibleCardCount, setVisibleCardCount] = useState(RELATED_PAGE_SIZE);
+  const visibleCardCountRef = useRef(RELATED_PAGE_SIZE);
+  const panelFocusIdRef = useRef<string | null>(null);
+  const restoringPanelScrollRef = useRef(false);
+  const pendingViewportRestoreRef = useRef<PanelViewportSnapshot | null>(null);
+  const pendingViewportFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hadSavedViewportForFocusRef = useRef(false);
+  const [viewportRestoreEpoch, setViewportRestoreEpoch] = useState(0);
+  useEffect(() => () => {
+    if (pendingViewportFallbackTimerRef.current) {
+      clearTimeout(pendingViewportFallbackTimerRef.current);
+    }
+  }, []);
   const [activeAiEditPostId, setActiveAiEditPostId] = useState<string | null>(null);
   const aiDiffByPostId = useMemo(() => {
     const diffs = new Map<string, {
@@ -1554,16 +1591,23 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // they originally sat beyond the first ten results.
   const paginationResetKey = useMemo(() => [
     sourcePostId ?? ctxActivePostId ?? '',
-    relatedStacks.map((stack) => stack.topPost.id).join(','),
     Array.from(filterCategories).sort().join(','),
     responseFilter ? `${responseFilter.start}:${responseFilter.end}` : '',
     asideTopicFilterKey ?? '',
     grouping ? `${grouping.anchor.postId}:${grouping.anchor.rangeIndex}` : '',
-  ].join('|'), [sourcePostId, ctxActivePostId, relatedStacks, filterCategories, responseFilter, asideTopicFilterKey, grouping]);
+  ].join('|'), [sourcePostId, ctxActivePostId, filterCategories, responseFilter, asideTopicFilterKey, grouping]);
 
+  const paginationFocusRef = useRef<string | null>(null);
   useEffect(() => {
-    setVisibleCardCount(RELATED_PAGE_SIZE);
-  }, [paginationResetKey]);
+    const focusId = sourcePostId ?? ctxActivePostId ?? null;
+    const focusChanged = paginationFocusRef.current !== focusId;
+    paginationFocusRef.current = focusId;
+    if (!focusChanged && (restoringPanelScrollRef.current || pendingViewportRestoreRef.current)) return;
+    const restoredCount = focusChanged ? getPanelViewport(focusId)?.visibleCardCount : null;
+    const nextCount = restoredCount ? Math.max(RELATED_PAGE_SIZE, restoredCount) : RELATED_PAGE_SIZE;
+    visibleCardCountRef.current = nextCount;
+    setVisibleCardCount(nextCount);
+  }, [paginationResetKey, sourcePostId, ctxActivePostId]);
 
   const activeAnchorIdForPagination = grouping?.anchor.postId ?? null;
   const minimumCountForActiveGroup = useMemo(() => {
@@ -1577,12 +1621,127 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     });
     return lastGroupIndex + 1;
   }, [activeAnchorIdForPagination, claimedBy, displayStacks]);
-  const effectiveVisibleCardCount = Math.max(visibleCardCount, minimumCountForActiveGroup);
+  const minimumCountForSharedHighlight = useMemo(() => {
+    if (!highlightPostId) return 0;
+    const index = displayStacks.findIndex((stack) => stack.topPost.id === highlightPostId);
+    return index + 1;
+  }, [displayStacks, highlightPostId]);
+  useEffect(() => {
+    if (minimumCountForSharedHighlight <= 0) return;
+    setVisibleCardCount((current) => Math.max(current, minimumCountForSharedHighlight));
+  }, [minimumCountForSharedHighlight]);
+  const effectiveVisibleCardCount = Math.max(
+    visibleCardCount,
+    minimumCountForActiveGroup,
+    minimumCountForSharedHighlight,
+  );
+  visibleCardCountRef.current = effectiveVisibleCardCount;
   const visibleDisplayStacks = useMemo(
     () => displayStacks.slice(0, effectiveVisibleCardCount),
     [displayStacks, effectiveVisibleCardCount],
   );
   const remainingCardCount = Math.max(0, displayStacks.length - visibleDisplayStacks.length);
+
+  const capturePanelViewport = React.useCallback((): PanelViewportSnapshot | null => {
+    const renderedFocusId = sourcePostId ?? ctxActivePostId ?? null;
+    const focusId = panelFocusIdRef.current;
+    // During a dynamic-route transition React can briefly render the incoming
+    // focus while the outgoing pane is still mounted. Never let that transient
+    // DOM overwrite the viewport we synchronously captured before navigation.
+    if (!focusId || focusId !== renderedFocusId || restoringPanelScrollRef.current) return null;
+    const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+    if (!aside) return null;
+    const header = aside.querySelector('[data-testid="related-sticky-header"]') as HTMLElement | null;
+    const contentTop = header?.getBoundingClientRect().bottom ?? aside.getBoundingClientRect().top;
+    const cards = Array.from(aside.querySelectorAll('[data-related-card]')) as HTMLElement[];
+    const anchor = cards.find((card) => card.getBoundingClientRect().bottom > contentTop + 1) ?? null;
+    const snapshot: PanelViewportSnapshot = {
+      scrollTop: aside.scrollTop,
+      anchorPostId: anchor?.querySelector('[data-post-id]')?.getAttribute('data-post-id') ?? null,
+      anchorOffset: anchor ? anchor.getBoundingClientRect().top - contentTop : 0,
+      visibleCardCount: visibleCardCountRef.current,
+    };
+    savePanelViewport(focusId, snapshot);
+    return snapshot;
+  }, [sourcePostId, ctxActivePostId]);
+
+  // Restore after pagination has rendered enough cards to include the semantic
+  // anchor. The card + offset wins over raw pixels and therefore survives card
+  // height changes and pane resizing; raw scrollTop is the defensive fallback.
+  useLayoutEffect(() => {
+    const pending = pendingViewportRestoreRef.current;
+    if (!pending) return;
+    const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+    if (!aside) return;
+    restoringPanelScrollRef.current = true;
+    const header = aside.querySelector('[data-testid="related-sticky-header"]') as HTMLElement | null;
+    const contentTop = header?.getBoundingClientRect().bottom ?? aside.getBoundingClientRect().top;
+    const anchor = pending.anchorPostId
+      ? aside.querySelector(`[data-related-card] [data-post-id="${pending.anchorPostId}"]`)?.closest('[data-related-card]') as HTMLElement | null
+      : null;
+    // App Router can mount the returning route while the previous focus's data
+    // is still in context. Preserve the semantic request until the matching
+    // cards arrive; applying and clearing it against stale data is what used to
+    // collapse a restored 20-card pane back to an unrelated pixel position.
+    if (pending.anchorPostId && !anchor) {
+      aside.scrollTop = pending.scrollTop;
+      if (!pendingViewportFallbackTimerRef.current) {
+        pendingViewportFallbackTimerRef.current = setTimeout(() => {
+          pendingViewportFallbackTimerRef.current = null;
+          const stillPending = pendingViewportRestoreRef.current;
+          if (!stillPending) return;
+          pendingViewportRestoreRef.current = { ...stillPending, anchorPostId: null };
+          setViewportRestoreEpoch((current) => current + 1);
+        }, 1000);
+      }
+      return;
+    }
+    if (pendingViewportFallbackTimerRef.current) {
+      clearTimeout(pendingViewportFallbackTimerRef.current);
+      pendingViewportFallbackTimerRef.current = null;
+    }
+    if (anchor) {
+      aside.scrollTop += anchor.getBoundingClientRect().top - contentTop - pending.anchorOffset;
+    } else {
+      aside.scrollTop = pending.scrollTop;
+    }
+    pendingViewportRestoreRef.current = null;
+    requestAnimationFrame(() => {
+      restoringPanelScrollRef.current = false;
+      capturePanelViewport();
+    });
+  }, [visibleDisplayStacks, viewportRestoreEpoch, capturePanelViewport]);
+
+  // A copied topic-group URL hydrates after the panel data. Reveal the start of
+  // that grouped block once on a cold/shared load. Interactive grouping already
+  // pins the clicked card and saved Back-navigation viewports take precedence.
+  const revealedSharedGroupRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!grouping) {
+      revealedSharedGroupRef.current = null;
+      return;
+    }
+    const focusId = sourcePostId ?? ctxActivePostId ?? null;
+    const revealKey = `${focusId ?? ''}:${grouping.anchor.postId}:${grouping.anchor.rangeIndex}`;
+    if (revealedSharedGroupRef.current === revealKey || hadSavedViewportForFocusRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('fo') !== 'aside' || !params.has('ft')) return;
+    const firstGroupPost = visibleDisplayStacks.find((stack) =>
+      stack.topPost.id === grouping.anchor.postId || claimedBy.get(stack.topPost.id) === grouping.anchor.postId,
+    );
+    if (!firstGroupPost) return;
+    const timer = setTimeout(() => {
+      const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+      const card = aside?.querySelector(`[data-post-id="${firstGroupPost.topPost.id}"]`)?.closest('[data-related-card]') as HTMLElement | null;
+      const header = aside?.querySelector('[data-testid="related-sticky-header"]') as HTMLElement | null;
+      if (!aside || !card) return;
+      revealedSharedGroupRef.current = revealKey;
+      const contentTop = header?.getBoundingClientRect().bottom ?? aside.getBoundingClientRect().top;
+      aside.scrollTop += card.getBoundingClientRect().top - contentTop - 8;
+      capturePanelViewport();
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [grouping, claimedBy, visibleDisplayStacks, sourcePostId, ctxActivePostId, capturePanelViewport]);
 
   // Robustness: sweep away residual FLIP transforms whenever the visible list
   // changes for a reason the FLIP effect does not run for (filters, cross-pane
@@ -1602,7 +1761,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   }, [displayStacks]);
 
   const handleShowMore = (anchorId: string) => {
+    pendingViewportRestoreRef.current = capturePanelViewport();
     setShownByAnchor(prev => ({ ...prev, [anchorId]: (prev[anchorId] ?? SHOWN_INCREMENT) + SHOWN_INCREMENT }));
+    setViewportRestoreEpoch((current) => current + 1);
   };
 
   /** Set of anchor IDs that actually pulled in at least one claimed post. */
@@ -1654,6 +1815,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   const EDGE_HOVER_HEIGHT = 28;
 
   const handleNavigate = (postId: string, newStackId: string) => {
+    capturePanelViewport();
     if (onPostNavigate) { onPostNavigate(postId); return; }
     // H5: build params — preserve stackId, add ?from= when navigating from a known focus post
     const navParams = new URLSearchParams();
@@ -1843,7 +2005,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       }
     });
     return () => { if (flipRafRef.current) cancelAnimationFrame(flipRafRef.current); };
-  }, [reRankAnchorIds, anchoredRangeByPost, shownByAnchor]);
+  }, [reRankAnchorIds, anchoredRangeByPost, shownByAnchor, expandedCards]);
 
   /** Ref-based guard: set when a touch tap just "activated" a card/range so the
    *  synthetic click that follows doesn't also navigate. */
@@ -1960,9 +2122,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // returning — scrolling between focus posts, or entering/leaving a post's full
   // view. panelFocusIdRef tracks whose scroll the live listener is saving;
   // restoringPanelScrollRef suppresses the listener during a programmatic restore.
-  const panelFocusIdRef = useRef<string | null>(null);
-  const restoringPanelScrollRef = useRef(false);
-
   useLayoutEffect(() => {
     const focusId = sourcePostId ?? ctxActivePostId ?? null;
     const focusChanged = panelFocusIdRef.current !== focusId;
@@ -1981,16 +2140,26 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     // Restore the incoming focus's scroll only on a real focus switch (not on a
     // same-focus data refresh, which would yank the user's current scroll).
     if (focusChanged) {
+      const returningWithinMountedPanel = panelFocusIdRef.current !== null;
       restoringPanelScrollRef.current = true;
       panelFocusIdRef.current = focusId;
-      const saved = getPanelScroll(focusId);
-      requestAnimationFrame(() => {
-        const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
-        if (aside) aside.scrollTop = saved;
-        requestAnimationFrame(() => { restoringPanelScrollRef.current = false; });
-      });
+      const saved = getPanelViewport(focusId);
+      // A cold/shared load may inherit sessionStorage (new tabs opened from an
+      // existing tab can clone it). Only treat a snapshot as Back-navigation
+      // precedence when this mounted pane has actually shown another focus.
+      hadSavedViewportForFocusRef.current = saved !== null && returningWithinMountedPanel;
+      pendingViewportRestoreRef.current = saved ?? {
+        scrollTop: 0,
+        anchorPostId: null,
+        anchorOffset: 0,
+        visibleCardCount: RELATED_PAGE_SIZE,
+      };
+      const nextCount = Math.max(RELATED_PAGE_SIZE, saved?.visibleCardCount ?? RELATED_PAGE_SIZE);
+      visibleCardCountRef.current = nextCount;
+      setVisibleCardCount(nextCount);
+      setViewportRestoreEpoch((current) => current + 1);
     }
-  }, [relatedStacks, sourcePostId, ctxActivePostId, resolveTopicKey]);
+  }, [relatedStacks, sourcePostId, ctxActivePostId, resolveTopicKey, capturePanelViewport]);
 
   // Live-save the aside scroll offset for the current focus post on every scroll
   // (rAF-throttled), so the latest position is always captured before a switch.
@@ -2026,23 +2195,47 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
 
     const onScroll = () => {
       suspendHover();
+      // Smooth-scroll duration varies with distance and browser. Establish the
+      // dismissal baseline only after the programmatic reveal has truly gone
+      // quiet, rather than after a fixed duration that can expire mid-flight.
+      if (programmaticHighlightScrollRef.current) {
+        if (highlightScrollTimerRef.current) clearTimeout(highlightScrollTimerRef.current);
+        highlightScrollTimerRef.current = setTimeout(() => {
+          highlightScrollBaselineRef.current = aside.scrollTop;
+          programmaticHighlightScrollRef.current = false;
+          highlightScrollTimerRef.current = null;
+        }, 220);
+      }
       if (restoringPanelScrollRef.current || raf) return;
       raf = requestAnimationFrame(() => {
         raf = 0;
-        savePanelScroll(panelFocusIdRef.current, aside.scrollTop);
+        capturePanelViewport();
+        const baseline = highlightScrollBaselineRef.current;
+        if (
+          highlightPostIdRef.current &&
+          !programmaticHighlightScrollRef.current &&
+          baseline !== null &&
+          Math.abs(aside.scrollTop - baseline) > 48
+        ) {
+          setHighlightPostId(null);
+        }
       });
     };
     // Wheel arrives before the resulting scroll/mouse-boundary events, so it
     // closes the brief window where a card could activate during the first frame.
-    aside.addEventListener('wheel', suspendHover, { passive: true });
+    const onWheel = () => {
+      suspendHover();
+      if (highlightPostIdRef.current) setHighlightPostId(null);
+    };
+    aside.addEventListener('wheel', onWheel, { passive: true });
     aside.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      aside.removeEventListener('wheel', suspendHover);
+      aside.removeEventListener('wheel', onWheel);
       aside.removeEventListener('scroll', onScroll);
       if (raf) cancelAnimationFrame(raf);
       if (panelScrollEndTimerRef.current) clearTimeout(panelScrollEndTimerRef.current);
     };
-  }, []);
+  }, [capturePanelViewport, setHighlightPostId]);
 
   // Touch: tap-outside clears the active state so highlights/sidebar reset.
   useEffect(() => {
@@ -2065,7 +2258,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       {/* Sticky header: title + filter chips + count — stays visible while scrolling */}
-      <div style={{
+      <div data-testid="related-sticky-header" style={{
         position: 'sticky', top: 0, zIndex: 10,
         // Breathing room so the first row of filter chips doesn't touch the top
         // bar. The padding is part of the sticky white header, so scrolled cards
@@ -2548,6 +2741,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
             <div
               key={stack.stackId}
               data-related-card
+              data-related-group-member={anchorForThisCard ? 'true' : undefined}
+              data-related-group-start={isFirstInBlock ? 'true' : undefined}
               data-related-category={categoryKey(stack.rel) || 'uncategorized'}
               style={{
                 position: 'relative',
@@ -3009,7 +3204,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       styles={{ root: { padding: 0, background: 'none', color: '#1c2b4a', fontWeight: 600, cursor: 'pointer', marginBottom: '0.4rem', display: 'block' } }}
                       onClick={(e: React.MouseEvent) => {
                         e.stopPropagation();
+                        const snapshot = capturePanelViewport();
+                        pendingViewportRestoreRef.current = snapshot && isExpanded
+                          ? { ...snapshot, anchorPostId: stack.topPost.id, anchorOffset: 8 }
+                          : snapshot;
                         setExpandedCards(prev => ({ ...prev, [stack.stackId]: !isExpanded }));
+                        setViewportRestoreEpoch((current) => current + 1);
                       }}
                       onMouseDown={(e: React.MouseEvent) => e.stopPropagation()}
                       onMouseUp={(e: React.MouseEvent) => e.stopPropagation()}
@@ -3098,7 +3298,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
             type="button"
             className="related-load-more"
             data-testid="related-load-more"
-            onClick={() => setVisibleCardCount(Math.min(displayStacks.length, effectiveVisibleCardCount + RELATED_PAGE_SIZE))}
+            onClick={() => {
+              pendingViewportRestoreRef.current = capturePanelViewport();
+              const next = Math.min(displayStacks.length, effectiveVisibleCardCount + RELATED_PAGE_SIZE);
+              setVisibleCardCount(next);
+              visibleCardCountRef.current = next;
+              setViewportRestoreEpoch((current) => current + 1);
+            }}
           >
             Load more
             <span>{Math.min(RELATED_PAGE_SIZE, remainingCardCount)} of {remainingCardCount} remaining</span>

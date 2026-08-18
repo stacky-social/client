@@ -2,19 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { resolveReplyCount } from "../../src/utils/replyCount.mjs";
 
-test("keeps the authoritative source count when the curated thread is partial", () => {
-  assert.equal(resolveReplyCount(20, 4), 20);
-});
-
-test("repairs a synthetic source count when more direct replies are known", () => {
-  assert.equal(resolveReplyCount(0, 2), 2);
+test("shows the number of seeded replies that can be opened", () => {
+  assert.equal(resolveReplyCount(4), 4);
 });
 
 test("adds each local direct reply once", () => {
-  assert.equal(resolveReplyCount(20, 4, 1), 21);
-  assert.equal(resolveReplyCount(20, 4, 2), 22);
+  assert.equal(resolveReplyCount(4, 1), 5);
+  assert.equal(resolveReplyCount(4, 2), 6);
 });
 
 test("normalizes invalid and negative counts", () => {
-  assert.equal(resolveReplyCount(Number.NaN, -3, 1), 1);
+  assert.equal(resolveReplyCount(Number.NaN, -3), 0);
 });

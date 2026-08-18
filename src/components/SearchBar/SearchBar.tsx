@@ -25,16 +25,28 @@ import {
 import { useAccessToken } from "../../utils/useAccessToken";
 import {
   searchMastodon,
+  RELATED_POSTS_API_URL,
   type MastodonSearchResults,
 } from "../../utils/mastodonApi";
 import {
   searchKnownHashtags,
   type HashtagDefinition,
 } from "../../data/hashtagCatalog";
-import { normalizeMastodonText } from "../../utils/mastodonContent.mjs";
+import type { PreviewCardType, Relation } from "../../types/PostType";
+import SearchPostFeed, { type SearchFeedPost } from "./SearchPostFeed";
 
 type SearchAccount = Account & { mastodonId?: string; origin: "local" | "mastodon" };
-type SearchPost = Post & { origin: "local" | "mastodon" };
+type SearchPost = Post & {
+  origin: "local" | "mastodon";
+  mastodonAccountId?: string;
+  previewCard?: PreviewCardType | null;
+};
+
+type RelatedPayload = {
+  relatedStacks: any[];
+  stackCount: number;
+  focusRelations: Relation[];
+};
 
 interface SearchHashtag extends HashtagDefinition {
   url?: string;
@@ -46,10 +58,12 @@ const EMPTY_REMOTE_RESULTS: MastodonSearchResults = {
   hashtags: [],
 };
 
-/** Truncate a string to `max` characters with an ellipsis. */
-function snippet(text: string, max = 140): string {
-  const clean = normalizeMastodonText(text);
-  return clean.length > max ? `${clean.slice(0, max).trimEnd()}…` : clean;
+const relatedSearchCache = new Map<string, RelatedPayload>();
+
+function focusRelationsFromStacks(stacks: any[]): Relation[] {
+  return stacks.flatMap((stack) =>
+    Array.isArray(stack?.topPost?.relations) ? stack.topPost.relations : [],
+  );
 }
 
 const CARD_STYLE: React.CSSProperties = {
@@ -81,9 +95,20 @@ export default function SearchBar() {
 
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
+  const [urlReady, setUrlReady] = useState(false);
   const [remoteResults, setRemoteResults] = useState(EMPTY_REMOTE_RESULTS);
+  const [remoteRelated, setRemoteRelated] = useState<Record<string, RelatedPayload>>({});
   const [remoteLoading, setRemoteLoading] = useState(false);
   const [remoteError, setRemoteError] = useState(false);
+
+  // Search terms are first-class, shareable feed state. Hydrate from the URL
+  // before writing back so a shared /search?q=Rubio link never flashes empty.
+  useEffect(() => {
+    const initial = new URLSearchParams(window.location.search).get("q") ?? "";
+    setQuery(initial);
+    setDebounced(initial);
+    setUrlReady(true);
+  }, []);
 
   useEffect(() => {
     const timeout = setTimeout(() => setDebounced(query), 250);
@@ -91,6 +116,18 @@ export default function SearchBar() {
   }, [query]);
 
   const q = debounced.trim();
+
+  useEffect(() => {
+    if (!urlReady) return;
+    const params = new URLSearchParams(window.location.search);
+    if (q) params.set("q", q);
+    else params.delete("q");
+    const search = params.toString();
+    const target = `${window.location.pathname}${search ? `?${search}` : ""}`;
+    if (target !== window.location.pathname + window.location.search) {
+      window.history.replaceState(window.history.state, "", target);
+    }
+  }, [q, urlReady]);
 
   useEffect(() => {
     if (!authReady || !token || !q) {
@@ -172,11 +209,101 @@ export default function SearchBar() {
         relatedStacks: [],
         focusRelations: [],
         in_reply_to_id: typeof status.in_reply_to_id === "string" ? status.in_reply_to_id : null,
+        mastodonAccountId: status.account.id,
+        previewCard: status.card ? {
+          title: status.card.title,
+          description: status.card.description,
+          image: status.card.image || undefined,
+          url: status.card.url,
+        } : null,
         origin: "mastodon",
       });
     }
     return Array.from(unique.values()).slice(0, 12);
   }, [localPosts, remoteResults.statuses]);
+
+  // Results render immediately; optional CrossWeave relation metadata hydrates
+  // progressively and is cached across query refinements/back navigation.
+  useEffect(() => {
+    const remoteIds = posts
+      .filter((post) => post.origin === "mastodon")
+      .map((post) => post.id);
+    if (remoteIds.length === 0) return;
+
+    const controller = new AbortController();
+    let cancelled = false;
+    const load = async () => {
+      for (let index = 0; index < remoteIds.length; index += 3) {
+        const batch = remoteIds.slice(index, index + 3);
+        const payloads = await Promise.all(batch.map(async (id) => {
+          const cached = relatedSearchCache.get(id);
+          if (cached) return [id, cached] as const;
+          try {
+            const response = await fetch(
+              `${RELATED_POSTS_API_URL}/stacks/${encodeURIComponent(id)}/related`,
+              { signal: controller.signal },
+            );
+            if (!response.ok) throw new Error(`Related-post lookup failed (${response.status})`);
+            const data = await response.json();
+            const relatedStacks = Array.isArray(data?.relatedStacks) ? data.relatedStacks : [];
+            const payload: RelatedPayload = {
+              relatedStacks,
+              stackCount: Number.isFinite(data?.size) ? data.size : relatedStacks.length,
+              focusRelations: focusRelationsFromStacks(relatedStacks),
+            };
+            relatedSearchCache.set(id, payload);
+            return [id, payload] as const;
+          } catch (error) {
+            if (controller.signal.aborted) return null;
+            const payload: RelatedPayload = { relatedStacks: [], stackCount: 0, focusRelations: [] };
+            relatedSearchCache.set(id, payload);
+            return [id, payload] as const;
+          }
+        }));
+        if (cancelled) return;
+        setRemoteRelated((current) => {
+          const next = { ...current };
+          payloads.forEach((entry) => {
+            if (entry) next[entry[0]] = entry[1];
+          });
+          return next;
+        });
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [posts]);
+
+  const feedPosts = useMemo<SearchFeedPost[]>(() => posts.map((post): SearchFeedPost => {
+    const related = post.origin === "mastodon" ? remoteRelated[post.id] : undefined;
+    return {
+      postId: post.id,
+      text: post.content,
+      author: post.account.username,
+      account: post.account.acct,
+      accountId: post.mastodonAccountId,
+      avatar: post.account.avatar,
+      replies: [],
+      replies_count: post.replies_count,
+      createdAt: post.created_at,
+      stackCount: related?.stackCount ?? post.stackCount,
+      favouritesCount: post.favourites_count,
+      favourited: post.favourited,
+      bookmarked: post.bookmarked,
+      mediaAttachments: (post.media_attachments ?? []).map((attachment: any) =>
+        typeof attachment === "string" ? attachment : attachment.url,
+      ),
+      relatedStacks: related?.relatedStacks ?? post.relatedStacks ?? [],
+      focusRelations: related?.focusRelations ?? post.focusRelations ?? [],
+      previewCard: post.previewCard ?? null,
+      inReplyToId: post.in_reply_to_id ?? null,
+      replyingToAccount: null,
+      origin: post.origin,
+    };
+  }), [posts, remoteRelated]);
 
   const hashtags = useMemo<SearchHashtag[]>(() => {
     const unique = new Map<string, SearchHashtag>();
@@ -202,8 +329,6 @@ export default function SearchBar() {
       : "";
     router.push(`/user/${encodeURIComponent(account.acct)}${params}`);
   };
-  const goToPost = (post: SearchPost) =>
-    router.push(post.origin === "mastodon" ? `/posts/${post.id}` : `/ChineseEVs/posts/${post.id}`);
   const goToHashtag = (name: string) => router.push(`/tag/${encodeURIComponent(name)}`);
 
   const hasQuery = q.length > 0;
@@ -248,6 +373,13 @@ export default function SearchBar() {
             </Text>
           )}
 
+          {hasQuery && feedPosts.length > 0 && (
+            <Box mb="lg">
+              <SectionTitle>Posts matching &ldquo;{q}&rdquo;</SectionTitle>
+              <SearchPostFeed posts={feedPosts} query={q} />
+            </Box>
+          )}
+
           {hasQuery && hashtags.length > 0 && (
             <Box mb="lg">
               <SectionTitle>Hashtags</SectionTitle>
@@ -285,30 +417,6 @@ export default function SearchBar() {
             </Box>
           )}
 
-          {hasQuery && posts.length > 0 && (
-            <Box mb="lg">
-              <SectionTitle>Posts</SectionTitle>
-              <Stack gap="sm">
-                {posts.map((post) => (
-                  <UnstyledButton
-                    key={`${post.origin}:${post.id}`}
-                    onClick={() => goToPost(post)}
-                    style={{ width: "100%" }}
-                    data-search-origin={post.origin}
-                  >
-                    <Paper withBorder p="md" style={{ ...CARD_STYLE }}>
-                      <Group gap="sm" wrap="nowrap" mb={6}>
-                        <Avatar src={post.account.avatar} radius="xl" size="sm" />
-                        <Text size="sm" fw={600} truncate>{post.account.username}</Text>
-                        <Text size="xs" c="dimmed" truncate>@{post.account.acct}</Text>
-                      </Group>
-                      <Text size="sm" c="#374151" lineClamp={3}>{snippet(post.content)}</Text>
-                    </Paper>
-                  </UnstyledButton>
-                ))}
-              </Stack>
-            </Box>
-          )}
         </>
       )}
     </Box>

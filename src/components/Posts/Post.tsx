@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallba
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor, Button, Menu, Modal } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconShare, IconDots, IconTrash } from '@tabler/icons-react';
+import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconShare, IconDots, IconTrash, IconExternalLink } from '@tabler/icons-react';
 import { copyLink } from '../../utils/share';
 import { format } from 'date-fns';
 import { formatPostDate } from '../../utils/formatPostDate';
@@ -23,6 +23,7 @@ import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 import type { Relation } from '../../types/PostType';
 import { showTooltip, hideTooltip } from '../HoverTooltip';
 import { showUndoableAction } from '../../utils/actionNotifications';
+import { mastodonLinkHost } from '../../utils/mastodonContent.mjs';
 
 /** X-style left-pane indent (px): avatar (Mantine md = 38px) + the header row's
  *  `gap="xs"` (10px) = 48px, i.e. where the username's left edge sits. The post
@@ -126,24 +127,48 @@ type PreviewCard = PreviewCardType;
 
 const MastodonInstanceUrl = 'https://beta.stacky.social';
 
+// Temporary product decision: keep posts text-first on every surface. Mastodon
+// link-preview images and media attachments made the same status look like two
+// different posts between a feed and its detail route. Keeping this switch in
+// the shared Post component guarantees Home, search, profiles, and both detail
+// routes stay consistent while preserving the original source link in the text.
+const POST_IMAGES_ENABLED = false;
+
 interface CleanedPost {
   html: string;
   publishedDate: string | null;
   articleUrl: string | null;
 }
 
-/** Strip external URLs and extract "Published" date from post HTML.
- *  Only strips URLs when a preview card exists to preserve legitimate links in conversational posts. */
+function isSameArticleUrl(candidate: string, articleUrl: string): boolean {
+  try {
+    const candidateUrl = new URL(candidate.replace(/&amp;/gi, '&'));
+    const targetUrl = new URL(articleUrl);
+    candidateUrl.hash = '';
+    targetUrl.hash = '';
+    return candidateUrl.toString() === targetUrl.toString();
+  } catch {
+    return candidate === articleUrl;
+  }
+}
+
+/** Replace the preview card's duplicated URL with a compact source action while
+ *  preserving mentions, hashtags, and any other authored links in the prose. */
 function cleanPostHtml(html: string, card: PreviewCard | null | undefined): CleanedPost {
   let cleaned = html;
   let publishedDate: string | null = null;
 
-  if (card) {
-    // Remove all <a> tags linking to external URLs (entire tag + contents)
-    cleaned = cleaned.replace(/<a[^>]*href=["']https?:\/\/[^"']+["'][^>]*>[\s\S]*?<\/a>/gi, '');
+  if (card?.url) {
+    cleaned = cleaned.replace(/<a\b([^>]*)>[\s\S]*?<\/a>/gi, (anchor, attributes) => {
+      const href = String(attributes).match(/href\s*=\s*["']([^"']+)["']/i)?.[1];
+      return href && isSameArticleUrl(href, card.url) ? '' : anchor;
+    });
 
-    // Remove bare URLs in text (not inside tags)
-    cleaned = cleaned.replace(/https?:\/\/[^\s<]+/g, '');
+    // Imported posts sometimes contain the same source as plain text rather
+    // than an anchor. Match only that preview URL so unrelated links survive.
+    cleaned = cleaned.replace(/https?:\/\/[^\s<]+/gi, (candidate) =>
+      isSameArticleUrl(candidate, card.url) ? '' : candidate,
+    );
   }
 
   // Extract "Published: DATE" and remove from text
@@ -908,6 +933,7 @@ function Post({
     () => cleanPostHtml(text, previewCards[0]),
     [text, previewCards],
   );
+  const articleHost = articleUrl ? mastodonLinkHost(articleUrl) : '';
 
   const [isOverflowing, setIsOverflowing] = useState(false);
   const textRef = useRef<HTMLDivElement>(null);
@@ -1569,6 +1595,31 @@ function Post({
           dangerouslySetInnerHTML={{ __html: displayText }}
         />
       )}
+      {articleUrl && (
+        <Anchor
+          href={articleUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-focus-article-link
+          size="xs"
+          underline="hover"
+          onClick={(event: React.MouseEvent) => event.stopPropagation()}
+          onMouseDown={(event: React.MouseEvent) => event.stopPropagation()}
+          onMouseUp={(event: React.MouseEvent) => event.stopPropagation()}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            marginTop: '0.3rem',
+            marginBottom: '0.35rem',
+            color: '#2f6f68',
+            fontWeight: 650,
+          }}
+        >
+          <IconExternalLink size={13} aria-hidden />
+          Read article{articleHost ? ` · ${articleHost}` : ''}
+        </Anchor>
+      )}
       {(isOverflowing || isTextExpanded) && (
         <Anchor
           component="button"
@@ -1595,7 +1646,7 @@ function Post({
         </Anchor>
       )}
     </div>
-          {mediaAttachments.length > 0 && (
+          {POST_IMAGES_ENABLED && mediaAttachments.length > 0 && (
             <div style={{ paddingLeft: '0', paddingRight: '0', paddingTop: '1rem' }}>
               {mediaAttachments.map((url, index) => (
                 <img key={index} src={url} alt={`Attachment ${index + 1}`} loading="lazy" decoding="async" style={{ width: '100%', marginBottom: '10px' }} />
@@ -1603,7 +1654,7 @@ function Post({
             </div>
           )}
 
-          {previewCards.slice(0, 1).map((card, index) =>
+          {POST_IMAGES_ENABLED && previewCards.slice(0, 1).map((card, index) =>
             card.image ? (
               <a
                 key={index}

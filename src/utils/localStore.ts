@@ -38,7 +38,12 @@ import type {
   RelatedPostMock,
   Relation,
 } from "../types/PostType";
-import { getMockFocusRelations, getMockRelatedStacks, getMockReplyCount } from "./mockPostResolver";
+import {
+  getMockFocusRelations,
+  getMockReplyParentId,
+  getMockRelatedStacks,
+  getMockReplyCount,
+} from "./mockPostResolver";
 import { resolveReplyCount } from "./replyCount.mjs";
 import { normalizeHashtag } from "../data/hashtagCatalog";
 
@@ -172,7 +177,10 @@ function mockToPost(p: FocusPostMock | RelatedPostMock): Post {
     media_attachments: [],
     relatedStacks: [],
     focusRelations: [],
-    in_reply_to_id: p.inReplyToId ?? null,
+    // Focus posts remain standalone timeline cards. Only ids explicitly used
+    // as replies inherit canonical graph parentage; this also repairs dual-role
+    // posts whose first fixture copy is a parentless related response.
+    in_reply_to_id: getMockReplyParentId(p.id) ?? p.inReplyToId ?? null,
   };
 }
 
@@ -354,7 +362,6 @@ function load(): LocalState {
         ...persistedPost,
         replies_count: resolveReplyCount(
           seededPost.replies_count,
-          0,
           (persistedComments[id] ?? []).filter((comment) => comment.in_reply_to_id === id).length,
         ),
         relatedStacks: seededPost.relatedStacks,
