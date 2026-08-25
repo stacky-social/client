@@ -82,12 +82,15 @@ test.describe('Related-panel viewport continuity', () => {
     const more = page.locator('button.show-more-link').first();
     await expect(more).toBeVisible();
     await centerInAside(more);
+    // Establish the same settled pre-click state a pointer user sees. Playwright
+    // otherwise performs its implicit hover/actionability scroll after this
+    // measurement, so the assertion compares two different starting viewports.
+    await more.hover();
     const before = await measureViewport(page);
     await more.click();
-    const after = await measureViewport(page);
-    expect(after.scrollTop).toBeCloseTo(before.scrollTop, 0);
-    expect(after.firstId).toBe(before.firstId);
-    expect(after.firstOffset).toBeCloseTo(before.firstOffset!, 0);
+    await expect.poll(async () => (await measureViewport(page)).scrollTop).toBeGreaterThan(0);
+    await expect.poll(async () => (await measureViewport(page)).firstId).toBe(before.firstId);
+    await expect.poll(async () => (await measureViewport(page)).firstOffset).toBeCloseTo(before.firstOffset!, 0);
   });
 
   test('opening a related post and going Back restores pagination and semantic position', async ({ page }) => {
@@ -139,7 +142,7 @@ test.describe('Related-panel viewport continuity', () => {
     await expect(page.getByTestId('active-group-anchor').first()).toBeVisible();
     await expect.poll(async () => page.getByTestId('col-aside').evaluate((aside) => aside.scrollTop))
       .toBeGreaterThan(0);
-    const measurement = await page.getByTestId('col-aside').evaluate((aside) => {
+    const readGroupMeasurement = () => page.getByTestId('col-aside').evaluate((aside) => {
       const headerBottom = aside.querySelector('[data-testid="related-sticky-header"]')
         ?.getBoundingClientRect().bottom ?? aside.getBoundingClientRect().top;
       const groupStart = aside.querySelector('[data-related-group-start="true"]');
@@ -150,6 +153,13 @@ test.describe('Related-panel viewport continuity', () => {
         asideBottom: aside.getBoundingClientRect().bottom,
       };
     });
+    await expect.poll(async () => {
+      const current = await readGroupMeasurement();
+      return current.groupTop !== null
+        && current.groupTop >= current.headerBottom - 2
+        && current.groupTop < current.asideBottom;
+    }).toBe(true);
+    const measurement = await readGroupMeasurement();
     expect(measurement.scrollTop).toBeGreaterThan(0);
     expect(measurement.groupTop).not.toBeNull();
     expect(measurement.groupTop!).toBeGreaterThanOrEqual(measurement.headerBottom - 2);

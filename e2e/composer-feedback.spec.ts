@@ -23,8 +23,11 @@ const SIM_REPLIES = [
   { id: 's3', content: "Can we afford to rely on another country's goodwill, especially if it's not an ally?" },
 ];
 
+let feedbackRequests: Array<Record<string, any>> = [];
+
 test.describe('Reply-draft feedback presentation', () => {
   test.beforeEach(async ({ page }) => {
+    feedbackRequests = [];
     await page.route('**/posts/feedback', async (route) => {
       if (route.request().method() === 'OPTIONS') {
         await route.fulfill({
@@ -37,6 +40,7 @@ test.describe('Reply-draft feedback presentation', () => {
         });
         return;
       }
+      feedbackRequests.push(route.request().postDataJSON());
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -52,11 +56,11 @@ test.describe('Reply-draft feedback presentation', () => {
     await expect(composer).toBeVisible();
     // Deliberately long draft: the composer textarea wraps to multiple lines,
     // and the rail bridge must still span the whole (variable-height) row.
-    await composer.fill(
+    const initialDraft =
       "wouldn't that just make us more dependent on chinese manufacturing? " +
       "we already rely on them for batteries, rare earths, and most of the cell supply chain, " +
-      "so tariffs alone don't obviously fix the dependency problem."
-    );
+      "so tariffs alone don't obviously fix the dependency problem.";
+    await composer.fill(initialDraft);
 
     // Wait for the stubbed feedback to render.
     await expect(page.getByText(PRAISE)).toBeVisible();
@@ -114,5 +118,19 @@ test.describe('Reply-draft feedback presentation', () => {
     const railBottom = Math.max(...segBoxes.map((b) => b!.y + b!.height));
     const lastAvatarCenter = lastAvatar.y + lastAvatar.height / 2;
     expect(railBottom, 'rail must stop at the last robot avatar').toBeLessThanOrEqual(lastAvatarCenter + 4);
+
+    // Refining the same draft keeps its stable conversation id and includes a
+    // bounded snapshot of feedback the writer already saw. This prevents a
+    // later response from contradicting an earlier suggestion just because a
+    // different backend worker handled the request.
+    await composer.fill(`${initialDraft} The main concern is supply resilience, not isolation.`);
+    await expect.poll(() => feedbackRequests.length).toBeGreaterThanOrEqual(2);
+    expect(feedbackRequests[1].draftID).toBe(feedbackRequests[0].draftID);
+    expect(feedbackRequests[1].feedbackHistory).toHaveLength(1);
+    expect(feedbackRequests[1].feedbackHistory[0]).toMatchObject({
+      draftText: initialDraft,
+      advice: ADVICE,
+      praise: PRAISE,
+    });
   });
 });

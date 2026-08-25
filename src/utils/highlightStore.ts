@@ -43,6 +43,12 @@ interface HighlightState {
   /** Relations for the hovered post (offset-based substring pairs) */
   hoveredRelations: Relation[] | null;
   /**
+   * Whether the pointer/touch is still actively presenting the retained sidebar
+   * relation. The relation itself may remain after leave as a semantic reading
+   * anchor, but its temporary cross-highlight paint must not.
+   */
+  sidebarHoverActive: boolean;
+  /**
    * Set of categories to filter the sidebar by (empty = show all).
    * Multiple categories use AND semantics — a post must carry EVERY active
    * category to survive (see decideFilterMode in RelatedStacks and
@@ -119,6 +125,7 @@ interface HighlightState {
 const INITIAL: HighlightState = {
   hoveredPostId: null,
   hoveredRelations: null,
+  sidebarHoverActive: false,
   filterCategories: new Set(),
   hoveredHighlightRangeIndex: null,
   focusHoverRanges: null,
@@ -150,13 +157,23 @@ export function setHoveredSidebarPost(
   postId: string | null,
   relations?: Relation[] | null,
 ): void {
-  if (state.hoveredPostId === postId) return;
+  const nextActive = postId !== null;
+  if (state.hoveredPostId === postId && state.sidebarHoverActive === nextActive) return;
   state = {
     ...state,
     hoveredPostId: postId,
     hoveredRelations: postId ? (relations ?? null) : null,
+    sidebarHoverActive: nextActive,
     hoveredHighlightRangeIndex: null,
   };
+  notify();
+}
+
+/** End only the transient aside→focus paint. The last relation/range/category
+ * stays retained so the focus post keeps its exact reading position. */
+export function setSidebarHoverActive(active: boolean): void {
+  if (state.sidebarHoverActive === active) return;
+  state = { ...state, sidebarHoverActive: active };
   notify();
 }
 
@@ -582,6 +599,7 @@ export function setPanelFocus(
     // transient view state never persists across a focus switch
     hoveredPostId: null,
     hoveredRelations: null,
+    sidebarHoverActive: false,
     hoveredHighlightRangeIndex: null,
     hoveredCategory: null,
     tappedCardPostId: null,
@@ -721,6 +739,7 @@ function applyPanelSnapshot(snap: PanelSnapshot): void {
     replyBaseOrderIds: [...(snap.replyBaseOrderIds ?? [])],
     hoveredPostId: null,
     hoveredRelations: null,
+    sidebarHoverActive: false,
     hoveredHighlightRangeIndex: null,
     hoveredCategory: null,
     tappedCardPostId: null,

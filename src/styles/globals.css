@@ -109,6 +109,58 @@ body {
     background: rgba(28, 43, 74, 0.5);
 }
 
+/* A focus post can become a fixed-height window onto a later passage while a
+   related card is active. The ellipsis reads as the first character of that
+   excerpt and returns the window to the earlier text when clicked. */
+.focus-reveal-shell {
+    position: relative;
+    min-width: 0;
+}
+
+.focus-window-prefix-group {
+    white-space: nowrap;
+}
+
+.focus-window-prefix {
+    /* Inserted immediately before the first real character of the excerpt.
+       It is ordinary inline content—not a float or an edge overlay—so its
+       baseline and wrapping are owned by the same line as the text. */
+    display: inline-block;
+    position: relative;
+    top: 1px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    color: #64748b;
+    background: transparent;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 600;
+    line-height: inherit;
+    text-align: left;
+    vertical-align: baseline;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Preserve a comfortable horizontal pointer target without adding visible
+   whitespace between the ellipsis and the excerpt text. */
+.focus-window-prefix::after {
+    content: '';
+    position: absolute;
+    inset: -0.1em -0.18em;
+}
+
+.focus-window-prefix:hover {
+    color: #1c2b4a;
+}
+
+.focus-window-prefix:focus-visible {
+    outline: 2px solid #2f6f68;
+    outline-offset: -2px;
+    border-radius: 2px;
+}
+
 /* ── Focus-post highlight marks ──────────────────────────────────────────────
    Neutral-grey, hover-revealed spans (rendered by ActiveHighlightedContent).
    Global and keyed on the stable data-testid rather than a per-instance injected
@@ -122,8 +174,20 @@ body {
     transition: background 150ms ease;
 }
 [data-testid="focus-reveal"].fp-hovering mark {
-    background: rgb(236, 238, 241);
+    /* Direct focus-post hover temporarily owns the presentation even when the
+       related pane retains an inline category-colour reading anchor. */
+    background: rgb(236, 238, 241) !important;
 }
+[data-testid="focus-reveal"].fp-hovering mark.fp-dark,
 [data-testid="focus-reveal"] mark.fp-dark {
-    background: rgb(193, 199, 209);
+    background: rgb(193, 199, 209) !important;
+}
+
+/* Extend a wrapped inline highlight's hit area through the line-height leading.
+   Vertical padding on an inline does not alter line layout; it only closes the
+   dead pointer strip that otherwise causes leave/re-enter flicker. */
+[data-continuous-inline-highlight] {
+    padding-block: 0.24em !important;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
 }

@@ -14,8 +14,8 @@
 }
 
 .timeline {
-  width: calc(100% - 1.5rem);
-  margin: 0.75rem 0.75rem 1rem;
+  width: 100%;
+  margin: 0.75rem 0 1rem;
   background: linear-gradient(135deg, var(--crossweave-surface), #f7f9fc);
   border: 1px solid #c5d2da;
   border-radius: 12px;
@@ -60,10 +60,9 @@
 .eyebrow {
   margin-bottom: 0.35rem;
   color: #52617d;
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
 }
 
 .textarea :global(textarea) {
@@ -160,10 +159,16 @@
   border-radius: 8px;
 }
 
+.feedbackPanel {
+  margin: 0 1.1rem 1rem calc(42px + 1.95rem);
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(20, 33, 61, 0.11);
+}
+
 @media (max-width: 36rem) {
   .timeline {
-    width: calc(100% - 1rem);
-    margin: 0.5rem 0.5rem 0.75rem;
+    width: 100%;
+    margin: 0.5rem 0 0.75rem;
   }
 
   .composerBody {
@@ -186,5 +191,10 @@
   .feedbackError {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .feedbackPanel {
+    margin-right: 0.85rem;
+    margin-left: 0.85rem;
   }
 }

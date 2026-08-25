@@ -945,6 +945,8 @@ const ApiFeedCore: React.FC<PostListProps & {
 const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
     source,
     handleStackIconClick,
+    loadStackInfo,
+    accessToken,
     setIsModalOpen,
     setIsExpandModalOpen,
     activePostId,
@@ -956,10 +958,104 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
     // stays live without a manual refresh.
     const hydrated = useHydrated();
     const storePosts = useLocalStore(() => selectStoreFeed(source, homeReplies));
+    const [retrievedRelated, setRetrievedRelated] = useState<Record<string, { stacks: any[]; count: number }>>({});
+    const requestedRelatedRef = useRef(new Set<string>());
     // Render empty on the server + first client render (the store reads
     // localStorage, which the server can't see) so hydration matches; fill in
     // immediately after mount.
-    const posts: PostType[] = hydrated ? storePosts.map(storeToPost) : [];
+    const posts: PostType[] = useMemo(() => {
+        if (!hydrated) return [];
+        return storePosts.map(storeToPost).map((post) => {
+            const retrieved = retrievedRelated[post.postId];
+            return retrieved
+                ? { ...post, stackCount: retrieved.count, relatedStacks: retrieved.stacks }
+                : post;
+        });
+    }, [hydrated, retrievedRelated, storePosts]);
+
+    // A locally-created top-level post begins without relation metadata. Ask
+    // the same retrieval service used by Mastodon posts, while treating an
+    // unavailable result as an empty panel rather than blocking the timeline.
+    // Authenticated posts already take the API-feed path and are hydrated by
+    // loadStackDataInBatches, so this is intentionally limited to `local-*` ids.
+    useEffect(() => {
+        if (!hydrated || !loadStackInfo) return;
+        const candidates = posts.filter(
+            (post) => post.postId.startsWith('local-')
+                && post.stackCount === null
+                && (!post.relatedStacks || post.relatedStacks.length === 0)
+                && !requestedRelatedRef.current.has(post.postId),
+        );
+        if (candidates.length === 0) return;
+
+        const controller = new AbortController();
+        const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
+        for (const post of candidates) requestedRelatedRef.current.add(post.postId);
+
+        const waitForRetry = (delayMs: number) => new Promise<void>((resolve, reject) => {
+            const timer = window.setTimeout(resolve, delayMs);
+            controller.signal.addEventListener('abort', () => {
+                window.clearTimeout(timer);
+                reject(new DOMException('Aborted', 'AbortError'));
+            }, { once: true });
+        });
+
+        void Promise.all(candidates.map(async (post) => {
+            for (let attempt = 0; attempt < 2; attempt += 1) {
+                try {
+                    const response = await axios.get(
+                        `${RELATED_POSTS_API_URL}/stacks/${encodeURIComponent(post.postId)}/related`,
+                        { headers, signal: controller.signal },
+                    );
+                    const stacks = Array.isArray(response.data?.relatedStacks)
+                        ? response.data.relatedStacks
+                        : [];
+                    const count = Number.isFinite(response.data?.size)
+                        ? Number(response.data.size)
+                        : stacks.length;
+                    // A freshly indexed post may briefly return an empty 200.
+                    // Give the retrieval service one bounded chance to catch up.
+                    if (count === 0 && attempt === 0) {
+                        await waitForRetry(350);
+                        continue;
+                    }
+                    return [post.postId, { stacks, count }] as const;
+                } catch (error) {
+                    if (controller.signal.aborted) {
+                        requestedRelatedRef.current.delete(post.postId);
+                        return null;
+                    }
+                    if (attempt === 0) {
+                        try {
+                            await waitForRetry(350);
+                            continue;
+                        } catch {
+                            requestedRelatedRef.current.delete(post.postId);
+                            return null;
+                        }
+                    }
+                    // Failed requests are retryable on the next stable render;
+                    // never poison this id for the lifetime of the feed.
+                    requestedRelatedRef.current.delete(post.postId);
+                    console.warn(`No related-post data for ${post.postId}:`, error);
+                    return null;
+                }
+            }
+            requestedRelatedRef.current.delete(post.postId);
+            return null;
+        })).then((results) => {
+            if (controller.signal.aborted) return;
+            setRetrievedRelated((current) => {
+                const next = { ...current };
+                for (const result of results) {
+                    if (result) next[result[0]] = result[1];
+                }
+                return next;
+            });
+        });
+
+        return () => controller.abort();
+    }, [accessToken, hydrated, loadStackInfo, posts]);
 
     // Keep Home's related pane synced to the post nearest the viewport center,
     // matching the API-backed feed. This makes relation discovery passive and
@@ -979,6 +1075,20 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
     const lastUserActivateRef = useRef<number>(0);
     const manualActiveIdRef = useRef<string | null>(null);
     const manualLockRef = useRef(false);
+    const publishedRetrievedRef = useRef(new Map<string, { stacks: any[]; count: number }>());
+
+    // If retrieval finishes while the new post is already centered, republish
+    // that result immediately; the user should not have to scroll away and back
+    // before the right pane updates.
+    useEffect(() => {
+        const focusedId = activePostIdRef.current;
+        if (!focusedId) return;
+        const retrieved = retrievedRelated[focusedId];
+        if (!retrieved) return;
+        if (publishedRetrievedRef.current.get(focusedId) === retrieved) return;
+        publishedRetrievedRef.current.set(focusedId, retrieved);
+        stackHandlerRef.current(retrieved.stacks, focusedId, { top: 0, height: 0 });
+    }, [retrievedRelated]);
 
     useEffect(() => {
         if (source !== 'home' || !hydrated || postsRef.current.length === 0) return;

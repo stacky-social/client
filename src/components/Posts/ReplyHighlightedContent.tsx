@@ -8,6 +8,7 @@ import {
   setHoveredHighlightRangeIndex,
 } from "../../utils/highlightStore";
 import { showTooltip, hideTooltip } from "../HoverTooltip";
+import { pointBridgesInlineRects } from "../../utils/inlineHighlightGeometry.mjs";
 
 interface ReplyHighlightedContentProps {
   /** The reply's plain text — relation content offsets index into this string. */
@@ -146,6 +147,7 @@ export default function ReplyHighlightedContent({
       <mark
         key={origIdx}
         data-reply-range-id={origIdx}
+        data-continuous-inline-highlight
         style={{
           background: alpha < 1 ? hexToRgba(colors.bg, alpha) : colors.bg,
           color: "inherit",
@@ -176,7 +178,14 @@ export default function ReplyHighlightedContent({
             tooltipShownByMeRef.current = true;
           }
         }}
-        onMouseLeave={() => {
+        onMouseLeave={(event) => {
+          // Wrapped inline marks have a small line-height gap between their DOM
+          // rects. Crossing that gap is still hovering this same relation.
+          if (pointBridgesInlineRects(
+            event.currentTarget.getClientRects(),
+            event.clientX,
+            event.clientY,
+          )) return;
           setHoveredIdx(null);
           hoveredIdxRef.current = null;
           setHoveredHighlightRangeIndex(null);

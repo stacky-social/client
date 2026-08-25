@@ -27,7 +27,7 @@ export default function SearchPostFeed({
   query: string;
 }) {
   const router = useRouter();
-  const { enterFeedSurface, setFromPost } = useRelatedStacks();
+  const { enterFeedSurface, leaveFeedSurface, setFromPost } = useRelatedStacks();
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const postsRef = useRef(posts);
   const activePostIdRef = useRef(activePostId);
@@ -52,7 +52,8 @@ export default function SearchPostFeed({
     manualPostIdRef.current = null;
     manualLockRef.current = false;
     setActivePostId(null);
-  }, [enterFeedSurface, surfaceKey]);
+    return () => leaveFeedSurface(surfaceKey);
+  }, [enterFeedSurface, leaveFeedSurface, surfaceKey]);
 
   useEffect(() => {
     if (posts.length === 0) return;
@@ -88,10 +89,11 @@ export default function SearchPostFeed({
       if (selected && selected.id !== activePostIdRef.current) publish(selected.value);
     };
 
-    const initialFrame = requestAnimationFrame(evaluate);
+    // Do not eagerly claim the first result merely because it happens to fit
+    // below the discovery summary. Search starts with an intentionally blank
+    // related pane; a real scroll gesture (or explicit post action) selects it.
     const stopListening = onStableWindowScroll(evaluate);
     return () => {
-      cancelAnimationFrame(initialFrame);
       stopListening();
     };
   }, [posts.length, publish]);

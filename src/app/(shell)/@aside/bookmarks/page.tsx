@@ -2,31 +2,21 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import RelatedStacks from "../../../../components/RelatedStacks";
-import { ComposerFeedback } from "../../../../components/SubmitPost/ComposerFeedback";
 import { useRelatedStacks } from "../../related-stacks-context";
 
 export default function BookmarksAside() {
   const pathname = usePathname();
   const router = useRouter();
-  const { relatedStacks, activePostId, showUpdate, composerFeedback } =
+  const { relatedStacks, activePostId, showUpdate } =
     useRelatedStacks();
 
   // Parallel-route slots are RETAINED across soft navigation: Next.js keeps this
   // slot mounted instead of swapping in @aside/default when leaving /bookmarks.
   // Guard on the live pathname so the aside only renders on this route and never
-  // leaks a previous post's related responses (or composer feedback) elsewhere.
+  // leaks a previous post's related responses elsewhere.
   if (!pathname || !pathname.startsWith("/bookmarks")) return null;
 
-  // PRIORITY 1 — composing: writing feedback takes over the aside while drafting.
-  if (composerFeedback) {
-    return (
-      <div style={{ width: "100%" }}>
-        <ComposerFeedback feedback={composerFeedback} />
-      </div>
-    );
-  }
-
-  // PRIORITY 2 — active post: show its related panel, or a graceful empty state
+  // Active post: show its related panel, or a graceful empty state
   // (your own posts, for example, have no related responses).
   if (activePostId) {
     if (relatedStacks && relatedStacks.length > 0) {

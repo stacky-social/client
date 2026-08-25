@@ -51,7 +51,7 @@ test.describe('Study-ready related posts and composers', () => {
     await page.route('https://beta.stacky.social:3002/posts/feedback', (route) => route.abort('failed'));
     await page.goto('/home');
 
-    const composer = page.getByPlaceholder('Share a perspective, question, or response…');
+    const composer = page.getByPlaceholder('What do you want to share?');
     await expect(composer).toHaveJSProperty('tagName', 'TEXTAREA');
     const draft = 'A longer home post that keeps working when feedback is unavailable.';
     await composer.fill(draft);

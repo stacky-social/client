@@ -2,11 +2,10 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import RelatedStacks from "../../../../components/RelatedStacks";
-import { ComposerFeedback } from "../../../../components/SubmitPost/ComposerFeedback";
 import { useRelatedStacks } from "../../related-stacks-context";
 import { getPost } from "../../../../utils/localStore";
 
-function EmptyRelatedPanel({ focusPostId }: { focusPostId?: string }) {
+function EmptyRelatedPanel({ focusPostId, drafting = false }: { focusPostId?: string; drafting?: boolean }) {
   return (
     <div
       data-testid="home-related-empty"
@@ -17,10 +16,10 @@ function EmptyRelatedPanel({ focusPostId }: { focusPostId?: string }) {
     >
       <div style={{ padding: "1rem 0" }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
-          Related Posts
+          {drafting ? "Related to your draft" : "Related posts"}
         </div>
         <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.45 }}>
-          No related posts yet.
+          {drafting ? "No close matches yet. Keep refining your draft." : "No related posts yet."}
         </div>
       </div>
     </div>
@@ -30,7 +29,7 @@ function EmptyRelatedPanel({ focusPostId }: { focusPostId?: string }) {
 export default function HomeAside() {
   const pathname = usePathname();
   const router = useRouter();
-  const { relatedStacks, activePostId, showUpdate, composerFeedback } =
+  const { relatedStacks, activePostId, activeSurfaceKey, showUpdate } =
     useRelatedStacks();
 
   // Parallel-route slots are RETAINED across soft navigation: Next.js keeps this
@@ -39,16 +38,9 @@ export default function HomeAside() {
   // a previous post's related responses (or composer feedback) onto another page.
   if (!pathname || !pathname.startsWith("/home")) return null;
 
-  // PRIORITY 1 — composing: writing feedback takes over the aside while drafting.
-  if (composerFeedback) {
-    return (
-      <div style={{ width: "100%" }}>
-        <ComposerFeedback feedback={composerFeedback} />
-      </div>
-    );
-  }
+  const isDraftRetrieval = activeSurfaceKey?.startsWith("composer:") ?? false;
 
-  // PRIORITY 2 — active post: show its related panel when the payload contains
+  // Active post or draft retrieval: show the same related-card panel when the payload contains
   // responses. Posts with no relations keep the column geometrically stable and
   // preserve the panel hierarchy with a quiet, explicit empty state.
   if (activePostId) {
@@ -62,6 +54,7 @@ export default function HomeAside() {
             showupdate={showUpdate}
             sourcePostId={activePostId ?? undefined}
             expandGroups
+            heading={isDraftRetrieval ? "Related to your draft" : "Related posts"}
             // No feed on this route registers a navigate callback, so
             // triggerNavigate would silently no-op (F-17) — route directly
             // to the demo detail page instead. Seed previousPath so the
@@ -75,7 +68,7 @@ export default function HomeAside() {
         </div>
       );
     }
-    return <EmptyRelatedPanel focusPostId={activePostId} />;
+    return <EmptyRelatedPanel focusPostId={activePostId} drafting={isDraftRetrieval} />;
   }
 
   // Keep the Home layout and its information hierarchy stable before the first

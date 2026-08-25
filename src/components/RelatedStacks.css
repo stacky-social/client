@@ -130,9 +130,9 @@
     box-shadow: 0 0 0 3px rgba(117, 96, 176, 0.2);
   }
 
-  /* The edited/published text remains in normal flow and permanently owns the
-     card's geometry. The tracked-edit layer occupies the exact same rectangle,
-     so revealing provenance can never resize the related-post card. */
+  /* Provenance redlines replace the published paragraph in the same text flow.
+     The redline renderer carries the relationship marks forward, so this is one
+     annotated passage rather than a second comparison block. */
   .ai-edit-text-stage {
     position: relative;
     margin: 0 0 0.4rem;
@@ -145,32 +145,39 @@
   }
 
   .ai-edit-inline-text {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
+    display: none;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    color: #25324d;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    pointer-events: auto;
   }
 
   .ai-edit-text-stage.is-active .ai-edit-edited-text {
-    opacity: 0;
-    pointer-events: none;
+    display: none;
   }
 
   .ai-edit-text-stage.is-active .ai-edit-inline-text {
-    opacity: 1;
+    display: block;
   }
 
   .ai-edit-inline-text del {
     color: #8f2f35;
-    background: #fde5e5;
+    background: transparent;
     text-decoration-color: #b83c45;
     text-decoration-thickness: 1.5px;
   }
 
+  .ai-edit-inline-text .ai-edit-removed-middle {
+    background: rgba(253, 229, 229, 0.62);
+  }
+
   .ai-edit-inline-text ins {
     color: #17613a;
-    background: #ddf5e6;
+    background: rgba(221, 245, 230, 0.72);
     text-decoration-color: #2d8955;
     text-decoration-thickness: 2px;
     text-underline-offset: 2px;

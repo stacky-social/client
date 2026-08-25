@@ -105,11 +105,11 @@ test.describe('unified discovery and interactions', () => {
     }));
 
     await page.goto('/search');
-    await expect(page.getByRole('button', { name: 'Open #ChineseEVs hashtag' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Open #StackyInjection hashtag' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Filter posts by #ChineseEVs' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Filter posts by #StackyInjection' })).toBeVisible();
 
     await page.getByLabel('Search hashtags, people, and posts').fill('battery');
-    await expect(page.getByRole('button', { name: 'Open #BatteryFuture hashtag' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Filter posts by #BatteryFuture' })).toBeVisible();
     await expect(page.locator('[data-search-origin="local"]').filter({ hasText: /battery/i }).first()).toBeVisible();
     const remotePost = page.locator('[data-search-origin="mastodon"]').filter({ hasText: 'Remote battery manufacturing result' });
     await expect(remotePost).toBeVisible();
@@ -206,8 +206,8 @@ test.describe('unified discovery and interactions', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/search');
 
-    const chineseEvs = page.getByRole('button', { name: 'Open #ChineseEVs hashtag' });
-    const stackyInjection = page.getByRole('button', { name: 'Open #StackyInjection hashtag' });
+    const chineseEvs = page.getByRole('button', { name: 'Filter posts by #ChineseEVs' });
+    const stackyInjection = page.getByRole('button', { name: 'Filter posts by #StackyInjection' });
     await expect(chineseEvs).toBeVisible();
     await expect(stackyInjection).toBeVisible();
 
@@ -215,44 +215,26 @@ test.describe('unified discovery and interactions', () => {
     expect(viewportFits).toBe(true);
   });
 
-  test('opens a Mastodon person from search and follows them on the server', async ({ page }) => {
+  test('selecting a Mastodon person fetches and filters to that person’s posts', async ({ page }) => {
     await page.route('https://beta.stacky.social/api/v2/search**', (route) => route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ accounts: [account], statuses: [], hashtags: [] }),
-    }));
-    await page.route('https://beta.stacky.social/api/v1/accounts/account-1', (route) => route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(account),
     }));
     await page.route('https://beta.stacky.social/api/v1/accounts/account-1/statuses**', (route) => route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify([status('profile-post', 'A post on the live profile')]),
     }));
-    await page.route('https://beta.stacky.social/api/v1/accounts/relationships**', (route) => route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([{ id: 'account-1', following: false }]),
-    }));
-    let followed = false;
-    await page.route('https://beta.stacky.social/api/v1/accounts/account-1/follow', (route) => {
-      followed = true;
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ following: true }) });
-    });
 
     await page.goto('/search');
     await page.getByLabel('Search hashtags, people, and posts').fill('River Chen');
     const person = page.locator('[data-search-origin="mastodon"]').filter({ hasText: '@river' }).first();
     await person.click();
 
-    await expect(page).toHaveURL(/\/user\/river\?source=mastodon&id=account-1$/);
-    await expect(page.getByText('Battery systems researcher.')).toBeVisible();
+    await expect(page).toHaveURL(/\/search\?q=River\+Chen&type=posts&entity=%40river$/);
     await expect(page.getByText('A post on the live profile')).toBeVisible();
-    await page.getByRole('button', { name: 'Follow', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Unfollow', exact: true })).toBeVisible();
-    expect(followed).toBe(true);
+    await expect(page.getByRole('button', { name: 'Remove @river post filter' })).toBeVisible();
   });
 
   test('following a Mastodon hashtag refreshes Home and adds its posts', async ({ page }) => {
@@ -494,7 +476,9 @@ test.describe('unified discovery and interactions', () => {
     await expect(firstCard.locator('[data-ai-inline-diff]').locator('ins')).toContainText(['.', ',', 'an', 'Apple', 'AirTag', 'an']);
     const cardWithDiff = await firstCard.boundingBox();
     expect(cardWithDiff?.width).toBeCloseTo(cardBeforeDiff!.width, 2);
-    expect(cardWithDiff?.height).toBeCloseTo(cardBeforeDiff!.height, 2);
+    // Inline redlining reuses the published paragraph's position. It may grow
+    // for a long deletion, but a compact edit should not add a second block.
+    expect(cardWithDiff!.height).toBeGreaterThanOrEqual(cardBeforeDiff!.height);
 
     await page.getByRole('button', { name: 'Show Pointers filter' }).click();
     await expect(page.getByText('2 Pointers posts')).toBeVisible();

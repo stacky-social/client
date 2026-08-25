@@ -8,9 +8,9 @@ import { useRelatedStacks } from "../../related-stacks-context";
 export default function SearchAside() {
   const pathname = usePathname();
   const router = useRouter();
-  const { activePostId, relatedStacks, showUpdate } = useRelatedStacks();
+  const { activePostId, activeSurfaceKey, relatedStacks, showUpdate } = useRelatedStacks();
 
-  if (pathname !== "/search" || !activePostId) return null;
+  if (pathname !== "/search" || !activePostId || !activeSurfaceKey?.startsWith("search:")) return null;
 
   if (!relatedStacks?.length) {
     return (
@@ -22,7 +22,7 @@ export default function SearchAside() {
         style={{ width: "100%", padding: "1.5rem 0" }}
       >
         <div style={{ fontSize: 14, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
-          Related Posts
+          Related posts
         </div>
         <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.45 }}>
           No related posts yet.

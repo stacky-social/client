@@ -13,11 +13,12 @@ test.describe('study-mode local flows', () => {
     await search.fill('#ChineseEVs');
 
     await expect(page.getByText('Hashtags', { exact: true })).toBeVisible();
-    const hashtag = page.getByRole('button', { name: 'Open #ChineseEVs hashtag' });
+    const hashtag = page.getByRole('button', { name: 'Filter posts by #ChineseEVs' });
     await expect(hashtag).toContainText('#ChineseEVs');
     await hashtag.click();
-    await expect(page).toHaveURL(/\/tag\/ChineseEVs$/);
-    await expect(page.getByRole('button', { name: 'Follow hashtag' })).toBeVisible();
+    await expect(page).toHaveURL(/\/search\?q=%23ChineseEVs&type=posts&entity=%23ChineseEVs$/);
+    await expect(page.getByRole('button', { name: 'Remove #ChineseEVs post filter' })).toBeVisible();
+    await expect(page.getByTestId('search-post-feed')).toBeVisible();
   });
 
   test('opens a user-created home post and its reply on local detail routes', async ({ page }) => {

@@ -24,6 +24,7 @@ import type { Relation } from '../../types/PostType';
 import { showTooltip, hideTooltip } from '../HoverTooltip';
 import { showUndoableAction } from '../../utils/actionNotifications';
 import { mastodonLinkHost } from '../../utils/mastodonContent.mjs';
+import { pointBridgesInlineRects } from '../../utils/inlineHighlightGeometry.mjs';
 
 /** X-style left-pane indent (px): avatar (Mantine md = 38px) + the header row's
  *  `gap="xs"` (10px) = 48px, i.e. where the username's left edge sits. The post
@@ -36,6 +37,83 @@ const BODY_INDENT_PX = 48;
 /** Strip all HTML tags to get plain text for matching */
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
+}
+
+type RenderedLineBand = {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+  target: boolean;
+};
+
+/** Measure the browser's actual text lines in content coordinates. Paragraph
+ * gaps, font metrics, wrapping, and inline elements are therefore part of the
+ * geometry instead of being approximated by one global line-height lattice. */
+function measureRenderedLineBands(container: HTMLElement, targetMarks: Set<HTMLElement>): RenderedLineBand[] {
+  const containerBox = container.getBoundingClientRect();
+  const bands: RenderedLineBand[] = [];
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let node: Node | null;
+
+  while ((node = walker.nextNode())) {
+    const parent = node.parentElement;
+    if (!node.textContent || parent?.closest('.focus-window-prefix')) continue;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const isTarget = Array.from(targetMarks).some((mark) => mark.contains(node));
+
+    for (const rect of Array.from(range.getClientRects())) {
+      if (rect.width < 0.25 || rect.height < 0.25) continue;
+      const top = container.scrollTop + rect.top - containerBox.top;
+      const bottom = container.scrollTop + rect.bottom - containerBox.top;
+      const left = rect.left - containerBox.left;
+      const right = rect.right - containerBox.left;
+      const existing = bands.find((band) => Math.abs(band.top - top) < 1.25);
+      if (existing) {
+        existing.top = Math.min(existing.top, top);
+        existing.bottom = Math.max(existing.bottom, bottom);
+        existing.left = Math.min(existing.left, left);
+        existing.right = Math.max(existing.right, right);
+        existing.target ||= isTarget;
+      } else {
+        bands.push({ top, bottom, left, right, target: isTarget });
+      }
+    }
+    range.detach();
+  }
+
+  return bands.sort((a, b) => a.top - b.top || a.left - b.left);
+}
+
+/** Return the source-text offset of the first real character on a rendered
+ * line. The continuation control is skipped because it consumes no source text. */
+function firstPlainOffsetOnLine(container: HTMLElement, line: RenderedLineBand): number | null {
+  const containerBox = container.getBoundingClientRect();
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let plainOffset = 0;
+  let node: Node | null;
+
+  while ((node = walker.nextNode())) {
+    const text = node.textContent ?? '';
+    if (node.parentElement?.closest('.focus-window-prefix')) continue;
+    if (text.length === 0) continue;
+    const range = document.createRange();
+    for (let index = 0; index < text.length; index += 1) {
+      range.setStart(node, index);
+      range.setEnd(node, index + 1);
+      const rect = range.getClientRects()[0];
+      if (!rect || rect.width < 0.1 || rect.height < 0.1) continue;
+      const top = container.scrollTop + rect.top - containerBox.top;
+      if (Math.abs(top - line.top) < 1.25) {
+        range.detach();
+        return plainOffset + index;
+      }
+    }
+    range.detach();
+    plainOffset += text.length;
+  }
+  return null;
 }
 
 /** Category colors for the aside→focus cross-highlight — the shared table, minus
@@ -239,7 +317,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
    *  reply pane simply omit it. */
   replyCountForSpans?: (ranges: Array<{ fs: number; fe: number }>) => number;
 }>(function ActiveHighlightedContent({ displayText, rawText, style, className, isTextExpanded, focusRelations = [], active = true, onSpanFocusRequest, relatedCountForSpans, replyCountForSpans }, ref) {
-  const { hoveredPostId, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, responseFilter, filterCategories } = useHighlightStore();
+  const { hoveredPostId, hoveredRelations, sidebarHoverActive, hoveredHighlightRangeIndex, hoveredCategory, responseFilter, filterCategories } = useHighlightStore();
   // Related stacks of the active (focus) post — used to count "N related posts"
   // for the click-to-filter affordance. Mirrored to a ref so the DOM hover
   // handlers read the latest without re-subscribing.
@@ -254,7 +332,10 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // (clicking a span re-renders + re-commits the innerHTML, wiping the imperative
   // fp-dark/fp-hovering classes; without this the span goes light until you move).
   const hoveringRef = useRef(false);
-  const hoverRangeRef = useRef<{ fs: number; fe: number } | null>(null);
+  // Keep the exact relation spans in the active hover bucket. Collapsing a
+  // disjoint bucket to one min/max envelope would incorrectly darken unrelated
+  // marks between its spans after React replaces the innerHTML.
+  const hoverRangesRef = useRef<Array<{ fs: number; fe: number }> | null>(null);
   // Tracks whether *this instance* is currently the one showing the global hover tooltip,
   // so unmount/cleanup only hides our own tooltip, not someone else's.
   const tooltipShownByMeRef = useRef(false);
@@ -335,7 +416,22 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       ? `mark:${visibleMarkIdx}`
       : null
     : null;
+  const revealKeyRef = useRef(revealKey);
+  revealKeyRef.current = revealKey;
   const [scrollWindow, setScrollWindow] = useState<{ key: string; height: number } | null>(null);
+  const [isWindowOffset, setIsWindowOffset] = useState(false);
+  // Source-text offset for the continuation control. It is emitted directly
+  // before the first real character in the visible excerpt, so `…` is genuine
+  // inline text rather than a floated control parked near an estimated Y.
+  const [windowPrefixOffset, setWindowPrefixOffset] = useState<number | null>(null);
+  // The semantic destination, not the hovered card id, owns the animation.
+  // Several related posts often cite the same focus passage; retaining this
+  // target prevents a second hover from restarting the same smooth scroll.
+  const lastScrollTargetRef = useRef<number | null>(null);
+  // Clicking the leading ellipsis is an explicit request to read from the top.
+  // Suppress only the currently-active reveal key so a later card/passage hover
+  // can establish a new automatic reading position normally.
+  const suppressedRevealKeyRef = useRef<string | null>(null);
 
   // PERF: the marks are rendered ONCE from this post's own spans (focusRelations)
   // and never re-parsed on hover. Hover/cross-highlight states are applied as CSS
@@ -366,17 +462,32 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // target is actually clipped do we switch to a fixed-height internal scroll
   // window. A visible span must not force `-webkit-box` -> `block`, because that
   // display-mode swap exposes fractional next-lines in Chromium/WebKit.
-  const scrollMode = revealKey !== null && scrollWindow?.key === revealKey;
+  // Once the fixed-height window is measured, keep it alive while any reveal is
+  // active. Changing related cards must not briefly restore the line clamp (and
+  // scrollTop=0) just because the card-specific reveal key changed.
+  const scrollMode = revealKey !== null && scrollWindow !== null;
 
   useLayoutEffect(() => {
     const el = innerRef.current;
     if (!el) return;
     if (!revealKey) {
+      suppressedRevealKeyRef.current = null;
       setScrollWindow((prev) => (prev === null ? prev : null));
+      setIsWindowOffset(false);
+      setWindowPrefixOffset(null);
+      lastScrollTargetRef.current = null;
       // Rest state: park the window back at the top of the clamp.
       if (el.scrollTop > 0) el.scrollTop = 0;
       return;
     }
+    if (suppressedRevealKeyRef.current === revealKey) {
+      setIsWindowOffset(false);
+      setWindowPrefixOffset(null);
+      lastScrollTargetRef.current = 0;
+      if (el.scrollTop > 0) el.scrollTop = 0;
+      return;
+    }
+    suppressedRevealKeyRef.current = null;
     if (!scrollMode && el.scrollTop > 0) el.scrollTop = 0;
     // Only the marks we're actually lighting up: the regions the hovered card
     // links to, else the filter/dwell mark. When the cursor is on a SPECIFIC
@@ -403,45 +514,40 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     } else {
       marks = Array.from(el.querySelectorAll('mark'));
     }
-    // Target marks as content-offset segments (client rects are the layout
-    // truth, immune to the nested-mark scrollHeight inflation that broke the old
-    // measured reveal), sorted top-to-bottom.
-    const box = el.getBoundingClientRect();
-    const fontPx = parseFloat(getComputedStyle(el).fontSize) || 16;
-    const lineH = POST_LINE_HEIGHT_EM * fontPx;
-    const linesInBox = Math.max(1, Math.round(el.clientHeight / lineH));
-    const segs: Array<[number, number]> = [];
-    for (const m of marks) {
-      const r = m.getBoundingClientRect();
-      if (r.height === 0) continue;
-      segs.push([el.scrollTop + (r.top - box.top), el.scrollTop + (r.bottom - box.top)]);
-    }
-    if (segs.length === 0) return;
-    segs.sort((a, b) => a[0] - b[0]);
+    const targetMarks = new Set(marks);
+    const lines = measureRenderedLineBands(el, targetMarks);
+    const targetLineIndices = lines.flatMap((line, index) => line.target ? [index] : []);
+    if (targetLineIndices.length === 0) return;
 
-    // A card can relate to several passages scattered across the post; no fixed
-    // window can show passages that are lines apart. Merge the marks into
-    // contiguous passages (a gap under ~0.6 line = wrapped text of one passage;
-    // a whole blank line between = a separate passage) and scroll to the LARGEST
-    // passage so the most related content shows whole. Centering it pushes the
-    // other passages cleanly past the window edges instead of half-peeking there
-    // (the "By resorting to…" fragment clipped at the bottom).
-    const runs: Array<[number, number]> = [];
-    for (const s of segs) {
+    // A card can relate to several passages scattered across the post. Split
+    // those into runs of actual rendered lines, then choose the largest run.
+    // This is paragraph-aware: a 12px paragraph gap is measured, never rounded
+    // onto a fictional global 24px grid.
+    const runs: number[][] = [];
+    for (const lineIndex of targetLineIndices) {
       const last = runs[runs.length - 1];
-      if (last && s[0] - last[1] < lineH * 0.6) last[1] = Math.max(last[1], s[1]);
-      else runs.push([s[0], s[1]]);
+      if (last && lineIndex === last[last.length - 1] + 1) last.push(lineIndex);
+      else runs.push([lineIndex]);
     }
     let run = runs[0];
-    for (const r of runs) if (r[1] - r[0] > run[1] - run[0]) run = r;
+    for (const candidate of runs) {
+      const candidateHeight = lines[candidate[candidate.length - 1]].bottom - lines[candidate[0]].top;
+      const runHeight = lines[run[run.length - 1]].bottom - lines[run[0]].top;
+      if (candidateHeight > runHeight) run = candidate;
+    }
+    const runTop = lines[run[0]].top;
+    const runBottom = lines[run[run.length - 1]].bottom;
 
     const visibleTop = el.scrollTop;
     const visibleBottom = visibleTop + el.clientHeight;
-    const fullyVisible = run[0] >= visibleTop - 0.5 && run[1] <= visibleBottom + 0.5;
+    const fullyVisible = runTop >= visibleTop - 0.5 && runBottom <= visibleBottom + 0.5;
 
     if (!scrollMode) {
       if (fullyVisible) {
         setScrollWindow((prev) => (prev === null ? prev : null));
+        setIsWindowOffset(false);
+        setWindowPrefixOffset(null);
+        lastScrollTargetRef.current = 0;
         return;
       }
       const lockedHeight = Math.max(1, el.getBoundingClientRect().height);
@@ -453,23 +559,71 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       return;
     }
 
-    // Line indices → the window can only ever rest on whole-line boundaries, so
-    // it never shows a clipped half-line (top or bottom).
-    const firstLine = Math.floor((run[0] + 1) / lineH); // line the passage starts on
-    const lastLine = Math.floor((run[1] - 1) / lineH); // line the passage ends on
-    const runLines = lastLine - firstLine + 1;
-    //  · passage fits → center it, whole-line context above and below.
-    //  · passage alone taller than the window → pin its first line to the top.
-    const topLine =
-      runLines <= linesInBox
-        ? firstLine - Math.floor((linesInBox - runLines) / 2)
-        : firstLine;
-    const maxLine = Math.max(0, Math.round((el.scrollHeight - el.clientHeight) / lineH));
-    const target = Math.min(maxLine, Math.max(0, topLine)) * lineH;
+    const viewportHeight = el.clientHeight;
+    const maxScroll = Math.max(0, el.scrollHeight - viewportHeight);
+    const clampTarget = (value: number) => Math.min(maxScroll, Math.max(0, value));
+    const candidateTargets = new Set<number>([0, maxScroll]);
+    for (const line of lines) {
+      candidateTargets.add(clampTarget(line.top));
+      candidateTargets.add(clampTarget(line.bottom - viewportHeight));
+    }
 
+    // Pick a real text boundary. Priority is: show the target; expose no sliced
+    // line at either edge; show the full target run when it fits; maximize target
+    // lines; then keep the passage visually centered. The result can be 46.66px
+    // or 58px—actual typography owns the position, not a line-height multiple.
+    const runFits = runBottom - runTop <= viewportHeight + 0.5;
+    const runSet = new Set(run);
+    let target = 0;
+    let bestScore: number[] | null = null;
+    for (const rawCandidate of Array.from(candidateTargets)) {
+      const candidate = clampTarget(rawCandidate);
+      const bottom = candidate + viewportHeight;
+      const partialLines = lines.filter((line) =>
+        (line.top < candidate - 0.25 && line.bottom > candidate + 0.25)
+        || (line.top < bottom - 0.25 && line.bottom > bottom + 0.25)
+      ).length;
+      const fullyVisibleTargets = run.filter((lineIndex) => {
+        const line = lines[lineIndex];
+        return line.top >= candidate - 0.25 && line.bottom <= bottom + 0.25;
+      }).length;
+      const anyTargetVisible = fullyVisibleTargets > 0 ? 1 : 0;
+      const wholeRunVisible = !runFits || fullyVisibleTargets === runSet.size ? 1 : 0;
+      const centerDistance = Math.abs((candidate + bottom) / 2 - (runTop + runBottom) / 2);
+      const score = [anyTargetVisible, -partialLines, wholeRunVisible, fullyVisibleTargets, -centerDistance];
+      const firstDifference = bestScore?.findIndex((value, index) => value !== score[index]) ?? -1;
+      if (!bestScore || (firstDifference >= 0 && score[firstDifference] > bestScore[firstDifference])) {
+        bestScore = score;
+        target = candidate;
+      }
+    }
+
+    const hasOffset = target > 0.5;
+    setIsWindowOffset(hasOffset);
+
+    // Put the continuation control at the exact first character on the first
+    // fully visible line. Rendering it can rewrap that line, so commit the
+    // zero-width source insertion first and remeasure once on the final DOM.
+    const firstVisibleLine = lines.find((line) =>
+      line.top >= target - 0.25 && line.bottom <= target + viewportHeight + 0.25
+    );
+    const nextPrefixOffset = hasOffset && firstVisibleLine
+      ? firstPlainOffsetOnLine(el, firstVisibleLine)
+      : null;
+    if (windowPrefixOffset !== nextPrefixOffset) {
+      setWindowPrefixOffset(nextPrefixOffset);
+      return;
+    }
+
+    // A new card/highlight can map to the exact same canonical line. Do not
+    // issue another positioning update when the excerpt is already correct.
+    if (lastScrollTargetRef.current !== null && Math.abs(target - lastScrollTargetRef.current) < 1) return;
+    lastScrollTargetRef.current = target;
     if (Math.abs(target - el.scrollTop) < 1) return; // already at the canonical spot
-    el.scrollTo({ top: target, behavior: 'smooth' });
-  }, [revealKey, scrollMode, crossActive, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, visibleMarkIdx, html]);
+    // A smooth pixel animation necessarily exposes partial lines between valid
+    // boundaries. Jump directly between legal whole-line excerpts instead.
+    el.scrollTo({ top: target, behavior: 'auto' });
+  }, [revealKey, scrollMode, crossActive, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, visibleMarkIdx, html, windowPrefixOffset]);
 
   // Spec hover model (CSS-driven via classes — never re-parses the article):
   //  · enter the post       → faint ALL its spans (.fp-hovering on the container)
@@ -481,6 +635,8 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     const el = innerRef.current;
     if (!el) return;
     let latestX = 0, latestY = 0;
+    let latestMark: HTMLElement | null = null;
+    let activeBucketKey: string | null = null;
 
     const clearDark = () => el.querySelectorAll('mark.fp-dark').forEach((m) => m.classList.remove('fp-dark'));
     const cancelDwell = () => {
@@ -514,6 +670,22 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       });
       return { marks, ranges };
     };
+    // A dark mark is not necessarily the bucket currently under the cursor: an
+    // adjacent overlap segment can already be dark because the PREVIOUS bucket
+    // reaches it while also adding/removing relation IDs of its own. Identity
+    // therefore comes from the segment's canonical relation set, never paint.
+    const bucketKeyFor = (mark: HTMLElement) => {
+      const ids = (mark.getAttribute('data-range-ids') || '')
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(Number)
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+      const uniqueIds = ids.filter((id, index) => index === 0 || id !== ids[index - 1]);
+      return uniqueIds.length > 0
+        ? `relations:${uniqueIds.join(',')}`
+        : `segment:${mark.getAttribute('data-fs') ?? ''}:${mark.getAttribute('data-fe') ?? ''}`;
+    };
     const countRelated = (ranges: Array<{ fs: number; fe: number }>) =>
       (relatedStacksRef.current || []).filter((s: any) =>
         (s.topPost?.relations ?? []).some((r: any) =>
@@ -522,19 +694,16 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     const onEnter = () => {
       hoveringRef.current = true;
       el.classList.add('fp-hovering');
-      // Entering the focus post means DIRECT-hover mode (neutral grey), not the
-      // related-card cross-highlight (category colour). Clear any inline
-      // backgroundColor the cross-highlight left on the marks — otherwise that
-      // residue (e.g. after grouping/ungrouping by hovering+clicking a card span)
-      // overrides the .fp-dark grey via inline-beats-CSS, so the span "won't
-      // darken". A real card hover re-paints on its next commit, so this is safe.
-      el.querySelectorAll('mark[data-fs]').forEach((m) => { (m as HTMLElement).style.backgroundColor = ''; });
+      // Direct-hover grey has CSS precedence over retained category colours.
+      // Keep those inline colours underneath so the last reading anchor returns
+      // immediately when the pointer leaves the focus post.
     };
     const onLeave = (e: MouseEvent) => {
       const related = e.relatedTarget as Node | null;
       if (related && el.contains(related)) return;
       hoveringRef.current = false;
-      hoverRangeRef.current = null;
+      hoverRangesRef.current = null;
+      activeBucketKey = null;
       el.classList.remove('fp-hovering');
       clearDark();
       cancelDwell();
@@ -544,20 +713,37 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       latestX = e.clientX; latestY = e.clientY;
       hoveringRef.current = true;
       el.classList.add('fp-hovering');
-      const mark = (e.target as HTMLElement).closest('mark') as HTMLElement | null;
-      if (!mark) { hoverRangeRef.current = null; clearDark(); cancelDwell(); publishFocusHover(null); return; }
-      if (mark.classList.contains('fp-dark')) return; // already the active union
-      clearDark();
+      let mark = (e.target as HTMLElement).closest('mark') as HTMLElement | null;
+      // Treat the line-height space between wrapped fragments as part of the
+      // last mark. Without this bridge, moving vertically through one passage
+      // briefly cleared and re-applied both panes' highlights.
+      if (!mark && latestMark && pointBridgesInlineRects(
+        latestMark.getClientRects(),
+        e.clientX,
+        e.clientY,
+      )) mark = latestMark;
+      if (!mark) {
+        latestMark = null;
+        hoverRangesRef.current = null;
+        activeBucketKey = null;
+        clearDark();
+        cancelDwell();
+        publishFocusHover(null);
+        return;
+      }
+      latestMark = mark;
       const { marks, ranges } = unionFor(mark);
+      const bucketKey = bucketKeyFor(mark);
+      if (bucketKey === activeBucketKey) return;
+      activeBucketKey = bucketKey;
+      clearDark();
       marks.forEach((m) => m.classList.add('fp-dark'));
       // Reverse cross-highlight: the corresponding aside spans light up while
       // this union is under the cursor (the aside dims its other spans).
       publishFocusHover(ranges);
-      // hoverRangeRef = the union's bounding box so a post-commit re-apply
-      // re-darkens the whole union, not just the hovered segment.
-      hoverRangeRef.current = ranges.length
-        ? { fs: Math.min(...ranges.map((r) => r.fs)), fe: Math.max(...ranges.map((r) => r.fe)) }
-        : null;
+      // Preserve the exact union so a post-commit re-apply neither loses a
+      // disjoint member nor darkens unrelated marks inside a min/max envelope.
+      hoverRangesRef.current = ranges.length ? ranges : null;
       cancelDwell();
       dwellTimerRef.current = setTimeout(() => {
         dwellTimerRef.current = null;
@@ -593,8 +779,25 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         tooltipShownByMeRef.current = true;
       }, FOCUS_HOVER_DWELL_MS);
     };
+    const showBeginning = (e: Event) => {
+      // The inline ellipsis is a reading-position control, not a relation span
+      // and not a post-navigation click.
+      e.preventDefault();
+      e.stopPropagation();
+      if ('stopImmediatePropagation' in e) e.stopImmediatePropagation();
+      suppressedRevealKeyRef.current = revealKeyRef.current;
+      lastScrollTargetRef.current = 0;
+      el.scrollTop = 0;
+      setWindowPrefixOffset(null);
+      setIsWindowOffset(false);
+    };
     const onClick = (e: MouseEvent) => {
-      const mark = (e.target as HTMLElement).closest('mark') as HTMLElement | null;
+      const target = e.target as HTMLElement;
+      if (target.closest('.focus-window-prefix')) {
+        showBeginning(e);
+        return;
+      }
+      const mark = target.closest('mark') as HTMLElement | null;
       if (!mark) return; // non-span pixel → let the card-level navigate handler run
       // Filter by the FULL union under the cursor, not the tiny segment: a flat
       // segment is only a slice of its relations' spans, so the passage filter
@@ -637,16 +840,33 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       // interaction, clearing any topic grouping (+ category) in one transition.
       setPassageFilter(span);
     };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.target as HTMLElement).closest('.focus-window-prefix')) return;
+      if (e.key === 'Enter' || e.key === ' ') showBeginning(e);
+    };
+
+    const stopPrefixMouseBoundary = (e: MouseEvent) => {
+      if ((e.target as HTMLElement).closest('.focus-window-prefix')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
 
     el.addEventListener('mouseenter', onEnter);
     el.addEventListener('mouseleave', onLeave);
     el.addEventListener('mousemove', onMove);
+    el.addEventListener('mousedown', stopPrefixMouseBoundary);
+    el.addEventListener('mouseup', stopPrefixMouseBoundary);
     el.addEventListener('click', onClick, true); // capture: before card navigation
+    el.addEventListener('keydown', onKeyDown, true);
     return () => {
       el.removeEventListener('mouseenter', onEnter);
       el.removeEventListener('mouseleave', onLeave);
       el.removeEventListener('mousemove', onMove);
+      el.removeEventListener('mousedown', stopPrefixMouseBoundary);
+      el.removeEventListener('mouseup', stopPrefixMouseBoundary);
       el.removeEventListener('click', onClick, true);
+      el.removeEventListener('keydown', onKeyDown, true);
     };
   }, [rawText]);
 
@@ -670,6 +890,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     // post's card hover (their direct grey hover still works via CSS classes).
     if (!active) { clearFocusCommentBold(el); return; }
     clearFocusCommentBold(el);
+    const marks = Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[];
+    if (!sidebarHoverActive) {
+      // The semantic relation remains retained to hold the excerpt's scroll
+      // position, but cross-highlight colour is strictly live-hover feedback.
+      marks.forEach((mark) => { mark.style.backgroundColor = ''; });
+      return;
+    }
     const level2 = (hoveredRelations && hoveredHighlightRangeIndex != null)
       ? hoveredRelations[hoveredHighlightRangeIndex] : null;
     // Category-badge hover: every hovered-card relation OF THAT CATEGORY gets
@@ -678,7 +905,6 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     const level2Cats = (!level2 && hoveredCategory && hoveredRelations)
       ? hoveredRelations.filter((r) => r.category === hoveredCategory)
       : null;
-    const marks = Array.from(el.querySelectorAll('mark[data-fs]')) as HTMLElement[];
     marks.forEach((m) => {
       const a = parseInt(m.getAttribute('data-fs') || 'NaN', 10);
       const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
@@ -710,19 +936,20 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // Re-apply the DIRECT-hover grey after every commit. Clicking a span re-renders
   // (sets the filter), React re-commits the innerHTML and replaces the mark nodes,
   // wiping the imperatively-set fp-dark — so the span would go light until the next
-  // mousemove. Re-add it from the tracked hover refs. (Skip when a card is hovered:
-  // the cross-highlight owns the marks then.)
+  // mousemove. Re-add it from the tracked hover refs. A retained card anchor may
+  // still exist, but the pointer's direct focus-post hover owns the temporary
+  // presentation.
   useLayoutEffect(() => {
     const el = innerRef.current;
-    if (!el || hoveredRelations || !hoveringRef.current) return;
+    if (!el || !hoveringRef.current) return;
     el.classList.add('fp-hovering');
-    const r = hoverRangeRef.current;
-    if (!r) return;
+    const ranges = hoverRangesRef.current;
+    if (!ranges) return;
     el.querySelectorAll('mark[data-fs]').forEach((mark) => {
       const m = mark as HTMLElement;
       const a = parseInt(m.getAttribute('data-fs') || 'NaN', 10);
       const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
-      if (a < r.fe && r.fs < b && !m.classList.contains('fp-dark')) {
+      if (ranges.some((r) => a < r.fe && r.fs < b) && !m.classList.contains('fp-dark')) {
         // Apply WITHOUT the 150ms fade: this mark was just re-committed (e.g. by a
         // span click setting the filter); transitioning from faint → dark reads as
         // a blink. Suppress the transition for this instant re-apply, then restore.
@@ -802,15 +1029,42 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       }
     : style;
 
+  const focusPlainText = stripHtml(rawText);
+  const prefixWordLength = windowPrefixOffset !== null
+    ? (focusPlainText.slice(windowPrefixOffset).match(/^\S+/)?.[0].length ?? 1)
+    : 0;
+  const renderedHtml = isWindowOffset && windowPrefixOffset !== null
+    ? renderMultiHighlightHtml(
+        displayText,
+        focusPlainText,
+        focusRelations ?? [],
+        isFocusCategory,
+        {
+          plainOffset: windowPrefixOffset,
+          // Keep the ellipsis and the remainder of the first visible word as
+          // one inline unit. Otherwise the glyph can fit at the hidden end of
+          // the preceding line while the word itself wraps into the viewport.
+          html: '<span class="focus-window-prefix-group"><span class="focus-window-prefix" role="button" tabindex="0" aria-label="Show beginning of post" title="Show beginning of post">… </span>',
+          closeOffset: windowPrefixOffset + prefixWordLength,
+          closeHtml: '</span>',
+        },
+      )
+    : html;
+
   return (
     <div
-      ref={setRefs}
-      id={containerIdRef.current}
-      data-testid="focus-reveal"
-      className={className}
-      style={mergedStyle}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+      className="focus-reveal-shell"
+      data-focus-window-offset={isWindowOffset ? 'true' : 'false'}
+    >
+      <div
+        ref={setRefs}
+        id={containerIdRef.current}
+        data-testid="focus-reveal"
+        className={className}
+        style={mergedStyle}
+        dangerouslySetInnerHTML={{ __html: renderedHtml }}
+      />
+    </div>
   );
 });
 
@@ -1095,7 +1349,11 @@ function Post({
   const handleNavigateToUser = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!account) return;
-    const url = `/user/${account}`;
+    const profileHandle = account.trim().replace(/^@/, '');
+    const mastodonSource = accountId
+      ? `?source=mastodon&id=${encodeURIComponent(accountId)}`
+      : '';
+    const url = `/user/${encodeURIComponent(profileHandle)}${mastodonSource}`;
     router.push(url);
   };
 

@@ -139,3 +139,98 @@ export function createAlignedWordDiffWindow(original, revised, maxOriginalChars 
     hasSuffix: originalEnd < original.length,
   };
 }
+
+/**
+ * Build tracked changes for the exact slice of REVISED text that is currently
+ * visible. Insertions that touch the slice and deletions anchored inside it are
+ * kept whole: the provenance view may grow to show the complete edit, while an
+ * edit elsewhere in a collapsed card does not leak into this window.
+ */
+export function createWordDiffForRevisedRange(
+  original,
+  revised,
+  revisedStart = 0,
+  revisedEnd = revised.length,
+  precomputedDiff,
+) {
+  const start = Math.max(0, Math.min(revised.length, revisedStart));
+  const end = Math.max(start, Math.min(revised.length, revisedEnd));
+  const diff = precomputedDiff ?? createWordDiff(original, revised);
+  const entries = [];
+  let revisedOffset = 0;
+
+  for (const chunk of diff) {
+    const chunkStart = revisedOffset;
+    const chunkEnd = chunk.kind === "delete"
+      ? chunkStart
+      : chunkStart + chunk.text.length;
+    entries.push({ chunk, start: chunkStart, end: chunkEnd });
+    revisedOffset = chunkEnd;
+  }
+
+  const selectedChanges = new Set();
+  entries.forEach((entry, index) => {
+    if (entry.chunk.kind === "equal") return;
+    const selected = entry.chunk.kind === "delete"
+      // A deletion has zero revised width, so attach it to the content that
+      // follows. At the document end it belongs to the fully-expanded range.
+      ? entry.start >= start
+        && (entry.start < end || (end === revised.length && entry.start === end))
+      : Math.min(end, entry.end) > Math.max(start, entry.start);
+    if (selected) selectedChanges.add(index);
+  });
+
+  // A replacement is normally an adjacent delete+insert pair. If a long
+  // insertion only partly intersects the window, retain its paired removal too
+  // so the expanded provenance view still explains the whole change.
+  for (const selectedIndex of Array.from(selectedChanges)) {
+    for (let index = selectedIndex - 1; index >= 0 && entries[index].chunk.kind !== "equal"; index--) {
+      selectedChanges.add(index);
+    }
+    for (let index = selectedIndex + 1; index < entries.length && entries[index].chunk.kind !== "equal"; index++) {
+      selectedChanges.add(index);
+    }
+  }
+
+  const chunks = [];
+  entries.forEach((entry, index) => {
+    if (entry.chunk.kind !== "equal") {
+      if (selectedChanges.has(index)) chunks.push(entry.chunk);
+      return;
+    }
+    const visibleStart = Math.max(start, entry.start);
+    const visibleEnd = Math.min(end, entry.end);
+    if (visibleEnd <= visibleStart) return;
+    chunks.push({
+      kind: entry.chunk.kind,
+      text: entry.chunk.text.slice(visibleStart - entry.start, visibleEnd - entry.start),
+    });
+  });
+
+  return {
+    chunks: compact(chunks),
+    hasChanges: selectedChanges.size > 0,
+    revisedStart: start,
+    revisedEnd: end,
+    hasPrefix: start > 0,
+    hasSuffix: end < revised.length,
+  };
+}
+
+/**
+ * Keep a removed phrase struck through, but reserve its tinted fill for only
+ * the interior words. Quiet first/last words make long removals less blocky.
+ */
+export function splitDeletionForSubtleHighlight(text) {
+  const words = Array.from(text.matchAll(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu));
+  if (words.length < 3) return { leading: text, middle: "", trailing: "" };
+
+  const middleStart = words[1].index;
+  const penultimate = words[words.length - 2];
+  const middleEnd = penultimate.index + penultimate[0].length;
+  return {
+    leading: text.slice(0, middleStart),
+    middle: text.slice(middleStart, middleEnd),
+    trailing: text.slice(middleEnd),
+  };
+}

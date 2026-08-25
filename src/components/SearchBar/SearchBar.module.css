@@ -1,0 +1,161 @@
+.searchCard {
+  border: 1px solid #aebdca;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(28, 43, 74, 0.08);
+}
+
+.filterBar {
+  display: flex;
+  gap: 6px;
+  margin: -6px 0 18px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.filterBar::-webkit-scrollbar {
+  display: none;
+}
+
+.filterButton {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px solid #d8e0ea;
+  border-radius: 999px;
+  color: #526174;
+  background: #f7f9fc;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.filterButton:hover {
+  color: #1c2b4a;
+  border-color: #9baec3;
+  background: #eef3f8;
+}
+
+.filterButton[data-active="true"] {
+  color: #fff;
+  border-color: #1c2b4a;
+  background: #1c2b4a;
+}
+
+.filterButton:focus-visible,
+.entityButton:focus-visible {
+  outline: 3px solid rgba(69, 169, 158, 0.3);
+  outline-offset: 2px;
+}
+
+.discoveryGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid #d6dee8;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(28, 43, 74, 0.06);
+}
+
+.discoveryColumn {
+  min-width: 0;
+  padding: 12px;
+}
+
+.discoveryColumn + .discoveryColumn {
+  border-left: 1px solid #e2e8f0;
+}
+
+.columnTitle {
+  margin: 0 0 6px;
+  color: #59697c;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.015em;
+}
+
+.entityList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.entityButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 7px;
+  color: #17233b;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.entityButton:hover {
+  background: #eef8f6;
+}
+
+.entityText {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entityHandle {
+  margin-left: 4px;
+  color: #7a8798;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.hashIcon {
+  display: grid;
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 7px;
+  color: #285f79;
+  background: #e8f3f8;
+}
+
+.fullResults {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 520px) {
+  .discoveryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .discoveryColumn + .discoveryColumn {
+    border-top: 1px solid #e2e8f0;
+    border-left: 0;
+  }
+
+  .fullResults {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filterButton,
+  .entityButton {
+    transition: none;
+  }
+}
