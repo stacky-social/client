@@ -32,6 +32,7 @@ export default function AiModifiedDisclosure({
     <span
       className="ai-edit-disclosure"
       data-ai-edit
+      data-ai-edit-active={active ? "true" : "false"}
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => {
         lastPointerTypeRef.current = event.pointerType;
@@ -70,8 +71,8 @@ export default function AiModifiedDisclosure({
         Modified by AI
       </button>
       <span id={descriptionId} className="ai-edit-sr-only">
-        This post shows the edited wording by default. Hover or focus to reveal
-        additions and removals directly in place.
+        This visible section includes edited wording. Hover or focus to reveal
+        its additions and removals while keeping relationship highlights visible.
         {editSummary ? ` ${editSummary}` : ""}
       </span>
     </span>

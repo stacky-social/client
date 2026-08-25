@@ -38,7 +38,12 @@ import type {
   RelatedPostMock,
   Relation,
 } from "../types/PostType";
-import { getMockFocusRelations, getMockRelatedStacks, getMockReplyCount } from "./mockPostResolver";
+import {
+  getMockFocusRelations,
+  getMockReplyParentId,
+  getMockRelatedStacks,
+  getMockReplyCount,
+} from "./mockPostResolver";
 import { resolveReplyCount } from "./replyCount.mjs";
 import { normalizeHashtag } from "../data/hashtagCatalog";
 
@@ -172,7 +177,10 @@ function mockToPost(p: FocusPostMock | RelatedPostMock): Post {
     media_attachments: [],
     relatedStacks: [],
     focusRelations: [],
-    in_reply_to_id: p.inReplyToId ?? null,
+    // Focus posts remain standalone timeline cards. Only ids explicitly used
+    // as replies inherit canonical graph parentage; this also repairs dual-role
+    // posts whose first fixture copy is a parentless related response.
+    in_reply_to_id: getMockReplyParentId(p.id) ?? p.inReplyToId ?? null,
   };
 }
 
@@ -354,7 +362,6 @@ function load(): LocalState {
         ...persistedPost,
         replies_count: resolveReplyCount(
           seededPost.replies_count,
-          0,
           (persistedComments[id] ?? []).filter((comment) => comment.in_reply_to_id === id).length,
         ),
         relatedStacks: seededPost.relatedStacks,
@@ -516,8 +523,11 @@ function readPost(id: string): Post | undefined {
 /** All posts authored by a given acct, newest first. */
 function postsByAcct(acct: string): Post[] {
   ensureHydrated();
+  const normalized = acct.trim().replace(/^@/, "").toLowerCase();
   return Object.values(state.posts)
-    .filter((p) => p.account.acct === acct)
+    .filter(
+      (p) => p.account.acct.trim().replace(/^@/, "").toLowerCase() === normalized,
+    )
     .sort(byNewest);
 }
 
@@ -631,7 +641,24 @@ export function getLiked(): Post[] {
  */
 export function getUserProfile(acct: string): Account {
   ensureHydrated();
-  return state.accounts[acct] ?? defaultAccountFor(acct);
+  const normalized = acct.trim().replace(/^@/, "").toLowerCase();
+  const known = Object.values(state.accounts).find(
+    (account) => account.acct.trim().replace(/^@/, "").toLowerCase() === normalized,
+  );
+  return known ?? defaultAccountFor(acct);
+}
+
+/**
+ * Whether an account is part of the local/demo data set. Profile routes use
+ * this to distinguish an intentionally local profile from an unknown Mastodon
+ * handle that should be resolved through `/api/v1/accounts/lookup`.
+ */
+export function hasUserProfile(acct: string): boolean {
+  ensureHydrated();
+  const normalized = acct.trim().replace(/^@/, "").toLowerCase();
+  return Object.keys(state.accounts).some(
+    (knownAcct) => knownAcct.trim().replace(/^@/, "").toLowerCase() === normalized,
+  );
 }
 
 /**
@@ -641,6 +668,44 @@ export function getUserProfile(acct: string): Account {
  */
 export function getUserPosts(acct: string): Post[] {
   return memoized("userPosts:" + acct, () => postsByAcct(acct));
+}
+
+/** A compact, deterministic people-discovery list for an empty search page. */
+export function getSuggestedAccounts(limit = 3): Account[] {
+  ensureHydrated();
+  const currentAcct = state.me.acct.toLowerCase();
+  return Object.values(state.accounts)
+    .filter((account) => account.acct.toLowerCase() !== currentAcct)
+    .sort((left, right) =>
+      right.followers_count - left.followers_count
+      || right.statuses_count - left.statuses_count
+      || left.display_name.localeCompare(right.display_name)
+    )
+    .slice(0, Math.max(0, limit));
+}
+
+/**
+ * Posts for an entity-selected hashtag. The curated #ChineseEVs feed is
+ * represented by its focus posts; ordinary tags fall back to literal content
+ * matching. This gives search entity filters a real source collection instead
+ * of narrowing whatever happened to be returned for the previous text query.
+ */
+export function getHashtagPosts(tag: string): Post[] {
+  ensureHydrated();
+  const normalized = tag.trim().replace(/^#/, "").toLowerCase();
+  if (!normalized) return [];
+
+  if (normalized === "chineseevs") {
+    const focusIds = new Set(entries.map((entry) => entry.focusPost.id));
+    return Object.values(state.posts)
+      .filter((post) => focusIds.has(post.id))
+      .sort(byNewest);
+  }
+
+  const token = `#${normalized}`;
+  return Object.values(state.posts)
+    .filter((post) => post.content.replace(/<[^>]*>/g, " ").toLowerCase().includes(token))
+    .sort(byNewest);
 }
 
 /**
@@ -658,7 +723,7 @@ export function getPost(id: string): Post | undefined {
  *
  * REST: POST /api/v1/statuses  ({ status })
  */
-export function createPost(text: string): Post {
+export function createPost(text: string, relatedStacks: any[] = []): Post {
   ensureHydrated();
   const me = state.me;
   const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -668,12 +733,12 @@ export function createPost(text: string): Post {
     account: { username: me.display_name, acct: me.acct, avatar: me.avatar },
     replies_count: 0,
     created_at: new Date().toISOString(),
-    stackCount: null,
+    stackCount: relatedStacks.length > 0 ? relatedStacks.length : null,
     favourites_count: 0,
     favourited: false,
     bookmarked: false,
     media_attachments: [],
-    relatedStacks: [],
+    relatedStacks,
     focusRelations: [],
     in_reply_to_id: null,
   };

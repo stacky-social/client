@@ -11,7 +11,7 @@ import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import { notifications } from '@mantine/notifications';
 import { copyLink } from '../utils/share';
 import { useRelatedStacks } from '../app/(shell)/related-stacks-context';
-import { setHoveredSidebarPost, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, setCategoryFilter, activateAsideTopic, clearTopicInteraction, clearResponseFilter, setPanelFocus, savePanelScroll, getPanelScroll, useHighlightStore, topicKeyOf, asideGrouping, asideTopicFilter, relationsMatchTopic, resolveReplyTopicKey, beginPanelInteraction, setPanelBaseOrder, currentPanelScope, beginUndoablePanelInteractionIfDetail } from '../utils/highlightStore';
+import { setHoveredSidebarPost, setSidebarHoverActive, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, setCategoryFilter, activateAsideTopic, clearTopicInteraction, clearResponseFilter, setPanelFocus, savePanelViewport, getPanelViewport, useHighlightStore, topicKeyOf, asideGrouping, asideTopicFilter, relationsMatchTopic, resolveReplyTopicKey, beginPanelInteraction, setPanelBaseOrder, currentPanelScope, beginUndoablePanelInteractionIfDetail, type PanelViewportSnapshot } from '../utils/highlightStore';
 import FilterByChip from './FilterByChip';
 import { useExperimentFlags } from '../utils/experimentFlags';
 import { reorderForAnchor } from '../utils/reorderForAnchor';
@@ -19,7 +19,12 @@ import type { Relation } from '../types/PostType';
 import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
 import { showUndoableAction } from '../utils/actionNotifications';
 import AiModifiedDisclosure from './AiModifiedDisclosure';
-import { createAlignedWordDiffWindow, createWordDiff } from '../utils/wordDiff.mjs';
+import {
+  createWordDiff,
+  createWordDiffForRevisedRange,
+  splitDeletionForSubtleHighlight,
+} from '../utils/wordDiff.mjs';
+import { pointBridgesInlineRects } from '../utils/inlineHighlightGeometry.mjs';
 import { getPost, useHydrated, useLocalStore } from '../utils/localStore';
 import { RELATED_POSTS_API_URL } from '../utils/mastodonApi';
 import { extractMastodonLinks, mastodonLinkHost, normalizeMastodonText, resolveMastodonRevision } from '../utils/mastodonContent.mjs';
@@ -34,6 +39,7 @@ interface PostType {
   bookmarked: boolean;
   content: string;
   account: {
+    id?: string;
     avatar: string;
     display_name: string;
     acct?: string;
@@ -124,6 +130,8 @@ interface RelatedStacksProps {
   mode?: 'aside-only' | 'detail-cross-pane';
   /** Expand legacy grouped results into one modern related-post card per post. */
   expandGroups?: boolean;
+  /** Context-specific panel heading, e.g. live matches for a composer draft. */
+  heading?: string;
 }
 
 // ─── Category colors ─────────────────────────────────────────────────────────
@@ -324,6 +332,7 @@ function FilterChip({ category, count, active, previewActive, previewDim, onClic
   const colors = getCategoryColors(category);
   const label = CATEGORY_LABELS[category] ?? category;
   const isLit = active || previewActive;
+  const quietBackground = hexToRgba(colors.bg, 0.58);
   return (
     <button
       onClick={onClick}
@@ -333,17 +342,17 @@ function FilterChip({ category, count, active, previewActive, previewDim, onClic
       aria-pressed={active}
       style={{
         display: "inline-flex", alignItems: "center", gap: "4px",
-        background: isLit ? colors.bg : "#f8f9fa",
-        border: `1.5px solid ${isLit ? colors.border : "#e2e8f0"}`,
+        background: isLit ? colors.bg : quietBackground,
+        border: `1.5px solid ${isLit ? colors.border : colors.bg}`,
         borderRadius: "16px", padding: "3px 10px 3px 7px",
         cursor: "pointer", transition: "all 150ms ease", outline: "none", flexShrink: 0,
         opacity: previewDim ? 0.5 : 1,
         filter: previewDim ? "grayscale(0.4)" : "none",
       }}
     >
-      {React.cloneElement(iconMapping[category] ?? iconMapping['default'], { color: isLit ? colors.text : "#64748b", size: 13 })}
-      <Text className="related-chip-text" size="xs" fw={600} c={isLit ? colors.text : "#64748b"} style={{ fontSize: "11px", lineHeight: 1, whiteSpace: "nowrap" }}>{label}</Text>
-      <Text size="xs" c={isLit ? colors.text : "#94a3b8"} style={{ fontSize: "10px", lineHeight: 1 }}>{count}</Text>
+      {React.cloneElement(iconMapping[category] ?? iconMapping['default'], { color: colors.text, size: 13, opacity: isLit ? 1 : 0.72 })}
+      <Text className="related-chip-text" size="xs" fw={600} c={colors.text} style={{ fontSize: "11px", lineHeight: 1, whiteSpace: "nowrap", opacity: isLit ? 1 : 0.82 }}>{label}</Text>
+      <Text size="xs" c={colors.text} style={{ fontSize: "10px", lineHeight: 1, opacity: isLit ? 0.88 : 0.58 }}>{count}</Text>
     </button>
   );
 }
@@ -628,11 +637,21 @@ function buildMultiHighlightNodes(
           <mark
             data-overlap-bands={cats.length}
             data-overlap-range-ids={cats.map(c => c.rangeIndex).join(',')}
+            data-continuous-inline-highlight
             tabIndex={-1}
             onMouseMove={(e) => overlapHover(e.clientX, e.clientY, e.currentTarget as HTMLElement)}
-            onMouseLeave={() => { opts.onRangeHover(null); cancelCardTooltip(); }}
+            onMouseLeave={(e) => {
+              if (pointBridgesInlineRects(e.currentTarget.getClientRects(), e.clientX, e.clientY)) return;
+              opts.onRangeHover(null);
+              cancelCardTooltip();
+            }}
             onPointerMove={(e) => { if (e.pointerType === 'mouse') overlapHover(e.clientX, e.clientY, e.currentTarget as HTMLElement); }}
-            onPointerLeave={(e) => { if (e.pointerType === 'mouse') { opts.onRangeHover(null); cancelCardTooltip(); } }}
+            onPointerLeave={(e) => {
+              if (e.pointerType !== 'mouse') return;
+              if (pointBridgesInlineRects(e.currentTarget.getClientRects(), e.clientX, e.clientY)) return;
+              opts.onRangeHover(null);
+              cancelCardTooltip();
+            }}
             onClick={(e) => {
               if (!opts.onRangeClick) return;
               const bandIdx = bandIdxAt(e.currentTarget as HTMLElement, e.clientY);
@@ -729,6 +748,7 @@ function buildMultiHighlightNodes(
         <span key={`r${c.rangeIndex}-${seg.start}`} style={{ position: 'relative', display: 'inline' }}>
           <mark
             data-range-id={c.rangeIndex}
+            data-continuous-inline-highlight
             tabIndex={-1}
             onMouseEnter={(e) => {
               opts.onRangeHover(c.rangeIndex);
@@ -740,7 +760,11 @@ function buildMultiHighlightNodes(
                 y: e.clientY,
               });
             }}
-            onMouseLeave={() => { opts.onRangeHover(null); cancelCardTooltip(); }}
+            onMouseLeave={(e) => {
+              if (pointBridgesInlineRects(e.currentTarget.getClientRects(), e.clientX, e.clientY)) return;
+              opts.onRangeHover(null);
+              cancelCardTooltip();
+            }}
             onPointerEnter={(e) => {
               if (e.pointerType !== 'mouse') return;
               opts.onRangeHover(c.rangeIndex);
@@ -752,7 +776,12 @@ function buildMultiHighlightNodes(
                 y: e.clientY,
               });
             }}
-            onPointerLeave={(e) => { if (e.pointerType === 'mouse') { opts.onRangeHover(null); cancelCardTooltip(); } }}
+            onPointerLeave={(e) => {
+              if (e.pointerType !== 'mouse') return;
+              if (pointBridgesInlineRects(e.currentTarget.getClientRects(), e.clientX, e.clientY)) return;
+              opts.onRangeHover(null);
+              cancelCardTooltip();
+            }}
             onClick={(e) => {
               if (!opts.onRangeClick) return;
               e.stopPropagation();
@@ -828,9 +857,10 @@ function remapRelationsToRewrite(
   original: string,
   revised: string,
   relations: Relation[] | undefined,
+  precomputedChunks?: ReturnType<typeof createWordDiff>,
 ): Relation[] | undefined {
   if (!relations || original === revised) return relations;
-  const chunks = createWordDiff(original, revised);
+  const chunks = precomputedChunks ?? createWordDiff(original, revised);
   const remapRange = (start: number, end: number) => {
     const nextStart = mapRewriteBoundary(chunks, start, 'start');
     let nextEnd = mapRewriteBoundary(chunks, end, 'end');
@@ -864,11 +894,23 @@ function windowContent(
   expanded: boolean,
   preferredBounds?: { start: number; end: number },
 ): {
-  text: string; adjustedRelations: Relation[] | undefined; hasPrefix: boolean; hasSuffix: boolean;
+  text: string;
+  adjustedRelations: Relation[] | undefined;
+  hasPrefix: boolean;
+  hasSuffix: boolean;
+  start: number;
+  end: number;
 } {
   const totalChars = WINDOW_CHARS * 2;
   if (expanded || plain.length <= totalChars) {
-    return { text: plain, adjustedRelations: relations, hasPrefix: false, hasSuffix: false };
+    return {
+      text: plain,
+      adjustedRelations: relations,
+      hasPrefix: false,
+      hasSuffix: false,
+      start: 0,
+      end: plain.length,
+    };
   }
   const first = relations?.[0];
   const hasCommentRange = !!first
@@ -896,14 +938,30 @@ function windowContent(
     contentCommentStart: Math.max(0, r.contentCommentStart - start),
     contentCommentEnd: Math.min(text.length, r.contentCommentEnd - start),
   })).filter(r => r.contentEnd > 0 && r.contentStart < text.length);
-  return { text, adjustedRelations, hasPrefix: start > 0, hasSuffix: end < plain.length };
+  return {
+    text,
+    adjustedRelations,
+    hasPrefix: start > 0,
+    hasSuffix: end < plain.length,
+    start,
+    end,
+  };
 }
 
 // ─── offsetTop utility (immune to CSS transforms) ──────────────────────────
-// Walks the offsetParent chain to compute the element's absolute vertical
-// position in the document. Unlike getBoundingClientRect(), this is NOT
-// affected by CSS transforms (e.g. framer-motion FLIP animations), so it
-// always returns the element's true resting DOM position.
+// FLIP transitions temporarily translate related cards. Viewport snapshots
+// must use the card's resting position or a quick click on "more" can capture
+// an in-between frame and jump once the transition finishes.
+function restingViewportTop(element: HTMLElement): number {
+  const top = element.getBoundingClientRect().top;
+  const transform = window.getComputedStyle(element).transform;
+  if (!transform || transform === 'none') return top;
+  try {
+    return top - new DOMMatrixReadOnly(transform).m42;
+  } catch {
+    return top;
+  }
+}
 
 // ─── "More like this" word overlap scoring ──────────────────────────────────
 
@@ -927,7 +985,7 @@ function similarityScore(textA: string, textB: string): number {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRelatedStacks, cardWidth = "100%", onStackClick, showupdate, onOpenModalWithStackId, onPostNavigate, sourcePostId, highlightPostId, mode = 'aside-only', expandGroups = false }) => {
+const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRelatedStacks, cardWidth = "100%", onStackClick, showupdate, onOpenModalWithStackId, onPostNavigate, sourcePostId, highlightPostId, mode = 'aside-only', expandGroups = false, heading = 'Related posts' }) => {
   const expansionKey = useMemo(
     () => sourceRelatedStacks.map((stack) => `${stack.stackId}:${stack.size}:${stack.topPost.id}`).join('|'),
     [sourceRelatedStacks],
@@ -978,7 +1036,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // share-a-pairing link always anchors on the focus post even if a given aside
   // forgot to thread the sourcePostId prop (which is what produced the "share
   // opens the related post instead of the pairing" bug).
-  const { activePostId: ctxActivePostId } = useRelatedStacks();
+  const { activePostId: ctxActivePostId, setHighlightPostId } = useRelatedStacks();
   const localHydrated = useHydrated();
   const localPosts = useLocalStore((snapshot) => snapshot.posts);
   const localFocusId = sourcePostId ?? ctxActivePostId;
@@ -999,18 +1057,43 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // activate the card intentionally.
   const panelScrollingRef = useRef(false);
   const panelScrollEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const highlightPostIdRef = useRef<string | null>(highlightPostId ?? null);
+  const highlightScrollBaselineRef = useRef<number | null>(null);
+  const programmaticHighlightScrollRef = useRef(false);
+  const highlightScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  highlightPostIdRef.current = highlightPostId ?? null;
   // Shared-pairing highlight: scroll the emphasised card into view when arriving
   // via a …?related={id} link (or when the highlight target changes).
   const highlightCardRef = useRef<HTMLDivElement | null>(null);
+  const revealedHighlightRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!highlightPostId) return;
+    if (!highlightPostId) {
+      revealedHighlightRef.current = null;
+      highlightScrollBaselineRef.current = null;
+      programmaticHighlightScrollRef.current = false;
+      return;
+    }
+    const revealKey = `${sourcePostId ?? ctxActivePostId ?? ''}:${highlightPostId}`;
+    if (revealedHighlightRef.current === revealKey) return;
     const el = highlightCardRef.current;
     if (!el) return;
     const t = setTimeout(() => {
+      revealedHighlightRef.current = revealKey;
+      programmaticHighlightScrollRef.current = true;
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (highlightScrollTimerRef.current) clearTimeout(highlightScrollTimerRef.current);
+      highlightScrollTimerRef.current = setTimeout(() => {
+        const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+        highlightScrollBaselineRef.current = aside?.scrollTop ?? null;
+        programmaticHighlightScrollRef.current = false;
+        highlightScrollTimerRef.current = null;
+      }, 220);
     }, 150);
-    return () => clearTimeout(t);
-  }, [highlightPostId, relatedStacks]);
+    return () => {
+      clearTimeout(t);
+      if (highlightScrollTimerRef.current) clearTimeout(highlightScrollTimerRef.current);
+    };
+  }, [highlightPostId, relatedStacks, sourcePostId, ctxActivePostId]);
   const [stackPostsModalOpen, setStackPostsModalOpen] = useState(false);
   const [favouritedOverride, setFavouritedOverride] = useState<Record<string, boolean>>({});
   const [bookmarkedOverride, setBookmarkedOverride] = useState<Record<string, boolean>>({});
@@ -1119,24 +1202,37 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // Per-card expanded state, keyed by stackId
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const [visibleCardCount, setVisibleCardCount] = useState(RELATED_PAGE_SIZE);
+  const visibleCardCountRef = useRef(RELATED_PAGE_SIZE);
+  const panelFocusIdRef = useRef<string | null>(null);
+  const restoringPanelScrollRef = useRef(false);
+  const pendingViewportRestoreRef = useRef<PanelViewportSnapshot | null>(null);
+  const pendingViewportFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hadSavedViewportForFocusRef = useRef(false);
+  const [viewportRestoreEpoch, setViewportRestoreEpoch] = useState(0);
+  useEffect(() => () => {
+    if (pendingViewportFallbackTimerRef.current) {
+      clearTimeout(pendingViewportFallbackTimerRef.current);
+    }
+  }, []);
   const [activeAiEditPostId, setActiveAiEditPostId] = useState<string | null>(null);
   const aiDiffByPostId = useMemo(() => {
     const diffs = new Map<string, {
-      collapsed: ReturnType<typeof createAlignedWordDiffWindow>;
-      expanded: ReturnType<typeof createAlignedWordDiffWindow>;
+      originalContent: string;
       revisedContent: string;
       revisedRelations: Relation[] | undefined;
+      chunks: ReturnType<typeof createWordDiff>;
     }>();
     for (const stack of relatedStacks) {
       const rewrite = stack.topPost.rewrite;
       if (!rewrite?.significant || !rewrite.content) continue;
       const original = relatedCardText(stack.topPost, stack.topPost.content || '');
       const revised = relatedCardText(stack.topPost, rewrite.content);
+      const chunks = createWordDiff(original, revised);
       diffs.set(stack.topPost.id, {
-        collapsed: createAlignedWordDiffWindow(original, revised, WINDOW_CHARS * 2),
-        expanded: createAlignedWordDiffWindow(original, revised, original.length),
+        originalContent: original,
         revisedContent: revised,
-        revisedRelations: remapRelationsToRewrite(original, revised, stack.topPost.relations),
+        revisedRelations: remapRelationsToRewrite(original, revised, stack.topPost.relations, chunks),
+        chunks,
       });
     }
     return diffs;
@@ -1554,16 +1650,23 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // they originally sat beyond the first ten results.
   const paginationResetKey = useMemo(() => [
     sourcePostId ?? ctxActivePostId ?? '',
-    relatedStacks.map((stack) => stack.topPost.id).join(','),
     Array.from(filterCategories).sort().join(','),
     responseFilter ? `${responseFilter.start}:${responseFilter.end}` : '',
     asideTopicFilterKey ?? '',
     grouping ? `${grouping.anchor.postId}:${grouping.anchor.rangeIndex}` : '',
-  ].join('|'), [sourcePostId, ctxActivePostId, relatedStacks, filterCategories, responseFilter, asideTopicFilterKey, grouping]);
+  ].join('|'), [sourcePostId, ctxActivePostId, filterCategories, responseFilter, asideTopicFilterKey, grouping]);
 
+  const paginationFocusRef = useRef<string | null>(null);
   useEffect(() => {
-    setVisibleCardCount(RELATED_PAGE_SIZE);
-  }, [paginationResetKey]);
+    const focusId = sourcePostId ?? ctxActivePostId ?? null;
+    const focusChanged = paginationFocusRef.current !== focusId;
+    paginationFocusRef.current = focusId;
+    if (!focusChanged && (restoringPanelScrollRef.current || pendingViewportRestoreRef.current)) return;
+    const restoredCount = focusChanged ? getPanelViewport(focusId)?.visibleCardCount : null;
+    const nextCount = restoredCount ? Math.max(RELATED_PAGE_SIZE, restoredCount) : RELATED_PAGE_SIZE;
+    visibleCardCountRef.current = nextCount;
+    setVisibleCardCount(nextCount);
+  }, [paginationResetKey, sourcePostId, ctxActivePostId]);
 
   const activeAnchorIdForPagination = grouping?.anchor.postId ?? null;
   const minimumCountForActiveGroup = useMemo(() => {
@@ -1577,12 +1680,131 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     });
     return lastGroupIndex + 1;
   }, [activeAnchorIdForPagination, claimedBy, displayStacks]);
-  const effectiveVisibleCardCount = Math.max(visibleCardCount, minimumCountForActiveGroup);
+  const minimumCountForSharedHighlight = useMemo(() => {
+    if (!highlightPostId) return 0;
+    const index = displayStacks.findIndex((stack) => stack.topPost.id === highlightPostId);
+    return index + 1;
+  }, [displayStacks, highlightPostId]);
+  useEffect(() => {
+    if (minimumCountForSharedHighlight <= 0) return;
+    setVisibleCardCount((current) => Math.max(current, minimumCountForSharedHighlight));
+  }, [minimumCountForSharedHighlight]);
+  const effectiveVisibleCardCount = Math.max(
+    visibleCardCount,
+    minimumCountForActiveGroup,
+    minimumCountForSharedHighlight,
+  );
+  visibleCardCountRef.current = effectiveVisibleCardCount;
   const visibleDisplayStacks = useMemo(
     () => displayStacks.slice(0, effectiveVisibleCardCount),
     [displayStacks, effectiveVisibleCardCount],
   );
   const remainingCardCount = Math.max(0, displayStacks.length - visibleDisplayStacks.length);
+
+  const capturePanelViewport = React.useCallback((allowDuringRestore = false): PanelViewportSnapshot | null => {
+    const renderedFocusId = sourcePostId ?? ctxActivePostId ?? null;
+    const focusId = panelFocusIdRef.current;
+    // During a dynamic-route transition React can briefly render the incoming
+    // focus while the outgoing pane is still mounted. Never let that transient
+    // DOM overwrite the viewport we synchronously captured before navigation.
+    if (
+      !focusId
+      || focusId !== renderedFocusId
+      || (restoringPanelScrollRef.current && !allowDuringRestore)
+    ) return null;
+    const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+    if (!aside) return null;
+    const header = aside.querySelector('[data-testid="related-sticky-header"]') as HTMLElement | null;
+    const contentTop = header?.getBoundingClientRect().bottom ?? aside.getBoundingClientRect().top;
+    const cards = Array.from(aside.querySelectorAll('[data-related-card]')) as HTMLElement[];
+    const anchor = cards.find((card) => restingViewportTop(card) + card.offsetHeight > contentTop + 1) ?? null;
+    const snapshot: PanelViewportSnapshot = {
+      scrollTop: aside.scrollTop,
+      anchorPostId: anchor?.querySelector('[data-post-id]')?.getAttribute('data-post-id') ?? null,
+      anchorOffset: anchor ? restingViewportTop(anchor) - contentTop : 0,
+      visibleCardCount: visibleCardCountRef.current,
+    };
+    savePanelViewport(focusId, snapshot);
+    return snapshot;
+  }, [sourcePostId, ctxActivePostId]);
+
+  // Restore after pagination has rendered enough cards to include the semantic
+  // anchor. The card + offset wins over raw pixels and therefore survives card
+  // height changes and pane resizing; raw scrollTop is the defensive fallback.
+  useLayoutEffect(() => {
+    const pending = pendingViewportRestoreRef.current;
+    if (!pending) return;
+    const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+    if (!aside) return;
+    restoringPanelScrollRef.current = true;
+    const header = aside.querySelector('[data-testid="related-sticky-header"]') as HTMLElement | null;
+    const contentTop = header?.getBoundingClientRect().bottom ?? aside.getBoundingClientRect().top;
+    const anchor = pending.anchorPostId
+      ? aside.querySelector(`[data-related-card] [data-post-id="${pending.anchorPostId}"]`)?.closest('[data-related-card]') as HTMLElement | null
+      : null;
+    // App Router can mount the returning route while the previous focus's data
+    // is still in context. Preserve the semantic request until the matching
+    // cards arrive; applying and clearing it against stale data is what used to
+    // collapse a restored 20-card pane back to an unrelated pixel position.
+    if (pending.anchorPostId && !anchor) {
+      aside.scrollTop = pending.scrollTop;
+      if (!pendingViewportFallbackTimerRef.current) {
+        pendingViewportFallbackTimerRef.current = setTimeout(() => {
+          pendingViewportFallbackTimerRef.current = null;
+          const stillPending = pendingViewportRestoreRef.current;
+          if (!stillPending) return;
+          pendingViewportRestoreRef.current = { ...stillPending, anchorPostId: null };
+          setViewportRestoreEpoch((current) => current + 1);
+        }, 1000);
+      }
+      return;
+    }
+    if (pendingViewportFallbackTimerRef.current) {
+      clearTimeout(pendingViewportFallbackTimerRef.current);
+      pendingViewportFallbackTimerRef.current = null;
+    }
+    if (anchor) {
+      aside.scrollTop += restingViewportTop(anchor) - contentTop - pending.anchorOffset;
+    } else {
+      aside.scrollTop = pending.scrollTop;
+    }
+    pendingViewportRestoreRef.current = null;
+    requestAnimationFrame(() => {
+      restoringPanelScrollRef.current = false;
+      capturePanelViewport();
+    });
+  }, [visibleDisplayStacks, viewportRestoreEpoch, capturePanelViewport]);
+
+  // A copied topic-group URL hydrates after the panel data. Reveal the start of
+  // that grouped block once on a cold/shared load. Interactive grouping already
+  // pins the clicked card and saved Back-navigation viewports take precedence.
+  const revealedSharedGroupRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!grouping) {
+      revealedSharedGroupRef.current = null;
+      return;
+    }
+    const focusId = sourcePostId ?? ctxActivePostId ?? null;
+    const revealKey = `${focusId ?? ''}:${grouping.anchor.postId}:${grouping.anchor.rangeIndex}`;
+    if (revealedSharedGroupRef.current === revealKey || hadSavedViewportForFocusRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('fo') !== 'aside' || !params.has('ft')) return;
+    const firstGroupPost = visibleDisplayStacks.find((stack) =>
+      stack.topPost.id === grouping.anchor.postId || claimedBy.get(stack.topPost.id) === grouping.anchor.postId,
+    );
+    if (!firstGroupPost) return;
+    const timer = setTimeout(() => {
+      const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+      const card = aside?.querySelector(`[data-post-id="${firstGroupPost.topPost.id}"]`)?.closest('[data-related-card]') as HTMLElement | null;
+      const header = aside?.querySelector('[data-testid="related-sticky-header"]') as HTMLElement | null;
+      if (!aside || !card) return;
+      revealedSharedGroupRef.current = revealKey;
+      const contentTop = header?.getBoundingClientRect().bottom ?? aside.getBoundingClientRect().top;
+      aside.scrollTop += card.getBoundingClientRect().top - contentTop - 8;
+      capturePanelViewport();
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [grouping, claimedBy, visibleDisplayStacks, sourcePostId, ctxActivePostId, capturePanelViewport]);
 
   // Robustness: sweep away residual FLIP transforms whenever the visible list
   // changes for a reason the FLIP effect does not run for (filters, cross-pane
@@ -1602,7 +1824,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   }, [displayStacks]);
 
   const handleShowMore = (anchorId: string) => {
+    // A fast click can arrive in the rAF immediately after the panel's initial
+    // restore. That view is already visible and user-owned, so supersede the
+    // stale restore guard and capture it as the new semantic anchor.
+    restoringPanelScrollRef.current = false;
+    pendingViewportRestoreRef.current = capturePanelViewport(true);
     setShownByAnchor(prev => ({ ...prev, [anchorId]: (prev[anchorId] ?? SHOWN_INCREMENT) + SHOWN_INCREMENT }));
+    setViewportRestoreEpoch((current) => current + 1);
   };
 
   /** Set of anchor IDs that actually pulled in at least one claimed post. */
@@ -1654,6 +1882,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   const EDGE_HOVER_HEIGHT = 28;
 
   const handleNavigate = (postId: string, newStackId: string) => {
+    capturePanelViewport();
     if (onPostNavigate) { onPostNavigate(postId); return; }
     // H5: build params — preserve stackId, add ?from= when navigating from a known focus post
     const navParams = new URLSearchParams();
@@ -1667,11 +1896,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     router.push(url);
   };
 
-  const handleNavigateToUser = (e: React.MouseEvent, account: { acct?: string; username?: string; display_name: string }) => {
+  const handleNavigateToUser = (e: React.MouseEvent, account: { id?: string; acct?: string; username?: string; display_name: string }) => {
     e.preventDefault();
     e.stopPropagation();
     const profileHandle = account.acct || account.username || account.display_name;
-    router.push(`/user/${profileHandle}`);
+    const params = new URLSearchParams({ source: 'mastodon' });
+    if (account.id) params.set('id', account.id);
+    router.push(`/user/${encodeURIComponent(profileHandle)}?${params}`);
   };
 
   const handleOpenStackModal = (stackId: string) => {
@@ -1843,7 +2074,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       }
     });
     return () => { if (flipRafRef.current) cancelAnimationFrame(flipRafRef.current); };
-  }, [reRankAnchorIds, anchoredRangeByPost, shownByAnchor]);
+  }, [reRankAnchorIds, anchoredRangeByPost, shownByAnchor, expandedCards]);
 
   /** Ref-based guard: set when a touch tap just "activated" a card/range so the
    *  synthetic click that follows doesn't also navigate. */
@@ -1940,10 +2171,53 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
 
   // Debounced range hover — prevents Level 2 from firing immediately on card enter
   const rangeHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const outsidePresentationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // React's synthetic Paper onMouseLeave can be skipped when the pointer exits
+  // across a clipped/animated descendant. Track the real document pointer as a
+  // backstop: once it is outside every related card, end only the live visual
+  // presentation while retaining the semantic reading anchor.
+  useEffect(() => {
+    const clearPresentationOutsideCards = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return;
+      const target = event.target;
+      if (target instanceof Element && target.closest('[data-related-card]')) {
+        if (outsidePresentationTimerRef.current) clearTimeout(outsidePresentationTimerRef.current);
+        outsidePresentationTimerRef.current = null;
+        return;
+      }
+      if (outsidePresentationTimerRef.current) return;
+      // Run after this pointer event finishes. If the destination is a focus-post
+      // mark, its own mousemove first records the direct-hover bucket; clearing
+      // the aside paint must not wipe that newly established grey highlight.
+      outsidePresentationTimerRef.current = setTimeout(() => {
+        outsidePresentationTimerRef.current = null;
+        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = null;
+        pendingHoverCardIdRef.current = null;
+        if (rangeHoverTimer.current) clearTimeout(rangeHoverTimer.current);
+        rangeHoverTimer.current = null;
+        if (tagScrollTimer.current) clearTimeout(tagScrollTimer.current);
+        tagScrollTimer.current = null;
+        setHoveredCardId(null);
+        setHoveredIndex(null);
+        setSidebarHoverActive(false);
+      }, 0);
+    };
+    document.addEventListener('pointermove', clearPresentationOutsideCards, true);
+    return () => {
+      document.removeEventListener('pointermove', clearPresentationOutsideCards, true);
+      if (outsidePresentationTimerRef.current) clearTimeout(outsidePresentationTimerRef.current);
+    };
+  }, []);
+
   const debouncedRangeHover = useRef((idx: number | null) => {
     if (rangeHoverTimer.current) clearTimeout(rangeHoverTimer.current);
     if (idx === null) {
-      setHoveredHighlightRangeIndex(null);
+      // Keep the last related passage as the focus post's reading anchor after
+      // the pointer leaves. The next card/range replaces it explicitly, so the
+      // focus text does not snap back to its opening between inspections.
+      rangeHoverTimer.current = null;
     } else {
       rangeHoverTimer.current = setTimeout(() => setHoveredHighlightRangeIndex(idx), 200);
     }
@@ -1960,9 +2234,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // returning — scrolling between focus posts, or entering/leaving a post's full
   // view. panelFocusIdRef tracks whose scroll the live listener is saving;
   // restoringPanelScrollRef suppresses the listener during a programmatic restore.
-  const panelFocusIdRef = useRef<string | null>(null);
-  const restoringPanelScrollRef = useRef(false);
-
   useLayoutEffect(() => {
     const focusId = sourcePostId ?? ctxActivePostId ?? null;
     const focusChanged = panelFocusIdRef.current !== focusId;
@@ -1981,16 +2252,31 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     // Restore the incoming focus's scroll only on a real focus switch (not on a
     // same-focus data refresh, which would yank the user's current scroll).
     if (focusChanged) {
+      const returningWithinMountedPanel = panelFocusIdRef.current !== null;
+      const sharedParams = new URLSearchParams(window.location.search);
+      const isColdSharedGroup = !returningWithinMountedPanel
+        && sharedParams.get('fo') === 'aside'
+        && sharedParams.has('ft');
       restoringPanelScrollRef.current = true;
       panelFocusIdRef.current = focusId;
-      const saved = getPanelScroll(focusId);
-      requestAnimationFrame(() => {
-        const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
-        if (aside) aside.scrollTop = saved;
-        requestAnimationFrame(() => { restoringPanelScrollRef.current = false; });
-      });
+      const saved = getPanelViewport(focusId);
+      // A cold/shared load may inherit sessionStorage (new tabs opened from an
+      // existing tab can clone it). Only treat a snapshot as Back-navigation
+      // precedence when this mounted pane has actually shown another focus.
+      hadSavedViewportForFocusRef.current = saved !== null && returningWithinMountedPanel;
+      const restorable = isColdSharedGroup ? null : saved;
+      pendingViewportRestoreRef.current = restorable ?? {
+        scrollTop: 0,
+        anchorPostId: null,
+        anchorOffset: 0,
+        visibleCardCount: RELATED_PAGE_SIZE,
+      };
+      const nextCount = Math.max(RELATED_PAGE_SIZE, restorable?.visibleCardCount ?? RELATED_PAGE_SIZE);
+      visibleCardCountRef.current = nextCount;
+      setVisibleCardCount(nextCount);
+      setViewportRestoreEpoch((current) => current + 1);
     }
-  }, [relatedStacks, sourcePostId, ctxActivePostId, resolveTopicKey]);
+  }, [relatedStacks, sourcePostId, ctxActivePostId, resolveTopicKey, capturePanelViewport]);
 
   // Live-save the aside scroll offset for the current focus post on every scroll
   // (rAF-throttled), so the latest position is always captured before a switch.
@@ -2008,8 +2294,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
         panelScrollEndTimerRef.current = null;
       }, 160);
 
-      // Clear once at the beginning of a scroll gesture. Repeating store writes
-      // on every scroll event would add needless rendering work while moving.
+      // Clear panel-local hover/dimming once at the beginning of a scroll
+      // gesture. Preserve the cross-pane relation + exact span/category anchor:
+      // it owns the focus post's current reading position and must remain stable
+      // until a genuinely new related post/span hover replaces it.
       if (wasAlreadyScrolling) return;
       if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
       hoverTimerRef.current = null;
@@ -2018,31 +2306,53 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       cancelTagScroll();
       setHoveredCardId(null);
       setHoveredIndex(null);
-      setHoveredSidebarPost(null);
-      setHoveredHighlightRangeIndex(null);
-      setHoveredCategory(null);
+      setSidebarHoverActive(false);
       hideTooltip();
     };
 
     const onScroll = () => {
       suspendHover();
+      // Smooth-scroll duration varies with distance and browser. Establish the
+      // dismissal baseline only after the programmatic reveal has truly gone
+      // quiet, rather than after a fixed duration that can expire mid-flight.
+      if (programmaticHighlightScrollRef.current) {
+        if (highlightScrollTimerRef.current) clearTimeout(highlightScrollTimerRef.current);
+        highlightScrollTimerRef.current = setTimeout(() => {
+          highlightScrollBaselineRef.current = aside.scrollTop;
+          programmaticHighlightScrollRef.current = false;
+          highlightScrollTimerRef.current = null;
+        }, 220);
+      }
       if (restoringPanelScrollRef.current || raf) return;
       raf = requestAnimationFrame(() => {
         raf = 0;
-        savePanelScroll(panelFocusIdRef.current, aside.scrollTop);
+        capturePanelViewport();
+        const baseline = highlightScrollBaselineRef.current;
+        if (
+          highlightPostIdRef.current &&
+          !programmaticHighlightScrollRef.current &&
+          baseline !== null &&
+          Math.abs(aside.scrollTop - baseline) > 48
+        ) {
+          setHighlightPostId(null);
+        }
       });
     };
     // Wheel arrives before the resulting scroll/mouse-boundary events, so it
     // closes the brief window where a card could activate during the first frame.
-    aside.addEventListener('wheel', suspendHover, { passive: true });
+    const onWheel = () => {
+      suspendHover();
+      if (highlightPostIdRef.current) setHighlightPostId(null);
+    };
+    aside.addEventListener('wheel', onWheel, { passive: true });
     aside.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      aside.removeEventListener('wheel', suspendHover);
+      aside.removeEventListener('wheel', onWheel);
       aside.removeEventListener('scroll', onScroll);
       if (raf) cancelAnimationFrame(raf);
       if (panelScrollEndTimerRef.current) clearTimeout(panelScrollEndTimerRef.current);
     };
-  }, []);
+  }, [capturePanelViewport, setHighlightPostId]);
 
   // Touch: tap-outside clears the active state so highlights/sidebar reset.
   useEffect(() => {
@@ -2065,7 +2375,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       {/* Sticky header: title + filter chips + count — stays visible while scrolling */}
-      <div style={{
+      <div data-testid="related-sticky-header" style={{
         position: 'sticky', top: 0, zIndex: 10,
         // Breathing room so the first row of filter chips doesn't touch the top
         // bar. The padding is part of the sticky white header, so scrolled cards
@@ -2094,13 +2404,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           </div>
         )}
 
-        <Text size="sm" fw={700} c="#374151" mb={6}>Related Posts</Text>
+        <Text size="sm" fw={700} c="#374151" mb={6}>{heading}</Text>
 
         <Text size="xs" c="dimmed" mb={4}>
           {activeTopicFilterKey
             ? `${displayStacks.length} post${displayStacks.length !== 1 ? 's' : ''} about ${activeTopicFilterKey}`
             : filterCategories.size > 0 && responseFilter !== null
-            ? `${displayStacks.length} post${displayStacks.length !== 1 ? 's' : ''} matching category, responding to passage`
+            ? `${displayStacks.length} post${displayStacks.length !== 1 ? 's' : ''} matching the selected category and passage`
             : responseFilter !== null
             ? `${displayStacks.length} post${displayStacks.length !== 1 ? 's' : ''} responding to this passage`
             : filterCategories.size > 0
@@ -2173,8 +2483,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           const colors = getCategoryColors(stack.rel);
           const isExpanded = !!expandedCards[stack.stackId];
           const aiDiffSet = aiDiffByPostId.get(stack.topPost.id);
-          const aiDiff = aiDiffSet ? (isExpanded ? aiDiffSet.expanded : aiDiffSet.collapsed) : undefined;
-          const isAiEditActive = activeAiEditPostId === stack.topPost.id && !!aiDiff;
 
           // Offset-annotated study cards retain their exact legacy plain-text
           // geometry. Unannotated Mastodon cards instead receive full parsing:
@@ -2198,16 +2506,31 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           const displayDate = stack.topPost.created_at;
 
           // Smart windowing: show only the highlighted portion unless expanded
-          const { text: visibleText, adjustedRelations, hasPrefix, hasSuffix } =
+          const {
+            text: visibleText,
+            adjustedRelations,
+            hasPrefix,
+            hasSuffix,
+            start: visibleStart,
+            end: visibleEnd,
+          } =
             windowContent(
               visibleContent,
               visibleRelations,
               isExpanded,
-              aiDiff && !isExpanded
-                ? { start: aiDiff.revisedStart, end: aiDiff.revisedEnd }
-                : undefined,
             );
           const isTruncated = hasPrefix || hasSuffix;
+          const aiDiff = aiDiffSet
+            ? createWordDiffForRevisedRange(
+                aiDiffSet.originalContent,
+                aiDiffSet.revisedContent,
+                visibleStart,
+                visibleEnd,
+                aiDiffSet.chunks,
+              )
+            : undefined;
+          const hasVisibleAiEdit = !!aiDiff?.hasChanges;
+          const isAiEditActive = activeAiEditPostId === stack.topPost.id && hasVisibleAiEdit;
 
           // Calculate indent depth by walking the anchor chain. Per-level indent
           // is small (8px) so deep nesting doesn't overflow the right pane. A
@@ -2255,10 +2578,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               )
             : null;
 
-          // Build React content nodes with multi-range + 3-level hover
-          const contentNodes = buildMultiHighlightNodes(
-            visibleText, adjustedRelations, colors,
-            {
+          const highlightOptions: Parameters<typeof buildMultiHighlightNodes>[3] = {
               isCardHovered: isCardActive,
               anyCardHovered,
               hoveredRangeIndex: isCardActive ? (isCardTapped ? tappedRangeIndex : hoveredHighlightRangeIndex) : null,
@@ -2273,7 +2593,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               // "Grouped by" pill, group header/footer, connector lines and the
               // F-indicator). This is intentionally DISTINCT from the focus-post
               // span click, which applies the overlap filter (responseFilter).
-              onRangeClick: (ri) => handleToggleAnchor(stack.topPost.id, ri),
+              onRangeClick: (ri: number) => handleToggleAnchor(stack.topPost.id, ri),
               otherCountByTopic: (topic: string) => {
                 const total = topicTotal.get(topic) ?? 0;
                 const hasSelf = postTopics.get(stack.topPost.id)?.has(topic) ? 1 : 0;
@@ -2293,8 +2613,64 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                 ).length;
               },
               stackId: stack.stackId,
-            },
+            };
+
+          // Build the ordinary published paragraph with its relationship marks.
+          const contentNodes = buildMultiHighlightNodes(
+            visibleText,
+            adjustedRelations,
+            colors,
+            highlightOptions,
           );
+
+          // The provenance state is a single inline redline in the SAME text
+          // position, not a second comparison block. Equal/inserted revised
+          // text is sliced through the normal relationship renderer so every
+          // cross-highlight remains interactive while the edit is visible.
+          let trackedRevisedOffset = 0;
+          const trackedContentNodes = aiDiff?.chunks.map((chunk, chunkIndex) => {
+            if (chunk.kind === 'delete') {
+              const removal = splitDeletionForSubtleHighlight(chunk.text);
+              return (
+                <del key={`delete-${chunkIndex}`}>
+                  {removal.leading}
+                  {removal.middle && (
+                    <span className="ai-edit-removed-middle">{removal.middle}</span>
+                  )}
+                  {removal.trailing}
+                </del>
+              );
+            }
+
+            const chunkStart = trackedRevisedOffset;
+            const chunkEnd = chunkStart + chunk.text.length;
+            trackedRevisedOffset = chunkEnd;
+            const chunkRelations = adjustedRelations?.flatMap((relation) => {
+              const relationStart = Math.max(chunkStart, relation.contentStart);
+              const relationEnd = Math.min(chunkEnd, relation.contentEnd);
+              if (relationEnd <= relationStart) return [];
+
+              const commentStart = Math.max(chunkStart, relation.contentCommentStart);
+              const commentEnd = Math.min(chunkEnd, relation.contentCommentEnd);
+              const hasComment = commentEnd > commentStart;
+              return [{
+                ...relation,
+                contentStart: relationStart - chunkStart,
+                contentEnd: relationEnd - chunkStart,
+                contentCommentStart: hasComment ? commentStart - chunkStart : 0,
+                contentCommentEnd: hasComment ? commentEnd - chunkStart : 0,
+              }];
+            });
+            const highlightedChunk = buildMultiHighlightNodes(
+              chunk.text,
+              chunkRelations,
+              colors,
+              highlightOptions,
+            );
+            return chunk.kind === 'insert'
+              ? <ins key={`insert-${chunkIndex}`}>{highlightedChunk}</ins>
+              : <React.Fragment key={`equal-${chunkIndex}`}>{highlightedChunk}</React.Fragment>;
+          });
 
           // ── Anchor-group topic ─────────────────────────────────────────────
           // The "Trial results ×" topic label appears between the anchor and its
@@ -2541,6 +2917,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               if (panelScrollingRef.current || isTouchRef.current) return;
               setHoveredCardId(pid);
               setHoveredSidebarPost(pid, stack.topPost.relations);
+              setHoveredHighlightRangeIndex(null);
+              setHoveredCategory(null);
             }, 90);
           };
 
@@ -2548,6 +2926,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
             <div
               key={stack.stackId}
               data-related-card
+              data-related-group-member={anchorForThisCard ? 'true' : undefined}
+              data-related-group-start={isFirstInBlock ? 'true' : undefined}
               data-related-category={categoryKey(stack.rel) || 'uncategorized'}
               style={{
                 position: 'relative',
@@ -2660,8 +3040,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                   pendingHoverCardIdRef.current = null;
                   hoverTimerRef.current = setTimeout(() => {
                     hoverTimerRef.current = null;
-                    setHoveredCardId(null); setHoveredSidebarPost(null);
-                    setHoveredHighlightRangeIndex(null); setHoveredCategory(null);
+                    // End card dimming without discarding the focus post's last
+                    // reading anchor. Its temporary colour ends too; a new
+                    // related hover replaces and repaints that anchor.
+                    setHoveredCardId(null);
+                    setSidebarHoverActive(false);
                   }, 60);
                 }}
                 style={{
@@ -2747,7 +3130,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                           data-related-tag
                           data-related-span={hasSpecificSpan ? 'true' : 'false'}
                           aria-label={CATEGORY_LABELS[cat] ?? cat}
-                          onMouseEnter={(e) => { if (!isTouchRef.current) { setHoveredCategory(cat); if (hasSpecificSpan) scheduleTagScroll(index, tagRangeIdx); tagHover(e.clientX, e.clientY); } }}
+                          onMouseEnter={(e) => { if (!isTouchRef.current) { setHoveredHighlightRangeIndex(null); setHoveredCategory(cat); if (hasSpecificSpan) scheduleTagScroll(index, tagRangeIdx); tagHover(e.clientX, e.clientY); } }}
                           onMouseLeave={() => { if (!isTouchRef.current) { setHoveredCategory(null); cancelTagScroll(); hideTooltip(); } }}
                           onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; tagHover(e.clientX, e.clientY); }}
                           onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTooltip(); }}
@@ -2901,7 +3284,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                   style={{ paddingLeft: '54px', paddingRight: '1rem', cursor: 'pointer' }}
                 >
                   {/* D3: shortest common related text label — only when span filter is active */}
-                  {stack.topPost.rewrite?.significant && stack.topPost.rewrite.content && (
+                  {hasVisibleAiEdit && (
                     <AiModifiedDisclosure
                       active={isAiEditActive}
                       editSummary={stack.topPost.rewrite.editSummary}
@@ -2931,14 +3314,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                     className={`ai-edit-text-stage${isAiEditActive ? ' is-active' : ''}`}
                     data-related-card-content
                     data-expanded={isExpanded ? 'true' : 'false'}
+                    data-ai-edit-visible={hasVisibleAiEdit ? 'true' : 'false'}
+                    data-ai-edit-presentation="inline-redline"
                     style={{
-                      // Legacy responses often lack relation offsets, so
-                      // character windowing alone cannot guarantee a stable
-                      // narrow-panel card height. Keep the published and AI
-                      // diff layers in the same clipped geometry until the
-                      // explicit Read more action expands the card.
-                      maxHeight: isExpanded ? undefined : '10.85rem',
-                      overflow: isExpanded ? 'visible' : 'hidden',
+                      // Legacy responses often lack relation offsets, so keep
+                      // the ordinary collapsed card bounded. Provenance hover
+                      // deliberately releases that bound: a large removal must
+                      // be readable even when it needs more vertical room.
+                      maxHeight: isExpanded || isAiEditActive ? undefined : '10.85rem',
+                      overflow: isExpanded || isAiEditActive ? 'visible' : 'hidden',
                     }}
                   >
                     <Text
@@ -2954,7 +3338,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       {contentNodes}
                       {hasSuffix && !isExpanded && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
                     </Text>
-                    {aiDiff && (
+                    {hasVisibleAiEdit && aiDiff && (
                       <Text
                         component="p"
                         size="sm"
@@ -2966,11 +3350,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                         aria-label={stack.topPost.rewrite.editSummary || 'AI changes shown in this post'}
                       >
                         {aiDiff.hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
-                        {aiDiff.chunks.map((chunk, chunkIndex) => {
-                          if (chunk.kind === 'delete') return <del key={chunkIndex}>{chunk.text}</del>;
-                          if (chunk.kind === 'insert') return <ins key={chunkIndex}>{chunk.text}</ins>;
-                          return <React.Fragment key={chunkIndex}>{chunk.text}</React.Fragment>;
-                        })}
+                        {trackedContentNodes}
                         {aiDiff.hasSuffix && !isExpanded && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
                       </Text>
                     )}
@@ -3009,7 +3389,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       styles={{ root: { padding: 0, background: 'none', color: '#1c2b4a', fontWeight: 600, cursor: 'pointer', marginBottom: '0.4rem', display: 'block' } }}
                       onClick={(e: React.MouseEvent) => {
                         e.stopPropagation();
+                        const snapshot = capturePanelViewport();
+                        pendingViewportRestoreRef.current = snapshot && isExpanded
+                          ? { ...snapshot, anchorPostId: stack.topPost.id, anchorOffset: 8 }
+                          : snapshot;
                         setExpandedCards(prev => ({ ...prev, [stack.stackId]: !isExpanded }));
+                        setViewportRestoreEpoch((current) => current + 1);
                       }}
                       onMouseDown={(e: React.MouseEvent) => e.stopPropagation()}
                       onMouseUp={(e: React.MouseEvent) => e.stopPropagation()}
@@ -3098,7 +3483,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
             type="button"
             className="related-load-more"
             data-testid="related-load-more"
-            onClick={() => setVisibleCardCount(Math.min(displayStacks.length, effectiveVisibleCardCount + RELATED_PAGE_SIZE))}
+            onClick={() => {
+              pendingViewportRestoreRef.current = capturePanelViewport();
+              const next = Math.min(displayStacks.length, effectiveVisibleCardCount + RELATED_PAGE_SIZE);
+              setVisibleCardCount(next);
+              visibleCardCountRef.current = next;
+              setViewportRestoreEpoch((current) => current + 1);
+            }}
           >
             Load more
             <span>{Math.min(RELATED_PAGE_SIZE, remainingCardCount)} of {remainingCardCount} remaining</span>

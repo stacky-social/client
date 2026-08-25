@@ -15,6 +15,7 @@ import { useFeedRatio } from "./useFeedRatio";
  */
 const MAX_CONTENT_WIDTH = 1280;
 const SLIDER_W = 8;
+const PANE_GUTTER = 10;
 
 export default function Shell({
     children,
@@ -27,7 +28,8 @@ export default function Shell({
     const isNarrowViewport = useMediaQuery("(max-width: 48rem)", false);
 
     const groupRef = useRef<HTMLDivElement | null>(null);
-    // Live width of the group minus the slider, so px drag-deltas map to ratio.
+    // Live width of the group minus the fixed divider and breathing room, so
+    // pixel drag-deltas map to the two panes' actual available width.
     const groupInnerRef = useRef<number>(1);
     const asideRef = useRef<HTMLDivElement | null>(null);
     const [hasAside, setHasAside] = useState(false);
@@ -38,7 +40,7 @@ export default function Shell({
         const el = groupRef.current;
         if (!el) return;
         const measure = () => {
-            groupInnerRef.current = Math.max(1, el.clientWidth - SLIDER_W);
+            groupInnerRef.current = Math.max(1, el.clientWidth - SLIDER_W - (PANE_GUTTER * 2));
         };
         measure();
         const ro = new ResizeObserver(measure);
@@ -148,7 +150,8 @@ export default function Shell({
                             position: "relative",
                             top: "auto",
                             bottom: "auto",
-                            marginLeft: 0,
+                            marginLeft: PANE_GUTTER,
+                            marginRight: PANE_GUTTER,
                             alignSelf: "stretch",
                             flex: `0 0 ${SLIDER_W}px`,
                         }}
@@ -170,6 +173,11 @@ export default function Shell({
                         top: TOP_NAV_HEIGHT,
                         height: `calc(100vh - ${TOP_NAV_HEIGHT}px)`,
                         overflowY: "auto",
+                        // We explicitly preserve a semantic card anchor when
+                        // panel content changes. Disable the browser's separate
+                        // scroll-anchoring heuristic so expanding a card cannot
+                        // silently fight that restoration and shift the pane.
+                        overflowAnchor: "none",
                         // NOT "visible": with overflow-y auto this is a scroll
                         // container, so a visible x-axis is impossible ("visible"
                         // computes to auto — which made the pane horizontally

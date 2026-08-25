@@ -23,6 +23,15 @@ interface ReplySectionProps {
     onReplyPosted?: (replyId: string) => void;
 }
 
+type FeedbackMemoryEntry = {
+    draftText: string;
+    advice: string | null;
+    praise: string | null;
+    simulatedReplies: Array<{ id?: string; content: string }>;
+};
+
+const MAX_FEEDBACK_MEMORY = 4;
+
 const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchPostAndReplies, onDraftActiveChange, stickyMode = false, onReplyPosted }) => {
     const [replyContent, setReplyContent] = useState<string>('');
     const [buttonLabel, setButtonLabel] = useState('Submit');
@@ -35,6 +44,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
     const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
     const draftIdRef = useRef(uuidv4());
+    const feedbackMemoryRef = useRef<FeedbackMemoryEntry[]>([]);
     const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const reqIdRef = useRef(0);
@@ -77,7 +87,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
     }, [replyContent, onDraftActiveChange]);
 
     /** Drop any visible/in-flight feedback — the draft no longer exists. */
-    const clearFeedback = () => {
+    const clearFeedback = (resetMemory = false) => {
         reqIdRef.current++; // invalidate any in-flight request
         if (debounceTimeoutRef.current) {
             clearTimeout(debounceTimeoutRef.current);
@@ -89,6 +99,10 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
         setFeedbackError(null);
         setLoading(false);
         setCountdown(0);
+        if (resetMemory) {
+            feedbackMemoryRef.current = [];
+            draftIdRef.current = uuidv4();
+        }
     };
 
     const handleReplyContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -98,7 +112,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
         // Stopped writing: an (effectively) cleared draft takes its feedback with
         // it immediately — stale robots reacting to deleted text read as a bug.
         if (newContent.trim().length < 3) {
-            clearFeedback();
+            clearFeedback(newContent.trim().length === 0);
             return;
         }
 
@@ -112,7 +126,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
 
     /** Unfocusing an empty composer also dismisses leftover feedback. */
     const handleBlur = () => {
-        if (replyContent.trim().length === 0) clearFeedback();
+        if (replyContent.trim().length === 0) clearFeedback(true);
     };
 
     const fetchRealTimeFeedback = async (inputContent: string) => {
@@ -135,16 +149,38 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
             const response = await axios.post('https://beta.stacky.social:3002/posts/feedback', {
                 draftID: draftIdRef.current,
                 parentPostID: onDemo ? null : postId,
-                draftText: inputContent
+                draftText: inputContent,
+                // Keep a short client-side transcript as well as the stable
+                // draft id. This preserves refinement context even when two
+                // feedback calls land on different backend workers.
+                feedbackHistory: feedbackMemoryRef.current.slice(-MAX_FEEDBACK_MEMORY),
             });
 
             if (myReqId !== reqIdRef.current) return;
 
             const { advice, praise, simulatedReplies } = response.data || {};
 
-            setAdvice(advice ?? null);
-            setPraise(praise ?? null);
-            setSimulatedReplies(Array.isArray(simulatedReplies) ? simulatedReplies : []);
+            const normalizedAdvice = typeof advice === 'string' ? advice : null;
+            const normalizedPraise = typeof praise === 'string' ? praise : null;
+            const normalizedReplies = Array.isArray(simulatedReplies) ? simulatedReplies : [];
+
+            setAdvice(normalizedAdvice);
+            setPraise(normalizedPraise);
+            setSimulatedReplies(normalizedReplies);
+            const memoryEntry: FeedbackMemoryEntry = {
+                draftText: inputContent,
+                advice: normalizedAdvice,
+                praise: normalizedPraise,
+                simulatedReplies: normalizedReplies,
+            };
+            const previousMemory = feedbackMemoryRef.current;
+            const retainedMemory = previousMemory.at(-1)?.draftText === inputContent
+                ? previousMemory.slice(0, -1)
+                : previousMemory;
+            feedbackMemoryRef.current = [
+                ...retainedMemory,
+                memoryEntry,
+            ].slice(-MAX_FEEDBACK_MEMORY);
 
             if (advice && advice.length > 0) {
                 setCountdown(5);
@@ -183,6 +219,8 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
             setFeedbackError(null);
             setCountdown(0);
             setButtonLabel('Submit');
+            feedbackMemoryRef.current = [];
+            draftIdRef.current = uuidv4();
 
             fetchPostAndReplies(postId);
             onReplyPosted?.(postedReply.id);

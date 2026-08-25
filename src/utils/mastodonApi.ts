@@ -73,6 +73,48 @@ export async function searchMastodon(
   };
 }
 
+async function fetchMastodonStatuses(
+  path: string,
+  accessToken?: string | null,
+  signal?: AbortSignal,
+): Promise<MastodonStatus[]> {
+  const response = await fetch(`${MASTODON_INSTANCE_URL}${path}`, {
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    signal,
+  });
+  if (!response.ok) throw new Error(`Mastodon timeline request failed with ${response.status}`);
+  const data = await response.json();
+  return Array.isArray(data) ? data : [];
+}
+
+/** Fetch the actual posts authored by a selected search account. */
+export function fetchMastodonAccountStatuses(
+  accountId: string,
+  accessToken?: string | null,
+  signal?: AbortSignal,
+): Promise<MastodonStatus[]> {
+  const params = new URLSearchParams({ limit: "40", exclude_replies: "false" });
+  return fetchMastodonStatuses(
+    `/api/v1/accounts/${encodeURIComponent(accountId)}/statuses?${params}`,
+    accessToken,
+    signal,
+  );
+}
+
+/** Fetch the actual timeline behind a selected search hashtag. */
+export function fetchMastodonHashtagTimeline(
+  tag: string,
+  accessToken?: string | null,
+  signal?: AbortSignal,
+): Promise<MastodonStatus[]> {
+  const params = new URLSearchParams({ limit: "40" });
+  return fetchMastodonStatuses(
+    `/api/v1/timelines/tag/${encodeURIComponent(tag.replace(/^#/, ""))}?${params}`,
+    accessToken,
+    signal,
+  );
+}
+
 export async function createMastodonStatus(
   accessToken: string,
   status: string,

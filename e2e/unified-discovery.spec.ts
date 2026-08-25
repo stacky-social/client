@@ -50,7 +50,7 @@ test.describe('unified discovery and interactions', () => {
     }));
   });
 
-  test('search combines saved and Mastodon hashtags, people, and posts', async ({ page }) => {
+  test('search combines discovery results with a full Mastodon post feed', async ({ page }) => {
     let searchAuthorization = '';
     await page.route('https://beta.stacky.social/api/v2/search**', (route) => {
       searchAuthorization = route.request().headers().authorization || '';
@@ -59,11 +59,40 @@ test.describe('unified discovery and interactions', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           accounts: [account],
-          statuses: [status('live-search', 'Remote battery manufacturing result')],
+          statuses: [
+            status('live-search', 'Remote battery manufacturing result'),
+            status('live-search-2', 'A second battery supply-chain perspective'),
+          ],
           hashtags: [{ name: 'BatteryFuture', url: 'https://beta.stacky.social/tags/batteryfuture' }],
         }),
       });
     });
+    await page.route('https://beta.stacky.social:3002/stacks/live-search/related', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        size: 1,
+        relatedStacks: [{
+          stackId: 'search-related-stack',
+          rel: 'evidence_public',
+          size: 1,
+          topPost: {
+            ...status('search-related', 'Related evidence for the battery result'),
+            relations: [{
+              focusStart: 7,
+              focusEnd: 26,
+              contentStart: 0,
+              contentEnd: 16,
+              focusCommentStart: 7,
+              focusCommentEnd: 14,
+              contentCommentStart: 0,
+              contentCommentEnd: 7,
+              category: 'evidence_public',
+            }],
+          },
+        }],
+      }),
+    }));
     await page.route('https://beta.stacky.social/api/v1/statuses/live-search', (route) => route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -76,27 +105,109 @@ test.describe('unified discovery and interactions', () => {
     }));
 
     await page.goto('/search');
-    await expect(page.getByRole('button', { name: 'Open #ChineseEVs hashtag' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Open #StackyInjection hashtag' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Filter posts by #ChineseEVs' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Filter posts by #StackyInjection' })).toBeVisible();
 
     await page.getByLabel('Search hashtags, people, and posts').fill('battery');
-    await expect(page.getByRole('button', { name: 'Open #BatteryFuture hashtag' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Filter posts by #BatteryFuture' })).toBeVisible();
     await expect(page.locator('[data-search-origin="local"]').filter({ hasText: /battery/i }).first()).toBeVisible();
     const remotePost = page.locator('[data-search-origin="mastodon"]').filter({ hasText: 'Remote battery manufacturing result' });
     await expect(remotePost).toBeVisible();
+    await expect(remotePost.getByTestId('post')).toBeVisible();
+    await expect(remotePost.getByLabel('Like')).toBeVisible();
+    await expect(page).toHaveURL(/\/search\?q=battery$/);
     expect(searchAuthorization).toMatch(/^Bearer unified-token-/);
 
-    await remotePost.click();
+    await remotePost.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+    await page.waitForTimeout(450);
+    await expect(page.getByText('Related evidence for the battery result')).toBeVisible();
+    await expect(page.locator('[data-related-focus-post-id="live-search"]')).toBeVisible();
+
+    await remotePost.getByText('Remote battery manufacturing result', { exact: true }).click();
     await expect(page).toHaveURL(/\/posts\/live-search$/);
-    await expect(page.getByText('Remote battery manufacturing result')).toBeVisible();
+    await expect(page.getByText('Related evidence for the battery result')).toBeVisible();
+    await expect(page.locator('[data-related-focus-post-id="live-search"]')).toBeVisible();
+  });
+
+  test('keeps a linked Mastodon post consistent after opening its detail view', async ({ page }) => {
+    const linkedStatus = status('linked-live-post', 'placeholder', {
+      content: [
+        '<p><strong>Winter safety report</strong></p>',
+        '<p>Read the original reporting at ',
+        '<a href="https://news.example/winter-safety">https://news.example/winter-safety</a></p>',
+      ].join(''),
+      media_attachments: [{
+        id: 'media-1',
+        type: 'image',
+        url: 'https://images.example/attachment.jpg',
+        preview_url: 'https://images.example/attachment-preview.jpg',
+      }],
+      card: {
+        title: 'Winter safety report',
+        description: 'A source preview that is intentionally text-only for now.',
+        image: 'https://images.example/preview.jpg',
+        url: 'https://news.example/winter-safety',
+      },
+    });
+
+    await page.route('https://beta.stacky.social/api/v2/search**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ accounts: [], statuses: [linkedStatus], hashtags: [] }),
+    }));
+    await page.route('https://beta.stacky.social/api/v1/statuses/linked-live-post', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(linkedStatus),
+    }));
+    await page.route('https://beta.stacky.social/api/v1/statuses/linked-live-post/context', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ancestors: [], descendants: [] }),
+    }));
+
+    await page.goto('/search?q=winter');
+    const feedPost = page.locator('[data-search-origin="mastodon"]').filter({ hasText: 'Winter safety report' });
+    await expect(feedPost).toBeVisible();
+    await expect(feedPost.getByRole('link', { name: 'Read article · news.example' })).toBeVisible();
+    await expect(feedPost.getByRole('link', { name: 'https://news.example/winter-safety' })).toHaveCount(0);
+    await expect(feedPost.getByAltText('Attachment 1')).toHaveCount(0);
+    await expect(feedPost.getByAltText('Winter safety report')).toHaveCount(0);
+
+    await feedPost.getByText('Winter safety report', { exact: true }).click();
+    await expect(page).toHaveURL(/\/posts\/linked-live-post$/);
+    await expect(page.getByRole('link', { name: 'Read article · news.example' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'https://news.example/winter-safety' })).toHaveCount(0);
+    await expect(page.getByAltText('Attachment 1')).toHaveCount(0);
+    await expect(page.getByAltText('Winter safety report')).toHaveCount(0);
+    await expect(page.getByTestId('detail-related-empty')).toContainText('Related Posts');
+    await expect(page.getByTestId('detail-related-empty')).toContainText('No related posts yet.');
+  });
+
+  test('a short post with no replies has no artificial detail-page scroll range', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1200 });
+    await page.goto('/ChineseEVs/posts/143208041');
+    await expect(page.getByTestId('post').first()).toBeVisible();
+
+    const before = await page.evaluate(() => ({
+      y: window.scrollY,
+      scrollHeight: document.documentElement.scrollHeight,
+      viewportHeight: window.innerHeight,
+    }));
+    expect(before.scrollHeight).toBeLessThanOrEqual(before.viewportHeight);
+
+    await page.mouse.wheel(0, 900);
+    await page.waitForTimeout(250);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+    await expect(page.getByTestId('pinned-post-text')).toHaveCount(0);
   });
 
   test('keeps hashtag discovery usable on a phone-sized screen', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/search');
 
-    const chineseEvs = page.getByRole('button', { name: 'Open #ChineseEVs hashtag' });
-    const stackyInjection = page.getByRole('button', { name: 'Open #StackyInjection hashtag' });
+    const chineseEvs = page.getByRole('button', { name: 'Filter posts by #ChineseEVs' });
+    const stackyInjection = page.getByRole('button', { name: 'Filter posts by #StackyInjection' });
     await expect(chineseEvs).toBeVisible();
     await expect(stackyInjection).toBeVisible();
 
@@ -104,44 +215,26 @@ test.describe('unified discovery and interactions', () => {
     expect(viewportFits).toBe(true);
   });
 
-  test('opens a Mastodon person from search and follows them on the server', async ({ page }) => {
+  test('selecting a Mastodon person fetches and filters to that person’s posts', async ({ page }) => {
     await page.route('https://beta.stacky.social/api/v2/search**', (route) => route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ accounts: [account], statuses: [], hashtags: [] }),
-    }));
-    await page.route('https://beta.stacky.social/api/v1/accounts/account-1', (route) => route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(account),
     }));
     await page.route('https://beta.stacky.social/api/v1/accounts/account-1/statuses**', (route) => route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify([status('profile-post', 'A post on the live profile')]),
     }));
-    await page.route('https://beta.stacky.social/api/v1/accounts/relationships**', (route) => route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([{ id: 'account-1', following: false }]),
-    }));
-    let followed = false;
-    await page.route('https://beta.stacky.social/api/v1/accounts/account-1/follow', (route) => {
-      followed = true;
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ following: true }) });
-    });
 
     await page.goto('/search');
     await page.getByLabel('Search hashtags, people, and posts').fill('River Chen');
     const person = page.locator('[data-search-origin="mastodon"]').filter({ hasText: '@river' }).first();
     await person.click();
 
-    await expect(page).toHaveURL(/\/user\/river\?source=mastodon&id=account-1$/);
-    await expect(page.getByText('Battery systems researcher.')).toBeVisible();
+    await expect(page).toHaveURL(/\/search\?q=River\+Chen&type=posts&entity=%40river$/);
     await expect(page.getByText('A post on the live profile')).toBeVisible();
-    await page.getByRole('button', { name: 'Follow', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Unfollow', exact: true })).toBeVisible();
-    expect(followed).toBe(true);
+    await expect(page.getByRole('button', { name: 'Remove @river post filter' })).toBeVisible();
   });
 
   test('following a Mastodon hashtag refreshes Home and adds its posts', async ({ page }) => {
@@ -383,7 +476,9 @@ test.describe('unified discovery and interactions', () => {
     await expect(firstCard.locator('[data-ai-inline-diff]').locator('ins')).toContainText(['.', ',', 'an', 'Apple', 'AirTag', 'an']);
     const cardWithDiff = await firstCard.boundingBox();
     expect(cardWithDiff?.width).toBeCloseTo(cardBeforeDiff!.width, 2);
-    expect(cardWithDiff?.height).toBeCloseTo(cardBeforeDiff!.height, 2);
+    // Inline redlining reuses the published paragraph's position. It may grow
+    // for a long deletion, but a compact edit should not add a second block.
+    expect(cardWithDiff!.height).toBeGreaterThanOrEqual(cardBeforeDiff!.height);
 
     await page.getByRole('button', { name: 'Show Pointers filter' }).click();
     await expect(page.getByText('2 Pointers posts')).toBeVisible();

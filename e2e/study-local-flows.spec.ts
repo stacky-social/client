@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test';
 import mockData from '../src/app/FakeData/listy-injection.json';
 
 const firstFocusId = (mockData as any)[0].focusPost.id as string;
+const firstVisibleReplyCount = ((mockData as any)[0].replies as any[])
+  .filter((reply) => reply.inReplyToId === firstFocusId).length;
 
 test.describe('study-mode local flows', () => {
   test('finds #ChineseEVs as a clearly labeled hashtag result', async ({ page }) => {
@@ -11,11 +13,12 @@ test.describe('study-mode local flows', () => {
     await search.fill('#ChineseEVs');
 
     await expect(page.getByText('Hashtags', { exact: true })).toBeVisible();
-    const hashtag = page.getByRole('button', { name: 'Open #ChineseEVs hashtag' });
+    const hashtag = page.getByRole('button', { name: 'Filter posts by #ChineseEVs' });
     await expect(hashtag).toContainText('#ChineseEVs');
     await hashtag.click();
-    await expect(page).toHaveURL(/\/tag\/ChineseEVs$/);
-    await expect(page.getByRole('button', { name: 'Follow hashtag' })).toBeVisible();
+    await expect(page).toHaveURL(/\/search\?q=%23ChineseEVs&type=posts&entity=%23ChineseEVs$/);
+    await expect(page.getByRole('button', { name: 'Remove #ChineseEVs post filter' })).toBeVisible();
+    await expect(page.getByTestId('search-post-feed')).toBeVisible();
   });
 
   test('opens a user-created home post and its reply on local detail routes', async ({ page }) => {
@@ -51,21 +54,44 @@ test.describe('study-mode local flows', () => {
   });
 
   test('increments a seeded post reply count once and keeps it after reload', async ({ page }) => {
-    const sourceCount = (mockData as any)[0].focusPost.replies_count as number;
     await page.goto(`/ChineseEVs/posts/${firstFocusId}`);
 
     const focusCard = page.locator(`[data-post-id="${firstFocusId}"]`).first();
     const replyCount = focusCard.getByRole('button', { name: 'Reply' });
-    await expect(replyCount).toContainText(String(sourceCount));
+    await expect(replyCount).toContainText(String(firstVisibleReplyCount));
 
     await page.getByPlaceholder('Post your reply').first().fill('Counted.');
     await page.getByRole('button', { name: 'Submit' }).first().click();
     await expect(page.getByText('Reply posted', { exact: true })).toBeVisible();
-    await expect(replyCount).toContainText(String(sourceCount + 1));
+    await expect(replyCount).toContainText(String(firstVisibleReplyCount + 1));
 
     await page.reload();
     const reloadedFocus = page.locator(`[data-post-id="${firstFocusId}"]`).first();
-    await expect(reloadedFocus.getByRole('button', { name: 'Reply' })).toContainText(String(sourceCount + 1));
+    await expect(reloadedFocus.getByRole('button', { name: 'Reply' })).toContainText(String(firstVisibleReplyCount + 1));
+  });
+
+  test('matches every curated reply count to the replies that open in its thread', async ({ page }) => {
+    for (const entry of mockData as any[]) {
+      const focusId = entry.focusPost.id as string;
+      const expectedIds = (entry.replies as any[])
+        .filter((reply) => reply.inReplyToId === focusId)
+        .map((reply) => reply.id as string);
+
+      await page.goto(`/ChineseEVs/posts/${focusId}`);
+      const focusCard = page.locator(`[data-post-id="${focusId}"]`).first();
+      await expect(focusCard.getByRole('button', { name: 'Reply' }))
+        .toContainText(String(expectedIds.length));
+
+      const thread = page.getByTestId('threaded-replies').first();
+      await expect(thread).toBeVisible();
+      while (await page.getByRole('button', { name: /more repl(?:y|ies)$/ }).count()) {
+        await page.getByRole('button', { name: /more repl(?:y|ies)$/ }).first().click();
+      }
+      await expect(thread.locator('[data-reply-depth="0"]')).toHaveCount(expectedIds.length);
+      for (const replyId of expectedIds) {
+        await expect(thread.locator(`[data-post-id="${replyId}"]`)).toBeVisible();
+      }
+    }
   });
 
   test('like and bookmark confirmations offer working single-step Undo', async ({ page }) => {

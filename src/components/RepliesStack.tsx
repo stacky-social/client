@@ -20,6 +20,7 @@ interface PostType {
   bookmarked: boolean;
   content: string;
   account: {
+    id?: string;
     avatar: string;
     display_name: string;
     acct?: string;
@@ -122,11 +123,13 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
     router.push(url);
   };
 
-  const handleNavigateToUser = (e: React.MouseEvent, account: { acct?: string; username?: string; display_name: string }) => {
+  const handleNavigateToUser = (e: React.MouseEvent, account: { id?: string; acct?: string; username?: string; display_name: string }) => {
     e.preventDefault();
     e.stopPropagation();
     const profileHandle = account.acct || account.username || account.display_name;
-    router.push(`/user/${profileHandle}`);
+    const params = new URLSearchParams({ source: 'mastodon' });
+    if (account.id) params.set('id', account.id);
+    router.push(`/user/${encodeURIComponent(profileHandle)}?${params}`);
   };
 
   const handleClick = (postId: string, stackId: string) => {

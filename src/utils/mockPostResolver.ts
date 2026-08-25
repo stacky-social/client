@@ -36,7 +36,12 @@ function htmlContent(p: FocusPostMock | RelatedPostMock): string {
   return `<p>${(p as any).content}</p>`;
 }
 
-function toMockPostType(p: FocusPostMock | RelatedPostMock, relatedStacks: any[] = [], stackCount: number | null = null): MockPostType {
+function toMockPostType(
+  p: FocusPostMock | RelatedPostMock,
+  relatedStacks: any[] = [],
+  stackCount: number | null = null,
+  threadParentId: string | null = p.inReplyToId ?? null,
+): MockPostType {
   return {
     id: p.id,
     content: htmlContent(p),
@@ -57,7 +62,7 @@ function toMockPostType(p: FocusPostMock | RelatedPostMock, relatedStacks: any[]
     bookmarked: p.bookmarked,
     media_attachments: [],
     relatedStacks,
-    in_reply_to_id: p.inReplyToId ?? null,
+    in_reply_to_id: threadParentId,
   };
 }
 
@@ -123,13 +128,19 @@ export function getMockPost(id: string): MockPostType | null {
   return toMockPostType(post, stacks, stacks.length || null);
 }
 
-/** Source/Mastodon count, repaired only by explicit thread edges in the fixture. */
+/** Direct replies that this demo can actually open for the participant. */
 export function getMockReplyCount(id: string): number {
-  const post = allPostsById.get(id);
-  return resolveReplyCount(
-    post?.replies_count ?? 0,
-    (childrenByParent.get(id) ?? []).length,
-  );
+  return resolveReplyCount((childrenByParent.get(id) ?? []).length);
+}
+
+/** Canonical parent from the fixture thread graph, independent of duplicate copies. */
+export function getMockParentId(id: string): string | null {
+  return parentMap.get(id) ?? null;
+}
+
+/** Parent edge only when this id is explicitly present in a reply collection. */
+export function getMockReplyParentId(id: string): string | null {
+  return replyById.has(id) ? getMockParentId(id) : null;
 }
 
 /** Plain text of the post — for useUrlSync ?fs= hydration. */
@@ -168,7 +179,10 @@ export function getMockReplies(id: string): MockPostType[] {
     if (seen.has(cid)) continue;
     seen.add(cid);
     const post = allPostsById.get(cid);
-    if (post) out.push(toMockPostType(post));
+    // A post can occur twice in the fixture: once as a related response and
+    // once as a reply. The related copy may omit its parent, so pass the
+    // canonical graph edge instead of whichever copy happened to be stored.
+    if (post) out.push(toMockPostType(post, [], null, getMockParentId(cid)));
     const grand = childrenByParent.get(cid);
     if (grand) stack.push(...grand);
   }
@@ -214,7 +228,7 @@ export function getMockRelatedStacks(id: string): any[] {
         topPost: {
           id: p.id,
           created_at: p.created_at,
-          replies_count: p.replies_count,
+          replies_count: getMockReplyCount(p.id),
           favourites_count: p.favourites_count,
           favourited: p.favourited,
           bookmarked: p.bookmarked,
@@ -237,7 +251,7 @@ export function getMockRelatedStacks(id: string): any[] {
     topPost: {
       id: rp.id,
       created_at: rp.created_at,
-      replies_count: rp.replies_count,
+      replies_count: getMockReplyCount(rp.id),
       favourites_count: rp.favourites_count,
       favourited: rp.favourited,
       bookmarked: rp.bookmarked,

@@ -41,7 +41,7 @@ test.describe('ChineseEVs feed', () => {
     await expect(page.getByRole('button', { name: 'Bookmark' }).first()).toBeVisible();
   });
 
-  test('shows contextual AI edits in place without resizing the related card', async ({ page }) => {
+  test('shows contextual AI edits in place and allows the related card to expand', async ({ page }) => {
     await page.goto('/ChineseEVs');
 
     const aside = page.getByTestId('col-aside');
@@ -72,6 +72,11 @@ test.describe('ChineseEVs feed', () => {
     await expect(inlineDiff).toHaveAttribute('aria-hidden', 'false');
     await expect(inlineDiff.locator('del').first()).toBeVisible();
     await expect(inlineDiff.locator('ins').first()).toBeVisible();
+    await expect(inlineDiff.locator('mark').first()).toBeVisible();
+    await expect(card.locator('[data-related-card-content]')).toHaveAttribute(
+      'data-ai-edit-presentation',
+      'inline-redline',
+    );
     const diffContentHeight = await inlineDiff.evaluate((element) => {
       const range = document.createRange();
       range.selectNodeContents(element);
@@ -81,7 +86,7 @@ test.describe('ChineseEVs feed', () => {
     expect(beforeHover).not.toBeNull();
     expect(afterHover).not.toBeNull();
     expect(afterHover!.width).toBeCloseTo(beforeHover!.width, 2);
-    expect(afterHover!.height).toBeCloseTo(beforeHover!.height, 2);
+    expect(afterHover!.height).toBeGreaterThanOrEqual(beforeHover!.height);
     expect(diffContentHeight).toBeGreaterThanOrEqual(editedContentHeight - 1);
 
     // Keyboard users get the same in-card treatment and can dismiss it.

@@ -8,6 +8,8 @@ test.use({ hasTouch: true });
 
 test.describe('hybrid touch + mouse input', () => {
   test('uses the current pointer for related-card and AI-edit interactions', async ({ page }) => {
+    await page.goto('/tag/ChineseEVs');
+    await page.getByRole('button', { name: 'Follow hashtag' }).click();
     await page.goto('/home');
     await expect(page.getByRole('heading', { name: 'Home', level: 1 })).toBeVisible();
     expect(await page.evaluate(() => navigator.maxTouchPoints)).toBeGreaterThan(0);
@@ -37,6 +39,9 @@ test.describe('hybrid touch + mouse input', () => {
     const badge = michaelCard.getByRole('button', { name: 'Modified by AI' });
     const edited = michaelCard.locator('[data-ai-edited-default]');
     const diff = michaelCard.locator('[data-ai-inline-diff]');
+    // This edit sits outside the collapsed relationship window, so the badge
+    // correctly appears only after that section is revealed.
+    await michaelCard.getByRole('button', { name: 'Read more' }).click();
     await expect(badge).toBeVisible();
     await badge.hover();
     await expect(edited).toHaveAttribute('aria-hidden', 'true');

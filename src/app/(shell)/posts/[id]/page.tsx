@@ -16,6 +16,7 @@ import { useUrlSync } from "../../../../utils/useUrlSync";
 import { LEGACY_TABS } from "../../../../utils/replyTabs.mjs";
 import { useLocalStore, useHydrated, getComments } from "../../../../utils/localStore";
 import { beginUndoablePanelInteractionIfDetail } from "../../../../utils/highlightStore";
+import type { PreviewCardType } from "../../../../types/PostType";
 
 // -------------------- Types --------------------
 interface Account {
@@ -38,6 +39,7 @@ interface PostType {
   media_attachments: any[];
   relatedStacks: any[];
   in_reply_to_id?: string | null;
+  card?: PreviewCardType | null;
 }
 
 const MastodonInstanceUrl = "https://beta.stacky.social";
@@ -138,7 +140,11 @@ export default function PostView() {
   useEffect(() => {
     fetchedRelatedIds.current.clear();
     inFlightRelatedIds.current.clear();
-  }, [id]);
+    // Claim the detail pane immediately. Otherwise the parallel route can
+    // briefly render the feed's previously focused post—or nothing at all—until
+    // the optional related-post request completes.
+    setFromPost([], id, { force: true });
+  }, [id, setFromPost]);
 
   // -------------------- Derived values --------------------
   // User-authored replies from the local store (reactive). Already Post-shaped
@@ -282,14 +288,15 @@ export default function PostView() {
       setFromPost(data.relatedStacks || [], id, { force: true });
     } catch (e) {
       console.error("Error fetching related stacks from API:", e);
-      if (reqId !== initReqIdRef.current) return; // stale failure — don't toast under a newer id
-      notifications.show({
-        color: "red",
-        title: "Failed to load related stacks",
-        message: "Please try again later.",
-      });
+      if (reqId !== initReqIdRef.current) return;
+      setFocusRelatedStacks([]);
+      setSize(0);
+      setFromPost([], id, { force: true });
+      // Related-post enrichment is optional. Keep the detail view usable and
+      // let its aside render the honest empty state instead of showing a fatal
+      // looking notification for a post that simply has no related data.
     }
-  }, [id]);
+  }, [id, setFromPost]);
 
   // ---- Guarded per-post related fetch (prevents storms) ----
   const fetchRelatedStacksFor = useCallback(
@@ -551,6 +558,7 @@ export default function PostView() {
       favourited={p.favourited}
       bookmarked={p.bookmarked}
       mediaAttachments={(p.media_attachments || []).map((m: any) => m.url)}
+      initialCard={p.card ?? null}
       onStackIconClick={handleStackIconClick}
       setIsModalOpen={() => { }}
       setIsExpandModalOpen={() => { }}

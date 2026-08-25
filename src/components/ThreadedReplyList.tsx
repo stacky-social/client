@@ -215,6 +215,7 @@ function renderTree(
     <div
       key={post.id}
       className={styles.replyGroup}
+      data-reply-depth={depth}
       // Stable hook for the cluster (present only on a grouped member's branch).
       data-reply-cluster-member={inCluster ? "" : undefined}
       style={{ marginLeft: effectiveDepth * INDENT_PX, ...bracketStyle }}
@@ -381,7 +382,7 @@ export default function ThreadedReplyList({
       : topLevelReplies;
 
   return (
-    <div>
+    <div data-testid="threaded-replies">
       {visibleReplies.map((post) =>
         renderTree(post, 0, childMap, renderPost, shownByParent, handleShowMore, handleShowLess, opAcct, branchPreviews, forceRevealParentIds, clusterRail)
       )}

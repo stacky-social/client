@@ -74,6 +74,55 @@ test.describe('Mastodon-backed client mode', () => {
     expect(authorization).toMatch(/^Bearer backend-token-/);
   });
 
+  test('resolves a backend username link even when the post payload omitted its account id', async ({ page }) => {
+    const georgia = {
+      ...account,
+      id: 'account-georgia',
+      username: 'georgiagreen',
+      acct: 'georgiagreen',
+      display_name: 'Georgia Green',
+      note: '<p>Housing and neighborhood reporting.</p>',
+    };
+
+    await page.route('https://beta.stacky.social/api/v1/accounts/lookup**', (route) => {
+      expect(new URL(route.request().url()).searchParams.get('acct')).toBe('georgiagreen');
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(georgia) });
+    });
+    await page.route('https://beta.stacky.social/api/v1/accounts/account-georgia', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(georgia) }),
+    );
+    await page.route('https://beta.stacky.social/api/v1/accounts/account-georgia/statuses**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([status('georgia-post', 'A backend profile post.', { account: georgia })]),
+      }),
+    );
+    await page.route('https://beta.stacky.social/api/v1/accounts/relationships**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ id: georgia.id, following: false }]) }),
+    );
+    await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          status('georgia-feed', 'A backend timeline post.', {
+            account: { ...georgia, id: undefined },
+          }),
+        ]),
+      }),
+    );
+
+    await page.goto('/home');
+    const backendPost = page.locator('[data-post-id="georgia-feed"]');
+    await backendPost.getByText('Georgia Green', { exact: true }).click();
+    await expect(page).toHaveURL(/\/user\/georgiagreen$/);
+
+    await expect(page.getByText('Housing and neighborhood reporting.')).toBeVisible();
+    await expect(page.getByText('A backend profile post.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Application error' })).toHaveCount(0);
+  });
+
   test('deletes my Mastodon post through the backend and removes it from the timeline', async ({ page }) => {
     const otherAccount = { ...account, id: 'account-2', username: 'other', acct: 'other', display_name: 'Other person' };
     let deleteAuthorization = '';

@@ -43,6 +43,12 @@ interface HighlightState {
   /** Relations for the hovered post (offset-based substring pairs) */
   hoveredRelations: Relation[] | null;
   /**
+   * Whether the pointer/touch is still actively presenting the retained sidebar
+   * relation. The relation itself may remain after leave as a semantic reading
+   * anchor, but its temporary cross-highlight paint must not.
+   */
+  sidebarHoverActive: boolean;
+  /**
    * Set of categories to filter the sidebar by (empty = show all).
    * Multiple categories use AND semantics — a post must carry EVERY active
    * category to survive (see decideFilterMode in RelatedStacks and
@@ -119,6 +125,7 @@ interface HighlightState {
 const INITIAL: HighlightState = {
   hoveredPostId: null,
   hoveredRelations: null,
+  sidebarHoverActive: false,
   filterCategories: new Set(),
   hoveredHighlightRangeIndex: null,
   focusHoverRanges: null,
@@ -150,13 +157,23 @@ export function setHoveredSidebarPost(
   postId: string | null,
   relations?: Relation[] | null,
 ): void {
-  if (state.hoveredPostId === postId) return;
+  const nextActive = postId !== null;
+  if (state.hoveredPostId === postId && state.sidebarHoverActive === nextActive) return;
   state = {
     ...state,
     hoveredPostId: postId,
     hoveredRelations: postId ? (relations ?? null) : null,
+    sidebarHoverActive: nextActive,
     hoveredHighlightRangeIndex: null,
   };
+  notify();
+}
+
+/** End only the transient aside→focus paint. The last relation/range/category
+ * stays retained so the focus post keeps its exact reading position. */
+export function setSidebarHoverActive(active: boolean): void {
+  if (state.sidebarHoverActive === active) return;
+  state = { ...state, sidebarHoverActive: active };
   notify();
 }
 
@@ -405,20 +422,87 @@ interface PanelSnapshot {
 const panelStateByFocus = new Map<string, PanelSnapshot>();
 let currentPanelFocusId: string | null = null;
 
-// Related-panel SCROLL position, scoped per focus post (kept separate from the
+// Related-panel VIEWPORT, scoped per focus post (kept separate from the filter
 // snapshot so it can be updated live on every scroll, not only on focus switch).
-// Restored when returning to a focus post (scrolling between focus posts, or
-// entering/leaving a post's full view). In-memory, like the filter persistence.
-const panelScrollByFocus = new Map<string, number>();
+// The semantic card anchor survives pagination, card-height changes, and panel
+// resizing more reliably than a raw pixel offset alone. `scrollTop` remains the
+// fallback when that card is no longer present after a data/filter change.
+export interface PanelViewportSnapshot {
+  scrollTop: number;
+  anchorPostId: string | null;
+  anchorOffset: number;
+  visibleCardCount: number;
+}
+
+const panelViewportByFocus = new Map<string, PanelViewportSnapshot>();
+const panelViewportStorageKey = (focusId: string) => `crossweave:related-viewport:${focusId}`;
+
+export function savePanelViewport(
+  focusId: string | null,
+  viewport: PanelViewportSnapshot,
+): void {
+  if (!focusId) return;
+  panelViewportByFocus.set(focusId, {
+    scrollTop: Math.max(0, viewport.scrollTop),
+    anchorPostId: viewport.anchorPostId,
+    anchorOffset: viewport.anchorOffset,
+    visibleCardCount: Math.max(1, Math.trunc(viewport.visibleCardCount)),
+  });
+  // Back/forward can recreate the App Router subtree (and a hard reload should
+  // not erase the reader's place either), so mirror the small in-memory record
+  // into this tab's session storage. Never use localStorage: another visit or
+  // tab should still begin at the top unless it has its own navigation history.
+  if (typeof window !== 'undefined') {
+    try {
+      window.sessionStorage.setItem(
+        panelViewportStorageKey(focusId),
+        JSON.stringify(panelViewportByFocus.get(focusId)),
+      );
+    } catch {
+      // Storage can be unavailable in restricted/private browsing. The module
+      // cache remains a fully functional fallback for ordinary SPA navigation.
+    }
+  }
+}
+
+export function getPanelViewport(focusId: string | null): PanelViewportSnapshot | null {
+  if (focusId == null) return null;
+  const inMemory = panelViewportByFocus.get(focusId);
+  if (inMemory) return inMemory;
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(panelViewportStorageKey(focusId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PanelViewportSnapshot>;
+    if (typeof parsed.scrollTop !== 'number' || typeof parsed.visibleCardCount !== 'number') return null;
+    const restored: PanelViewportSnapshot = {
+      scrollTop: Math.max(0, parsed.scrollTop),
+      anchorPostId: typeof parsed.anchorPostId === 'string' ? parsed.anchorPostId : null,
+      anchorOffset: typeof parsed.anchorOffset === 'number' ? parsed.anchorOffset : 0,
+      visibleCardCount: Math.max(1, Math.trunc(parsed.visibleCardCount)),
+    };
+    panelViewportByFocus.set(focusId, restored);
+    return restored;
+  } catch {
+    return null;
+  }
+}
 
 /** Record the related-panel scroll offset for a focus post (called on scroll). */
 export function savePanelScroll(focusId: string | null, scrollTop: number): void {
-  if (focusId) panelScrollByFocus.set(focusId, scrollTop);
+  if (!focusId) return;
+  const previous = panelViewportByFocus.get(focusId);
+  savePanelViewport(focusId, {
+    scrollTop,
+    anchorPostId: previous?.anchorPostId ?? null,
+    anchorOffset: previous?.anchorOffset ?? 0,
+    visibleCardCount: previous?.visibleCardCount ?? 10,
+  });
 }
 
 /** Read the saved related-panel scroll offset for a focus post (0 if none). */
 export function getPanelScroll(focusId: string | null): number {
-  return (focusId != null ? panelScrollByFocus.get(focusId) : undefined) ?? 0;
+  return getPanelViewport(focusId)?.scrollTop ?? 0;
 }
 
 function snapshotPanel(): PanelSnapshot {
@@ -515,6 +599,7 @@ export function setPanelFocus(
     // transient view state never persists across a focus switch
     hoveredPostId: null,
     hoveredRelations: null,
+    sidebarHoverActive: false,
     hoveredHighlightRangeIndex: null,
     hoveredCategory: null,
     tappedCardPostId: null,
@@ -654,6 +739,7 @@ function applyPanelSnapshot(snap: PanelSnapshot): void {
     replyBaseOrderIds: [...(snap.replyBaseOrderIds ?? [])],
     hoveredPostId: null,
     hoveredRelations: null,
+    sidebarHoverActive: false,
     hoveredHighlightRangeIndex: null,
     hoveredCategory: null,
     tappedCardPostId: null,

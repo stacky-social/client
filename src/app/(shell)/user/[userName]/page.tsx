@@ -7,6 +7,7 @@ import Post from "../../../../components/Posts/Post";
 import {
   getUserProfile,
   getUserPosts,
+  hasUserProfile,
   isFollowing as storeIsFollowing,
   toggleFollow,
   useLocalStore,
@@ -31,12 +32,62 @@ export default function UserPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const rawUserName = Array.isArray(params.userName) ? params.userName[0] : params.userName;
-  const acct = rawUserName ? decodeURIComponent(rawUserName) : "";
+  const acct = safelyDecodeHandle(rawUserName ?? "");
   const accountId = searchParams.get("source") === "mastodon" ? searchParams.get("id") : null;
 
   return accountId
     ? <MastodonUserPage accountId={accountId} fallbackAcct={acct} />
-    : <LocalUserPage acct={acct} />;
+    : <ResolvedUserPage acct={acct} />;
+}
+
+/**
+ * Post payloads from the related-post service do not always include the stable
+ * Mastodon account id. Keep known fixture accounts local; resolve every unknown
+ * handle against Mastodon so those profile links do not fall into a fabricated
+ * empty local profile or crash on unusual URL characters.
+ */
+function ResolvedUserPage({ acct }: { acct: string }) {
+  const hydrated = useHydrated();
+  const isLocalAccount = useLocalStore(() => hasUserProfile(acct));
+
+  if (!hydrated) return <ProfileLoader />;
+  return isLocalAccount ? <LocalUserPage acct={acct} /> : <MastodonAccountLookup acct={acct} />;
+}
+
+function MastodonAccountLookup({ acct }: { acct: string }) {
+  const { token, ready } = useAccessToken();
+  const [accountId, setAccountId] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!ready || !acct) {
+      if (ready) setFailed(true);
+      return;
+    }
+
+    const controller = new AbortController();
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+    fetch(
+      `${MASTODON_INSTANCE_URL}/api/v1/accounts/lookup?acct=${encodeURIComponent(acct.replace(/^@/, ""))}`,
+      { headers, signal: controller.signal },
+    )
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Account lookup failed");
+        const data = await response.json();
+        if (!data?.id) throw new Error("Account lookup returned no id");
+        setAccountId(String(data.id));
+      })
+      .catch((requestError) => {
+        if (requestError instanceof DOMException && requestError.name === "AbortError") return;
+        setFailed(true);
+      });
+
+    return () => controller.abort();
+  }, [acct, ready, token]);
+
+  if (!ready || (!accountId && !failed)) return <ProfileLoader />;
+  if (failed || !accountId) return <ProfileError acct={acct} />;
+  return <MastodonUserPage accountId={accountId} fallbackAcct={acct} />;
 }
 
 function LocalUserPage({ acct }: { acct: string }) {
@@ -73,24 +124,22 @@ function MastodonUserPage({ accountId, fallbackAcct }: { accountId: string; fall
 
   useEffect(() => {
     if (!ready) return;
-    if (!token) {
-      setError(true);
-      setLoading(false);
-      return;
-    }
     const controller = new AbortController();
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+    const relationshipRequest = token
+      ? fetch(`${MASTODON_INSTANCE_URL}/api/v1/accounts/relationships?id[]=${encodeURIComponent(accountId)}`, { headers, signal: controller.signal })
+      : Promise.resolve(null);
     Promise.all([
       fetch(`${MASTODON_INSTANCE_URL}/api/v1/accounts/${encodeURIComponent(accountId)}`, { headers, signal: controller.signal }),
       fetch(`${MASTODON_INSTANCE_URL}/api/v1/accounts/${encodeURIComponent(accountId)}/statuses?limit=20`, { headers, signal: controller.signal }),
-      fetch(`${MASTODON_INSTANCE_URL}/api/v1/accounts/relationships?id[]=${encodeURIComponent(accountId)}`, { headers, signal: controller.signal }),
+      relationshipRequest,
     ])
       .then(async ([accountResponse, postsResponse, relationshipResponse]) => {
         if (!accountResponse.ok || !postsResponse.ok) throw new Error("Profile request failed");
         const [accountData, postsData, relationshipData] = await Promise.all([
           accountResponse.json(),
           postsResponse.json(),
-          relationshipResponse.ok ? relationshipResponse.json() : [],
+          relationshipResponse?.ok ? relationshipResponse.json() : [],
         ]);
         setAccount(accountData);
         setPosts(Array.isArray(postsData) ? postsData : []);
@@ -124,10 +173,8 @@ function MastodonUserPage({ accountId, fallbackAcct }: { accountId: string; fall
     }
   };
 
-  if (loading) return <div style={{ minHeight: 180, display: "grid", placeItems: "center" }}><Loader size="sm" /></div>;
-  if (error || !account) {
-    return <Paper withBorder p="xl"><Text fw={600}>Couldn&apos;t load @{fallbackAcct}.</Text><Text size="sm" c="dimmed" mt={4}>Check your connection and try again.</Text></Paper>;
-  }
+  if (loading) return <ProfileLoader />;
+  if (error || !account) return <ProfileError acct={fallbackAcct} />;
 
   return (
     <ProfileLayout
@@ -140,7 +187,7 @@ function MastodonUserPage({ accountId, fallbackAcct }: { accountId: string; fall
       statuses={Number(account.statuses_count ?? posts.length)}
       isFollowing={following}
       onFollow={handleFollow}
-      followDisabled={toggling}
+      followDisabled={toggling || !token}
       posts={posts.map(mastodonPostProps)}
     />
   );
@@ -151,6 +198,7 @@ interface ProfilePostProps {
   text: string;
   author: string;
   account: string;
+  accountId?: string;
   avatar: string;
   repliesCount: number;
   createdAt: string;
@@ -182,6 +230,7 @@ function mastodonPostProps(post: MastodonStatus): ProfilePostProps {
     text: post.content,
     author: post.account.display_name || post.account.username,
     account: post.account.acct,
+    accountId: post.account.id,
     avatar: post.account.avatar,
     repliesCount: post.replies_count,
     createdAt: post.created_at,
@@ -269,4 +318,27 @@ function Stat({ value, label }: { value: number; label: string }) {
 
 function stripHtml(value: string): string {
   return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function safelyDecodeHandle(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    // Next normally gives this page an already-decoded param. A literal `%` in
+    // a federated handle must not turn profile navigation into an exception.
+    return value;
+  }
+}
+
+function ProfileLoader() {
+  return <div style={{ minHeight: 180, display: "grid", placeItems: "center" }}><Loader size="sm" /></div>;
+}
+
+function ProfileError({ acct }: { acct: string }) {
+  return (
+    <Paper withBorder p="xl">
+      <Text fw={600}>Couldn&apos;t load @{acct}.</Text>
+      <Text size="sm" c="dimmed" mt={4}>Check the handle or your connection, then try again.</Text>
+    </Paper>
+  );
 }

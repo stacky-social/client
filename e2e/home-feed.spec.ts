@@ -15,12 +15,11 @@ test.describe('Home timeline', () => {
     await expect(page.getByLabel('Timeline sorted by latest activity')).toHaveCount(0);
     await expect(page.getByTestId('reply-context')).toHaveCount(0);
     await expect(page.locator('[data-store-feed-post="152052643"]')).toHaveCount(0);
-    // Ana's source count is 20 even though this curated demo only includes four
-    // thread descendants and 103 separately-related posts. Neither collection
-    // is added to the visible reply counter.
+    // The count is an affordance: all four replies it promises can be opened in
+    // the thread. Separately-related posts are never added to this number.
     await expect(
       page.locator('[data-store-feed-post="152053690"]').getByRole('button', { name: 'Reply' }),
-    ).toContainText('20');
+    ).toContainText('4');
   });
 
   test('removes an unfollowed conversation from Home', async ({ page }) => {
@@ -114,7 +113,41 @@ test.describe('Home timeline', () => {
     await expect(homePost).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   });
 
-  test('repairs a stale persisted reply count from the authoritative seed', async ({ page }) => {
+  test('keeps writing feedback under the aligned composer instead of taking over the related pane', async ({ page }) => {
+    await page.route('**/posts/feedback', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        praise: 'Your main point is clear.',
+        advice: 'Name the source you want readers to check.',
+        simulatedReplies: [],
+      }),
+    }));
+
+    const focusedFeedPost = page.locator('[data-store-feed-post="152053690"]');
+    await focusedFeedPost.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+    await expect(page.locator('[data-related-focus-post-id="152053690"]')).toBeVisible();
+
+    const composer = page.getByRole('region', { name: 'Create a post' });
+    const draft = composer.getByRole('textbox', { name: 'Post text' });
+    await draft.fill(
+      'Battery manufacturing and supply chain evidence are changing quickly.',
+    );
+
+    await expect(composer.getByText('Your main point is clear.')).toBeVisible();
+    await expect(page.getByTestId('col-aside').getByText('Your main point is clear.')).toHaveCount(0);
+    await expect(page.getByTestId('col-aside').locator('[data-related-card]').first()).toBeVisible();
+    await expect(page.getByTestId('col-aside').locator('[data-related-focus-post-id^="draft-"]')).toBeVisible();
+
+    await draft.fill('');
+    await expect(page.locator('[data-related-focus-post-id="152053690"]')).toBeVisible();
+
+    const composerBox = (await composer.boundingBox())!;
+    const postBox = (await page.locator('[data-store-feed-post]').first().getByTestId('post').boundingBox())!;
+    expect(Math.abs(composerBox.width - postBox.width)).toBeLessThanOrEqual(1);
+  });
+
+  test('repairs a stale persisted reply count from the visible thread graph', async ({ page }) => {
     await page.evaluate(() => {
       const key = 'stacky:localStore:v1';
       const state = JSON.parse(localStorage.getItem(key) || 'null');
@@ -125,7 +158,7 @@ test.describe('Home timeline', () => {
 
     await expect(
       page.locator('[data-store-feed-post="152053690"]').getByRole('button', { name: 'Reply' }),
-    ).toContainText('20');
+    ).toContainText('4');
   });
 
   test('shows real related responses and AI edits for an annotated focus post', async ({ page }) => {
@@ -157,18 +190,29 @@ test.describe('Home timeline', () => {
     const badge = michaelCard.getByRole('button', { name: 'Modified by AI' });
     const editedText = michaelCard.locator('[data-ai-edited-default]');
     const inlineDiff = michaelCard.locator('[data-ai-inline-diff]');
-    await expect(badge).toBeVisible();
+    // The collapsed reading window begins at the annotated passage, while the
+    // AI edit is earlier in the post. Its badge must not leak into this view.
+    await expect(badge).toHaveCount(0);
     // The collapsed card opens on the annotated relationship span, even when
     // the AI rewrite also contains edits much earlier in the post.
     await expect(editedText.locator('mark[data-range-id="0"]')).toContainText(
       'Only geopolitics and supply chain risk',
     );
+    await michaelCard.getByRole('button', { name: 'Read more' }).click();
+    await expect(badge).toBeVisible();
     await expect(inlineDiff).toHaveAttribute('aria-hidden', 'true');
     const beforeHover = await michaelCard.boundingBox();
+    const relationshipMark = editedText.locator('mark[data-range-id="0"]');
+    await expect(relationshipMark).toBeVisible();
 
     await badge.hover();
 
     await expect(inlineDiff).toHaveAttribute('aria-hidden', 'false');
+    await expect(editedText).toHaveAttribute('aria-hidden', 'true');
+    // The redline replaces the published paragraph in place and carries its
+    // interactive relationship highlight into the tracked text.
+    await expect(relationshipMark).toBeHidden();
+    await expect(inlineDiff.locator('mark[data-range-id="0"]')).toBeVisible();
     const deletedText = (await inlineDiff.locator('del').allTextContents()).join('');
     const insertedText = (await inlineDiff.locator('ins').allTextContents()).join('');
     expect(deletedText).toContain('in');
@@ -179,7 +223,7 @@ test.describe('Home timeline', () => {
     expect(insertedText).toContain('major');
     const afterHover = await michaelCard.boundingBox();
     expect(afterHover?.width).toBeCloseTo(beforeHover!.width, 2);
-    expect(afterHover?.height).toBeCloseTo(beforeHover!.height, 2);
+    expect(afterHover!.height).toBeGreaterThanOrEqual(beforeHover!.height);
   });
 
   test('shows a stable related-post empty state for a post with no relations', async ({ page }) => {
@@ -198,7 +242,7 @@ test.describe('Home timeline', () => {
     await expect(ordinaryReply.getByTestId('post')).toHaveAttribute('data-active', 'true');
     await expect(page.locator('[data-related-card]')).toHaveCount(0);
     const relatedEmpty = page.getByTestId('home-related-empty');
-    await expect(relatedEmpty.getByText('Related Posts', { exact: true })).toBeVisible();
+    await expect(relatedEmpty.getByText('Related posts', { exact: true })).toBeVisible();
     await expect(relatedEmpty.getByText('No related posts yet.', { exact: true })).toBeVisible();
 
     const feedWidthWithoutRelations = (await page.getByTestId('feed').boundingBox())?.width;
@@ -228,13 +272,14 @@ test.describe('Home timeline', () => {
     await expect(focus.getByTestId('post')).toHaveAttribute('data-active', 'true');
     await expect(page.locator('[data-related-card]').first()).toBeVisible();
 
-    await page.route('https://beta.stacky.social/api/v1/tags/StackyInjectionPost', (route) =>
+    await page.route('https://beta.stacky.social/api/v1/timelines/tag/StackyInjectionPost**', (route) =>
       route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }),
     );
     await page.getByRole('button', { name: 'Search' }).click();
-    await page.getByRole('button', { name: 'Open #StackyInjection hashtag' }).click();
+    await page.getByRole('button', { name: 'Filter posts by #StackyInjection' }).click();
 
-    await expect(page.getByTestId('tag-load-error')).toBeVisible();
+    await expect(page.getByText('Server search is unavailable. Showing results saved in this app.')).toBeVisible();
+    await expect(page).toHaveURL(/\/search\?q=%23StackyInjection&type=posts&entity=%23StackyInjection$/);
     await expect(page.locator('[data-related-card]')).toHaveCount(0);
     await expect(page.getByText('103 posts across all categories')).toHaveCount(0);
   });
@@ -260,9 +305,10 @@ test.describe('Home timeline', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
     );
     await page.getByRole('button', { name: 'Search' }).click();
-    await page.getByRole('button', { name: 'Open #StackyInjection hashtag' }).click();
+    await page.getByRole('button', { name: 'Filter posts by #StackyInjection' }).click();
 
-    await expect(page.getByTestId('api-feed-empty')).toContainText('No posts found.');
+    await expect(page.getByText('No posts found for #StackyInjection.')).toBeVisible();
+    await expect(page).toHaveURL(/\/search\?q=%23StackyInjection&type=posts&entity=%23StackyInjection$/);
     await expect(page.locator('[data-related-card]')).toHaveCount(0);
     await expect(page.getByText('103 posts across all categories')).toHaveCount(0);
   });

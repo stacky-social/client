@@ -1,7 +1,13 @@
 import React from "react";
 import { Text, Paper, Loader, Group, Avatar } from "@mantine/core";
 import { pickAvatarForText } from "../../utils/sentimentAvatar";
-import type { ComposerFeedbackData } from "../../app/(shell)/related-stacks-context";
+
+export type ComposerFeedbackData = {
+  loading: boolean;
+  advice?: string;
+  praise?: string;
+  simulatedReplies?: { id?: string; content: string }[];
+};
 
 // Simulated-reply thread geometry. The rail attaches the replies to the
 // USER'S DRAFT, not to the feedback: it drops from the draft avatar's column
@@ -108,8 +114,7 @@ function SimulatedReply({ content, isLast }: { content: string; isLast: boolean 
 }
 
 /**
- * Shared presentation for live draft feedback — used inline under the reply
- * composer (ReplySection) and in the home/feed aside slot (ComposerFeedback).
+ * Shared presentation for live draft feedback, rendered inline below a draft.
  *
  * Praise and advice render as ONE comment in ONE box, praise first: leading
  * with the praise is a rhetorical strategy that softens the reader up for the
@@ -192,10 +197,8 @@ export function FeedbackBlock({
 }
 
 /**
- * Aside panel that shows live writing feedback for the post being drafted in the
- * composer. Data comes from the same backend that powers comment-draft feedback
- * (POST /posts/feedback), published into the related-stacks context by SubmitPost
- * and rendered here in the home/feed aside slot. Returns null when there's none.
+ * Shared wrapper retained for surfaces that need a standalone feedback block.
+ * The Home composer renders FeedbackBlock inline under the draft.
  */
 export function ComposerFeedback({ feedback }: { feedback: ComposerFeedbackData | null }) {
   if (!feedback) return null;

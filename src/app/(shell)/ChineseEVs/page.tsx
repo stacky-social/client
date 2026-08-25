@@ -889,7 +889,7 @@ export default function ListyInjectionPage() {
         {/* Replies — derived from inherent hierarchy (children of currentId) */}
         {inherentReplies.length > 0 && (
           <div style={{ marginTop: "0.5rem" }}>
-            <Text size="xs" fw={600} c="dimmed" mb="sm" style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            <Text size="xs" fw={600} c="dimmed" mb="sm">
               Replies
             </Text>
             {inherentReplies.map((reply, index) => (

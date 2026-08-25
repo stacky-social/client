@@ -89,6 +89,28 @@ test('decoded entities count as one plain char (offset stays aligned)', () => {
   assert.match(html, /<mark[^>]*>&amp;<\/mark>/, `the entity alone should be marked: ${html}`);
 });
 
+test('zero-width inline insertion sits at the plain offset without changing mark coverage', () => {
+  const rel = [{ focusStart: 0, focusEnd: 4, category: 'framing' }];
+  const insertion = '<span class="focus-window-prefix">…</span>';
+  const html = renderMultiHighlightHtml('<p>abcd</p>', 'abcd', rel, undefined, {
+    plainOffset: 2,
+    html: insertion,
+  });
+  assert.ok(html.includes(`</mark>${insertion}<mark`), html);
+  const withoutInsertion = html.replace(insertion, '');
+  assert.deepEqual(coverage(withoutInsertion), coverage(renderMultiHighlightHtml('<p>abcd</p>', 'abcd', rel)));
+});
+
+test('inline insertion can keep the following source word in one nonbreaking group', () => {
+  const html = renderMultiHighlightHtml('<p>abcd</p>', 'abcd', [], undefined, {
+    plainOffset: 1,
+    html: '<span class="prefix-group"><span>… </span>',
+    closeOffset: 3,
+    closeHtml: '</span>',
+  });
+  assert.equal(html, '<p>a<span class="prefix-group"><span>… </span>bc</span>d</p>');
+});
+
 test('uncategorized relations are dropped', () => {
   const segs = buildFocusSegments(
     [{ focusStart: 0, focusEnd: 10, category: 'uncategorized' }],

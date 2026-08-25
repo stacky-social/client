@@ -72,17 +72,22 @@ const ENTITY_RE = /^(?:&amp;|&lt;|&gt;|&quot;|&#39;|&nbsp;)/;
  * @param {string} focusPlainText    stripHtml(rawText) — the offset base
  * @param {Array} relations
  * @param {(category:string)=>boolean} [isValidCategory]
+ * @param {{plainOffset:number, html:string, closeOffset?:number, closeHtml?:string}|null} [insertion]
+ *        zero-width inline HTML inserted before one plain-text character without
+ *        changing offsets; optional close HTML can wrap a following source slice
  * @returns {string} HTML with flat <mark data-fs data-fe data-range-ids> runs
  */
-export function renderMultiHighlightHtml(displayHtml, focusPlainText, relations, isValidCategory) {
+export function renderMultiHighlightHtml(displayHtml, focusPlainText, relations, isValidCategory, insertion = null) {
   const segments = buildFocusSegments(relations, focusPlainText.length, isValidCategory);
-  if (segments.length === 0) return displayHtml;
+  if (segments.length === 0 && !insertion) return displayHtml;
 
   let out = '';
   let plain = 0; // offset into focusPlainText
   let i = 0;     // offset into displayHtml
   let segIdx = 0;
   let open = null; // the segment whose <mark> is currently open, or null
+  let inserted = false;
+  let insertionClosed = false;
 
   const close = () => {
     if (open) { out += '</mark>'; open = null; }
@@ -94,6 +99,16 @@ export function renderMultiHighlightHtml(displayHtml, focusPlainText, relations,
   };
 
   while (i < displayHtml.length) {
+    if (
+      inserted
+      && !insertionClosed
+      && insertion?.closeOffset != null
+      && plain === insertion.closeOffset
+    ) {
+      close();
+      out += insertion.closeHtml ?? '';
+      insertionClosed = true;
+    }
     if (displayHtml[i] === '<') {
       close(); // marks never cross a tag boundary
       const gt = displayHtml.indexOf('>', i);
@@ -103,6 +118,15 @@ export function renderMultiHighlightHtml(displayHtml, focusPlainText, relations,
       continue;
     }
     // one plain char (an entity stripHtml decodes counts as one char)
+    if (!inserted && insertion && plain === insertion.plainOffset) {
+      // The continuation control is real inline content at the visible text
+      // boundary, but it consumes zero source characters and must not inherit a
+      // relation mark. Close/reopen the flat mark around it so range offsets and
+      // highlight paint stay unchanged.
+      close();
+      out += insertion.html;
+      inserted = true;
+    }
     let chunk = displayHtml[i];
     let adv = 1;
     if (chunk === '&') {
@@ -113,7 +137,7 @@ export function renderMultiHighlightHtml(displayHtml, focusPlainText, relations,
     if (seg !== open) {
       close();
       if (seg) {
-        out += `<mark data-fs="${seg.start}" data-fe="${seg.end}" data-range-ids="${seg.rangeIds.join(' ')}" style="padding:1px 0;color:inherit">`;
+        out += `<mark data-fs="${seg.start}" data-fe="${seg.end}" data-range-ids="${seg.rangeIds.join(' ')}" data-continuous-inline-highlight style="padding:1px 0;color:inherit">`;
         open = seg;
       }
     }
@@ -122,5 +146,6 @@ export function renderMultiHighlightHtml(displayHtml, focusPlainText, relations,
     i += adv;
   }
   close();
+  if (inserted && !insertionClosed) out += insertion?.closeHtml ?? '';
   return out;
 }
