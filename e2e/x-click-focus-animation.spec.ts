@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import mockData from '../src/app/FakeData/listy-injection.json';
+import mockData from '../src/app/FakeData/chinese-evs.json';
 
 // WS3/T2 — X-style click-to-focus (scroll-pin + fade).
 //

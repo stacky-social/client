@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import RelatedStacks from "../../../../components/RelatedStacks";
-import { getPost } from "../../../../utils/localStore";
+import { postRouteFor } from "../../../../utils/postRoute";
 import { useRelatedStacks } from "../../related-stacks-context";
 
 export default function SearchAside() {
@@ -41,7 +41,7 @@ export default function SearchAside() {
         sourcePostId={activePostId}
         expandGroups
         onPostNavigate={(postId) => {
-          const route = getPost(postId) ? `/ChineseEVs/posts/${postId}` : `/posts/${postId}`;
+          const route = postRouteFor(postId);
           sessionStorage.setItem(`previousPath:${route}`, window.location.pathname + window.location.search);
           router.push(route);
         }}

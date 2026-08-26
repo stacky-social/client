@@ -139,7 +139,8 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
         // makes the backend 500. Send null there (generic draft feedback derived
         // from the draft text, same as the /home composer) so simulated replies
         // still generate; live surfaces keep postId for real thread context.
-        const onDemo = window.location.pathname.startsWith('/ChineseEVs');
+        const onDemo = ['/ChineseEVs', '/AIWorkforce', '/tag/ChineseEVs', '/tag/AIWorkforce']
+            .some((prefix) => window.location.pathname.startsWith(prefix));
 
         const myReqId = ++reqIdRef.current;
         setLoading(true);

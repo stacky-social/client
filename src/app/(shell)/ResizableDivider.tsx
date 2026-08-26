@@ -71,7 +71,10 @@ export function ResizableDivider({ onResize, onDoubleClick, style, ariaLabel }: 
         marginLeft: -HIT_WIDTH / 2,
         cursor: "col-resize",
         touchAction: "none",
-        zIndex: 250,
+        // Keep the grab target above pane content, but below the sticky top nav
+        // (z-index 200). Otherwise the divider line bleeds through the nav after
+        // the document scrolls beneath it.
+        zIndex: 10,
         display: "flex",
         justifyContent: "center",
         ...style,

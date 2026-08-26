@@ -51,6 +51,32 @@ html::-webkit-scrollbar-thumb:hover {
     margin-top: 0.75em;  /* paragraph gap via margin-top only */
 }
 
+.post-text-clamp-shell {
+    position: relative;
+    min-width: 0;
+}
+
+/* WebKit line clamp does not consistently paint its own ellipsis for nested
+   paragraphs/marks. This small mask makes truncation unambiguous on every post
+   type while preserving the measured clamp height. */
+.post-clamp-ellipsis {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    display: inline-flex;
+    min-width: 2.7em;
+    justify-content: flex-end;
+    color: #011445;
+    /* Cover WebKit's inconsistent built-in clamp marker before drawing one
+       deterministic ellipsis. A translucent mask can leave both markers
+       visible, which reads as five or six dots. */
+    background: #fff;
+    font-weight: 600;
+    line-height: 1.5;
+    pointer-events: none;
+}
+
 .avatarHoverDim {
     cursor: pointer;
 }
@@ -191,75 +217,36 @@ body {
     -webkit-box-decoration-break: clone;
     box-decoration-break: clone;
 }
-.quoted-post-card {
-  width: 100%;
-  margin-top: 0.75rem;
-  padding: 0.72rem 0.82rem 0.78rem;
-  border: 1px solid #ccd7dd;
-  border-left: 3px solid #45a99e;
-  border-radius: 8px;
-  background: #f8fbfb;
-  color: #011445;
-  text-align: left;
+.quoted-post-link {
+  margin-top: 0.42rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #2f6f68;
   cursor: pointer;
-  display: grid;
-  gap: 0.22rem;
-  transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
-}
-
-.quoted-post-card:hover {
-  border-color: #76bdb6;
-  border-left-color: #238f85;
-  background: #f1f8f7;
-  transform: translateY(-1px);
-}
-
-.quoted-post-card:focus-visible {
-  outline: 2px solid #238f85;
-  outline-offset: 2px;
-}
-
-.quoted-post-label {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  color: #237a72;
-  font-size: 0.68rem;
-  font-weight: 750;
-  letter-spacing: 0.035em;
-  text-transform: uppercase;
+  gap: 0.25rem;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.45;
+  text-align: left;
+  text-decoration: none;
+  transition: color 120ms ease;
 }
 
-.quoted-post-meta {
-  display: flex;
-  align-items: baseline;
-  gap: 0.35rem;
-  color: #6b7280;
-  font-size: 0.72rem;
+.quoted-post-link:hover {
+  color: #1d665f;
+  text-decoration: underline;
 }
 
-.quoted-post-meta strong {
-  color: #324058;
-  font-weight: 700;
-}
-
-.quoted-post-title {
-  font-size: 0.84rem;
-  font-weight: 750;
-  line-height: 1.35;
-}
-
-.quoted-post-copy {
-  color: #46536a;
-  display: -webkit-box;
-  overflow: hidden;
-  font-size: 0.78rem;
-  line-height: 1.42;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+.quoted-post-link:focus-visible {
+  outline: 2px solid #238f85;
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .quoted-post-card { transition: none; }
-  .quoted-post-card:hover { transform: none; }
+  .quoted-post-link { transition: none; }
 }

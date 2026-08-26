@@ -1,15 +1,18 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import RelatedStacks from "../../../../../../components/RelatedStacks";
 import { useRelatedStacks } from "../../../../related-stacks-context";
 import { navigateFromPanelScope } from "../../../../../../utils/highlightStore";
+import { saveFeedScrollSnapshot } from "../../../../../../utils/feedScrollRestoration";
 
 export default function MockPostAside() {
   const { relatedStacks, showUpdate, highlightPostId } = useRelatedStacks();
   const params = useParams();
+  const pathname = usePathname();
   const router = useRouter();
   const focusPostId = typeof params?.id === "string" ? params.id : undefined;
+  const routeBase = pathname?.startsWith("/AIWorkforce") ? "/AIWorkforce" : "/ChineseEVs";
 
   if (!relatedStacks || relatedStacks.length === 0) {
     return (
@@ -36,9 +39,9 @@ export default function MockPostAside() {
     const params = new URLSearchParams();
     if (focusPostId) params.set("from", focusPostId);
     const search = params.toString();
-    const url = `/ChineseEVs/posts/${postId}${search ? "?" + search : ""}`;
-    sessionStorage.setItem(`previousPath:/ChineseEVs/posts/${postId}`, window.location.pathname + window.location.search);
-    sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
+    const url = `${routeBase}/posts/${postId}${search ? "?" + search : ""}`;
+    sessionStorage.setItem(`previousPath:${routeBase}/posts/${postId}`, window.location.pathname + window.location.search);
+    saveFeedScrollSnapshot();
     // WS6: collapse any active undo sentinel on the way out (replace OVER it when
     // it is the current entry, else push) so Back returns here cleanly.
     navigateFromPanelScope(url, router);

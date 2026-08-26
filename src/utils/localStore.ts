@@ -29,15 +29,17 @@
  * adaptation. See the `Post` / `Account` / `Comment` types exported below.
  */
 
-import mockData from "../app/FakeData/listy-injection.json";
 import { fakeUsers } from "../app/FakeData/FakeUsers.js";
 import type {
-  ListyInjectionData,
-  ListyInjectionEntry,
   FocusPostMock,
   RelatedPostMock,
   Relation,
 } from "../types/PostType";
+import {
+  allDemoEntries,
+  DEMO_CORPORA,
+  getDemoCorpusByHashtag,
+} from "../data/demoCorpora";
 import {
   getMockFocusRelations,
   getMockReplyParentId,
@@ -151,7 +153,7 @@ export interface LocalState {
 const STORAGE_KEY = "stacky:localStore:v1";
 const DEFAULT_AVATAR = "https://beta.stacky.social/avatars/original/missing.png";
 
-const entries = mockData as unknown as ListyInjectionData;
+const entries = allDemoEntries;
 
 // ─── Helpers: shape conversion ───────────────────────────────────────────────
 
@@ -338,6 +340,8 @@ const isBrowser = (): boolean => typeof window !== "undefined";
  */
 let state: LocalState = seedState();
 let hydrated = false;
+const fixturePostIds = new Set(Object.keys(state.posts));
+const fixtureAccountIds = new Set(Object.keys(state.accounts));
 
 /** Read + parse persisted state, falling back to (and persisting) a fresh seed. */
 function load(): LocalState {
@@ -356,16 +360,28 @@ function load(): LocalState {
     const persistedComments = parsed.comments ?? {};
     const posts: Record<string, Post> = { ...seed.posts, ...persistedPosts };
 
+    // Compact v2 persistence stores replies once in the comments index instead
+    // of duplicating them in posts. Rehydrate that index into the normal
+    // in-memory post pool so reply routes remain directly addressable.
+    for (const comments of Object.values(persistedComments)) {
+      for (const comment of comments) posts[comment.id] = comment;
+    }
+
     // Migrate existing v1 browser data without discarding likes, bookmarks, or
     // user-created posts. Related stacks, annotations, and contextual rewrites
     // are read-only fixture enrichment, so always refresh those fields from the
     // latest seed instead of pinning a participant to a stale demo payload.
     for (const [id, seededPost] of Object.entries(seed.posts)) {
       const persistedPost = persistedPosts[id];
-      if (!persistedPost) continue;
+      const wasLiked = (parsed.liked ?? []).includes(id);
+      const wasBookmarked = (parsed.bookmarked ?? []).includes(id);
       posts[id] = {
         ...seededPost,
-        ...persistedPost,
+        ...(persistedPost ?? {}),
+        favourited: persistedPost?.favourited ?? wasLiked,
+        bookmarked: persistedPost?.bookmarked ?? wasBookmarked,
+        favourites_count: persistedPost?.favourites_count
+          ?? Math.max(0, seededPost.favourites_count + (wasLiked && !seededPost.favourited ? 1 : 0)),
         replies_count: resolveReplyCount(
           seededPost.replies_count,
           (persistedComments[id] ?? []).filter((comment) => comment.in_reply_to_id === id).length,
@@ -380,24 +396,34 @@ function load(): LocalState {
     // Migrate the previous "follow every demo author" implementation into an
     // actual hashtag follow. Account follows remain intact for profile pages.
     const seededDemoAuthors = new Set(
-      Object.values(seed.posts)
+      DEMO_CORPORA["chinese-evs"].entries.flatMap((entry) => [
+        entry.focusPost,
+        ...(entry.ancestors ?? []),
+        ...(entry.replies ?? []),
+        ...(entry.relatedPosts ?? []),
+      ])
         .map((post) => post.account.acct)
         .filter((acct) => acct !== seed.me.acct),
     );
     const followedEveryDemoAuthor = seededDemoAuthors.size > 0 &&
       Array.from(seededDemoAuthors).every((acct) => persistedFollowing.includes(acct));
     const persistedFollowingTags = (parsed.followingTags ?? [])
-      .map((tag) => tag === "chineseevs" ? "aiworkforce" : tag);
+      .map(normalizeHashtag)
+      .filter(Boolean);
 
     return {
       posts,
-      accounts: parsed.accounts ?? seed.accounts,
+      // Corpus imports can introduce new authors after a participant already
+      // has a persisted v1 store. Keep their local choices/profile edits, but
+      // always add the newest fixture accounts so author links remain local and
+      // never fall through to a failing live Mastodon lookup.
+      accounts: { ...seed.accounts, ...(parsed.accounts ?? {}) },
       liked: parsed.liked ?? [],
       bookmarked: parsed.bookmarked ?? [],
       following: persistedFollowing,
       followingTags: persistedFollowingTags.length > 0
         ? Array.from(new Set(persistedFollowingTags))
-        : (followedEveryDemoAuthor ? ["aiworkforce"] : []),
+        : (followedEveryDemoAuthor ? ["chineseevs"] : []),
       comments: persistedComments,
       me: parsed.me ?? seed.me,
     };
@@ -420,7 +446,30 @@ function ensureHydrated(): void {
 function persist(next: LocalState): void {
   if (!isBrowser()) return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    // The imported corpus is much larger than the browser's localStorage quota
+    // and is already bundled with the app. Persist only participant-owned
+    // deltas; load() merges them back onto the current corpus on every visit.
+    const commentIds = new Set(
+      Object.values(next.comments).flatMap((comments) => comments.map((comment) => comment.id)),
+    );
+    const posts = Object.fromEntries(
+      Object.entries(next.posts).filter(([id, post]) => (
+        !fixturePostIds.has(id)
+        && !commentIds.has(id)
+        && (id.startsWith("local-") || post.account.acct === next.me.acct)
+      )),
+    );
+    const accounts = Object.fromEntries(
+      Object.entries(next.accounts).filter(([acct]) => (
+        acct === next.me.acct
+        || (!fixtureAccountIds.has(acct) && next.following.includes(acct))
+      )),
+    );
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      ...next,
+      posts,
+      accounts,
+    }));
   } catch {
     // Quota / serialisation failure — keep the in-memory copy authoritative.
   }
@@ -596,7 +645,12 @@ export function getHomeFeed(includeReplies = false): Post[] {
  */
 export function getFollowedDemoFeed(includeReplies = false): Post[] {
   return memoized(`followedDemo:${includeReplies ? "with-replies" : "posts-only"}`, () => {
-    if (!state.followingTags.includes("aiworkforce")) return [];
+    const followedTopicIds = new Set(
+      state.followingTags
+        .map((tag) => getDemoCorpusByHashtag(tag)?.id)
+        .filter((topicId): topicId is NonNullable<typeof topicId> => !!topicId),
+    );
+    if (followedTopicIds.size === 0) return [];
 
     // The normal condition mirrors /ChineseEVs: focus posts appear in Home,
     // while ancestors, replies, and related responses stay in the full thread.
@@ -604,6 +658,7 @@ export function getFollowedDemoFeed(includeReplies = false): Post[] {
     // related-post cards—so the timeline contract remains understandable.
     const timelineIds = new Set<string>();
     for (const entry of entries) {
+      if (!entry.topicId || !followedTopicIds.has(entry.topicId)) continue;
       if (entry.timelineRoot !== false) timelineIds.add(entry.focusPost.id);
       if (includeReplies) {
         for (const reply of entry.replies ?? []) timelineIds.add(reply.id);
@@ -705,9 +760,12 @@ export function getHashtagPosts(tag: string): Post[] {
   const normalized = tag.trim().replace(/^#/, "").toLowerCase();
   if (!normalized) return [];
 
-  if (normalized === "aiworkforce" || normalized === "chineseevs") {
+  const corpus = getDemoCorpusByHashtag(normalized);
+  if (corpus) {
     const focusIds = new Set(
-      entries.filter((entry) => entry.timelineRoot !== false).map((entry) => entry.focusPost.id),
+      corpus.entries
+        .filter((entry) => entry.timelineRoot !== false)
+        .map((entry) => entry.focusPost.id),
     );
     return Object.values(state.posts)
       .filter((post) => focusIds.has(post.id))
@@ -963,10 +1021,21 @@ export function isFollowingTag(tag: string): boolean {
  * excluding the local user. Backs the "Follow demo feed" action, which surfaces
  * the whole conversation on Home by following all of them.
  */
-export function getHashtagAuthors(): string[] {
-  return memoized("hashtagAuthors", () => {
+export function getHashtagAuthors(tag?: string): string[] {
+  const corpus = tag ? getDemoCorpusByHashtag(tag) : undefined;
+  const key = corpus ? `hashtagAuthors:${corpus.id}` : "hashtagAuthors:all";
+  return memoized(key, () => {
     const set = new Set<string>();
+    const corpusPostIds = corpus
+      ? new Set(corpus.entries.flatMap((entry) => [
+          entry.focusPost.id,
+          ...(entry.ancestors ?? []).map((post) => post.id),
+          ...(entry.replies ?? []).map((post) => post.id),
+          ...(entry.relatedPosts ?? []).map((post) => post.id),
+        ]))
+      : null;
     for (const p of Object.values(state.posts)) {
+      if (corpusPostIds && !corpusPostIds.has(p.id)) continue;
       if (p.account.acct !== state.me.acct) set.add(p.account.acct);
     }
     return Array.from(set);

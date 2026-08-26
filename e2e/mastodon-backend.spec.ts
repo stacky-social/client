@@ -5,7 +5,7 @@ const account = {
   username: 'river',
   acct: 'river',
   display_name: 'River Chen',
-  avatar: '/avatar/stacky_default.PNG',
+  avatar: '/icon.svg',
 };
 
 function status(id: string, content: string, overrides: Record<string, unknown> = {}) {

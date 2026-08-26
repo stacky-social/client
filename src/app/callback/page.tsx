@@ -15,7 +15,7 @@ function CallbackPage() {
   const searchParams = useSearchParams();
   const hasProcessedRef = useRef(false);
   const [status, setStatus] = useState<CallbackState>('loading');
-  const [message, setMessage] = useState('Confirming your Stacky account…');
+  const [message, setMessage] = useState('Confirming your CrossWeave account…');
 
   useEffect(() => {
     if (hasProcessedRef.current) return;

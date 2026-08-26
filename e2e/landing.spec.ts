@@ -10,7 +10,7 @@ test.describe('Landing page', () => {
 
     const createAccount = page.getByRole('link', { name: /Create an account/ });
     await expect(createAccount).toHaveAttribute('href', 'https://beta.stacky.social/auth/sign_up');
-    await expect(page.getByRole('button', { name: /Explore the JSON demo/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Explore the AI & workforce demo/ })).toBeVisible();
 
     await expect(page.getByText('CrossWeave', { exact: true })).toBeVisible();
     await expect(page.getByRole('img', { name: 'CrossWeave logo' })).toHaveCount(1);
@@ -66,7 +66,7 @@ test.describe('Landing page', () => {
       sessionStorage.setItem('previousPath:/somewhere', '/old');
     });
 
-    await page.getByRole('button', { name: /Explore the JSON demo/ }).click();
+    await page.getByRole('button', { name: /Explore the AI & workforce demo/ }).click();
     await expect(page).toHaveURL(/\/home$/);
     await expect(page.locator('[data-feed-mode="json-demo"]')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();

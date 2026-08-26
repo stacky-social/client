@@ -32,6 +32,11 @@ import {
     selectStableFeedFocus,
     type FeedFocusCandidate,
 } from '../utils/stableFeedFocus';
+import {
+    restoreFeedScrollSnapshot,
+    saveFeedScrollSnapshot,
+} from '../utils/feedScrollRestoration';
+import { postRouteFor } from '../utils/postRoute';
 
 /** Local (no-backend) feed sources backed by the localStore. */
 export type FeedSource = 'home' | 'bookmarks' | 'liked';
@@ -449,20 +454,14 @@ const ApiFeedCore: React.FC<PostListProps & {
     const handleStackIconClickRef = useRef(handleStackIconClick); handleStackIconClickRef.current = handleStackIconClick;
     const setActivePostIdRef = useRef(setActivePostId); setActivePostIdRef.current = setActivePostId;
 
-    // Restore scroll position after first paint when using cached data.
-    // Virtuoso runs in useWindowScroll mode, so the window scroll position is
-    // the source of truth and restoring it renders the right window of items.
+    // Restore after the first usable page, whether it came from memory cache or
+    // a fresh request. The pixel position mounts Virtuoso's prior neighborhood;
+    // the saved semantic anchor then corrects any card-height drift.
     useEffect(() => {
-        if (!hasCachedData || restoredScrollRef.current) return;
+        if (loading || displayPosts.length === 0 || restoredScrollRef.current) return;
         restoredScrollRef.current = true;
-        const savedY = sessionStorage.getItem(`scrollY:${window.location.pathname}`);
-        if (savedY) {
-            requestAnimationFrame(() => {
-                window.scrollTo(0, parseInt(savedY, 10));
-            });
-            sessionStorage.removeItem(`scrollY:${window.location.pathname}`);
-        }
-    }, []);
+        return restoreFeedScrollSnapshot();
+    }, [displayPosts.length, loading]);
 
     useEffect(() => {
         if (!ready) return; // wait for token check
@@ -852,6 +851,7 @@ const ApiFeedCore: React.FC<PostListProps & {
     const renderPost = (_index: number, post: PostType) => (
         <div
             data-post-id={post.postId}
+            data-api-feed-post={post.postId}
             data-feed-origin={localSupplementIds.has(post.postId) ? 'demo' : 'mastodon'}
             ref={(node) => registerPostNodeRef.current(node, post.postId)}
         >
@@ -1078,6 +1078,13 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
     const manualActiveIdRef = useRef<string | null>(null);
     const manualLockRef = useRef(false);
     const publishedRetrievedRef = useRef(new Map<string, { stacks: any[]; count: number }>());
+    const restoredScrollRef = useRef(false);
+
+    useEffect(() => {
+        if (!hydrated || posts.length === 0 || restoredScrollRef.current) return;
+        restoredScrollRef.current = true;
+        return restoreFeedScrollSnapshot();
+    }, [hydrated, posts.length]);
 
     // If retrieval finishes while the new post is already centered, republish
     // that result immediately; the user should not have to scroll away and back
@@ -1161,7 +1168,7 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                     </Text>
                     <Text size="sm" c="dimmed">
                         Browse the{' '}
-                        <Anchor component={Link} href="/ChineseEVs" size="sm">
+                        <Anchor component={Link} href="/AIWorkforce" size="sm">
                             #AIWorkforce demo thread
                         </Anchor>{' '}
                         — no login required.
@@ -1198,9 +1205,9 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                         // local detail route (never the auth-gated REST route).
                         onNavigate={(postId: string) => {
                             handleStackIconClick(post.relatedStacks ?? [], postId, { top: 0, height: 0 });
-                            const url = `/ChineseEVs/posts/${postId}`;
+                            const url = postRouteFor(postId);
                             sessionStorage.setItem(`previousPath:${url}`, window.location.pathname + window.location.search);
-                            sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
+                            saveFeedScrollSnapshot();
                             router.push(url);
                         }}
                         setIsModalOpen={setIsModalOpen}

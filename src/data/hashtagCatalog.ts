@@ -16,6 +16,11 @@ export interface HashtagDefinition {
  */
 export const HASHTAG_CATALOG: readonly HashtagDefinition[] = [
   {
+    name: "ChineseEVs",
+    description: "Chinese electric vehicles, manufacturing, trade, and industrial policy",
+    local: true,
+  },
+  {
     name: "AIWorkforce",
     description: "AI, jobs, worker transitions, automation, and economic policy",
     local: true,

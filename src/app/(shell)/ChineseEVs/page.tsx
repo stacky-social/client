@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Text, Paper, Box, Group, Divider, Button, Skeleton } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { notifications } from "@mantine/notifications";
 import Post from "../../../components/Posts/Post";
 import type { ListyInjectionEntry, RelatedPostMock, FocusPostMock, Relation, CategoryKey } from "../../../types/PostType";
@@ -13,13 +13,17 @@ import { firstTypeRelations } from "../../../utils/relationFirstType.mjs";
 import { registerNavigateCallback } from "../../../utils/highlightStore";
 import ReplySection from "../../../components/ReplySection";
 import { useLocalStore, useHydrated, isFollowingTag, toggleTagFollow } from "../../../utils/localStore";
-import { DEMO_TIMELINE_PAGE_SIZE, getChineseEvTimelinePage, type TimelineStats } from "../../../services/demoApiClient";
+import { DEMO_TIMELINE_PAGE_SIZE, getDemoTimelinePage, type TimelineStats } from "../../../services/demoApiClient";
 import { getMockReplyCount } from "../../../utils/mockPostResolver";
 import {
   onStableWindowScroll,
   selectStableFeedFocus,
   type FeedFocusCandidate,
 } from "../../../utils/stableFeedFocus";
+import {
+  restoreFeedScrollSnapshot,
+  saveFeedScrollSnapshot,
+} from "../../../utils/feedScrollRestoration";
 
 // ── Thread line constants ────────────────────────────────────────────────────
 const THREAD_LINE_COLOR = "#ccd1dc";
@@ -221,6 +225,13 @@ function replyToPostData(reply: FocusPostMock) {
 
 export default function ListyInjectionPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const isAiWorkforce = pathname?.toLowerCase().includes("aiworkforce") ?? false;
+  const topicId = isAiWorkforce ? "ai-workforce" : "chinese-evs";
+  const hashtag = isAiWorkforce ? "AIWorkforce" : "ChineseEVs";
+  // Hashtag discovery may enter through /tag/AIWorkforce, but all detail URLs
+  // use one canonical base so Back/share/session keys remain deterministic.
+  const routeBase = isAiWorkforce ? "/AIWorkforce" : "/ChineseEVs";
   const { setFromPost, activePostId: ctxActivePostId } = useRelatedStacks();
   const [entries, setEntries] = useState<ListyInjectionEntry[]>([]);
   const [timelineStats, setTimelineStats] = useState<TimelineStats | null>(null);
@@ -250,7 +261,7 @@ export default function ListyInjectionPage() {
     else setInitialLoading(true);
 
     try {
-      const page = await getChineseEvTimelinePage(cursor, { signal });
+      const page = await getDemoTimelinePage(topicId, cursor, { signal });
       setEntries((current) => {
         if (!append) return page.items;
         const seen = new Set(current.map((entry) => entry.focusPost.id));
@@ -268,7 +279,7 @@ export default function ListyInjectionPage() {
       if (append) setLoadingMore(false);
       else setInitialLoading(false);
     }
-  }, []);
+  }, [topicId]);
 
   // The page knows only the API contract. The bundled route currently serves
   // the JSON fixture with latency; a live service can replace its base URL.
@@ -501,7 +512,7 @@ export default function ListyInjectionPage() {
     // swallowing it silently.
     if (!postId || !resolveEntry(postId)) {
       // eslint-disable-next-line no-console
-      console.warn('[ChineseEVs] navigateToPost: unknown postId, ignoring', { postId });
+      console.warn(`[${hashtag}] navigateToPost: unknown postId, ignoring`, { postId });
       return;
     }
     // Save feed state for back-nav restoration: scroll position and the
@@ -509,24 +520,24 @@ export default function ListyInjectionPage() {
     // Direct feed clicks pass the clicked feed-post id. Aside clicks may
     // pass a related-post id that isn't a feed entry — the restore effect
     // handles that by leaving the aside alone if the id isn't found in posts.
-    sessionStorage.setItem(`scrollY:/ChineseEVs`, String(window.scrollY));
+    saveFeedScrollSnapshot(routeBase);
     // Restore the FOCUSED feed post (whose related panel — grouping/filters — the
     // user was working in), not the post being opened. Opening a related post and
     // coming back should land you back on your grouped/filtered panel. Falls back
     // to the opened post if nothing is focused yet.
-    sessionStorage.setItem(`activeFeedPost:/ChineseEVs`, activePostIdRef.current ?? postId);
+    sessionStorage.setItem(`activeFeedPost:${routeBase}`, activePostIdRef.current ?? postId);
     // Seed BackButton's previousPath so the post-detail route shows "Back".
     sessionStorage.setItem(
-      `previousPath:/ChineseEVs/posts/${postId}`,
-      "/ChineseEVs",
+      `previousPath:${routeBase}/posts/${postId}`,
+      routeBase,
     );
     // Supersedes the prior in-page thread mode + ?focus= URL approach: we
     // now route to a dedicated detail page so URLs are true REST resources
     // rather than query-param state. Group A's A4 (browser-back capture via
     // pushState marker) is therefore obsolete — router.push gives the
     // browser-back behavior we want for free.
-    router.push(`/ChineseEVs/posts/${postId}`);
-  }, [router, resolveEntry]);
+    router.push(`${routeBase}/posts/${postId}`);
+  }, [hashtag, routeBase, router, resolveEntry]);
 
   const navigateBack = useCallback(() => {
     setNavDirection('backward');
@@ -555,13 +566,13 @@ export default function ListyInjectionPage() {
         window.history.pushState(
           restoreId ? { focus: restoreId } : null,
           "",
-          `/ChineseEVs${targetSearch}`,
+          `${routeBase}${targetSearch}`,
         );
       }
 
       return next;
     });
-  }, [getRelatedStacks]);
+  }, [getRelatedStacks, routeBase]);
 
   // Register the navigate callback so the aside's RelatedStacks can trigger it
   useEffect(() => {
@@ -635,10 +646,10 @@ export default function ListyInjectionPage() {
     if (posts.length === 0 || activePostId) return;
 
     const savedY = typeof window !== "undefined"
-      ? sessionStorage.getItem("scrollY:/ChineseEVs")
+      ? sessionStorage.getItem(`scrollY:${routeBase}`)
       : null;
     const savedActiveId = typeof window !== "undefined"
-      ? sessionStorage.getItem("activeFeedPost:/ChineseEVs")
+      ? sessionStorage.getItem(`activeFeedPost:${routeBase}`)
       : null;
 
     // Pick the post to focus, in priority order. Falls back to first feed post.
@@ -653,22 +664,23 @@ export default function ListyInjectionPage() {
 
     // Schedule scroll restoration if we have a saved position.
     const y = savedY ? parseInt(savedY, 10) : NaN;
-    if (!Number.isNaN(y) && y > 0) {
+    if (!Number.isNaN(y) && y >= 0) {
       isRestoringRef.current = true;
-      // Two RAFs so feed posts settle to their final laid-out heights.
+      // Two RAFs let the feed lay out, then the shared restorer uses the saved
+      // post anchor to correct any drift from changed card heights.
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          window.scrollTo(0, y);
-          isRestoringRef.current = false;
-          sessionStorage.removeItem("scrollY:/ChineseEVs");
-          sessionStorage.removeItem("activeFeedPost:/ChineseEVs");
+          restoreFeedScrollSnapshot(routeBase, {
+            onSettled: () => { isRestoringRef.current = false; },
+          });
+          sessionStorage.removeItem(`activeFeedPost:${routeBase}`);
         });
       });
     } else {
-      sessionStorage.removeItem("scrollY:/ChineseEVs");
-      sessionStorage.removeItem("activeFeedPost:/ChineseEVs");
+      sessionStorage.removeItem(`scrollY:${routeBase}`);
+      sessionStorage.removeItem(`activeFeedPost:${routeBase}`);
     }
-  }, [posts, activePostId, ctxActivePostId, setFromPost]);
+  }, [posts, activePostId, ctxActivePostId, routeBase, setFromPost]);
 
   // Keep ref in sync
   useEffect(() => { activePostIdRef.current = activePostId; }, [activePostId]);
@@ -924,15 +936,15 @@ export default function ListyInjectionPage() {
   // feed even while its posts are still served by the frontend adapter.
   const hydrated = useHydrated();
   const localPosts = useLocalStore((snapshot) => snapshot.posts);
-  const hashtagFollowed = useLocalStore(() => isFollowingTag("AIWorkforce"));
+  const hashtagFollowed = useLocalStore(() => isFollowingTag(hashtag));
   const handleFollowHashtag = () => {
-    const wasFollowing = isFollowingTag("AIWorkforce");
-    toggleTagFollow("AIWorkforce");
+    const wasFollowing = isFollowingTag(hashtag);
+    toggleTagFollow(hashtag);
 
-    const notificationId = `ai-workforce-follow-${Date.now()}`;
+    const notificationId = `${topicId}-follow-${Date.now()}`;
     notifications.show({
       id: notificationId,
-      title: wasFollowing ? "Unfollowed #AIWorkforce" : "Following #AIWorkforce",
+      title: wasFollowing ? `Unfollowed #${hashtag}` : `Following #${hashtag}`,
       color: "blue",
       message: (
         <Group gap="xs" justify="space-between" wrap="nowrap">
@@ -945,7 +957,7 @@ export default function ListyInjectionPage() {
             variant="subtle"
             size="compact-xs"
             onClick={() => {
-              toggleTagFollow("AIWorkforce");
+              toggleTagFollow(hashtag);
               notifications.hide(notificationId);
             }}
           >
@@ -966,7 +978,7 @@ export default function ListyInjectionPage() {
         withBorder
       >
         <Group style={{ justifyContent: "space-between" }}>
-          <Text size="xl" fw={700}>#AIWorkforce</Text>
+          <Text size="xl" fw={700}>#{hashtag}</Text>
           <Button
             color="blue"
             variant={hydrated && hashtagFollowed ? "filled" : "outline"}
@@ -1030,6 +1042,7 @@ export default function ListyInjectionPage() {
           <div
             key={post.postId}
             data-post-id={post.postId}
+            data-demo-feed-post={post.postId}
             ref={(el) => { postRefs.current[index] = el; }}
             style={{ marginBottom: "0.5rem" }}
           >

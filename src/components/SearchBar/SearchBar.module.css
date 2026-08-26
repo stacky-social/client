@@ -44,6 +44,29 @@
   background: #1c2b4a;
 }
 
+.entityContext {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  margin: -8px 0 16px;
+  padding: 5px 12px;
+  border: 1px solid #b8c8d8;
+  border-radius: 999px;
+  color: #1c2b4a;
+  background: #eef8f6;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.entityContextLabel {
+  color: #52716e;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
 .filterButton:focus-visible,
 .entityButton:focus-visible {
   outline: 3px solid rgba(69, 169, 158, 0.3);

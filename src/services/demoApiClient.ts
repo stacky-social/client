@@ -1,4 +1,5 @@
 import type { ListyInjectionEntry } from "../types/PostType";
+import type { DemoTopicId } from "../data/demoCorpora";
 
 export type TimelineStats = {
   posts: number;
@@ -11,7 +12,7 @@ export type TimelinePage = {
   nextCursor: string | null;
   hasMore: boolean;
   stats: TimelineStats;
-  meta: { simulated: boolean; delayMs: number; generatedAt: string };
+  meta: { simulated: boolean; topicId: DemoTopicId; delayMs: number; generatedAt: string };
 };
 
 type CacheEntry = { value: TimelinePage; expiresAt: number };
@@ -54,14 +55,15 @@ function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
  * Typed, cached frontend boundary for the simulated backend. Requests for the
  * same page share one fetch; callers can still cancel their own subscription.
  */
-export function getChineseEvTimelinePage(
+export function getDemoTimelinePage(
+  topicId: DemoTopicId,
   cursor: string | null,
   options: { signal?: AbortSignal } = {},
 ): Promise<TimelinePage> {
   pruneCache();
   const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
   if (cursor) params.set("cursor", cursor);
-  const url = `${apiBaseUrl()}/timelines/chinese-evs?${params}`;
+  const url = `${apiBaseUrl()}/timelines/${encodeURIComponent(topicId)}?${params}`;
 
   const cached = pageCache.get(url);
   if (cached && cached.expiresAt > Date.now()) {
@@ -90,6 +92,14 @@ export function getChineseEvTimelinePage(
   }
 
   return abortable(request, options.signal);
+}
+
+/** Backward-compatible name for the legacy route component. */
+export function getChineseEvTimelinePage(
+  cursor: string | null,
+  options: { signal?: AbortSignal } = {},
+): Promise<TimelinePage> {
+  return getDemoTimelinePage("chinese-evs", cursor, options);
 }
 
 export const DEMO_TIMELINE_PAGE_SIZE = PAGE_SIZE;

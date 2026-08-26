@@ -1,5 +1,5 @@
 // Converts the CrossWeave NYT demo corpus (crossweave repo `demo_data/`) into the
-// FE feed fixture `src/app/FakeData/listy-injection.json`.
+// dedicated FE fixture `src/app/FakeData/chinese-evs.json`.
 //
 // Source of truth for the mapping: crossweave `demo_data/README.md`. It reads
 //   prepared_data_with_descendants/*.json → FE-ready focused posts + ranked candidate
@@ -23,10 +23,18 @@
 
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const OUT_PATH = join(here, '../src/app/FakeData/listy-injection.json');
+// Keep the legacy Chinese-EVs corpus independent from newer live-demo topics.
+// An explicit destination is useful for verification/one-off exports, while
+// the safe default can never overwrite the AI-workforce fixture.
+const AI_WORKFORCE_PATH = resolve(here, '../src/app/FakeData/listy-injection.json');
+const OUT_PATH = resolve(process.env.DEMO_OUTPUT_PATH
+  || join(here, '../src/app/FakeData/chinese-evs.json'));
+if (OUT_PATH === AI_WORKFORCE_PATH) {
+  throw new Error('Refusing to overwrite the AI-workforce fixture with Chinese-EVs data');
+}
 
 const DEMO_DIR = process.env.CROSSWEAVE_DEMO_DIR || '/tmp/crossweave-demo/demo_data';
 // Prefer `prepared_data_with_descendants/` (adds a `descendant_posts` array of
@@ -50,7 +58,7 @@ const DESCENDANTS_DIR = join(SRC_DIR, 'descendants');
 // FE derives them from the emitted relatedPosts, not a stored total.
 const MAX_CANDIDATES = Number(process.env.MAX_CANDIDATES || 0);
 
-const AVATAR = 'https://beta.stacky.social/avatars/original/missing.png';
+const AVATAR = '/icon.svg';
 
 // crossweave contribution_type label → FE CategoryKey. `Pointers` gets its own
 // key (the data also has a distinct `Connections` type, so they must not merge).
@@ -108,7 +116,7 @@ function stripLocation(handle) {
   return handle.replace(/\s*\([^)]*\)\s*$/, '').trim() || handle;
 }
 function accountFromHandle(handle) {
-  return { display_name: stripLocation(handle), acct: `${acctSlug(handle)}@stacky-nyt.com`, avatar: AVATAR };
+  return { display_name: stripLocation(handle), acct: `${acctSlug(handle)}@crossweave-demo.social`, avatar: AVATAR };
 }
 function accountFromAuthor(author) {
   return accountFromHandle(author?.name || 'Anonymous');
@@ -194,7 +202,7 @@ function buildAncestors(ancestors, counts) {
         // === plainText (same round-trip invariant as toHtml).
         content: `<p><strong>${esc(headline)}</strong></p>` + (summary ? `\n\n<p>${esc(summary)}</p>` : ''),
         plainText: plain,
-        account: { display_name: a.author_handle || 'The New York Times', acct: 'nytimes@stacky-nyt.com', avatar: AVATAR },
+        account: { display_name: a.author_handle || 'The New York Times', acct: 'nytimes@crossweave-demo.social', avatar: AVATAR },
         created_at: a.created_at,
         favourites_count: 0,
         replies_count: 0,
@@ -406,6 +414,8 @@ for (const file of files) {
     : buildReplies(d.focused_post.comment_id, focusReplies, counts);
 
   const entry = {
+    topicId: 'chinese-evs',
+    timelineRoot: true,
     focusPost,
     relatedPosts,
     ancestors: buildAncestors(d.focused_post.ancestors, counts),

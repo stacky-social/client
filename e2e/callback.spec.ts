@@ -26,7 +26,7 @@ test.describe('OAuth callback', () => {
           username: 'river',
           acct: 'river',
           display_name: 'River Chen',
-          avatar: '/avatar/stacky_default.PNG',
+          avatar: '/icon.svg',
         },
         instance: 'https://beta.stacky.social',
       }),

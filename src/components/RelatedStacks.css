@@ -166,13 +166,9 @@
 
   .ai-edit-inline-text del {
     color: #8f2f35;
-    background: transparent;
+    background: rgba(253, 229, 229, 0.82);
     text-decoration-color: #b83c45;
-    text-decoration-thickness: 1.5px;
-  }
-
-  .ai-edit-inline-text .ai-edit-removed-middle {
-    background: rgba(253, 229, 229, 0.62);
+    text-decoration-thickness: 2px;
   }
 
   .ai-edit-inline-text ins {
@@ -181,6 +177,33 @@
     text-decoration-color: #2d8955;
     text-decoration-thickness: 2px;
     text-underline-offset: 2px;
+  }
+
+  .ai-edit-legend {
+    display: flex;
+    align-items: center;
+    width: max-content;
+    max-width: 100%;
+    gap: 7px;
+    margin: 0 0 7px;
+    padding: 4px 7px;
+    color: #44516b;
+    background: #f8fafc;
+    border: 1px solid #d7ddea;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .ai-edit-legend-label {
+    color: #25324d;
+  }
+
+  .ai-edit-legend ins,
+  .ai-edit-legend del {
+    padding: 1px 3px;
+    border-radius: 2px;
   }
 
   .ai-edit-sr-only {

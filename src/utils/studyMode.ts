@@ -54,7 +54,7 @@ export function startStudySession(): StudySession {
     acct: "study-participant",
     display_name: "Study participant",
     username: "study_participant",
-    avatar: "/avatar/stacky_default.PNG",
+    avatar: "/icon.svg",
     followers_count: 0,
     following_count: 0,
     statuses_count: 0,

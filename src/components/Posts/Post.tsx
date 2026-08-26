@@ -25,6 +25,8 @@ import { showTooltip, hideTooltip } from '../HoverTooltip';
 import { showUndoableAction } from '../../utils/actionNotifications';
 import { mastodonLinkHost } from '../../utils/mastodonContent.mjs';
 import { pointBridgesInlineRects } from '../../utils/inlineHighlightGeometry.mjs';
+import { saveFeedScrollSnapshot } from '../../utils/feedScrollRestoration';
+import { postRouteFor } from '../../utils/postRoute';
 
 /** X-style left-pane indent (px): avatar (Mantine md = 38px) + the header row's
  *  `gap="xs"` (10px) = 48px, i.e. where the username's left edge sits. The post
@@ -1250,17 +1252,33 @@ function Post({
     setReplyCount(repliesCount);
   }, [id, repliesCount]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = textRef.current;
-    if (!element) return;
+    if (!element || isTextExpanded) return;
 
-    if (isTextExpanded) {
-      setIsOverflowing(false);
-      return;
-    }
+    let animationFrame = 0;
+    let cancelled = false;
+    const measureOverflow = () => {
+      if (cancelled) return;
+      cancelAnimationFrame(animationFrame);
+      animationFrame = requestAnimationFrame(() => {
+        // A one-pixel tolerance avoids a false "Read more" when fractional line
+        // metrics round scrollHeight and clientHeight in opposite directions.
+        setIsOverflowing(element.scrollHeight - element.clientHeight > 1);
+      });
+    };
 
-    setIsOverflowing(element.scrollHeight > element.clientHeight);
-  }, [text, isTextExpanded]);
+    measureOverflow();
+    const resizeObserver = new ResizeObserver(measureOverflow);
+    resizeObserver.observe(element);
+    void document.fonts?.ready.then(measureOverflow);
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(animationFrame);
+      resizeObserver.disconnect();
+    };
+  }, [displayText, text, isTextExpanded, clampLines, contentRelations, focusRelations]);
   useEffect(() => {
     setTempRelatedStacks(relatedStacks);
   }, [relatedStacks]);
@@ -1293,17 +1311,17 @@ function Post({
     // Store-backed posts (seeded study content, user posts, and local replies)
     // must stay on the compatible local thread route. Unknown ids are assumed
     // to belong to a live Mastodon surface and keep the API-backed route.
-    const url = getPost(id) ? `/ChineseEVs/posts/${id}` : `/posts/${id}`;
-    sessionStorage.setItem(`previousPath:${url}`, window.location.pathname);
-    sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
+    const url = postRouteFor(id);
+    sessionStorage.setItem(`previousPath:${url}`, window.location.pathname + window.location.search);
+    saveFeedScrollSnapshot();
     router.push(url);
   };
 
   const handleReply = () => {
     if (onNavigate) { onNavigate(id); return; }
-    const url = getPost(id) ? `/ChineseEVs/posts/${id}` : `/posts/${id}`;
-    sessionStorage.setItem(`previousPath:${url}`, window.location.pathname);
-    sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
+    const url = postRouteFor(id);
+    sessionStorage.setItem(`previousPath:${url}`, window.location.pathname + window.location.search);
+    saveFeedScrollSnapshot();
     router.push(url);
   };
 
@@ -1467,8 +1485,7 @@ function Post({
     // (related responses in the aside). Route from the post's identity, not the
     // current page: Home, Likes, Bookmarks, search and hashtag feeds can all mix
     // Mastodon and frontend-backed posts in the same viewport.
-    const route = getPost(id) ? '/ChineseEVs/posts/' : '/posts/';
-    const url = `${window.location.origin}${route}${id}`;
+    const url = `${window.location.origin}${postRouteFor(id)}`;
     copyLink(url, "Post link copied");
   };
 
@@ -1500,7 +1517,11 @@ function Post({
     });
 
     const currentPath = decodeURIComponent(window.location.pathname);
-    if (currentPath === `/posts/${id}` || currentPath === `/ChineseEVs/posts/${id}`) {
+    if (
+      currentPath === `/posts/${id}`
+      || currentPath === `/ChineseEVs/posts/${id}`
+      || currentPath === `/AIWorkforce/posts/${id}`
+    ) {
       router.replace('/home');
     }
   };
@@ -1764,6 +1785,7 @@ function Post({
           onMouseUp={(e) => handleMouseUp(e)}
         >
           <div>
+      <div className="post-text-clamp-shell">
       {contentRelations && contentRelations.length > 0 ? (
         // Reply with contributions: colored category spans over its own text
         // (the left-pane counterpart of a related card). Clamp/Read-more reuse
@@ -1856,6 +1878,10 @@ function Post({
           dangerouslySetInnerHTML={{ __html: displayText }}
         />
       )}
+      {isOverflowing && !isTextExpanded && (
+        <span className="post-clamp-ellipsis" data-testid="post-clamp-ellipsis" aria-hidden="true">…</span>
+      )}
+      </div>
       {articleUrl && !quotedPost && (
         <Anchor
           href={articleUrl}
@@ -1911,28 +1937,22 @@ function Post({
           {quotedPost && (
             <button
               type="button"
-              className="quoted-post-card"
+              className="quoted-post-link"
               data-testid="quoted-post"
-              aria-label={`Open quoted post by ${quotedPost.account.display_name}`}
+              aria-label={`Open quoted article by ${quotedPost.account.display_name}`}
+              title={quotedPost.title || `Quoted post by ${quotedPost.account.display_name}`}
               onClick={(event) => {
                 event.stopPropagation();
                 if (onNavigate) onNavigate(quotedPost.id);
-                else router.push(getPost(quotedPost.id) ? `/ChineseEVs/posts/${quotedPost.id}` : `/posts/${quotedPost.id}`);
+                else router.push(postRouteFor(quotedPost.id));
               }}
               onMouseDown={(event) => event.stopPropagation()}
               onMouseUp={(event) => event.stopPropagation()}
             >
-              <span className="quoted-post-label">
-                <IconQuote size={13} stroke={2} aria-hidden />
-                Quoted article
-              </span>
-              <span className="quoted-post-meta">
-                <strong>{quotedPost.account.display_name}</strong>
-                <span aria-hidden>·</span>
-                <span>{formatPostDate(quotedPost.created_at)}</span>
-              </span>
-              {quotedPost.title && <span className="quoted-post-title">{quotedPost.title}</span>}
-              <span className="quoted-post-copy">{quotedPost.content}</span>
+              <IconQuote size={13} stroke={2} aria-hidden />
+              <span>Quoted article</span>
+              <span aria-hidden>·</span>
+              <span>{quotedPost.account.display_name}</span>
             </button>
           )}
           {POST_IMAGES_ENABLED && mediaAttachments.length > 0 && (

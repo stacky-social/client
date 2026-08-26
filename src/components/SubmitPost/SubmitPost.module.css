@@ -160,7 +160,9 @@
 }
 
 .feedbackPanel {
-  margin: 0 1.1rem 1rem calc(42px + 1.95rem);
+  /* Composer padding + avatar + gap + textarea inset: align the feedback
+     heading and card with the first character of the draft. */
+  margin: 0 1.1rem 1rem calc(42px + 2.7rem);
   padding-top: 0.85rem;
   border-top: 1px solid rgba(20, 33, 61, 0.11);
 }
@@ -195,6 +197,6 @@
 
   .feedbackPanel {
     margin-right: 0.85rem;
-    margin-left: 0.85rem;
+    margin-left: calc(42px + 2.25rem);
   }
 }

@@ -15,7 +15,10 @@ export default function ListyInjectionAside() {
   // the live pathname so the aside only renders on listy routes and never leaks a
   // previous post's related responses onto another page. The shared context is
   // left intact (the post-detail route renders related inline from it).
-  if (!pathname || !pathname.startsWith("/ChineseEVs")) return null;
+  if (
+    !pathname
+    || (!pathname.startsWith("/ChineseEVs") && !pathname.startsWith("/AIWorkforce") && !pathname.startsWith("/tag/AIWorkforce"))
+  ) return null;
 
   // No focus post selected — aside has nothing to anchor against.
   if (!activePostId) return null;

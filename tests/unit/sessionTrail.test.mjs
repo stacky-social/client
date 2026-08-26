@@ -31,6 +31,7 @@ test('discards unapproved query data and excludes authentication routes', () => 
   assert.equal(isTrackableSessionPath('/callback'), false);
   assert.equal(isTrackableSessionPath('/api/auth/mastodon/start'), false);
   assert.equal(isTrackableSessionPath('/ChineseEVs/posts/42'), true);
+  assert.equal(isTrackableSessionPath('/AIWorkforce/posts/cw-42'), true);
 
   const migrated = appendSessionUrl({
     version: 1,

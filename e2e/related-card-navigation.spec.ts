@@ -12,13 +12,13 @@ import mockData from '../src/app/FakeData/listy-injection.json';
 //      groups the panel, and an interaction control (Favourites) toggles state.
 //      Both rely on stopPropagation so the card-level navigate never fires.
 //   C. The reply composer avatar no longer falls back to the literal string
-//      'defaultAvatarUrl', which used to resolve to /ChineseEVs/posts/
+//      'defaultAvatarUrl', which used to resolve to /AIWorkforce/posts/
 //      defaultAvatarUrl and spam the server with spurious route renders.
 //
 // The feed renders from local mock JSON (no backend / no auth).
 
 const firstFocusId = (mockData as any)[0].focusPost.id as string;
-const DETAIL_URL = `/ChineseEVs/posts/${firstFocusId}`;
+const DETAIL_URL = `/AIWorkforce/posts/${firstFocusId}`;
 
 // A related card in the aside: the inner Mantine <Paper> carries data-post-id;
 // the outer wrapper carries data-related-card.
@@ -44,7 +44,7 @@ test.describe('Related-card navigation & interaction guards', () => {
     // content text (below the band).
     await card.click({ position: { x: box!.width - 25, y: 8 } });
 
-    await expect(page).toHaveURL(new RegExp(`/ChineseEVs/posts/${targetId}(\\?|$)`));
+    await expect(page).toHaveURL(new RegExp(`/AIWorkforce/posts/${targetId}(\\?|$)`));
   });
 
   test('B1: clicking a category tag groups the panel and does NOT navigate', async ({ page }) => {

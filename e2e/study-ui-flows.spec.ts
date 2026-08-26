@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import mockData from '../src/app/FakeData/listy-injection.json';
 
 const firstFocusId = (mockData as any)[0].focusPost.id as string;
-const DETAIL_URL = `/ChineseEVs/posts/${firstFocusId}`;
+const DETAIL_URL = `/AIWorkforce/posts/${firstFocusId}`;
 
 test.describe('Study-ready related posts and composers', () => {
   test('related posts reveal ten cards at a time', async ({ page }) => {
@@ -60,5 +60,30 @@ test.describe('Study-ready related posts and composers', () => {
     await expect(composer).toHaveValue(draft);
     await expect(page.getByRole('button', { name: 'Retry feedback' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Post', exact: true })).toBeEnabled();
+  });
+
+  test('home feedback aligns with the draft text edge', async ({ page }) => {
+    await page.route('https://beta.stacky.social:3002/posts/feedback', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        praise: 'The opening is clear.',
+        advice: 'Add one supporting example.',
+        simulatedReplies: [{ id: 'reply-1', content: 'Which example best supports this?' }],
+      }),
+    }));
+    await page.goto('/home');
+
+    const composer = page.getByPlaceholder('What do you want to share?');
+    await composer.fill('A complete draft that should receive aligned writing feedback.');
+
+    const feedbackCopy = page.getByTestId('feedback-copy');
+    await expect(feedbackCopy).toBeVisible();
+    const composerBox = (await composer.boundingBox())!;
+    const feedbackBox = (await feedbackCopy.boundingBox())!;
+    const draftInset = await composer.evaluate((element) =>
+      Number.parseFloat(window.getComputedStyle(element).paddingLeft),
+    );
+    expect(Math.abs(feedbackBox.x - (composerBox.x + draftInset))).toBeLessThanOrEqual(1);
   });
 });

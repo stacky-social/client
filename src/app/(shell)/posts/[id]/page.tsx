@@ -17,6 +17,7 @@ import { LEGACY_TABS } from "../../../../utils/replyTabs.mjs";
 import { useLocalStore, useHydrated, getComments } from "../../../../utils/localStore";
 import { beginUndoablePanelInteractionIfDetail } from "../../../../utils/highlightStore";
 import type { PreviewCardType } from "../../../../types/PostType";
+import { restoreFeedScrollSnapshot } from "../../../../utils/feedScrollRestoration";
 
 // -------------------- Types --------------------
 interface Account {
@@ -136,6 +137,15 @@ export default function PostView() {
   // late response from a previous post id bails out before touching state, so
   // rapid A→B navigation can't render A's thread under B's URL.
   const initReqIdRef = useRef(0);
+  const restoredRouteRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!post || typeof window === "undefined") return;
+    const route = `${window.location.pathname}${window.location.search}`;
+    if (restoredRouteRef.current === route) return;
+    restoredRouteRef.current = route;
+    return restoreFeedScrollSnapshot(route);
+  }, [id, post]);
 
   useEffect(() => {
     fetchedRelatedIds.current.clear();

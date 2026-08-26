@@ -5,6 +5,7 @@ import RelatedStacks from "../../../../../components/RelatedStacks";
 import { useRelatedStacks } from "../../../related-stacks-context";
 import { getPost } from "../../../../../utils/localStore";
 import { triggerNavigate } from "../../../../../utils/highlightStore";
+import { postRouteFor } from "../../../../../utils/postRoute";
 
 export default function HashtagAside() {
   const params = useParams();
@@ -33,7 +34,7 @@ export default function HashtagAside() {
             triggerNavigate(postId);
             return;
           }
-          const route = getPost(postId) ? `/ChineseEVs/posts/${postId}` : `/posts/${postId}`;
+          const route = postRouteFor(postId);
           sessionStorage.setItem(`previousPath:${route}`, pathname);
           router.push(route);
         }}

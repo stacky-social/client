@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Anchor, Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
 import Link from "next/link";
 import { notifications } from "@mantine/notifications";
@@ -54,6 +54,10 @@ import {
   currentPanelScope,
   navigateFromPanelScope,
 } from "../../../../../utils/highlightStore";
+import {
+  restoreFeedScrollSnapshot,
+  saveFeedScrollSnapshot,
+} from "../../../../../utils/feedScrollRestoration";
 
 // Thread connector line style — mirrors /posts/[id]
 const THREAD_LINE_COLOR = "#ccd1dc";
@@ -125,9 +129,13 @@ function getStoreReplies(id: string, posts: Record<string, StorePost>): MockPost
 
 export default function MockPostView() {
   const params = useParams<{ id: string }>();
+  const pathname = usePathname();
   const router = useRouter();
   const searchParamsObj = useSearchParams();
   const { id } = params;
+  const isAiWorkforce = pathname?.startsWith("/AIWorkforce") ?? false;
+  const routeBase = isAiWorkforce ? "/AIWorkforce" : "/ChineseEVs";
+  const hashtag = isAiWorkforce ? "AIWorkforce" : "ChineseEVs";
   const { setFromPost, relatedStacks: ctxRelatedStacks } = useRelatedStacks();
   const flags = useExperimentFlags();
   const { filterCategories, responseFilter, topicInteraction, replyBaseOrderIds } = useHighlightStore();
@@ -147,6 +155,7 @@ export default function MockPostView() {
   // main thread as one giant synchronous task (fixes slow nav + the freeze).
   const [showThread, setShowThread] = useState(false);
   const [postedReplyId, setPostedReplyId] = useState<string | null>(null);
+  const restoredRouteRef = useRef<string | null>(null);
 
   const plainPostText = post ? stripHtmlToPlain(post.content) : null;
 
@@ -163,6 +172,14 @@ export default function MockPostView() {
   const storePost = hydrated ? localState.posts[id] : undefined;
   const userCommentsLive = useLocalStore(() => getComments(id));
   const userComments = hydrated ? userCommentsLive : [];
+
+  useEffect(() => {
+    if (!post || typeof window === "undefined") return;
+    const route = `${window.location.pathname}${window.location.search}`;
+    if (restoredRouteRef.current === route) return;
+    restoredRouteRef.current = route;
+    return restoreFeedScrollSnapshot(route);
+  }, [id, post]);
 
   // Merge seeded mock replies with the user's store comments so both appear in
   // the thread. De-dupe by id defensively (a store comment should never collide
@@ -644,7 +661,10 @@ export default function MockPostView() {
     } catch {
       intent = null;
     }
-    if (!intent || intent.postId !== id) return;
+    if (!intent || intent.postId !== id) {
+      if (focusEnter !== "idle") setFocusEnter("idle");
+      return;
+    }
     // Consume so it fires exactly once (and never on a later Back to this id).
     sessionStorage.removeItem(ANIMATE_INTENT_KEY);
     animatedForIdRef.current = id;
@@ -658,7 +678,20 @@ export default function MockPostView() {
     // Start from the pre-fade state; the effect below flips to "to" one frame
     // later so the CSS transition actually runs.
     setFocusEnter("from");
-  }, [post, id]);
+  }, [post, id, focusEnter]);
+
+  // The first scroll can be clamped when the destination has little content
+  // below its focus post. Once the arrival-only bottom runway is rendered,
+  // compensate again so the clicked post really lands under the sticky nav.
+  useLayoutEffect(() => {
+    if (focusEnter === "idle") return;
+    const anchor = focusWrapRef.current;
+    if (!anchor) return;
+    const delta = anchor.getBoundingClientRect().top - FOCUS_PIN_OFFSET;
+    if (Math.abs(delta) > 0.5) {
+      window.scrollTo(0, Math.max(0, window.scrollY + delta));
+    }
+  }, [focusEnter]);
 
   // Flip to the resting state after the "from" frame has painted so the fade
   // transition plays (useEffect fires post-paint; the rAF adds a safety frame).
@@ -764,7 +797,7 @@ export default function MockPostView() {
     if (!fromId) return;
     const key = `previousPath:${window.location.pathname}`;
     if (!sessionStorage.getItem(key)) {
-      sessionStorage.setItem(key, `/ChineseEVs/posts/${fromId}`);
+      sessionStorage.setItem(key, `${routeBase}/posts/${fromId}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -827,7 +860,8 @@ export default function MockPostView() {
       // Post component falls back to the real /posts/[id] route, which requires a
       // Mastodon access token and renders a blank "Access token is missing" screen.
       onNavigate={(pid: string) => {
-        sessionStorage.setItem(`previousPath:/ChineseEVs/posts/${pid}`, window.location.pathname + window.location.search);
+        sessionStorage.setItem(`previousPath:${routeBase}/posts/${pid}`, window.location.pathname + window.location.search);
+        saveFeedScrollSnapshot();
         // WS3/T2: stash the arrival animation intent BEFORE navigating so the
         // destination pins this clicked post to the top and plays the fade
         // (X-style click-to-focus). Keyed by the destination id — a stale intent
@@ -846,7 +880,7 @@ export default function MockPostView() {
         // WS6: route through navigateFromPanelScope so a stranded undo sentinel is
         // collapsed (replace OVER it when it is the current entry, else push) —
         // Back from the destination returns here without a phantom extra Back.
-        navigateFromPanelScope(`/ChineseEVs/posts/${pid}`, router);
+        navigateFromPanelScope(`${routeBase}/posts/${pid}`, router);
       }}
     />
     );
@@ -867,8 +901,8 @@ export default function MockPostView() {
         </Text>
         <Text size="xs" c="dimmed" mt="xs">
           It may have been removed or created in a different participant session. Head back to the{" "}
-          <Anchor component={Link} href="/ChineseEVs" size="xs">
-            #AIWorkforce discussion
+          <Anchor component={Link} href={routeBase} size="xs">
+            #{hashtag} discussion
           </Anchor>{" "}
           to pick a post that exists.
         </Text>
@@ -879,7 +913,15 @@ export default function MockPostView() {
   if (!post) return <Loader size="lg" />;
 
   return (
-    <div style={{ position: "relative" }} ref={columnRef}>
+    <div
+      style={{
+        position: "relative",
+        // Only animated click-to-focus arrivals need extra scroll runway.
+        // Deep links retain their natural short-page height.
+        paddingBottom: focusEnter === "idle" ? undefined : "60vh",
+      }}
+      ref={columnRef}
+    >
       <BackButton />
       {flags.stickyFocusBar && post && plainPostText && (
         <FocusPostStickyBar

@@ -17,9 +17,9 @@ import mockData from '../src/app/FakeData/listy-injection.json';
 //
 // Randomised choices use a seeded PRNG so a failing run is reproducible.
 
-const FEED = '/ChineseEVs';
+const FEED = '/AIWorkforce';
 const firstFocusId = (mockData as any)[0].focusPost.id as string;
-const DETAIL_URL = `/ChineseEVs/posts/${firstFocusId}`;
+const DETAIL_URL = `/AIWorkforce/posts/${firstFocusId}`;
 
 // ── seeded PRNG (mulberry32) ───────────────────────────────────────────────
 function mulberry32(seed: number) {
@@ -78,7 +78,11 @@ function assertClean(errs: ReturnType<typeof wireErrorCapture>, label: string) {
 async function assertHealthy(page: Page) {
   await expect(page.getByText(/Application error/i)).toHaveCount(0);
   await expect(page.getByText(/not found in mock data/i)).toHaveCount(0);
-  await expect(page.locator('nextjs-portal')).toHaveCount(0); // Next dev runtime-error overlay
+  // Next.js mounts its development toolbar in a portal even when the page is
+  // healthy. Only fail when that portal actually contains an error overlay.
+  await expect(
+    page.locator('nextjs-portal').getByText(/Runtime Error|Build Error|Unhandled Runtime Error/i),
+  ).toHaveCount(0);
 }
 
 async function scrollWindow(page: Page, ys: number[], settle = 120) {
@@ -122,13 +126,13 @@ async function startFreezeDetector(page: Page) {
 }
 
 async function openFirstPost(page: Page) {
-  const opener = page.locator('[data-related-card] [data-post-id]').first();
+  const opener = page.locator('[data-related-card] [data-post-id]:visible').first();
   if (await opener.count()) {
     const box = await opener.boundingBox();
     await opener.click({ position: { x: (box?.width ?? 40) - 25, y: 8 } });
-    await page.waitForURL(/\/ChineseEVs\/posts\//, { timeout: 10_000 }).catch(() => {});
+    await page.waitForURL(/\/AIWorkforce\/posts\//, { timeout: 10_000 }).catch(() => {});
   }
-  if (!/\/ChineseEVs\/posts\//.test(page.url())) await page.goto(DETAIL_URL);
+  if (!/\/AIWorkforce\/posts\//.test(page.url())) await page.goto(DETAIL_URL);
 }
 
 // Wait for the detail view to be interactive. NOTE: [data-testid="focus-reveal"]
@@ -154,14 +158,14 @@ test.describe('Stress: full user journey', () => {
     const rand = mulberry32(1337);
 
     await page.goto(FEED);
-    await expect(page.getByText('#ChineseEVs')).toBeVisible();
+    await expect(page.getByText('#AIWorkforce')).toBeVisible();
     await assertHealthy(page);
 
     await scrollWindow(page, [800, 1600, 2600, 0]);
     await scrollAside(page);
 
     // Filter chips: toggle a random-ish subset on and off.
-    const chips = page.locator('[aria-label*="filter"]');
+    const chips = page.locator('[aria-label*="filter"]:visible');
     const chipCount = Math.min(await chips.count(), 5);
     for (let i = 0; i < chipCount; i++) { await chips.nth(i).click().catch(() => {}); await page.waitForTimeout(120); }
     await assertHealthy(page);
@@ -270,7 +274,7 @@ test.describe('Stress: full user journey', () => {
     const errs = wireErrorCapture(page);
 
     await page.goto(FEED);
-    await expect(page.getByText('#ChineseEVs')).toBeVisible();
+    await expect(page.getByText('#AIWorkforce')).toBeVisible();
 
     // Open→back many times fast; this exercises the PostList SWR cache + scroll
     // restoration + back-nav path that has regressed before (e.g. Load More).
@@ -280,11 +284,11 @@ test.describe('Stress: full user journey', () => {
       const box = await opener.boundingBox();
       const before = page.url();
       await opener.click({ position: { x: (box?.width ?? 40) - 25, y: 8 } });
-      await page.waitForURL(/\/ChineseEVs\/posts\//, { timeout: 10_000 }).catch(() => {});
+      await page.waitForURL(/\/AIWorkforce\/posts\//, { timeout: 10_000 }).catch(() => {});
       await assertHealthy(page);
       await page.goBack().catch(() => {});
-      await page.waitForURL((u) => u.toString().endsWith('/ChineseEVs') || u.toString() === before, { timeout: 10_000 }).catch(() => {});
-      await expect(page.getByText('#ChineseEVs')).toBeVisible();
+      await page.waitForURL((u) => u.toString().endsWith('/AIWorkforce') || u.toString() === before, { timeout: 10_000 }).catch(() => {});
+      await expect(page.getByText('#AIWorkforce')).toBeVisible();
       await assertHealthy(page);
     }
 
@@ -297,24 +301,26 @@ test.describe('Stress: full user journey', () => {
     const errs = wireErrorCapture(page);
 
     await page.goto(FEED);
-    await expect(page.getByText('#ChineseEVs')).toBeVisible();
+    await expect(page.getByText('#AIWorkforce')).toBeVisible();
     await assertHealthy(page);
     await scrollWindow(page, [600, 1400, 0]);
 
     // Filter chips collapse on narrow panels — exercise them at this width.
-    const chips = page.locator('[aria-label*="filter"]');
+    const chips = page.locator('[aria-label*="filter"]:visible');
     const cc = Math.min(await chips.count(), 3);
     for (let i = 0; i < cc; i++) { await chips.nth(i).click().catch(() => {}); await page.waitForTimeout(120); }
     await assertHealthy(page);
 
-    await openFirstPost(page);
+    // The related pane is intentionally collapsed at this breakpoint, so use
+    // a direct detail navigation instead of racing its hydration-time markup.
+    await page.goto(DETAIL_URL, { waitUntil: 'domcontentloaded' });
     await waitForDetail(page);
     await assertHealthy(page);
     await scrollWindow(page, [500, 1000, 0]);
-    const readMore = page.getByText('Read more').first();
+    const readMore = page.locator('button:visible').filter({ hasText: 'Read more' }).first();
     if (await readMore.count()) { await readMore.click().catch(() => {}); await page.waitForTimeout(150); }
     await assertHealthy(page);
-    await page.goBack().catch(() => {});
+    await page.goBack({ waitUntil: 'domcontentloaded', timeout: 10_000 }).catch(() => {});
     await page.waitForTimeout(300);
     await assertHealthy(page);
 

@@ -34,17 +34,25 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const OUT_PATH = join(here, '../src/app/FakeData/listy-injection.json');
+// Live topics own their fixture; the legacy Chinese-EVs importer writes a
+// separate file. Callers may redirect output for validation without editing
+// the script or risking the other corpus.
+const CHINESE_EVS_PATH = resolve(here, '../src/app/FakeData/chinese-evs.json');
+const OUT_PATH = resolve(process.env.DEMO_OUTPUT_PATH
+  || join(here, '../src/app/FakeData/listy-injection.json'));
+if (OUT_PATH === CHINESE_EVS_PATH) {
+  throw new Error('Refusing to overwrite the Chinese-EVs fixture with live-demo data');
+}
 const LIVE_DEMO_DIR = process.env.CROSSWEAVE_LIVE_DEMO_DIR
   || '/tmp/crossweave-scale-demo/live_demo_data';
 const PREPARED_ROOT = join(LIVE_DEMO_DIR, 'prepared_data');
 const MAX_CANDIDATES = Number(process.env.MAX_CANDIDATES || 0);
 const STRICT_SOURCE = process.env.STRICT_SOURCE === '1';
-const AVATAR = '/avatar/robot_default.png';
+const AVATAR = '/icon.svg';
 
 const CATEGORY_MAP = {
   'Evidence (Public)': 'evidence_public',

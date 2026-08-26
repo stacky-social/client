@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import mockData from '../src/app/FakeData/listy-injection.json';
 
 // Draft-feedback presentation on the reply composer (demo detail route).
 // The feedback backend is stubbed so the spec runs offline and deterministic.
@@ -7,13 +8,13 @@ import { test, expect } from '@playwright/test';
 //  - Section title is "Feedback" (not "Writing feedback").
 //  - Praise + advice read as ONE comment in ONE box (praise first — the
 //    rhetorical softener), not two separately-tinted boxes.
-//  - Simulated replies are formatted like actual replies: robot avatar,
+//  - Simulated replies are formatted like actual replies: CrossWeave avatar,
 //    "Possible Reply" author name, a SIMULATED disclosure chip, and thread
 //    connector lines hanging the group off the draft. No
 //    "How people might reply" header.
 
-const FOCUS_ID = '143195604';
-const DETAIL_URL = `/ChineseEVs/posts/${FOCUS_ID}`;
+const FOCUS_ID = (mockData as any)[0].focusPost.id as string;
+const DETAIL_URL = `/AIWorkforce/posts/${FOCUS_ID}`;
 
 const PRAISE = "You've honed in on a crucial counterpoint about self-reliance.";
 const ADVICE = 'Add a few more words to clarify why dependence is a downside.';
@@ -50,7 +51,7 @@ test.describe('Reply-draft feedback presentation', () => {
     });
   });
 
-  test('feedback is one comment; simulated replies look like replies with robot avatars', async ({ page }) => {
+  test('feedback is one comment; simulated replies use CrossWeave avatars', async ({ page }) => {
     await page.goto(DETAIL_URL);
     const composer = page.getByPlaceholder('Post your reply');
     await expect(composer).toBeVisible();
@@ -76,10 +77,11 @@ test.describe('Reply-draft feedback presentation', () => {
     await expect(comment).toContainText(ADVICE);
 
     // No "How people might reply" header; each simulated reply is authored by
-    // "Possible Reply", wears a robot avatar and a SIMULATED disclosure chip.
+    // "Possible Reply", wears a CrossWeave avatar and a SIMULATED disclosure chip.
     await expect(page.getByText(/how people might reply/i)).toHaveCount(0);
     await expect(page.getByText('Possible Reply', { exact: true })).toHaveCount(SIM_REPLIES.length);
-    await expect(page.locator('img[src*="/avatar/robot_"]')).toHaveCount(SIM_REPLIES.length);
+    const simulatedAvatars = page.getByTestId('simulated-reply').locator('img[src*="/icon.svg"]');
+    await expect(simulatedAvatars).toHaveCount(SIM_REPLIES.length);
     await expect(page.getByText(/^simulated$/i)).toHaveCount(SIM_REPLIES.length);
 
     // The thread rail attaches the simulated replies to the USER'S DRAFT, not
@@ -89,7 +91,7 @@ test.describe('Reply-draft feedback presentation', () => {
     const rail = page.getByTestId('sim-reply-thread-rail');
     await expect(rail).toHaveCount(1);
     const railBox = (await rail.boundingBox())!;
-    const avatarBox = (await page.locator('img[src*="/avatar/robot_"]').first().boundingBox())!;
+    const avatarBox = (await simulatedAvatars.first().boundingBox())!;
     const commentBox = (await comment.boundingBox())!;
     expect(railBox.x, 'rail must sit left of the reply avatars').toBeLessThan(avatarBox.x);
     expect(commentBox.x, 'feedback must be indented more than the replies').toBeGreaterThan(avatarBox.x);
@@ -107,17 +109,17 @@ test.describe('Reply-draft feedback presentation', () => {
     expect(Math.abs(bridgeBox.x - railBox.x), 'bridge and rail must be collinear').toBeLessThanOrEqual(1);
 
     // Whiteboard spec: the rail connects the user's photo to the BOT PHOTOS —
-    // an elbow reaches each robot avatar, and the vertical line stops at the
-    // last robot instead of running past it.
+    // an elbow reaches each simulated-reply avatar, and the vertical line
+    // stops at the last avatar instead of running past it.
     await expect(page.getByTestId('sim-reply-elbow')).toHaveCount(SIM_REPLIES.length);
-    const lastAvatar = (await page.locator('img[src*="/avatar/robot_"]').last().boundingBox())!;
+    const lastAvatar = (await simulatedAvatars.last().boundingBox())!;
     const segBoxes = await Promise.all(
       (await page.getByTestId('sim-reply-rail-seg').all()).map((s) => s.boundingBox()),
     );
     expect(segBoxes.length).toBeGreaterThan(0);
     const railBottom = Math.max(...segBoxes.map((b) => b!.y + b!.height));
     const lastAvatarCenter = lastAvatar.y + lastAvatar.height / 2;
-    expect(railBottom, 'rail must stop at the last robot avatar').toBeLessThanOrEqual(lastAvatarCenter + 4);
+    expect(railBottom, 'rail must stop at the last simulated-reply avatar').toBeLessThanOrEqual(lastAvatarCenter + 4);
 
     // Refining the same draft keeps its stable conversation id and includes a
     // bounded snapshot of feedback the writer already saw. This prevents a
