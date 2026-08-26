@@ -925,6 +925,7 @@ export default function MockPostView() {
       <BackButton />
       {flags.stickyFocusBar && post && plainPostText && (
         <FocusPostStickyBar
+          postId={id}
           author={post.account.username}
           avatar={post.account.avatar}
           plainText={plainPostText}

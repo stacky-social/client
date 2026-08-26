@@ -1,0 +1,16 @@
+.bridge {
+  position: fixed;
+  z-index: 4; top: 56px; right: 0; bottom: 0; left: 0;
+  width: 100vw; height: calc(100vh - 56px);
+  overflow: visible; pointer-events: none;
+}
+
+.ribbon { fill: rgba(69, 169, 158, 0.08); stroke: none; }
+
+.strand {
+  fill: none; stroke: rgba(28, 43, 74, 0.34); stroke-width: 1.35;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.accentStrand { stroke: rgba(69, 169, 158, 0.72); stroke-width: 1.6; }

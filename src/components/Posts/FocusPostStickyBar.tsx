@@ -53,6 +53,7 @@ function buildSegments(relations: Relation[], textLength: number): TextSegment[]
 }
 
 interface FocusPostStickyBarProps {
+  postId: string;
   author: string;
   avatar: string;
   plainText: string;
@@ -78,6 +79,7 @@ interface FocusPostStickyBarProps {
  * else on the bar returns to the post.
  */
 export default function FocusPostStickyBar({
+  postId,
   author,
   avatar,
   plainText,
@@ -341,6 +343,9 @@ export default function FocusPostStickyBar({
       tabIndex={0}
       aria-label="Return to focused post"
       data-testid="focus-sticky-bar"
+      data-focus-post-id={postId}
+      data-weave-source-post-id={postId}
+      data-weave-source-kind="sticky"
       // NB: no native `title` here — it fought the app's single tooltip portal
       // and showed "click to return" over marks whose click actually filters.
       onClick={returnToPost}

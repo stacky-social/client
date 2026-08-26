@@ -2412,7 +2412,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   }, [isTouch, tappedCardPostId]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div
+      data-related-focus-post-id={sourcePostId ?? ctxActivePostId ?? undefined}
+      style={{ display: 'flex', flexDirection: 'column' }}
+    >
       {/* Sticky header: title + filter chips + count — stays visible while scrolling */}
       <div data-testid="related-sticky-header" style={{
         position: 'sticky', top: 0, zIndex: 10,
