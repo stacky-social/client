@@ -22,14 +22,64 @@ function decodeHtmlEntities(value) {
   });
 }
 
+function unescapeMarkdown(value) {
+  return String(value ?? '').replace(/\\([\\`*_[\]{}()#+\-.!>])/g, '$1');
+}
+
 function cleanUrl(candidate) {
-  const decoded = decodeHtmlEntities(candidate).trim().replace(/[⌊⌋⌈⌉\])},.;:!?]+$/g, '');
+  const decoded = unescapeMarkdown(decodeHtmlEntities(candidate))
+    .trim()
+    .replace(/[⌊⌋⌈⌉\])},.;:!?]+$/g, '');
   try {
     const url = new URL(decoded);
     return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null;
   } catch {
     return null;
   }
+}
+
+function comparableUrl(candidate) {
+  const cleaned = cleanUrl(candidate);
+  if (!cleaned) return null;
+  try {
+    const url = new URL(cleaned);
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return cleaned;
+  }
+}
+
+/**
+ * Hide a URL that is already rendered as the card's source action without
+ * changing the source string's length. Offset-annotated demo posts index into
+ * this exact text, so deleting the Markdown token would shift every relation.
+ */
+export function maskDuplicateArticleReferences(input, articleUrl) {
+  const source = String(input ?? '');
+  const target = comparableUrl(articleUrl);
+  if (!target) return source;
+
+  const mask = (value) => value.replace(/[^\r\n]/g, ' ');
+  const sameTarget = (candidate) => comparableUrl(candidate) === target;
+
+  let masked = source.replace(
+    /\[([^\]\r\n]*)\]\(\s*(https?:\/\/(?:\\.|[^\s)])+)\s*\)/gi,
+    (match, _label, destination) => sameTarget(destination) ? mask(match) : match,
+  );
+
+  masked = masked.replace(/https?:\/\/[^\s<>"']+/gi, (match, offset, whole) => {
+    // Preserve a Markdown link whose destination is different. Matching the
+    // URL-shaped label alone would leave a broken "[ ](destination)" token.
+    if (whole[offset - 1] === '[' || whole.slice(Math.max(0, offset - 2), offset) === '](') {
+      return match;
+    }
+    const trailing = match.match(/[⌊⌋⌈⌉\])},.;:!?]+$/)?.[0] ?? '';
+    const candidate = trailing ? match.slice(0, -trailing.length) : match;
+    return sameTarget(candidate) ? `${mask(candidate)}${trailing}` : match;
+  });
+
+  return masked;
 }
 
 /** Return the unique HTTP(S) links embedded in Mastodon HTML, Markdown, or text. */
