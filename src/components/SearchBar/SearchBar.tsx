@@ -48,6 +48,7 @@ type SearchAccount = Account & { mastodonId?: string; origin: "local" | "mastodo
 type SearchPost = Post & {
   origin: "local" | "mastodon";
   mastodonAccountId?: string;
+  authorStats?: { posts?: number; followers?: number; following?: number };
   previewCard?: PreviewCardType | null;
 };
 
@@ -125,6 +126,11 @@ function mastodonStatusToSearchPost(status: MastodonStatus): SearchPost {
     focusRelations: [],
     in_reply_to_id: typeof status.in_reply_to_id === "string" ? status.in_reply_to_id : null,
     mastodonAccountId: status.account.id,
+    authorStats: {
+      posts: Number(status.account.statuses_count ?? 0),
+      followers: Number(status.account.followers_count ?? 0),
+      following: Number(status.account.following_count ?? 0),
+    },
     previewCard: status.card ? {
       title: status.card.title,
       description: status.card.description,
@@ -405,6 +411,7 @@ export default function SearchBar() {
       author: post.account.username,
       account: post.account.acct,
       accountId: post.mastodonAccountId,
+      authorStats: post.authorStats,
       avatar: post.account.avatar,
       replies: [],
       replies_count: post.replies_count,

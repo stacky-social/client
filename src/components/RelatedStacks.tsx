@@ -31,6 +31,7 @@ import { RELATED_POSTS_API_URL } from '../utils/mastodonApi';
 import { extractMastodonLinks, maskDuplicateArticleReferences, mastodonLinkHost, normalizeMastodonText, resolveMastodonRevision } from '../utils/mastodonContent.mjs';
 import { saveFeedScrollSnapshot } from '../utils/feedScrollRestoration';
 import { postRouteFor } from '../utils/postRoute';
+import AuthorHoverInfo from './AuthorHoverInfo';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -47,6 +48,9 @@ interface PostType {
     display_name: string;
     acct?: string;
     username?: string;
+    statuses_count?: number;
+    followers_count?: number;
+    following_count?: number;
   };
   content_rewritten: string;
   rewrite: {
@@ -3114,10 +3118,20 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                   <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
                 </UnstyledButton>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                  <Anchor component="button" onClick={(e) => handleNavigateToUser(e, stack.topPost.account)} underline="hover"
-                    style={{ color: '#011445', fontWeight: 700, fontSize: 'var(--mantine-font-size-sm)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {stack.topPost.account.display_name}
-                  </Anchor>
+                  <AuthorHoverInfo
+                    displayName={stack.topPost.account.display_name}
+                    account={stack.topPost.account.acct || stack.topPost.account.username || stack.topPost.account.display_name}
+                    stats={{
+                      posts: stack.topPost.account.statuses_count,
+                      followers: stack.topPost.account.followers_count,
+                      following: stack.topPost.account.following_count,
+                    }}
+                  >
+                    <Anchor component="button" onClick={(e) => handleNavigateToUser(e, stack.topPost.account)} underline="hover"
+                      style={{ color: '#011445', fontWeight: 700, fontSize: 'var(--mantine-font-size-sm)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {stack.topPost.account.display_name}
+                    </Anchor>
+                  </AuthorHoverInfo>
                   <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>· {formatPostDate(displayDate)}</Text>
                 </div>
                 {/* Relationship and provenance tags — compact and pushed right. Kept

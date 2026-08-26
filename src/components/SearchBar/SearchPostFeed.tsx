@@ -167,6 +167,7 @@ export default function SearchPostFeed({
             author={post.author}
             account={post.account}
             accountId={post.accountId}
+            authorStats={post.authorStats}
             avatar={post.avatar}
             repliesCount={post.replies_count}
             createdAt={post.createdAt}

@@ -15,6 +15,12 @@ export interface PreviewCardType {
     url: string;
 }
 
+export interface AuthorStats {
+    posts?: number;
+    followers?: number;
+    following?: number;
+}
+
 /** Compact embedded source shown inside a lifted quote-tweet root. */
 export interface QuotedPostMock {
   id: string;
@@ -36,6 +42,8 @@ export interface PostType {
     account: string;
     /** Stable Mastodon account id, when the status came from the live API. */
     accountId?: string;
+    /** Account activity shown in the username hover tooltip when supplied by the source API. */
+    authorStats?: AuthorStats;
     avatar: string;
     replies: any[];
     createdAt: string;

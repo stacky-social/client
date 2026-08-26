@@ -114,6 +114,11 @@ function mastodonStatusToPost(post: MastodonStatus, loadStackInfo: boolean): Pos
         author: post.account.display_name || post.account.username,
         account: post.account.acct,
         accountId: post.account.id,
+        authorStats: {
+            posts: Number(post.account.statuses_count ?? 0),
+            followers: Number(post.account.followers_count ?? 0),
+            following: Number(post.account.following_count ?? 0),
+        },
         avatar: post.account.avatar,
         createdAt: post.created_at,
         replies: post.replies_count as unknown as PostType['replies'],
@@ -861,6 +866,7 @@ const ApiFeedCore: React.FC<PostListProps & {
                 author={post.author}
                 account={post.account}
                 accountId={post.accountId}
+                authorStats={post.authorStats}
                 avatar={post.avatar}
                 repliesCount={post.replies_count}
                 createdAt={post.createdAt}
@@ -1191,6 +1197,7 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                         text={post.text}
                         author={post.author}
                         account={post.account}
+                        authorStats={post.authorStats}
                         avatar={post.avatar}
                         repliesCount={post.replies_count}
                         createdAt={post.createdAt}

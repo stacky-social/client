@@ -33,6 +33,29 @@ test.describe('AI workforce demo feed', () => {
     await expect(cards.nth(1)).toBeVisible();
     await expect(cards.first().getByTestId('quoted-post')).toBeVisible();
 
+    // The focused card keeps a restrained elevation, and its username exposes
+    // source identity + activity without adding persistent header clutter.
+    const focusCard = page.getByTestId('feed').locator('[data-testid="post"][data-active="true"]').first();
+    await expect(focusCard).toBeVisible();
+    await expect(focusCard).toHaveCSS(
+      'box-shadow',
+      'rgba(28, 43, 74, 0.1) 0px 5px 14px 0px, rgba(28, 43, 74, 0.06) 0px 2px 5px 0px',
+    );
+    await focusCard.locator('[data-author-hover]').hover();
+    const authorTooltip = page.getByTestId('hover-tooltip').locator('[data-author-tooltip]');
+    await expect(authorTooltip).toBeVisible();
+    await expect(authorTooltip.locator('[data-author-username]')).toHaveText('@rokosbasilisk');
+    await expect(authorTooltip.locator('[data-author-source]')).toHaveText('foxnews.com');
+    await expect(authorTooltip.locator('[data-author-stat="posts"]')).toContainText(/\d+ posts?/);
+    await page.mouse.move(0, 0);
+    await focusCard.locator('[data-author-hover] button').focus();
+    await expect(authorTooltip).toBeVisible();
+
+    const relatedAuthor = page.getByTestId('col-aside').locator('[data-related-card] [data-author-hover]').first();
+    await relatedAuthor.hover();
+    await expect(authorTooltip.locator('[data-author-username]')).toHaveText('@brokenwindows');
+    await expect(authorTooltip.locator('[data-author-source]')).toHaveText('foxnews.com');
+
     // "Read more" affordance (collapsed posts) — present on at least one card.
     await expect(page.getByText('Read more').first()).toBeVisible();
 
