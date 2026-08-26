@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { Text, Avatar, Group, Paper, Divider, Button, Loader } from "@mantine/core";
+import { Text, Group, Paper, Divider, Button, Loader } from "@mantine/core";
 import Post from "../../../../components/Posts/Post";
 import {
   getUserProfile,
@@ -21,6 +21,7 @@ import {
 } from "../../../../utils/mastodonApi";
 import { useAccessToken } from "../../../../utils/useAccessToken";
 import { restoreFeedScrollSnapshot } from "../../../../utils/feedScrollRestoration";
+import ProfileAvatar from "../../../../components/ProfileAvatar";
 
 interface LiveAccount extends MastodonAccount {
   followers_count?: number;
@@ -283,7 +284,7 @@ function ProfileLayout({
       <Paper style={{ backgroundColor: "#fff", boxShadow: "rgba(0, 0, 0, 0.1) 0 1px 1px", borderRadius: 8, padding: 20 }} withBorder>
         <Group style={{ justifyContent: "space-between" }}>
           <Group>
-            <Avatar src={avatar} alt={displayName} radius="xl" size="lg" />
+            <ProfileAvatar src={avatar} alt={displayName} radius="xl" size="lg" />
             <div>
               <Text size="xl">{displayName}</Text>
               <Text size="sm" c="dimmed">@{acct}</Text>

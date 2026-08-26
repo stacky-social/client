@@ -6,7 +6,6 @@ import {
   rem,
   Box,
   Paper,
-  Avatar,
   Text,
   Loader,
 } from "@mantine/core";
@@ -43,6 +42,7 @@ import {
 } from "../../utils/searchDiscovery.mjs";
 import SearchPostFeed, { type SearchFeedPost } from "./SearchPostFeed";
 import classes from "./SearchBar.module.css";
+import ProfileAvatar from "../ProfileAvatar";
 
 type SearchAccount = Account & { mastodonId?: string; origin: "local" | "mastodon" };
 type SearchPost = Post & {
@@ -705,7 +705,7 @@ function PersonResult({
       aria-label={`Filter posts by @${account.acct}`}
       data-search-origin={account.origin}
     >
-      <Avatar src={account.avatar} radius="xl" size={26} />
+      <ProfileAvatar src={account.avatar} alt={account.display_name || account.username} radius="xl" size={26} />
       <span className={classes.entityText}>
         {account.display_name}
         <span className={classes.entityHandle}>@{account.acct}</span>

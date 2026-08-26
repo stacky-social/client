@@ -1,5 +1,5 @@
 import React, { useEffect,useRef, useState, useMemo } from 'react';
-import { Modal, ScrollArea, Switch, SimpleGrid, Text, Container, Group, Avatar, Button, Divider, Paper, UnstyledButton, TextInput, rem, LoadingOverlay, Loader } from '@mantine/core';
+import { Modal, ScrollArea, Switch, SimpleGrid, Text, Container, Group, Button, Divider, Paper, UnstyledButton, TextInput, rem, LoadingOverlay, Loader } from '@mantine/core';
 import axios from 'axios';
 import { IconBookmark, IconHeart, IconMessageCircle, IconPhoto, IconSettings, IconShare, IconHeartFilled, IconBookmarkFilled, IconSearch } from "@tabler/icons-react";
 import { formatPostDate } from '../utils/formatPostDate';
@@ -9,6 +9,7 @@ import classes from './expandModal.module.css';
 import PostList from './PostList';
 import SubStackCount from './SubStackCount';
 import { Tabs } from '@mantine/core';
+import ProfileAvatar from './ProfileAvatar';
 
 interface StackPostsModalProps {
   isOpen: boolean;
@@ -196,7 +197,7 @@ function StackPostsModal({ isOpen, onClose, apiUrl, stackId }: StackPostsModalPr
         )}
         <UnstyledButton onClick={() => handleStackClick(stack.topPost.id)} style={{ width: '100%' }}>
           <Group style={{ marginTop: '1rem', marginLeft: '1rem' }}>
-            <Avatar
+            <ProfileAvatar
               src={stack.topPost.account.avatar}
               alt={stack.topPost.account.display_name}
               radius="xl"

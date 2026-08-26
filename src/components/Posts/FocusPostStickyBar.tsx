@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Avatar, Text } from "@mantine/core";
+import { Text } from "@mantine/core";
 import { IconArrowUp } from "@tabler/icons-react";
 import type { Relation } from "../../types/PostType";
 import { getCategoryColors, blendHex } from "../../utils/categoryStyles";
@@ -14,6 +14,7 @@ import {
 } from "../../utils/highlightStore";
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { TOP_NAV_HEIGHT } from "../NavBar/TopNav";
+import ProfileAvatar from "../ProfileAvatar";
 
 // The 3-line text window: fontSize 12.5 × lineHeight 1.5 ≈ 19px per line.
 const LINE_HEIGHT_PX = 19;
@@ -365,7 +366,7 @@ export default function FocusPostStickyBar({
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-        <Avatar src={avatar} alt={author} radius="xl" size={24} style={{ flexShrink: 0 }} />
+        <ProfileAvatar src={avatar} alt={author} radius="xl" size={24} style={{ flexShrink: 0 }} />
         <Text size="xs" fw={700} c="#011445" style={{ flexShrink: 0 }}>
           {author}
         </Text>

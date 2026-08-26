@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Anchor } from '@mantine/core';
+import { Paper, UnstyledButton, Group, Text, Divider, Anchor } from '@mantine/core';
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare } from '@tabler/icons-react';
 import { formatPostDate } from '../utils/formatPostDate';
 import RelatedStackCount from './RelatedStackCount';
@@ -10,6 +10,7 @@ import { notifications } from '@mantine/notifications';
 import './RelatedStacks.css';
 import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import InteractionControl from './InteractionControl';
+import ProfileAvatar from './ProfileAvatar';
 
 interface PostType {
   id: string;
@@ -194,7 +195,7 @@ const RepliesStack: React.FC<RepliesStackProps> = ({ repliesStacks, cardWidth, o
                   onClick={(e) => handleNavigateToUser(e, stack.topPost.account)}
                   className="avatarHoverDim"
                 >
-                  <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
+                  <ProfileAvatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
                 </UnstyledButton>
                 <div>
                   <Anchor

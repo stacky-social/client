@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
-import { Paper, UnstyledButton, Group, Avatar, Text, Divider, Anchor } from '@mantine/core';
+import { Paper, UnstyledButton, Group, Text, Divider, Anchor } from '@mantine/core';
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconExternalLink } from '@tabler/icons-react';
 import { CATEGORY_COLORS, CATEGORY_LABELS, iconMapping, getCategoryColors, type CategoryStyle } from '../utils/categoryStyles';
 import { formatPostDate } from '../utils/formatPostDate';
@@ -32,6 +32,7 @@ import { extractMastodonLinks, maskDuplicateArticleReferences, mastodonLinkHost,
 import { saveFeedScrollSnapshot } from '../utils/feedScrollRestoration';
 import { postRouteFor } from '../utils/postRoute';
 import AuthorHoverInfo from './AuthorHoverInfo';
+import ProfileAvatar from './ProfileAvatar';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -3115,7 +3116,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                   style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 10px 6px', minWidth: 0 }}>
                 {/* Avatar + author · date inline (left). */}
                 <UnstyledButton onClick={(e) => handleNavigateToUser(e, stack.topPost.account)} className="avatarHoverDim" style={{ flexShrink: 0 }}>
-                  <Avatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
+                  <ProfileAvatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
                 </UnstyledButton>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                   <AuthorHoverInfo

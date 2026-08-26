@@ -37,6 +37,12 @@ test.describe('AI workforce demo feed', () => {
     // source identity + activity without adding persistent header clutter.
     const focusCard = page.getByTestId('feed').locator('[data-testid="post"][data-active="true"]').first();
     await expect(focusCard).toBeVisible();
+    const focusAvatar = focusCard.locator('[data-default-profile-avatar="true"]').first();
+    await expect(focusAvatar).toBeVisible();
+    await expect(focusAvatar.locator('[data-smiley-avatar="true"]')).toBeVisible();
+    const relatedAvatar = page.getByTestId('col-aside').locator('[data-related-card] [data-default-profile-avatar="true"]').first();
+    await expect(relatedAvatar).toBeVisible();
+    await expect(page.locator('img[src="/icon.svg"]')).toHaveCount(0);
     await expect(focusCard).toHaveCSS(
       'box-shadow',
       'rgba(28, 43, 74, 0.1) 0px 5px 14px 0px, rgba(28, 43, 74, 0.06) 0px 2px 5px 0px',
