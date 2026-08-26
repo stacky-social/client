@@ -5,7 +5,7 @@
   overflow: visible; pointer-events: none;
 }
 
-.ribbon { fill: rgba(69, 169, 158, 0.08); stroke: none; }
+.ribbon { fill: rgba(69, 169, 158, 0.1); stroke: none; }
 
 .strand {
   fill: none; stroke: rgba(28, 43, 74, 0.34); stroke-width: 1.35;
@@ -14,3 +14,9 @@
 }
 
 .accentStrand { stroke: rgba(69, 169, 158, 0.72); stroke-width: 1.6; }
+
+.seam {
+  fill: none; stroke: rgba(46, 105, 105, 0.48); stroke-width: 1.8;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
