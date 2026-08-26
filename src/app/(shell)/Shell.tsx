@@ -7,6 +7,7 @@ import { TopNav, TOP_NAV_HEIGHT } from "../../components/NavBar/TopNav";
 import { RelatedStacksProvider } from "./related-stacks-context";
 import { ResizableDivider } from "./ResizableDivider";
 import { useFeedRatio } from "./useFeedRatio";
+import WeaveBridge from "../../components/WeaveBridge";
 
 /**
  * Max width of the centered (feed + related) group on wide screens — ~13in,
@@ -28,6 +29,7 @@ export default function Shell({
     const isNarrowViewport = useMediaQuery("(max-width: 48rem)", false);
 
     const groupRef = useRef<HTMLDivElement | null>(null);
+    const feedRef = useRef<HTMLDivElement | null>(null);
     // Live width of the group minus the fixed divider and breathing room, so
     // pixel drag-deltas map to the two panes' actual available width.
     const groupInnerRef = useRef<number>(1);
@@ -120,6 +122,7 @@ export default function Shell({
             >
                 <div
                     data-testid="feed"
+                    ref={feedRef}
                     style={{
                         paddingTop: 16,
                         // Container-query context so the shared Post card can react
@@ -146,6 +149,10 @@ export default function Shell({
                         ariaLabel="Resize feed and related panels"
                         onResize={onSliderResize}
                         onDoubleClick={reset}
+                        quietIdleLine
+                        valueNow={Math.round(ratio * 100)}
+                        valueMin={15}
+                        valueMax={85}
                         style={{
                             position: "relative",
                             top: "auto",
@@ -206,6 +213,8 @@ export default function Shell({
                     {aside ?? null}
                 </div>
             </div>
+
+            <WeaveBridge enabled={showAside} feedRef={feedRef} asideRef={asideRef} />
 
             <HoverTooltip />
         </RelatedStacksProvider>

@@ -7,6 +7,10 @@ type Props = {
   onDoubleClick?: () => void;
   style?: CSSProperties;
   ariaLabel?: string;
+  quietIdleLine?: boolean;
+  valueNow?: number;
+  valueMin?: number;
+  valueMax?: number;
 };
 
 const HIT_WIDTH = 8;
@@ -15,10 +19,20 @@ const LINE_HOVER_WIDTH = 3;
 const LINE_COLOR = "rgba(0, 0, 0, 0.08)";
 const LINE_HOVER_COLOR = "rgba(0, 0, 0, 0.20)";
 
-export function ResizableDivider({ onResize, onDoubleClick, style, ariaLabel }: Props) {
+export function ResizableDivider({
+  onResize,
+  onDoubleClick,
+  style,
+  ariaLabel,
+  quietIdleLine = false,
+  valueNow,
+  valueMin,
+  valueMax,
+}: Props) {
   const lastClientX = useRef<number | null>(null);
   const [hovered, setHovered] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [focused, setFocused] = useState(false);
 
   const handlePointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -49,13 +63,18 @@ export function ResizableDivider({ onResize, onDoubleClick, style, ariaLabel }: 
     document.body.style.userSelect = "";
   }, []);
 
-  const lineActive = hovered || dragging;
+  const lineActive = hovered || dragging || focused;
 
   return (
     <div
       role="separator"
       aria-orientation="vertical"
       aria-label={ariaLabel}
+      aria-valuemin={valueMin}
+      aria-valuemax={valueMax}
+      aria-valuenow={valueNow}
+      aria-valuetext={valueNow == null ? undefined : `${valueNow}% feed width`}
+      tabIndex={0}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -63,6 +82,19 @@ export function ResizableDivider({ onResize, onDoubleClick, style, ariaLabel }: 
       onDoubleClick={onDoubleClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      onKeyDown={(event) => {
+        if (event.key === "Home" && onDoubleClick) {
+          event.preventDefault();
+          onDoubleClick();
+          return;
+        }
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        const direction = event.key === "ArrowRight" ? 1 : -1;
+        onResize(direction * (event.shiftKey ? 48 : 16));
+      }}
       style={{
         position: "absolute",
         top: 0,
@@ -81,9 +113,14 @@ export function ResizableDivider({ onResize, onDoubleClick, style, ariaLabel }: 
       }}
     >
       <div
+        data-testid="resize-divider-guide"
         style={{
           width: lineActive ? LINE_HOVER_WIDTH : LINE_WIDTH,
-          backgroundColor: lineActive ? LINE_HOVER_COLOR : LINE_COLOR,
+          backgroundColor: lineActive
+            ? LINE_HOVER_COLOR
+            : quietIdleLine
+            ? "transparent"
+            : LINE_COLOR,
           transition: "width 120ms ease, background-color 120ms ease",
           height: "100%",
         }}
