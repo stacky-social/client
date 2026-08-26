@@ -1,4 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
+import mockData from '../src/app/FakeData/listy-injection.json';
+
+const stickyFocusId = (mockData as any[]).find((entry) => entry.replies?.length >= 10)!.focusPost.id as string;
 
 const bridge = (page: Page) => page.getByTestId('weave-bridge');
 const activePost = (page: Page) =>
@@ -33,6 +36,8 @@ async function geometry(page: Page) {
       upperEnd: endpoint('weave-strand-upper', true),
       lowerStart: endpoint('weave-strand-lower', false),
       lowerEnd: endpoint('weave-strand-lower', true),
+      seamStart: endpoint('weave-divider-seam', false),
+      seamEnd: endpoint('weave-divider-seam', true),
     };
   });
 }
@@ -48,22 +53,29 @@ test.beforeEach(async ({ page }) => {
 
 test('aligns both strands with the synchronized focus post and aside', async ({ page }) => {
   await expectConnectedBridge(page);
-  const [g, card, aside, nav, overlay] = await Promise.all([
+  const [g, card, aside, divider, nav, overlay] = await Promise.all([
     geometry(page), activePost(page).boundingBox(), page.getByTestId('col-aside').boundingBox(),
+    page.getByRole('separator', { name: 'Resize feed and related panels' }).boundingBox(),
     page.getByTestId('top-nav').boundingBox(), bridge(page).boundingBox(),
   ]);
-  expect(card && aside && nav && overlay).toBeTruthy();
+  expect(card && aside && divider && nav && overlay).toBeTruthy();
   expect(Object.values(g).flatMap((value) => typeof value === 'number' ? [value] : [value.x, value.y])
     .every(Number.isFinite)).toBe(true);
   expectNear(g.sourceX, card!.x + card!.width);
-  expectNear(g.targetX, aside!.x);
+  expectNear(g.targetX, divider!.x + divider!.width / 2);
+  expect(g.targetX).toBeLessThan(aside!.x);
   expect(g.sourceTopY).toBeGreaterThanOrEqual(card!.y - 2);
   expect(g.sourceBottomY).toBeLessThanOrEqual(card!.y + card!.height + 2);
   expect(g.sourceBottomY).toBeGreaterThan(g.sourceTopY);
+  expect(g.targetBottomY - g.targetTopY).toBeGreaterThan(
+    (g.sourceBottomY - g.sourceTopY) * 1.25,
+  );
   expectNear(g.upperStart.x, g.sourceX); expectNear(g.upperStart.y, g.sourceTopY);
   expectNear(g.lowerStart.x, g.sourceX); expectNear(g.lowerStart.y, g.sourceBottomY);
   expectNear(g.upperEnd.x, g.targetX); expectNear(g.upperEnd.y, g.targetTopY);
   expectNear(g.lowerEnd.x, g.targetX); expectNear(g.lowerEnd.y, g.targetBottomY);
+  expectNear(g.seamStart.x, g.targetX); expectNear(g.seamStart.y, g.targetTopY);
+  expectNear(g.seamEnd.x, g.targetX); expectNear(g.seamEnd.y, g.targetBottomY);
   expect(overlay!.y).toBeGreaterThanOrEqual(nav!.y + nav!.height - 1);
   await expect(bridge(page)).toHaveAttribute('aria-hidden', 'true');
   await expect(bridge(page)).toHaveCSS('pointer-events', 'none');
@@ -99,14 +111,30 @@ test('retargets after pointer and keyboard divider resizing', async ({ page }) =
   await page.mouse.move(box.x - 50, box.y + 100);
   await page.mouse.up();
   await expect.poll(async () => (await geometry(page)).targetX).not.toBe(pointerBefore);
-  expectNear((await geometry(page)).targetX, (await page.getByTestId('col-aside').boundingBox())!.x);
+  const pointerDivider = (await divider.boundingBox())!;
+  expectNear((await geometry(page)).targetX, pointerDivider.x + pointerDivider.width / 2);
   const keyboardBefore = (await geometry(page)).targetX;
   await divider.focus();
   await expect(divider).toBeFocused();
   await divider.press('ArrowRight');
   await expect.poll(async () => (await geometry(page)).targetX).not.toBe(keyboardBefore);
-  expectNear((await geometry(page)).targetX, (await page.getByTestId('col-aside').boundingBox())!.x);
+  const keyboardDivider = (await divider.boundingBox())!;
+  expectNear((await geometry(page)).targetX, keyboardDivider.x + keyboardDivider.width / 2);
   await expect(divider).toHaveAttribute('aria-valuenow', /\d+/);
+});
+
+test('keeps the sticky focus source narrower than the divider opening', async ({ page }) => {
+  await page.goto(`/AIWorkforce/posts/${stickyFocusId}`);
+  await expect(activePost(page)).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight))
+    .toBeGreaterThan(1200);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect(page.getByTestId('focus-sticky-bar')).toBeVisible();
+  await expect(bridge(page)).toHaveAttribute('data-source-kind', 'sticky');
+  const g = await geometry(page);
+  expect(g.targetBottomY - g.targetTopY).toBeGreaterThan(
+    (g.sourceBottomY - g.sourceTopY) * 1.25,
+  );
 });
 
 test('hides below the split-view breakpoint and returns above it', async ({ page }) => {

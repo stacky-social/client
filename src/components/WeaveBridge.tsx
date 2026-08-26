@@ -13,7 +13,7 @@ type BridgeGeometry = {
   viewportWidth: number; viewportHeight: number;
   sourceX: number; sourceTopY: number; sourceBottomY: number;
   targetX: number; targetTopY: number; targetBottomY: number;
-  upperPath: string; lowerPath: string; ribbonPath: string;
+  upperPath: string; lowerPath: string; ribbonPath: string; seamPath: string;
 };
 
 type LayerPhase = "entering" | "connected" | "exiting";
@@ -131,6 +131,10 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
       const sourceKind: SourceKind = source === sticky ? "sticky" : "card";
       const sourceRect = source === card ? cardRect : stickyRect!;
       const asideRect = aside.getBoundingClientRect();
+      const divider = feed.parentElement?.querySelector<HTMLElement>(
+        '[role="separator"][aria-orientation="vertical"]',
+      );
+      const dividerRect = divider?.getBoundingClientRect();
 
       if (source !== observedSource) {
         sourceObserver?.disconnect();
@@ -141,7 +145,9 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
       const visibleTop = Math.max(sourceRect.top, TOP_NAV_HEIGHT + VIEWPORT_EDGE_GUTTER);
       const visibleBottom = Math.min(sourceRect.bottom, window.innerHeight - VIEWPORT_EDGE_GUTTER);
       const sourceX = round(sourceRect.right);
-      const targetX = round(asideRect.left);
+      const targetX = dividerRect
+        ? round(dividerRect.left + dividerRect.width / 2)
+        : round((sourceRect.right + asideRect.left) / 2);
       if (
         visibleBottom - visibleTop < MIN_VISIBLE_SOURCE_HEIGHT
         || targetX - sourceX < MIN_BRIDGE_WIDTH
@@ -154,7 +160,10 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
 
       const centerY = round((visibleTop + visibleBottom) / 2);
       const halfSource = clamp(round((visibleBottom - visibleTop) * 0.18), 22, 48);
-      const halfTarget = clamp(round(halfSource * 0.24), 6, 12);
+      // The bridge is a gate opening into the panel split, not a funnel entering
+      // the aside. Widen the target decisively and terminate it on the actual
+      // resize-divider center so the focus post visually becomes part of that seam.
+      const halfTarget = clamp(round(halfSource * 1.72), halfSource + 16, 88);
       const sourceTopY = round(centerY - halfSource);
       const sourceBottomY = round(centerY + halfSource);
       const targetTopY = round(centerY - halfTarget);
@@ -166,6 +175,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
       const upperPath = `M ${sourceX} ${local(sourceTopY)} C ${firstControlX} ${local(sourceTopY)}, ${secondControlX} ${local(targetTopY)}, ${targetX} ${local(targetTopY)}`;
       const lowerPath = `M ${sourceX} ${local(sourceBottomY)} C ${firstControlX} ${local(sourceBottomY)}, ${secondControlX} ${local(targetBottomY)}, ${targetX} ${local(targetBottomY)}`;
       const ribbonPath = `${upperPath} L ${targetX} ${local(targetBottomY)} C ${secondControlX} ${local(targetBottomY)}, ${firstControlX} ${local(sourceBottomY)}, ${sourceX} ${local(sourceBottomY)} Z`;
+      const seamPath = `M ${targetX} ${local(targetTopY)} L ${targetX} ${local(targetBottomY)}`;
       const coordinates = [sourceX, sourceTopY, sourceBottomY, targetX, targetTopY, targetBottomY];
       const next: BridgeGeometry = {
         focusId: activePostId,
@@ -182,6 +192,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
         upperPath,
         lowerPath,
         ribbonPath,
+        seamPath,
       };
       setMeasuredGeometry((current) => current?.signature === next.signature ? current : next);
     };
@@ -360,6 +371,18 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
             }}
           />
         ))}
+        <motion.path
+          className={classes.seam}
+          d={geometry.seamPath}
+          data-testid={testId("weave-divider-seam")}
+          initial={entering ? { opacity: 0, pathLength: 0 } : { opacity: 1, pathLength: 1 }}
+          animate={{ opacity: exiting ? 0 : 1, pathLength: exiting ? 0 : 1 }}
+          transition={{
+            duration: (exiting ? EXIT_MS : Math.round(enterDuration * 0.52)) / 1000,
+            delay: delay + (entering ? enterDuration * 0.38 / 1000 : 0),
+            ease: exiting ? EXIT_EASE : ENTER_EASE,
+          }}
+        />
       </motion.g>
     );
   };
