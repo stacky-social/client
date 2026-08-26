@@ -1,6 +1,6 @@
 "use client";
 
-import mockData from "../app/FakeData/listy-injection.json";
+import { allDemoEntries } from "../data/demoCorpora";
 import { firstTypeRelations } from "./relationFirstType.mjs";
 import { contextualAiRewrite } from "../data/contextualAiRewrites";
 import { resolveReplyCount } from "./replyCount.mjs";
@@ -14,7 +14,7 @@ import type {
   Relation,
 } from "../types/PostType";
 
-const entries = mockData as unknown as ListyInjectionData;
+const entries = allDemoEntries as ListyInjectionData;
 
 export interface MockPostType {
   id: string;

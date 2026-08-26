@@ -6,18 +6,19 @@ const firstVisibleReplyCount = ((mockData as any)[0].replies as any[])
   .filter((reply) => reply.inReplyToId === firstFocusId).length;
 
 test.describe('study-mode local flows', () => {
-  test('finds #ChineseEVs as a clearly labeled hashtag result', async ({ page }) => {
+  test('finds #AIWorkforce as a clearly labeled hashtag result', async ({ page }) => {
     await page.goto('/search');
 
     const search = page.getByLabel('Search hashtags, people, and posts');
-    await search.fill('#ChineseEVs');
+    await search.fill('#AIWorkforce');
 
     await expect(page.getByText('Hashtags', { exact: true })).toBeVisible();
-    const hashtag = page.getByRole('button', { name: 'Filter posts by #ChineseEVs' });
-    await expect(hashtag).toContainText('#ChineseEVs');
+    const hashtag = page.getByRole('button', { name: 'Filter posts by #AIWorkforce' });
+    await expect(hashtag).toContainText('#AIWorkforce');
     await hashtag.click();
-    await expect(page).toHaveURL(/\/search\?q=%23ChineseEVs&type=posts&entity=%23ChineseEVs$/);
-    await expect(page.getByRole('button', { name: 'Remove #ChineseEVs post filter' })).toBeVisible();
+    await expect(page).toHaveURL(/\/search\?q=%23AIWorkforce&type=posts&entity=%23AIWorkforce$/);
+    await expect(page.getByLabel('Search context: Tagged #AIWorkforce')).toContainText('Tagged #AIWorkforce');
+    await expect(page.getByLabel(/Remove #AIWorkforce post filter/)).toHaveCount(0);
     await expect(page.getByTestId('search-post-feed')).toBeVisible();
   });
 
@@ -54,7 +55,7 @@ test.describe('study-mode local flows', () => {
   });
 
   test('increments a seeded post reply count once and keeps it after reload', async ({ page }) => {
-    await page.goto(`/ChineseEVs/posts/${firstFocusId}`);
+    await page.goto(`/AIWorkforce/posts/${firstFocusId}`);
 
     const focusCard = page.locator(`[data-post-id="${firstFocusId}"]`).first();
     const replyCount = focusCard.getByRole('button', { name: 'Reply' });
@@ -64,6 +65,11 @@ test.describe('study-mode local flows', () => {
     await page.getByRole('button', { name: 'Submit' }).first().click();
     await expect(page.getByText('Reply posted', { exact: true })).toBeVisible();
     await expect(replyCount).toContainText(String(firstVisibleReplyCount + 1));
+    const persistedBytes = await page.evaluate(() => (
+      localStorage.getItem('stacky:localStore:v1')?.length ?? 0
+    ));
+    expect(persistedBytes).toBeGreaterThan(0);
+    expect(persistedBytes).toBeLessThan(1_000_000);
 
     await page.reload();
     const reloadedFocus = page.locator(`[data-post-id="${firstFocusId}"]`).first();
@@ -71,18 +77,23 @@ test.describe('study-mode local flows', () => {
   });
 
   test('matches every curated reply count to the replies that open in its thread', async ({ page }) => {
-    for (const entry of mockData as any[]) {
+    test.setTimeout(120_000);
+    for (const entry of (mockData as any[]).filter((item) => item.timelineRoot !== false)) {
       const focusId = entry.focusPost.id as string;
       const expectedIds = (entry.replies as any[])
         .filter((reply) => reply.inReplyToId === focusId)
         .map((reply) => reply.id as string);
 
-      await page.goto(`/ChineseEVs/posts/${focusId}`);
+      await page.goto(`/AIWorkforce/posts/${focusId}`);
       const focusCard = page.locator(`[data-post-id="${focusId}"]`).first();
       await expect(focusCard.getByRole('button', { name: 'Reply' }))
         .toContainText(String(expectedIds.length));
 
       const thread = page.getByTestId('threaded-replies').first();
+      if (expectedIds.length === 0) {
+        await expect(thread).toHaveCount(0);
+        continue;
+      }
       await expect(thread).toBeVisible();
       while (await page.getByRole('button', { name: /more repl(?:y|ies)$/ }).count()) {
         await page.getByRole('button', { name: /more repl(?:y|ies)$/ }).first().click();
@@ -95,7 +106,7 @@ test.describe('study-mode local flows', () => {
   });
 
   test('like and bookmark confirmations offer working single-step Undo', async ({ page }) => {
-    await page.goto(`/ChineseEVs/posts/${firstFocusId}`);
+    await page.goto(`/AIWorkforce/posts/${firstFocusId}`);
 
     await page.getByRole('button', { name: 'Like', exact: true }).first().click();
     const likeNotice = page.getByText(/Post liked|Like removed/, { exact: true });

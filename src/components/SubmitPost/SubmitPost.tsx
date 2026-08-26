@@ -343,7 +343,7 @@ export function SubmitPost({ appearance = 'card' }: { appearance?: 'card' | 'tim
       }
       notifications.show({
         title: 'Success',
-        message: accessToken ? 'Posted to Stacky.' : 'Post created successfully.',
+        message: accessToken ? 'Posted to CrossWeave.' : 'Post created successfully.',
         color: 'green',
       });
       setPostText(''); // Clear the composer after posting.
@@ -442,6 +442,7 @@ export function SubmitPost({ appearance = 'card' }: { appearance?: 'card' | 'tim
             praise={feedback.praise}
             advice={feedback.advice}
             simulatedReplies={feedback.simulatedReplies}
+            alignWithDraft
           />
         </div>
       )}

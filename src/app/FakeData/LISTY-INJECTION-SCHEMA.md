@@ -1,10 +1,13 @@
-# `/ChineseEVs` Feed Data Schema (`listy-injection.json`)
+# Demo feed data schema
 
-> The route this fixture backs was renamed `/listy-injection` → `/ChineseEVs` (redirect in `next.config.mjs`); the fixture keeps its original filename `listy-injection.json` for historical continuity — do not rename it.
+The shared contract backs two independent fixtures: `chinese-evs.json` for
+`/ChineseEVs` and `listy-injection.json` for `/AIWorkforce`. The corpus registry
+in `src/data/demoCorpora.ts` keeps their routes, hashtags, and post ids separate.
 
-Data format for the `/ChineseEVs` research feed (the former listy-injection prototype). Describes the contract between backend and frontend for focus posts, related posts, and their NLP-derived relations.
+It describes the contract between backend and frontend for focus posts, related
+posts, and their NLP-derived relations.
 
-> **Provenance:** the current fixture is generated from CrossWeave's multi-source
+> **Provenance:** the AI Workforce fixture is generated from CrossWeave's multi-source
 > `live_demo_data/prepared_data/{topic}/` output by
 > [`scripts/convert-live-demo-data.mjs`](../../../scripts/convert-live-demo-data.mjs).
 > The importer joins lean annotations to `corpus_threads.json`, resolves quote-tweet
@@ -13,8 +16,8 @@ Data format for the `/ChineseEVs` research feed (the former listy-injection prot
 > every emitted offset. Regenerate with
 > `CROSSWEAVE_LIVE_DEMO_DIR=/path/to/crossweave/live_demo_data node scripts/convert-live-demo-data.mjs`.
 > `DEMO_TOPICS` can select complete topics and `MAX_CANDIDATES` can cap each pane.
-> Do not hand-edit the JSON. The older NYT-only importer remains available as
-> `scripts/convert-demo-data.mjs` for archived corpus checkouts.
+> Do not hand-edit the JSON. The Chinese EV fixture is generated independently by
+> `scripts/convert-demo-data.mjs`; each importer has a distinct safe output.
 
 ## Top-level structure
 

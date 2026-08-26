@@ -9,16 +9,7 @@ import { getCurrentUser } from '../../utils/getCurrentUser';
 
 const MastodonInstanceUrl = "https://beta.stacky.social";
 
-const avatars = [
-    '/avatar/stacky_angry.PNG',
-    '/avatar/stacky_cracked.PNG',
-    '/avatar/stacky_default.PNG',
-    '/avatar/stacky_haha.PNG',
-    '/avatar/stacky_love.PNG',
-    '/avatar/stacky_queasy.PNG',
-    '/avatar/stacky_sad.PNG',
-    '/avatar/stacky_sweet.PNG'
-];
+const avatars = ['/icon.svg'];
 
 interface PostType {
     id: string;

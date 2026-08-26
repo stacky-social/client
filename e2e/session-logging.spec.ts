@@ -17,7 +17,7 @@ test('records opened posts and filter URL transitions in one bounded local sessi
     if (request.url().includes('posthog')) postHogRequests.push(request.url());
   });
 
-  await page.goto(`/ChineseEVs/posts/${focusId}`);
+  await page.goto(`/AIWorkforce/posts/${focusId}`);
   const chip = page.getByRole('button', { name: /filter$/i }).first();
   await expect(chip).toBeVisible();
   await chip.click();
@@ -27,8 +27,8 @@ test('records opened posts and filter URL transitions in one bounded local sessi
   expect(trail.version).toBe(1);
   expect(trail.sessions).toHaveLength(1);
   expect(trail.sessions[0].urls.map((entry: { url: string }) => entry.url)).toEqual([
-    `/ChineseEVs/posts/${focusId}`,
-    expect.stringMatching(new RegExp(`^/ChineseEVs/posts/${focusId}\\?fc=`)),
+    `/AIWorkforce/posts/${focusId}`,
+    expect.stringMatching(new RegExp(`^/AIWorkforce/posts/${focusId}\\?fc=`)),
   ]);
   expect(postHogRequests).toEqual([]);
 });
@@ -50,7 +50,7 @@ test('configured study analytics sends only the sanitized pageview', async ({ pa
     }));
   });
 
-  await page.goto(`/ChineseEVs/posts/${focusId}?fc=agree&code=must-not-leave-browser`);
+  await page.goto(`/AIWorkforce/posts/${focusId}?fc=agree&code=must-not-leave-browser`);
   await expect.poll(() => requests.length, { message: 'PostHog request log' }).toBeGreaterThan(0);
   const ingests = requests.filter((request) => /\/e\/?$/.test(new URL(request.url).pathname));
   expect(ingests).toHaveLength(1);
@@ -58,7 +58,7 @@ test('configured study analytics sends only the sanitized pageview', async ({ pa
   const firstEvent = firstPayload.batch[0];
   expect(firstEvent.event).toBe('$pageview');
   expect(firstEvent.properties.$current_url).toBe(
-    `http://localhost:3000/ChineseEVs/posts/${focusId}?fc=agree`,
+    `http://localhost:3000/AIWorkforce/posts/${focusId}?fc=agree`,
   );
   expect(firstEvent.properties.crossweave_session_id).toBe('study:configured-analytics-test');
   expect(firstEvent.properties.filters).toEqual({ fc: 'agree' });
@@ -68,7 +68,7 @@ test('configured study analytics sends only the sanitized pageview', async ({ pa
     const trail = JSON.parse(localStorage.getItem(key) || 'null');
     return trail.sessions[0].urls.map((entry: { url: string }) => entry.url);
   }, TRAILS_KEY);
-  expect(urls).toEqual([`/ChineseEVs/posts/${focusId}?fc=agree`]);
+  expect(urls).toEqual([`/AIWorkforce/posts/${focusId}?fc=agree`]);
 
   // The station is reused for another participant without a hard reload. Its
   // PostHog anonymous/device identity must rotate with the study session.

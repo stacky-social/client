@@ -1,6 +1,7 @@
 export type WordDiffChunk = { kind: "equal" | "insert" | "delete"; text: string };
 export function createWordDiff(original: string, revised: string): WordDiffChunk[];
 export function createWordDiffExcerpt(original: string, revised: string, maxTokens?: number): WordDiffChunk[];
+export function isSubstantiveWordDiff(original: string, revised: string): boolean;
 export type AlignedWordDiffWindow = {
   originalText: string;
   revisedText: string;
@@ -32,8 +33,12 @@ export function createWordDiffForRevisedRange(
   revisedEnd?: number,
   precomputedDiff?: WordDiffChunk[],
 ): RevisedRangeWordDiff;
-export function splitDeletionForSubtleHighlight(text: string): {
-  leading: string;
-  middle: string;
-  trailing: string;
+export type HighlightAnnotatedWordDiffChunk = WordDiffChunk & {
+  revisedStart: number;
+  revisedEnd: number;
+  relationIndices: number[];
 };
+export function annotateDiffHighlightRelations(
+  chunks: WordDiffChunk[],
+  relations?: Array<{ contentStart: number; contentEnd: number }>,
+): HighlightAnnotatedWordDiffChunk[];

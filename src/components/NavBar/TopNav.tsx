@@ -19,7 +19,8 @@ export const TOP_NAV_HEIGHT = 56;
 
 const LINKS = [
     { link: "/home", label: "Home", Icon: IconHome },
-    { link: "/tag/AIWorkforce", label: "#AIWorkforce", Icon: IconMessages },
+    { link: "/ChineseEVs", label: "#ChineseEVs", Icon: IconMessages },
+    { link: "/AIWorkforce", label: "#AIWorkforce", Icon: IconMessages },
     { link: "/search", label: "Search", Icon: IconSearch },
     { link: "/bookmarks", label: "Bookmarks", Icon: IconBookmark },
     { link: "/liked", label: "Liked", Icon: IconHeart },
@@ -101,7 +102,7 @@ export function TopNav() {
 
             <Group gap={4} style={{ marginLeft: "auto" }}>
                 {LINKS.map(({ link, label, Icon }) => {
-                    const active = pathname === link;
+                    const active = pathname === link || pathname.startsWith(`${link}/`);
                     return (
                         <Tooltip key={link} label={label} withArrow>
                             <ActionIcon

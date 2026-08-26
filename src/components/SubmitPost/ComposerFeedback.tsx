@@ -1,6 +1,7 @@
 import React from "react";
 import { Text, Paper, Loader, Group, Avatar } from "@mantine/core";
-import { pickAvatarForText } from "../../utils/sentimentAvatar";
+
+const CROSSWEAVE_AVATAR = "/icon.svg";
 
 export type ComposerFeedbackData = {
   loading: boolean;
@@ -21,22 +22,22 @@ const SIM_REPLY_INDENT = 40;
 const FEEDBACK_INDENT = 56;
 const SIM_ROW_GAP = 10;
 
-/** One simulated reply, formatted like an actual reply: robot avatar (the
- *  colored Stacky faces double as the AI disclosure), "Possible Reply" as the
+/** One simulated reply, formatted like an actual reply: CrossWeave avatar,
+ *  "Possible Reply" as the
  *  author name, a SIMULATED chip, and post-sized text. Each row carries its
  *  own piece of the thread rail: a vertical segment spanning the gap above it
  *  (so the segments chain into one continuous line from the draft's avatar),
- *  plus a horizontal elbow reaching its robot's avatar. The LAST row's
+ *  plus a horizontal elbow reaching its simulated-reply avatar. The LAST row's
  *  vertical segment stops at its avatar center — the rail ends at the last
  *  bot photo instead of running past it (whiteboard spec). */
 function SimulatedReply({ content, isLast }: { content: string; isLast: boolean }) {
   const AVATAR_CENTER = 19; // Mantine Avatar is 38px tall
   const CURVE = 14; // height of the curved branch's vertical run before it bends
   return (
-    <div style={{ position: "relative", marginLeft: SIM_REPLY_INDENT, marginTop: SIM_ROW_GAP }}>
+    <div data-testid="simulated-reply" style={{ position: "relative", marginLeft: SIM_REPLY_INDENT, marginTop: SIM_ROW_GAP }}>
       {/* Straight trunk segment — continues the rail through this row. The
           LAST row omits it: its curved elbow below terminates the trunk by
-          bending into the final robot's avatar (whiteboard spec). */}
+          bending into the final simulated-reply avatar (whiteboard spec). */}
       {!isLast && (
         <div
           aria-hidden
@@ -73,13 +74,10 @@ function SimulatedReply({ content, isLast }: { content: string; isLast: boolean 
       />
       <Group gap={10} align="flex-start" wrap="nowrap">
         <Avatar
-          src={pickAvatarForText(content)}
-          alt="Simulated reply"
+          src={CROSSWEAVE_AVATAR}
+          alt="CrossWeave simulated reply"
           radius="xl"
-          // The generated robot art keeps the face centered on a full-bleed
-          // pastel square, so the circular crop never clips it — no inscribe
-          // workaround needed (unlike the legacy square stacky_* icons).
-          style={{ flexShrink: 0, border: "1px solid #e2e8f0" }}
+          style={{ flexShrink: 0, border: "1px solid #e2e8f0", background: "#f8fafc" }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
           <Group gap={8} align="center" wrap="nowrap">
@@ -127,6 +125,7 @@ export function FeedbackBlock({
   advice,
   simulatedReplies,
   attachedToDraft = false,
+  alignWithDraft = false,
 }: {
   loading?: boolean;
   praise?: string | null;
@@ -137,6 +136,10 @@ export function FeedbackBlock({
    *  it visibly attaches to the draft's avatar. The aside panel has no draft
    *  above it, so its rail starts at the block's own top. */
   attachedToDraft?: boolean;
+  /** Align the feedback copy with the draft text itself. The home composer
+   *  supplies its thread geometry separately, so it does not need the inset
+   *  used by the standalone reply composer. */
+  alignWithDraft?: boolean;
 }) {
   const replies = simulatedReplies ?? [];
   const hasReplies = !loading && replies.length > 0;
@@ -145,8 +148,11 @@ export function FeedbackBlock({
       {/* Feedback section — indented FURTHER than the replies (paddingLeft, so
           its rail segment still positions from the block's left edge): the
           rail passes it by on its way from the draft's photo to the bots'. */}
-      <div style={{ position: "relative", paddingLeft: hasReplies ? FEEDBACK_INDENT : 0 }}>
-        {hasReplies && (
+      <div
+        data-testid="feedback-copy"
+        style={{ position: "relative", paddingLeft: hasReplies && !alignWithDraft ? FEEDBACK_INDENT : 0 }}
+      >
+        {hasReplies && !alignWithDraft && (
           <div
             aria-hidden
             data-testid="sim-reply-thread-rail"

@@ -113,7 +113,7 @@ export function ringTopMatchesScope(ring, scope) {
  *  related-panel mount to publish `currentPanelFocusId`; URL-derived scope
  *  keeps tab/filter history undoable there too. */
 export function detailFocusIdFromPath(pathname) {
-  const match = /^\/(?:ChineseEVs\/)?posts\/([^/]+)\/?$/.exec(pathname ?? '');
+  const match = /^\/(?:(?:ChineseEVs|AIWorkforce)\/)?posts\/([^/]+)\/?$/.exec(pathname ?? '');
   if (!match) return null;
   try {
     return decodeURIComponent(match[1]);

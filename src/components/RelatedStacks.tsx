@@ -20,14 +20,17 @@ import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
 import { showUndoableAction } from '../utils/actionNotifications';
 import AiModifiedDisclosure from './AiModifiedDisclosure';
 import {
+  annotateDiffHighlightRelations,
   createWordDiff,
   createWordDiffForRevisedRange,
-  splitDeletionForSubtleHighlight,
+  isSubstantiveWordDiff,
 } from '../utils/wordDiff.mjs';
 import { pointBridgesInlineRects } from '../utils/inlineHighlightGeometry.mjs';
-import { getPost, useHydrated, useLocalStore } from '../utils/localStore';
+import { useHydrated, useLocalStore } from '../utils/localStore';
 import { RELATED_POSTS_API_URL } from '../utils/mastodonApi';
 import { extractMastodonLinks, mastodonLinkHost, normalizeMastodonText, resolveMastodonRevision } from '../utils/mastodonContent.mjs';
+import { saveFeedScrollSnapshot } from '../utils/feedScrollRestoration';
+import { postRouteFor } from '../utils/postRoute';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -525,6 +528,9 @@ function buildMultiHighlightNodes(
      *  other spans dim (paper: "highlighting the corresponding B spans,
      *  temporarily dimming other B spans"). Null when no focus span is hovered. */
     focusHoverMatchedIdx: Set<number> | null;
+    /** Keep the relation's emphasized crux visible in the provenance layer,
+     * including keyboard-triggered reveals that do not hover the whole card. */
+    forceCommentEmphasis?: boolean;
     /** topic → number of OTHER posts (excluding current) that share this topic */
     otherCountByTopic?: (topic: string) => number;
     /** range indices → number of related posts linked to those spans' focus
@@ -737,7 +743,8 @@ function buildMultiHighlightNodes(
       // side pane doesn't work".
       const commentPhrase = c.comment;
       let markContent: React.ReactNode;
-      if ((opts.isCardHovered || isThisRangeHovered) && commentPhrase && segText.includes(commentPhrase)) {
+      if ((opts.isCardHovered || isThisRangeHovered || opts.forceCommentEmphasis)
+        && commentPhrase && segText.includes(commentPhrase)) {
         const ci = segText.indexOf(commentPhrase);
         markContent = (
           <>
@@ -1227,6 +1234,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       revisedContent: string;
       revisedRelations: Relation[] | undefined;
       chunks: ReturnType<typeof createWordDiff>;
+      showDisclosure: boolean;
     }>();
     for (const stack of relatedStacks) {
       const rewrite = stack.topPost.rewrite;
@@ -1245,6 +1253,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           ? stack.topPost.relations
           : remapRelationsToRewrite(original, revised, stack.topPost.relations, chunks),
         chunks,
+        // Honor the corpus/backend significance flag, then defensively keep
+        // benign cleanup (punctuation, capitalization, article swaps, or a
+        // removed @mention) from being presented as meaningful AI authorship.
+        showDisclosure: rewrite.significant && isSubstantiveWordDiff(original, revised),
       });
     }
     return diffs;
@@ -1901,10 +1913,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     if (newStackId) navParams.set("stackId", newStackId);
     if (sourcePostId) navParams.set("from", sourcePostId);
     const search = navParams.toString();
-    const route = getPost(postId) ? `/ChineseEVs/posts/${postId}` : `/posts/${postId}`;
+    const route = postRouteFor(postId);
     const url = `${route}${search ? "?" + search : ""}`;
-    sessionStorage.setItem(`previousPath:${route}`, window.location.pathname);
-    sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
+    sessionStorage.setItem(`previousPath:${route}`, window.location.pathname + window.location.search);
+    saveFeedScrollSnapshot();
     router.push(url);
   };
 
@@ -2541,7 +2553,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                 aiDiffSet.chunks,
               )
             : undefined;
-          const hasVisibleAiEdit = !!aiDiff?.hasChanges;
+          const hasVisibleAiEdit = !!aiDiffSet?.showDisclosure && !!aiDiff?.hasChanges;
           const isAiEditActive = activeAiEditPostId === stack.topPost.id && hasVisibleAiEdit;
 
           // Calculate indent depth by walking the anchor chain. Per-level indent
@@ -2596,6 +2608,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               hoveredRangeIndex: isCardActive ? (isCardTapped ? tappedRangeIndex : hoveredHighlightRangeIndex) : null,
               hoveredCategory: isCardActive ? hoveredCategory : null,
               focusHoverMatchedIdx,
+              forceCommentEmphasis: isAiEditActive,
               anchoredRangeIndex: anchoredRangeByPost[stack.topPost.id] ?? null,
               activeTopic: activeAnchorTopic,
               inActiveBlock,
@@ -2639,24 +2652,37 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           // position, not a second comparison block. Equal/inserted revised
           // text is sliced through the normal relationship renderer so every
           // cross-highlight remains interactive while the edit is visible.
-          let trackedRevisedOffset = 0;
-          const trackedContentNodes = aiDiff?.chunks.map((chunk, chunkIndex) => {
+          const annotatedDiffChunks = aiDiff
+            ? annotateDiffHighlightRelations(aiDiff.chunks, adjustedRelations)
+            : [];
+          const trackedContentNodes = annotatedDiffChunks.map((chunk, chunkIndex) => {
             if (chunk.kind === 'delete') {
-              const removal = splitDeletionForSubtleHighlight(chunk.text);
+              const deletionRelations = chunk.relationIndices.map((relationIndex) => ({
+                ...adjustedRelations![relationIndex],
+                // A deletion has no revised width. Once it is known to sit
+                // inside (or replace) a relationship highlight, paint the full
+                // removed phrase with that same relation treatment.
+                contentStart: 0,
+                contentEnd: chunk.text.length,
+                contentCommentStart: 0,
+                contentCommentEnd: 0,
+              }));
               return (
                 <del key={`delete-${chunkIndex}`}>
-                  {removal.leading}
-                  {removal.middle && (
-                    <span className="ai-edit-removed-middle">{removal.middle}</span>
-                  )}
-                  {removal.trailing}
+                  {deletionRelations.length > 0
+                    ? buildMultiHighlightNodes(
+                        chunk.text,
+                        deletionRelations,
+                        colors,
+                        highlightOptions,
+                      )
+                    : chunk.text}
                 </del>
               );
             }
 
-            const chunkStart = trackedRevisedOffset;
-            const chunkEnd = chunkStart + chunk.text.length;
-            trackedRevisedOffset = chunkEnd;
+            const chunkStart = chunk.revisedStart;
+            const chunkEnd = chunk.revisedEnd;
             const chunkRelations = adjustedRelations?.flatMap((relation) => {
               const relationStart = Math.max(chunkStart, relation.contentStart);
               const relationEnd = Math.min(chunkEnd, relation.contentEnd);
@@ -3361,6 +3387,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                         aria-hidden={!isAiEditActive}
                         aria-label={stack.topPost.rewrite.editSummary || 'AI changes shown in this post'}
                       >
+                        <span className="ai-edit-legend" data-ai-edit-legend>
+                          <span className="ai-edit-legend-label">AI edits:</span>
+                          <ins>added</ins>
+                          <del>removed</del>
+                        </span>
                         {aiDiff.hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
                         {trackedContentNodes}
                         {aiDiff.hasSuffix && !isExpanded && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
@@ -3443,10 +3474,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                         const origin = window.location.origin;
                         const focusId = sourcePostId ?? ctxActivePostId;
                         const sharedId = focusId ?? stack.topPost.id;
-                        const route = getPost(sharedId) ? '/ChineseEVs/posts/' : '/posts/';
+                        const route = postRouteFor(sharedId);
                         const url = focusId
-                          ? `${origin}${route}${focusId}?related=${stack.topPost.id}`
-                          : `${origin}${route}${stack.topPost.id}`;
+                          ? `${origin}${route}?related=${stack.topPost.id}`
+                          : `${origin}${route}`;
                         copyLink(url, focusId ? "Pairing link copied" : "Post link copied");
                       }} />
                   </Group>

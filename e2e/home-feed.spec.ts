@@ -151,7 +151,9 @@ test.describe('Home timeline', () => {
     await page.evaluate(() => {
       const key = 'stacky:localStore:v1';
       const state = JSON.parse(localStorage.getItem(key) || 'null');
-      state.posts['152053690'].replies_count = 123;
+      // Current persistence stores only participant-owned deltas. Simulate the
+      // older full-fixture blob with the smallest stale override needed here.
+      state.posts['152053690'] = { replies_count: 123 };
       localStorage.setItem(key, JSON.stringify(state));
     });
     await page.reload();

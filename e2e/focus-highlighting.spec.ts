@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import mockData from '../src/app/FakeData/listy-injection.json';
+import mockData from '../src/app/FakeData/chinese-evs.json';
 
 // Regression tests for the focus-post highlighting layer (Post.tsx →
 // ActiveHighlightedContent). Four fixes are covered:

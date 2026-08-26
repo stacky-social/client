@@ -2,8 +2,9 @@
 
 import { useParams, usePathname, useRouter } from "next/navigation";
 import RelatedStacks from "../../../../../components/RelatedStacks";
-import { getPost } from "../../../../../utils/localStore";
+import { postRouteFor } from "../../../../../utils/postRoute";
 import { useRelatedStacks } from "../../../related-stacks-context";
+import { saveFeedScrollSnapshot } from "../../../../../utils/feedScrollRestoration";
 
 /** Related-post pane for a live Mastodon status detail route. */
 export default function LivePostAside() {
@@ -49,9 +50,9 @@ export default function LivePostAside() {
         sourcePostId={focusPostId}
         highlightPostId={highlightPostId}
         onPostNavigate={(postId) => {
-          const route = getPost(postId) ? `/ChineseEVs/posts/${postId}` : `/posts/${postId}`;
+          const route = postRouteFor(postId);
           sessionStorage.setItem(`previousPath:${route}`, window.location.pathname + window.location.search);
-          sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
+          saveFeedScrollSnapshot();
           router.push(route);
         }}
       />

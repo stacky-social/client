@@ -834,7 +834,9 @@ export function beginUndoablePanelInteractionIfDetail(focusId?: string): boolean
   const scope = currentPanelScope();
   if (
     !scope ||
-    (!scope.pathname.startsWith("/ChineseEVs/posts/") && !scope.pathname.startsWith("/posts/"))
+    (!scope.pathname.startsWith("/ChineseEVs/posts/")
+      && !scope.pathname.startsWith("/AIWorkforce/posts/")
+      && !scope.pathname.startsWith("/posts/"))
   ) return false;
   if (focusId !== undefined && scope.focusId !== focusId) return false;
   beginPanelInteraction(scope, null);

@@ -35,7 +35,7 @@ export default function TagPage() {
   const tagName = Array.isArray(params.tag) ? params.tag[0] : params.tag;
   const definition = getHashtagDefinition(tagName ?? '');
 
-  if (definition?.local) return <ChineseEvsPage />;
+  if (definition?.local) return <ChineseEvsPage key={definition.name} />;
   if (!tagName) return null;
 
   return (

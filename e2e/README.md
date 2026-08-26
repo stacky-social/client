@@ -6,5 +6,6 @@ The suite reuses a dev server already running on http://localhost:3002; if none 
 running it starts one via `pnpm dev --port 3002`.
 
 These are no-auth smoke tests covering release-critical flows. They use the app's
-local mock data (`src/app/FakeData/listy-injection.json`) and require neither real
+local mock data (`src/app/FakeData/chinese-evs.json` and
+`src/app/FakeData/listy-injection.json`) and require neither real
 OAuth nor a live backend.

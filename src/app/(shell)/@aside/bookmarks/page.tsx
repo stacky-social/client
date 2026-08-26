@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import RelatedStacks from "../../../../components/RelatedStacks";
 import { useRelatedStacks } from "../../related-stacks-context";
+import { postRouteFor } from "../../../../utils/postRoute";
 
 export default function BookmarksAside() {
   const pathname = usePathname();
@@ -34,8 +35,9 @@ export default function BookmarksAside() {
             // to the demo detail page instead. Seed previousPath so the
             // detail page's Back button renders and returns here.
             onPostNavigate={(postId) => {
-              sessionStorage.setItem(`previousPath:/ChineseEVs/posts/${postId}`, pathname);
-              router.push(`/ChineseEVs/posts/${postId}`);
+              const route = postRouteFor(postId);
+              sessionStorage.setItem(`previousPath:${route}`, pathname);
+              router.push(route);
             }}
           />
         </div>

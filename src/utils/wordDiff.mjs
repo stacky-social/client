@@ -12,6 +12,29 @@ function compact(parts) {
   return chunks;
 }
 
+const TRIVIAL_CONTEXT_WORDS = new Set(["a", "an", "the"]);
+
+/**
+ * Reduce prose to the lexical content that merits an AI provenance treatment.
+ * Typography, punctuation, whitespace, capitalization, article swaps, and a
+ * removed @mention are useful cleanup, but not useful enough to interrupt the
+ * reader with a "Modified by AI" disclosure.
+ */
+function substantiveFingerprint(text) {
+  return (text ?? "")
+    .normalize("NFKC")
+    .replace(/(^|\s)@[\p{L}\p{N}_.@-]+/gu, " ")
+    .toLocaleLowerCase()
+    .match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu)
+    ?.filter((word) => !TRIVIAL_CONTEXT_WORDS.has(word))
+    .join("") ?? "";
+}
+
+/** True when a rewrite changes lexical meaning rather than surface form. */
+export function isSubstantiveWordDiff(original, revised) {
+  return substantiveFingerprint(original) !== substantiveFingerprint(revised);
+}
+
 /** Complete word-level LCS diff. The non-delete chunks reconstruct `revised`. */
 export function createWordDiff(original, revised) {
   const before = tokenize(original);
@@ -218,19 +241,73 @@ export function createWordDiffForRevisedRange(
 }
 
 /**
- * Keep a removed phrase struck through, but reserve its tinted fill for only
- * the interior words. Quiet first/last words make long removals less blocky.
+ * Attach relationship-highlight indices to tracked-change chunks.
+ *
+ * Equal and inserted text have width in the revised string, so ordinary range
+ * overlap is sufficient. Deleted text has zero revised width: it inherits a
+ * relation when its anchor falls inside that relation, or when it is the
+ * removal half of an immediately adjacent replacement whose inserted half is
+ * highlighted. The latter is what keeps "top tier" highlighted when the
+ * published replacement "top-tier" is underlined.
  */
-export function splitDeletionForSubtleHighlight(text) {
-  const words = Array.from(text.matchAll(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu));
-  if (words.length < 3) return { leading: text, middle: "", trailing: "" };
+export function annotateDiffHighlightRelations(chunks, relations = []) {
+  let revisedOffset = 0;
+  const annotated = chunks.map((chunk) => {
+    const revisedStart = revisedOffset;
+    const revisedEnd = chunk.kind === "delete"
+      ? revisedStart
+      : revisedStart + chunk.text.length;
+    revisedOffset = revisedEnd;
 
-  const middleStart = words[1].index;
-  const penultimate = words[words.length - 2];
-  const middleEnd = penultimate.index + penultimate[0].length;
-  return {
-    leading: text.slice(0, middleStart),
-    middle: text.slice(middleStart, middleEnd),
-    trailing: text.slice(middleEnd),
-  };
+    const relationIndices = chunk.kind === "delete"
+      ? relations.flatMap((relation, index) => (
+          relation.contentStart < revisedStart && revisedStart < relation.contentEnd
+            ? [index]
+            : []
+        ))
+      : relations.flatMap((relation, index) => (
+          Math.min(revisedEnd, relation.contentEnd)
+            > Math.max(revisedStart, relation.contentStart)
+            ? [index]
+            : []
+        ));
+
+    return {
+      ...chunk,
+      revisedStart,
+      revisedEnd,
+      relationIndices,
+    };
+  });
+
+  // Replacement chunks are contiguous non-equal runs. If their inserted half
+  // overlaps a relation, paint the paired removal with that same relation even
+  // when the edit is anchored exactly at the relation's start or end.
+  let groupStart = 0;
+  while (groupStart < annotated.length) {
+    if (annotated[groupStart].kind === "equal") {
+      groupStart++;
+      continue;
+    }
+    let groupEnd = groupStart + 1;
+    while (groupEnd < annotated.length && annotated[groupEnd].kind !== "equal") groupEnd++;
+    const replacementRelations = new Set(
+      annotated
+        .slice(groupStart, groupEnd)
+        .filter((chunk) => chunk.kind === "insert")
+        .flatMap((chunk) => chunk.relationIndices),
+    );
+    if (replacementRelations.size > 0) {
+      for (let index = groupStart; index < groupEnd; index++) {
+        if (annotated[index].kind !== "delete") continue;
+        annotated[index].relationIndices = Array.from(new Set([
+          ...annotated[index].relationIndices,
+          ...replacementRelations,
+        ])).sort((a, b) => a - b);
+      }
+    }
+    groupStart = groupEnd;
+  }
+
+  return annotated;
 }

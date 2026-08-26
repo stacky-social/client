@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import RelatedStacks from "../../../../components/RelatedStacks";
 import { useRelatedStacks } from "../../related-stacks-context";
-import { getPost } from "../../../../utils/localStore";
+import { postRouteFor } from "../../../../utils/postRoute";
 
 function EmptyRelatedPanel({ focusPostId, drafting = false }: { focusPostId?: string; drafting?: boolean }) {
   return (
@@ -60,7 +60,7 @@ export default function HomeAside() {
             // to the demo detail page instead. Seed previousPath so the
             // detail page's Back button renders and returns here.
             onPostNavigate={(postId) => {
-              const route = getPost(postId) ? `/ChineseEVs/posts/${postId}` : `/posts/${postId}`;
+              const route = postRouteFor(postId);
               sessionStorage.setItem(`previousPath:${route}`, pathname);
               router.push(route);
             }}

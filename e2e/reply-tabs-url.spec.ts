@@ -9,9 +9,12 @@ import { FLAGS_STORAGE_KEY } from '../src/utils/experimentFlagsCore.mjs';
 // links must keep hydrating even though the persisted condition only loads a
 // render after mount.
 
-// First mock focus post: 15 top-level replies (real crossweave descendants), so
-// the sort tab strip renders (it is suppressed for threads of <=5).
-const focusId = (mockData as any)[0].focusPost.id as string;
+// Pick a real thread large enough to render the sort strip (it is suppressed
+// for threads of <=5 top-level replies).
+const focusEntryIndex = (mockData as any[]).findIndex((entry) => (
+  (entry.replies ?? []).filter((reply: any) => reply.inReplyToId === entry.focusPost.id).length > 5
+));
+const focusId = (mockData as any)[focusEntryIndex].focusPost.id as string;
 
 // Real reply ids are numeric (like the focus post + ancestors), so select the
 // reply area by the fixture's actual top-level reply ids rather than an id
@@ -21,7 +24,7 @@ const topLevelIdsOf = (entryIdx: number, parentId: string): string[] =>
     .filter((r) => r.inReplyToId === parentId)
     .map((r) => r.id);
 const nodesSelector = (ids: string[]): string => ids.map((rid) => `[data-post-id="${rid}"]`).join(', ');
-const replyNodes = nodesSelector(topLevelIdsOf(0, focusId));
+const replyNodes = nodesSelector(topLevelIdsOf(focusEntryIndex, focusId));
 
 function seedFlags(page: import('@playwright/test').Page, flags: Record<string, boolean>) {
   return page.addInitScript(
@@ -33,7 +36,7 @@ function seedFlags(page: import('@playwright/test').Page, flags: Record<string, 
 test.describe('Reply tab URL hydration across flag conditions', () => {
   test('flag OFF + foreign ?tab=top on a cold load degrades to Time with replies visible', async ({ page }) => {
     await seedFlags(page, { replySortTabs: false });
-    await page.goto(`/ChineseEVs/posts/${focusId}?tab=top`);
+    await page.goto(`/AIWorkforce/posts/${focusId}?tab=top`);
 
     await expect(page.getByRole('tab', { name: 'Time' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator(replyNodes).first()).toBeVisible();
@@ -47,14 +50,18 @@ test.describe('Reply tab URL hydration across flag conditions', () => {
     // nothing re-validates it. Cold loads dodge this only because the
     // persisted condition loads one render after mount.
     await seedFlags(page, { replySortTabs: false });
-    const otherId = (mockData as any)[1].focusPost.id as string;
-    const otherReplyNodes = nodesSelector(topLevelIdsOf(1, otherId));
-    await page.goto(`/ChineseEVs/posts/${otherId}`);
+    const otherEntryIndex = (mockData as any[]).findIndex((entry, index) => (
+      index !== focusEntryIndex
+      && (entry.replies ?? []).some((reply: any) => reply.inReplyToId === entry.focusPost.id)
+    ));
+    const otherId = (mockData as any)[otherEntryIndex].focusPost.id as string;
+    const otherReplyNodes = nodesSelector(topLevelIdsOf(otherEntryIndex, otherId));
+    await page.goto(`/AIWorkforce/posts/${otherId}`);
     await expect(page.locator(otherReplyNodes).first()).toBeVisible();
 
     // A stale cross-condition URL sits in history (e.g. from a flag-ON
     // session); back/forward re-enters it as a same-document navigation.
-    await page.evaluate((url) => history.pushState(null, '', url), `/ChineseEVs/posts/${focusId}?tab=top`);
+    await page.evaluate((url) => history.pushState(null, '', url), `/AIWorkforce/posts/${focusId}?tab=top`);
     await page.goBack();
     await expect(page).toHaveURL(new RegExp(otherId));
     await page.goForward();
@@ -66,7 +73,7 @@ test.describe('Reply tab URL hydration across flag conditions', () => {
 
   test('flag ON + foreign ?tab=recommended degrades to Top with replies visible', async ({ page }) => {
     await seedFlags(page, { replySortTabs: true });
-    await page.goto(`/ChineseEVs/posts/${focusId}?tab=recommended`);
+    await page.goto(`/AIWorkforce/posts/${focusId}?tab=recommended`);
 
     await expect(page.getByRole('tab', { name: 'Top' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator(replyNodes).first()).toBeVisible();
@@ -77,7 +84,7 @@ test.describe('Reply tab URL hydration across flag conditions', () => {
     // Persisted OFF differs from the all-on defaults, so this exercises the
     // flag-settle window: hydration must not validate against the default set.
     await seedFlags(page, { replySortTabs: false });
-    await page.goto(`/ChineseEVs/posts/${focusId}?tab=recommended`);
+    await page.goto(`/AIWorkforce/posts/${focusId}?tab=recommended`);
 
     await expect(page.getByRole('tab', { name: 'Recommended' })).toHaveAttribute('aria-selected', 'true');
     // The legit param survives the debounced URL write-back.
@@ -87,7 +94,7 @@ test.describe('Reply tab URL hydration across flag conditions', () => {
 
   test('flag ON + legit ?tab=liked still hydrates Most liked', async ({ page }) => {
     await seedFlags(page, { replySortTabs: true });
-    await page.goto(`/ChineseEVs/posts/${focusId}?tab=liked`);
+    await page.goto(`/AIWorkforce/posts/${focusId}?tab=liked`);
 
     await expect(page.getByRole('tab', { name: 'Most liked' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator(replyNodes).first()).toBeVisible();

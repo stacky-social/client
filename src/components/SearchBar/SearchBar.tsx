@@ -508,16 +508,13 @@ export default function SearchBar() {
       )}
 
       {hasQuery && entityFilter && (
-        <button
-          type="button"
-          className={classes.filterButton}
-          data-active="true"
-          aria-label={`Remove ${entityLabel} post filter`}
-          onClick={() => setEntityFilter(null)}
-          style={{ margin: "-8px 0 16px" }}
+        <div
+          className={classes.entityContext}
+          aria-label={`Search context: ${entityFilterLabel}`}
         >
-          {entityFilterLabel} <span aria-hidden>×</span>
-        </button>
+          <span className={classes.entityContextLabel}>Viewing</span>
+          <span>{entityFilterLabel}</span>
+        </div>
       )}
 
       {hydrated && (

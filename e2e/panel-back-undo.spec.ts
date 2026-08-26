@@ -6,7 +6,11 @@ import mockData from '../src/app/FakeData/listy-injection.json';
 
 type Rel = { topic?: string; category?: string };
 type Related = { id: string; relations?: Rel[] };
-type Entry = { focusPost: { id: string }; relatedPosts?: Related[] };
+type Entry = {
+  focusPost: { id: string };
+  relatedPosts?: Related[];
+  replies?: Array<{ inReplyToId?: string | null }>;
+};
 
 // A focus post whose related panel renders MORE THAN ONE category chip (the chip
 // row only shows when categories.length > 1) — so we have a real, undoable,
@@ -15,10 +19,13 @@ const entry = (mockData as unknown as Entry[]).find((e) => {
   const cats = new Set(
     (e.relatedPosts ?? []).flatMap((rp) => (rp.relations ?? []).map((r) => r.category)).filter(Boolean),
   );
-  return cats.size > 1;
+  const topLevelReplies = (e.replies ?? [])
+    .filter((reply) => (reply.inReplyToId ?? e.focusPost.id) === e.focusPost.id)
+    .length;
+  return cats.size > 1 && topLevelReplies > 5;
 })!;
 const FOCUS_ID = entry.focusPost.id;
-const DETAIL_URL = `/ChineseEVs/posts/${FOCUS_ID}`;
+const DETAIL_URL = `/AIWorkforce/posts/${FOCUS_ID}`;
 const OTHER_ENTRY = (mockData as unknown as Entry[]).find((candidate) => {
   if (candidate.focusPost.id === FOCUS_ID) return false;
   const categories = new Set(
@@ -28,7 +35,7 @@ const OTHER_ENTRY = (mockData as unknown as Entry[]).find((candidate) => {
   );
   return categories.size > 1;
 })!;
-const OTHER_DETAIL_URL = `/ChineseEVs/posts/${OTHER_ENTRY.focusPost.id}`;
+const OTHER_DETAIL_URL = `/AIWorkforce/posts/${OTHER_ENTRY.focusPost.id}`;
 
 // The aside category chips (FilterChip): a button in the aside column carrying
 // aria-pressed + an aria-label ending in "filter". Scoped tightly so it never
@@ -84,7 +91,7 @@ test.describe('Shareable related-post filter history', () => {
 
   test('24 transitions push; the 25th replaces instead of growing browser history', async ({ page }) => {
     // Give the detail route a prior entry to leave TO.
-    await page.goto('/ChineseEVs');
+    await page.goto('/AIWorkforce');
     await page.goto(DETAIL_URL);
     const firstChip = chip(page).first();
     await expect(firstChip).toBeVisible();
@@ -102,13 +109,13 @@ test.describe('Shareable related-post filter history', () => {
       await page.goBack();
       await page.waitForTimeout(25);
       await expect(page, `Back #${i + 1} stays on the detail route`).toHaveURL(
-        new RegExp(`/ChineseEVs/posts/${FOCUS_ID}`),
+        new RegExp(`/AIWorkforce/posts/${FOCUS_ID}`),
       );
     }
 
     // The next Back is ordinary route navigation—there is no orphan/dead entry.
     await page.goBack();
-    await expect(page).toHaveURL(/\/ChineseEVs(?:\?.*)?$/);
+    await expect(page).toHaveURL(/\/AIWorkforce(?:\?.*)?$/);
     await expect(page).not.toHaveURL(/\/posts\//);
   });
 
@@ -198,7 +205,7 @@ test.describe('Shareable related-post filter history', () => {
     await page.waitForURL(/[?&]ft=/);
     const sharedUrl = page.url();
 
-    await page.goto('/ChineseEVs');
+    await page.goto('/AIWorkforce');
     await page.goto(sharedUrl);
 
     const hydrated = new URL(page.url());
@@ -241,7 +248,7 @@ test.describe('Shareable related-post filter history', () => {
     // boundary recorded a pre-interaction snapshot for this gesture).
     await page.goBack();
     await expect(page).not.toHaveURL(/[?&]fs=/);
-    await expect(page).toHaveURL(new RegExp(`/ChineseEVs/posts/${FOCUS_ID}`));
+    await expect(page).toHaveURL(new RegExp(`/AIWorkforce/posts/${FOCUS_ID}`));
   });
 
   test('clears are undoable: apply a filter → CLEAR it → Back re-applies it → Back returns to empty', async ({ page }) => {
@@ -271,7 +278,7 @@ test.describe('Shareable related-post filter history', () => {
     await page.goBack();
     await expect(chip(page).first()).toHaveAttribute('aria-pressed', 'false');
     await expect(page).not.toHaveURL(/[?&]fc=/);
-    await expect(page).toHaveURL(new RegExp(`/ChineseEVs/posts/${FOCUS_ID}`));
+    await expect(page).toHaveURL(new RegExp(`/AIWorkforce/posts/${FOCUS_ID}`));
   });
 
   test('the in-app Back control remains route navigation; browser Back owns filter history', async ({ page }) => {
@@ -290,6 +297,6 @@ test.describe('Shareable related-post filter history', () => {
     // follows its recorded route. Filter-by-filter undo belongs to the browser
     // Back stack, whose URLs are shareable.
     await backBtn.click();
-    await expect(page).toHaveURL(/\/ChineseEVs\/posts\/999999999/);
+    await expect(page).toHaveURL(/\/AIWorkforce\/posts\/999999999/);
   });
 });

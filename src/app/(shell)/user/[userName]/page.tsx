@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Text, Avatar, Group, Paper, Divider, Button, Loader } from "@mantine/core";
 import Post from "../../../../components/Posts/Post";
@@ -20,6 +20,7 @@ import {
   type MastodonStatus,
 } from "../../../../utils/mastodonApi";
 import { useAccessToken } from "../../../../utils/useAccessToken";
+import { restoreFeedScrollSnapshot } from "../../../../utils/feedScrollRestoration";
 
 interface LiveAccount extends MastodonAccount {
   followers_count?: number;
@@ -267,6 +268,16 @@ function ProfileLayout({
   posts: ProfilePostProps[];
 }) {
   const noop = () => {};
+  const restoredRouteRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const route = `${window.location.pathname}${window.location.search}`;
+    if (restoredRouteRef.current === route) return;
+    restoredRouteRef.current = route;
+    return restoreFeedScrollSnapshot(route);
+  }, [acct, posts.length]);
+
   return (
     <div>
       <Paper style={{ backgroundColor: "#fff", boxShadow: "rgba(0, 0, 0, 0.1) 0 1px 1px", borderRadius: 8, padding: 20 }} withBorder>

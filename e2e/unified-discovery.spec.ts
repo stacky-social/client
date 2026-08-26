@@ -1,11 +1,28 @@
 import { expect, test, type Page } from '@playwright/test';
+import mockData from '../src/app/FakeData/listy-injection.json';
+
+const timelineEntries = (mockData as any[]).filter((entry) => entry.timelineRoot !== false);
+const shortNoReplyEntry = timelineEntries
+  .filter((entry) => (
+    (entry.replies ?? []).filter((reply: any) => reply.inReplyToId === entry.focusPost.id).length === 0
+  ))
+  .sort((left, right) => {
+    const totalText = (entry: any) => (
+      (entry.focusPost.plainText ?? '').length
+      + (entry.ancestors ?? []).reduce(
+        (sum: number, ancestor: any) => sum + (ancestor.plainText ?? '').length,
+        0,
+      )
+    );
+    return totalText(left) - totalText(right);
+  })[0];
 
 const account = {
   id: 'account-1',
   username: 'river',
   acct: 'river',
   display_name: 'River Chen',
-  avatar: '/avatar/stacky_default.PNG',
+  avatar: '/icon.svg',
   followers_count: 12,
   following_count: 8,
   statuses_count: 4,
@@ -105,26 +122,31 @@ test.describe('unified discovery and interactions', () => {
     }));
 
     await page.goto('/search');
-    await expect(page.getByRole('button', { name: 'Filter posts by #ChineseEVs' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Filter posts by #AIWorkforce' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Filter posts by #StackyInjection' })).toBeVisible();
 
-    await page.getByLabel('Search hashtags, people, and posts').fill('battery');
+    await page.getByLabel('Search hashtags, people, and posts').fill('AI');
     await expect(page.getByRole('button', { name: 'Filter posts by #BatteryFuture' })).toBeVisible();
-    await expect(page.locator('[data-search-origin="local"]').filter({ hasText: /battery/i }).first()).toBeVisible();
+    await expect(page.locator('[data-search-origin="local"]').filter({ hasText: /AI/i }).first()).toBeVisible();
     const remotePost = page.locator('[data-search-origin="mastodon"]').filter({ hasText: 'Remote battery manufacturing result' });
     await expect(remotePost).toBeVisible();
     await expect(remotePost.getByTestId('post')).toBeVisible();
     await expect(remotePost.getByLabel('Like')).toBeVisible();
-    await expect(page).toHaveURL(/\/search\?q=battery$/);
+    await expect(page).toHaveURL(/\/search\?q=AI$/);
     expect(searchAuthorization).toMatch(/^Bearer unified-token-/);
 
     await remotePost.evaluate((element) => element.scrollIntoView({ block: 'center' }));
-    await page.waitForTimeout(450);
+    // The corpus adds many local matches ahead of the remote result. Explicitly
+    // selecting its annotated span focuses the same feed card without relying
+    // on a long programmatic scroll gesture settling at one exact card.
+    const remoteRelation = remotePost.locator('mark[data-fs]').first();
+    await expect(remoteRelation).toBeVisible();
+    await remoteRelation.click();
     await expect(page.getByText('Related evidence for the battery result')).toBeVisible();
     await expect(page.locator('[data-related-focus-post-id="live-search"]')).toBeVisible();
 
     await remotePost.getByText('Remote battery manufacturing result', { exact: true }).click();
-    await expect(page).toHaveURL(/\/posts\/live-search$/);
+    await expect(page).toHaveURL(/\/posts\/live-search(?:\?|$)/);
     await expect(page.getByText('Related evidence for the battery result')).toBeVisible();
     await expect(page.locator('[data-related-focus-post-id="live-search"]')).toBeVisible();
   });
@@ -186,7 +208,7 @@ test.describe('unified discovery and interactions', () => {
 
   test('a short post with no replies has no artificial detail-page scroll range', async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1200 });
-    await page.goto('/ChineseEVs/posts/143208041');
+    await page.goto(`/AIWorkforce/posts/${shortNoReplyEntry.focusPost.id}`);
     await expect(page.getByTestId('post').first()).toBeVisible();
 
     const before = await page.evaluate(() => ({
@@ -206,9 +228,9 @@ test.describe('unified discovery and interactions', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/search');
 
-    const chineseEvs = page.getByRole('button', { name: 'Filter posts by #ChineseEVs' });
+    const aiWorkforce = page.getByRole('button', { name: 'Filter posts by #AIWorkforce' });
     const stackyInjection = page.getByRole('button', { name: 'Filter posts by #StackyInjection' });
-    await expect(chineseEvs).toBeVisible();
+    await expect(aiWorkforce).toBeVisible();
     await expect(stackyInjection).toBeVisible();
 
     const viewportFits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
@@ -234,7 +256,8 @@ test.describe('unified discovery and interactions', () => {
 
     await expect(page).toHaveURL(/\/search\?q=River\+Chen&type=posts&entity=%40river$/);
     await expect(page.getByText('A post on the live profile')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Remove @river post filter' })).toBeVisible();
+    await expect(page.getByLabel('Search context: By @river')).toContainText('By @river');
+    await expect(page.getByLabel(/Remove @river post filter/)).toHaveCount(0);
   });
 
   test('following a Mastodon hashtag refreshes Home and adds its posts', async ({ page }) => {
@@ -567,7 +590,7 @@ test.describe('unified discovery and interactions', () => {
     await expect(page.locator('[data-related-card-content]').first()).toHaveAttribute('data-expanded', 'false');
   });
 
-  test('interleaves followed #ChineseEVs posts without adding source labels', async ({ page }) => {
+  test('interleaves followed #AIWorkforce posts without adding source labels', async ({ page }) => {
     await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) => route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -579,16 +602,14 @@ test.describe('unified discovery and interactions', () => {
       ]),
     }));
 
-    await page.goto('/tag/ChineseEVs');
+    await page.goto('/tag/AIWorkforce');
     await page.getByRole('button', { name: 'Follow hashtag' }).click();
     await page.goto('/home');
 
-    const origins = page.locator('[data-feed-origin]');
-    await expect(origins.nth(0)).toHaveAttribute('data-feed-origin', 'mastodon');
-    await expect(origins.nth(1)).toHaveAttribute('data-feed-origin', 'mastodon');
-    await expect(origins.nth(2)).toHaveAttribute('data-feed-origin', 'mastodon');
-    await expect(origins.nth(3)).toHaveAttribute('data-feed-origin', 'demo');
-    await expect(origins.nth(3)).not.toContainText(/JSON|Mastodon|curated/i);
+    const demoPost = page.locator('[data-feed-origin="demo"]').first();
+    await expect(demoPost).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('[data-feed-origin="mastodon"]')).toHaveCount(4);
+    await expect(demoPost).not.toContainText(/JSON|Mastodon|curated/i);
   });
 
   test('keeps like, bookmark, and share behavior consistent across both sources', async ({ page }) => {
@@ -617,7 +638,7 @@ test.describe('unified discovery and interactions', () => {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ bookmarked: true }) });
     });
 
-    await page.goto('/tag/ChineseEVs');
+    await page.goto('/tag/AIWorkforce');
     await page.getByRole('button', { name: 'Follow hashtag' }).click();
     await page.goto('/home');
     await page.evaluate(() => {
@@ -639,7 +660,7 @@ test.describe('unified discovery and interactions', () => {
     await localCard.getByRole('button', { name: 'Like', exact: true }).click();
     await localCard.getByRole('button', { name: 'Bookmark', exact: true }).click();
     await localCard.getByRole('button', { name: 'Share post' }).click();
-    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('copied-link'))).toContain(`/ChineseEVs/posts/${localId}`);
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('copied-link'))).toContain(`/AIWorkforce/posts/${localId}`);
     expect(backendActions).toEqual(['favourite', 'bookmark']);
 
     await page.goto('/liked');

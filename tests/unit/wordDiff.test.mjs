@@ -1,11 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  annotateDiffHighlightRelations,
   createAlignedWordDiffWindow,
   createWordDiff,
   createWordDiffExcerpt,
   createWordDiffForRevisedRange,
-  splitDeletionForSubtleHighlight,
+  isSubstantiveWordDiff,
 } from "../../src/utils/wordDiff.mjs";
 
 test("complete diff reconstructs both original and edited text", () => {
@@ -89,15 +90,60 @@ test("a partial insertion window retains its paired removal", () => {
   assert.ok(range.chunks.some((chunk) => chunk.kind === "delete" && chunk.text.includes("wording")));
 });
 
-test("subtle deletion fill excludes the first and last crossed-out words", () => {
-  assert.deepEqual(splitDeletionForSubtleHighlight("one two three four"), {
-    leading: "one ",
-    middle: "two three",
-    trailing: " four",
-  });
-  assert.deepEqual(splitDeletionForSubtleHighlight("one two"), {
-    leading: "one two",
-    middle: "",
-    trailing: "",
-  });
+test("surface-only cleanup does not receive an AI-modified treatment", () => {
+  assert.equal(isSubstantiveWordDiff("Top tier research", "Top-tier research."), false);
+  assert.equal(isSubstantiveWordDiff("@RG The result", "A result"), false);
+  assert.equal(isSubstantiveWordDiff("AI creates jobs", "AI does not create jobs"), true);
+  assert.equal(isSubstantiveWordDiff("The center is nearby", "The data center is nearby"), true);
+});
+
+test("deleted words anchored inside a relationship retain its highlight", () => {
+  const original = "The very old model failed.";
+  const revised = "The model failed.";
+  const chunks = annotateDiffHighlightRelations(createWordDiff(original, revised), [
+    { contentStart: 0, contentEnd: 9 }, // "The model" in revised prose
+  ]);
+  const deletion = chunks.find((chunk) => chunk.kind === "delete");
+
+  assert.equal(deletion.text, "very old ");
+  assert.deepEqual(deletion.relationIndices, [0]);
+});
+
+test("a removed replacement beside an underlined highlight inherits that highlight", () => {
+  const original = "Our top tier research continues.";
+  const revised = "Our top-tier research continues.";
+  const chunks = annotateDiffHighlightRelations(createWordDiff(original, revised), [
+    {
+      contentStart: revised.indexOf("top-tier"),
+      contentEnd: revised.indexOf("top-tier") + "top-tier".length,
+    },
+  ]);
+  const deletion = chunks.find((chunk) => chunk.kind === "delete");
+  const insertion = chunks.find((chunk) => chunk.kind === "insert");
+
+  assert.deepEqual(insertion.relationIndices, [0]);
+  assert.deepEqual(deletion.relationIndices, [0]);
+});
+
+test("an unrelated removal outside the highlighted span stays unhighlighted", () => {
+  const original = "Discard this preface. The highlighted claim remains.";
+  const revised = "The highlighted claim remains.";
+  const chunks = annotateDiffHighlightRelations(createWordDiff(original, revised), [
+    { contentStart: 4, contentEnd: 21 },
+  ]);
+  const deletion = chunks.find((chunk) => chunk.kind === "delete");
+
+  assert.deepEqual(deletion.relationIndices, []);
+});
+
+test("the reveal grows to include a complete deleted passage", () => {
+  const original = "Before. a detailed explanation that was removed entirely. After.";
+  const revised = "Before. After.";
+  const range = createWordDiffForRevisedRange(original, revised, 0, revised.length);
+  const revealedLength = range.chunks.reduce((total, chunk) => total + chunk.text.length, 0);
+
+  assert.ok(revealedLength > revised.length);
+  assert.ok(range.chunks.some((chunk) => (
+    chunk.kind === "delete" && chunk.text.includes("removed entirely")
+  )));
 });

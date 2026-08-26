@@ -10,7 +10,12 @@ import {
   selectStableFeedFocus,
   type FeedFocusCandidate,
 } from "../../utils/stableFeedFocus";
+import {
+  restoreFeedScrollSnapshot,
+  saveFeedScrollSnapshot,
+} from "../../utils/feedScrollRestoration";
 import Post from "../Posts/Post";
+import { postRouteFor } from "../../utils/postRoute";
 
 export type SearchFeedPost = PostType & { origin: "local" | "mastodon" };
 
@@ -33,6 +38,7 @@ export default function SearchPostFeed({
   const activePostIdRef = useRef(activePostId);
   const manualPostIdRef = useRef<string | null>(null);
   const manualLockRef = useRef(false);
+  const restoredScrollRef = useRef(false);
   const surfaceKey = useMemo(() => `search:${query.trim().toLowerCase()}`, [query]);
 
   postsRef.current = posts;
@@ -49,11 +55,18 @@ export default function SearchPostFeed({
 
   useEffect(() => {
     enterFeedSurface(surfaceKey);
+    restoredScrollRef.current = false;
     manualPostIdRef.current = null;
     manualLockRef.current = false;
     setActivePostId(null);
     return () => leaveFeedSurface(surfaceKey);
   }, [enterFeedSurface, leaveFeedSurface, surfaceKey]);
+
+  useEffect(() => {
+    if (posts.length === 0 || restoredScrollRef.current) return;
+    restoredScrollRef.current = true;
+    return restoreFeedScrollSnapshot();
+  }, [posts.length, surfaceKey]);
 
   useEffect(() => {
     if (posts.length === 0) return;
@@ -183,9 +196,9 @@ export default function SearchPostFeed({
             onNavigate={(postId) => {
               const route = post.origin === "mastodon"
                 ? `/posts/${postId}`
-                : `/ChineseEVs/posts/${postId}`;
+                : postRouteFor(postId);
               sessionStorage.setItem(`previousPath:${route}`, window.location.pathname + window.location.search);
-              sessionStorage.setItem(`scrollY:${window.location.pathname}`, String(window.scrollY));
+              saveFeedScrollSnapshot();
               router.push(route);
             }}
           />

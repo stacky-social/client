@@ -1,5 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import mockData from '../src/app/FakeData/listy-injection.json';
+import mockData from '../src/app/FakeData/chinese-evs.json';
 
 // T7 — the cross-pane "group HERE, filter THERE" model on the thread/detail
 // route (/ChineseEVs/posts/[id]). One shared `topicInteraction` primitive:

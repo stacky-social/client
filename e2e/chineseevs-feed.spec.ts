@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import mockData from '../src/app/FakeData/listy-injection.json';
 
-// The research feed at /ChineseEVs calls a simulated backend route backed by
+// The research feed at /AIWorkforce calls a simulated backend route backed by
 // the local fixture, so no external server is needed. Its detail route
-// /ChineseEVs/posts/[id] mirrors a single post.
+// /AIWorkforce/posts/[id] mirrors a single post.
 
 // First focus-post id from the mock data, used by the detail-view test.
 const firstFocusId = (mockData as any)[0].focusPost.id as string;
@@ -11,9 +11,9 @@ const firstFocusId = (mockData as any)[0].focusPost.id as string;
 test.describe('AI workforce demo feed', () => {
   test('renders the hashtag header, stats, post cards and interactions', async ({ page }) => {
     const firstPageResponse = page.waitForResponse((response) =>
-      response.url().includes('/api/demo/timelines/chinese-evs') && response.status() === 200
+      response.url().includes('/api/demo/timelines/ai-workforce') && response.status() === 200
     );
-    await page.goto('/ChineseEVs');
+    await page.goto('/AIWorkforce');
     const firstPage = await (await firstPageResponse).json();
 
     // The simulated backend returns a bounded cursor page, not the whole fixture.
@@ -43,7 +43,7 @@ test.describe('AI workforce demo feed', () => {
   });
 
   test('shows contextual AI edits in place and allows the related card to expand', async ({ page }) => {
-    await page.goto('/ChineseEVs');
+    await page.goto('/AIWorkforce');
 
     const aside = page.getByTestId('col-aside');
     const badge = aside.getByRole('button', { name: 'Modified by AI' }).first();
@@ -101,12 +101,12 @@ test.describe('AI workforce demo feed', () => {
 
     // Full post content remains an ordinary post; AI provenance belongs only
     // to compact related cards where the missing context needs explanation.
-    await page.goto(`/ChineseEVs/posts/${firstFocusId}`);
+    await page.goto(`/AIWorkforce/posts/${firstFocusId}`);
     await expect(page.getByTestId('feed').locator('[data-ai-edit]')).toHaveCount(0);
   });
 
   test('opens a post detail view without an error boundary', async ({ page }) => {
-    await page.goto(`/ChineseEVs/posts/${firstFocusId}`);
+    await page.goto(`/AIWorkforce/posts/${firstFocusId}`);
 
     // No error boundary / not-found state.
     await expect(page.getByText(/Application error/i)).toHaveCount(0);
