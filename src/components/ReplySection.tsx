@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Avatar, Group, Button, Textarea, Paper, Text } from "@mantine/core";
+import { Group, Button, Textarea, Paper, Text } from "@mantine/core";
 import { notifications } from '@mantine/notifications';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { FeedbackBlock } from './SubmitPost/ComposerFeedback';
 import { addComment } from '../utils/localStore';
+import ProfileAvatar from './ProfileAvatar';
 
 interface ReplySectionProps {
     postId: string;
@@ -260,7 +261,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
                         }}
                     />
                 )}
-                <Avatar src={currentUser?.avatar || undefined} alt="Current User" radius="xl" />
+                <ProfileAvatar src={currentUser?.avatar || undefined} alt="Current User" radius="xl" />
                 <Textarea
                     placeholder="Post your reply"
                     variant="unstyled"

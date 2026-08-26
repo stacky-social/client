@@ -1,6 +1,6 @@
 "use client";
 import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { Avatar, Button, Text, Textarea } from '@mantine/core';
+import { Button, Text, Textarea } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { getMe, createPost, searchPosts, useLocalStore, type Post as LocalPost } from '../../utils/localStore';
 import {
@@ -16,6 +16,7 @@ import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 import axios from 'axios';
 import { FeedbackBlock } from './ComposerFeedback';
 import classes from './SubmitPost.module.css';
+import ProfileAvatar from '../ProfileAvatar';
 
 type FeedbackMemoryEntry = {
   draftText: string;
@@ -382,9 +383,9 @@ export function SubmitPost({ appearance = 'card' }: { appearance?: 'card' | 'tim
       <div className={classes.composerBody}>
         <div className={classes.avatarArea}>
         {visibleUser ? (
-          <Avatar src={visibleUser.avatar} alt={visibleUser.display_name || 'Your profile'} radius="xl" size={42} />
+          <ProfileAvatar src={visibleUser.avatar} alt={visibleUser.display_name || 'Your profile'} radius="xl" size={42} />
         ) : (
-          <Avatar alt="Your profile" radius="xl" size={42} />
+          <ProfileAvatar alt="Your profile" radius="xl" size={42} />
         )}
         </div>
 

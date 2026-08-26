@@ -1,11 +1,12 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { Container, Paper, Group, Avatar, Text, LoadingOverlay, Divider, Button, Card, Progress } from '@mantine/core';
+import { Container, Paper, Group, Text, LoadingOverlay, Divider, Button, Card, Progress } from '@mantine/core';
 import { IconHeart, IconBookmark, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconGripVertical, IconThumbUp, IconThumbDown, IconThumbUpFilled, IconThumbDownFilled } from '@tabler/icons-react';
 import { rem } from '@mantine/core';
 import axios from 'axios';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { getCurrentUser } from '../../utils/getCurrentUser';
+import ProfileAvatar from '../../components/ProfileAvatar';
 
 const MastodonInstanceUrl = "https://beta.stacky.social";
 
@@ -44,7 +45,7 @@ interface TaskType {
 const PostCard = ({ post, isFocusPost }: { post: PostType, isFocusPost?: boolean }) => (
     <Paper withBorder radius="md" mt={20} p="lg" style={{ position: 'relative', zIndex: 5, backgroundColor: isFocusPost ? '#C5F6FA' : 'inherit' }}>
         <Group>
-            <Avatar src={post.account.avatar} alt={post.account.username} radius="xl" />
+            <ProfileAvatar src={post.account.avatar} alt={post.account.username} radius="xl" />
             <div>
                 <Text size="sm">{post.account.username}</Text>
                 <Text size="xs">{new Date(post.created_at).toLocaleString()}</Text>
@@ -154,7 +155,7 @@ const RightColumn = ({ relatedPosts, setRelatedPosts }: { relatedPosts: RelatedP
 };
 
 const AvatarDisplay = ({ avatar }: { avatar: string }) => {
-    return <Avatar src={avatar} alt="Random Avatar" radius="xl" size={rem(80)} />;
+    return <ProfileAvatar src={avatar} alt="Random Avatar" radius="xl" size={rem(80)} />;
 };
 
 const ProgressCard = ({ currentTaskIndex, totalTasks }: { currentTaskIndex: number, totalTasks: number }) => {

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, useId } from 'react';
 import { useRouter } from 'next/navigation';
-import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor, Button, Menu, Modal } from '@mantine/core';
+import { Text, Group, Paper, UnstyledButton, Divider, Anchor, Button, Menu, Modal } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconShare, IconDots, IconTrash, IconExternalLink, IconQuote } from '@tabler/icons-react';
 import { copyLink } from '../../utils/share';
@@ -28,6 +28,7 @@ import { pointBridgesInlineRects } from '../../utils/inlineHighlightGeometry.mjs
 import { saveFeedScrollSnapshot } from '../../utils/feedScrollRestoration';
 import { postRouteFor } from '../../utils/postRoute';
 import AuthorHoverInfo from '../AuthorHoverInfo';
+import ProfileAvatar from '../ProfileAvatar';
 
 /** X-style left-pane indent (px): avatar (Mantine md = 38px) + the header row's
  *  `gap="xs"` (10px) = 48px, i.e. where the username's left edge sits. The post
@@ -1717,7 +1718,7 @@ function Post({
         >
           <Group wrap="nowrap" gap="xs" style={{ alignItems: 'center', paddingRight: canDelete ? 34 : 0 }}>
             <UnstyledButton onClick={handleNavigateToUser} className="avatarHoverDim">
-              <Avatar src={avatar} alt={author} radius="xl" />
+              <ProfileAvatar src={avatar} alt={author} radius="xl" />
             </UnstyledButton>
             <AuthorHoverInfo displayName={author} account={account} stats={authorStats}>
               <Anchor
