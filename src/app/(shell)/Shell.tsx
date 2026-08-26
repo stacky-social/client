@@ -17,6 +17,7 @@ import WeaveBridge from "../../components/WeaveBridge";
 const MAX_CONTENT_WIDTH = 1280;
 const SLIDER_W = 8;
 const PANE_GUTTER = 10;
+const BRIDGE_EXIT_GRACE_MS = 140;
 
 export default function Shell({
     children,
@@ -27,6 +28,7 @@ export default function Shell({
 }) {
     const { ratio, setRatio, reset } = useFeedRatio();
     const isNarrowViewport = useMediaQuery("(max-width: 48rem)", false);
+    const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)", false);
 
     const groupRef = useRef<HTMLDivElement | null>(null);
     const feedRef = useRef<HTMLDivElement | null>(null);
@@ -35,7 +37,23 @@ export default function Shell({
     const groupInnerRef = useRef<number>(1);
     const asideRef = useRef<HTMLDivElement | null>(null);
     const [hasAside, setHasAside] = useState(false);
-    const showAside = hasAside && !isNarrowViewport;
+    const wantsAside = hasAside && !isNarrowViewport;
+    const [showAside, setShowAside] = useState(false);
+
+    // Keep the split geometry alive just long enough for the bridge to unweave.
+    // Narrow and reduced-motion transitions collapse immediately.
+    useEffect(() => {
+        if (wantsAside) {
+            setShowAside(true);
+            return;
+        }
+        if (isNarrowViewport || reduceMotion) {
+            setShowAside(false);
+            return;
+        }
+        const timer = window.setTimeout(() => setShowAside(false), BRIDGE_EXIT_GRACE_MS);
+        return () => window.clearTimeout(timer);
+    }, [isNarrowViewport, reduceMotion, wantsAside]);
 
     // Measure the content group for the slider's px → ratio conversion.
     useEffect(() => {
