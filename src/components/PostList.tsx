@@ -97,7 +97,8 @@ function storeToPost(post: StorePost): PostType {
         focusRelations: Array.isArray(post.focusRelations) ? post.focusRelations : [],
         inReplyToId: post.in_reply_to_id ?? null,
         replyingToAccount: parent?.account.acct ?? null,
-        previewCard: null,
+        previewCard: post.card ?? null,
+        quotedPost: post.quotedPost ?? null,
     };
 }
 
@@ -880,6 +881,7 @@ const ApiFeedCore: React.FC<PostListProps & {
                     setActivePostId(id);
                 }}
                 initialCard={post.previewCard || null}
+                quotedPost={post.quotedPost ?? null}
                 focusRelations={post.focusRelations}
                 replyingToAccount={post.replyingToAccount}
             />
@@ -1160,7 +1162,7 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                     <Text size="sm" c="dimmed">
                         Browse the{' '}
                         <Anchor component={Link} href="/ChineseEVs" size="sm">
-                            #ChineseEVs demo thread
+                            #AIWorkforce demo thread
                         </Anchor>{' '}
                         — no login required.
                     </Text>
@@ -1212,6 +1214,7 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                             setActivePostId(id);
                         }}
                         initialCard={post.previewCard || null}
+                        quotedPost={post.quotedPost ?? null}
                         focusRelations={post.focusRelations}
                         replyingToAccount={post.replyingToAccount}
                     />

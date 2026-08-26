@@ -46,7 +46,13 @@ interface PostType {
     username?: string;
   };
   content_rewritten: string;
-  rewrite: { content: string; significant: boolean; editSummary?: string };
+  rewrite: {
+    content: string;
+    significant: boolean;
+    /** When present, relation offsets already index the revised `content`. */
+    originalContent?: string;
+    editSummary?: string;
+  };
   card?: {
     provider_name?: string;
     published_at?: string | null;
@@ -1225,13 +1231,19 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     for (const stack of relatedStacks) {
       const rewrite = stack.topPost.rewrite;
       if (!rewrite?.significant || !rewrite.content) continue;
-      const original = relatedCardText(stack.topPost, stack.topPost.content || '');
+      const offsetsAlreadyTargetRewrite = stack.topPost.rewrite.originalContent !== undefined;
+      const original = relatedCardText(
+        stack.topPost,
+        stack.topPost.rewrite.originalContent ?? stack.topPost.content ?? '',
+      );
       const revised = relatedCardText(stack.topPost, rewrite.content);
       const chunks = createWordDiff(original, revised);
       diffs.set(stack.topPost.id, {
         originalContent: original,
         revisedContent: revised,
-        revisedRelations: remapRelationsToRewrite(original, revised, stack.topPost.relations, chunks),
+        revisedRelations: offsetsAlreadyTargetRewrite
+          ? stack.topPost.relations
+          : remapRelationsToRewrite(original, revised, stack.topPost.relations, chunks),
         chunks,
       });
     }

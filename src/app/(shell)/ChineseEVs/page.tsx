@@ -41,6 +41,7 @@ function toTopPost(rp: RelatedPostMock) {
     rewrite: {
       content: rp.rewrite?.content ?? rp.content,
       significant: rp.rewrite?.significant ?? false,
+      originalContent: rp.rewrite?.originalContent,
       editSummary: rp.rewrite?.editSummary,
     },
     // First contribution type only per highlight (relationFirstType.mjs) — the
@@ -91,7 +92,8 @@ function toPostData(entry: ListyInjectionEntry) {
     mediaAttachments: [] as string[],
     relatedStacks: flatStacks,
     aggregatedStacks,
-    previewCard: null,
+    previewCard: entry.focusPost.previewCard ?? null,
+    quotedPost: entry.focusPost.quotedPost ?? null,
     replies: entry.replies ?? [],
     focusRelations,
   };
@@ -208,7 +210,8 @@ function replyToPostData(reply: FocusPostMock) {
     mediaAttachments: [] as string[],
     relatedStacks: [] as ReturnType<typeof toPostData>["relatedStacks"],
     aggregatedStacks: [] as ReturnType<typeof toPostData>["aggregatedStacks"],
-    previewCard: null,
+    previewCard: reply.previewCard ?? null,
+    quotedPost: reply.quotedPost ?? null,
     replies: [] as FocusPostMock[],
     focusRelations: [] as ReturnType<typeof toPostData>["focusRelations"],
   };
@@ -752,7 +755,8 @@ export default function ListyInjectionPage() {
             if (p) setFromPost(p.relatedStacks, p.postId, { force: true });
           }
         }}
-        initialCard={null}
+        initialCard={postData.previewCard}
+        quotedPost={postData.quotedPost}
         onNavigate={opts?.isAncestor ? opts.onAncestorClick ? () => opts.onAncestorClick!() : undefined : navigateToPost}
         focusRelations={opts?.isAncestor ? [] : postData.focusRelations}
         // Span-dwell tooltip count for NON-focused feed posts: their stacks
@@ -920,15 +924,15 @@ export default function ListyInjectionPage() {
   // feed even while its posts are still served by the frontend adapter.
   const hydrated = useHydrated();
   const localPosts = useLocalStore((snapshot) => snapshot.posts);
-  const hashtagFollowed = useLocalStore(() => isFollowingTag("ChineseEVs"));
+  const hashtagFollowed = useLocalStore(() => isFollowingTag("AIWorkforce"));
   const handleFollowHashtag = () => {
-    const wasFollowing = isFollowingTag("ChineseEVs");
-    toggleTagFollow("ChineseEVs");
+    const wasFollowing = isFollowingTag("AIWorkforce");
+    toggleTagFollow("AIWorkforce");
 
-    const notificationId = `chinese-evs-follow-${Date.now()}`;
+    const notificationId = `ai-workforce-follow-${Date.now()}`;
     notifications.show({
       id: notificationId,
-      title: wasFollowing ? "Unfollowed #ChineseEVs" : "Following #ChineseEVs",
+      title: wasFollowing ? "Unfollowed #AIWorkforce" : "Following #AIWorkforce",
       color: "blue",
       message: (
         <Group gap="xs" justify="space-between" wrap="nowrap">
@@ -941,7 +945,7 @@ export default function ListyInjectionPage() {
             variant="subtle"
             size="compact-xs"
             onClick={() => {
-              toggleTagFollow("ChineseEVs");
+              toggleTagFollow("AIWorkforce");
               notifications.hide(notificationId);
             }}
           >
@@ -962,7 +966,7 @@ export default function ListyInjectionPage() {
         withBorder
       >
         <Group style={{ justifyContent: "space-between" }}>
-          <Text size="xl" fw={700}>#ChineseEVs</Text>
+          <Text size="xl" fw={700}>#AIWorkforce</Text>
           <Button
             color="blue"
             variant={hydrated && hashtagFollowed ? "filled" : "outline"}

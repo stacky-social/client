@@ -3,6 +3,7 @@ import type { ListyInjectionEntry, RelatedPostMock } from "../types/PostType";
 export type ContextualAiRewrite = {
   content: string;
   significant: boolean;
+  originalContent?: string;
   editSummary?: string;
 };
 
@@ -61,6 +62,7 @@ export function contextualAiRewrite(
     return {
       content: fallback?.content ?? originalContent,
       significant: fallback?.significant ?? false,
+      originalContent: fallback?.originalContent,
       editSummary: fallback?.editSummary,
     };
   }

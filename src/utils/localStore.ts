@@ -101,6 +101,10 @@ export interface Post {
   bookmarked: boolean;
   /** Media attachment objects ({ url }); empty for seeded text posts. */
   media_attachments: any[];
+  /** Source article preview/link for corpus-backed posts. */
+  card?: FocusPostMock["previewCard"];
+  /** Embedded source on a lifted quote-tweet root. */
+  quotedPost?: FocusPostMock["quotedPost"];
   /** Aside-format related stacks for this post (see mockPostResolver.getMockRelatedStacks). */
   relatedStacks: any[];
   /** Offset annotations connecting this post to its related responses. */
@@ -175,6 +179,8 @@ function mockToPost(p: FocusPostMock | RelatedPostMock): Post {
     favourited: p.favourited,
     bookmarked: p.bookmarked,
     media_attachments: [],
+    card: p.previewCard ?? null,
+    quotedPost: p.quotedPost ?? null,
     relatedStacks: [],
     focusRelations: [],
     // Focus posts remain standalone timeline cards. Only ids explicitly used
@@ -380,6 +386,8 @@ function load(): LocalState {
     );
     const followedEveryDemoAuthor = seededDemoAuthors.size > 0 &&
       Array.from(seededDemoAuthors).every((acct) => persistedFollowing.includes(acct));
+    const persistedFollowingTags = (parsed.followingTags ?? [])
+      .map((tag) => tag === "chineseevs" ? "aiworkforce" : tag);
 
     return {
       posts,
@@ -387,7 +395,9 @@ function load(): LocalState {
       liked: parsed.liked ?? [],
       bookmarked: parsed.bookmarked ?? [],
       following: persistedFollowing,
-      followingTags: parsed.followingTags ?? (followedEveryDemoAuthor ? ["chineseevs"] : []),
+      followingTags: persistedFollowingTags.length > 0
+        ? Array.from(new Set(persistedFollowingTags))
+        : (followedEveryDemoAuthor ? ["aiworkforce"] : []),
       comments: persistedComments,
       me: parsed.me ?? seed.me,
     };
@@ -586,7 +596,7 @@ export function getHomeFeed(includeReplies = false): Post[] {
  */
 export function getFollowedDemoFeed(includeReplies = false): Post[] {
   return memoized(`followedDemo:${includeReplies ? "with-replies" : "posts-only"}`, () => {
-    if (!state.followingTags.includes("chineseevs")) return [];
+    if (!state.followingTags.includes("aiworkforce")) return [];
 
     // The normal condition mirrors /ChineseEVs: focus posts appear in Home,
     // while ancestors, replies, and related responses stay in the full thread.
@@ -594,7 +604,7 @@ export function getFollowedDemoFeed(includeReplies = false): Post[] {
     // related-post cards—so the timeline contract remains understandable.
     const timelineIds = new Set<string>();
     for (const entry of entries) {
-      timelineIds.add(entry.focusPost.id);
+      if (entry.timelineRoot !== false) timelineIds.add(entry.focusPost.id);
       if (includeReplies) {
         for (const reply of entry.replies ?? []) timelineIds.add(reply.id);
       }
@@ -685,7 +695,7 @@ export function getSuggestedAccounts(limit = 3): Account[] {
 }
 
 /**
- * Posts for an entity-selected hashtag. The curated #ChineseEVs feed is
+ * Posts for an entity-selected hashtag. The curated #AIWorkforce feed is
  * represented by its focus posts; ordinary tags fall back to literal content
  * matching. This gives search entity filters a real source collection instead
  * of narrowing whatever happened to be returned for the previous text query.
@@ -695,8 +705,10 @@ export function getHashtagPosts(tag: string): Post[] {
   const normalized = tag.trim().replace(/^#/, "").toLowerCase();
   if (!normalized) return [];
 
-  if (normalized === "chineseevs") {
-    const focusIds = new Set(entries.map((entry) => entry.focusPost.id));
+  if (normalized === "aiworkforce" || normalized === "chineseevs") {
+    const focusIds = new Set(
+      entries.filter((entry) => entry.timelineRoot !== false).map((entry) => entry.focusPost.id),
+    );
     return Object.values(state.posts)
       .filter((post) => focusIds.has(post.id))
       .sort(byNewest);

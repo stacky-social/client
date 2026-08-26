@@ -19,7 +19,7 @@ export const TOP_NAV_HEIGHT = 56;
 
 const LINKS = [
     { link: "/home", label: "Home", Icon: IconHome },
-    { link: "/tag/ChineseEVs", label: "#ChineseEVs", Icon: IconMessages },
+    { link: "/tag/AIWorkforce", label: "#AIWorkforce", Icon: IconMessages },
     { link: "/search", label: "Search", Icon: IconSearch },
     { link: "/bookmarks", label: "Bookmarks", Icon: IconBookmark },
     { link: "/liked", label: "Liked", Icon: IconHeart },

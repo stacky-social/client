@@ -6,7 +6,9 @@ import { paginateByCursor } from "../../../../../utils/cursorPagination.mjs";
 
 export const dynamic = "force-dynamic";
 
-const entries = (mockData as unknown as ListyInjectionData).map(withContextualAiRewrites);
+const entries = (mockData as unknown as ListyInjectionData)
+  .filter((entry) => entry.timelineRoot !== false)
+  .map(withContextualAiRewrites);
 const DEFAULT_PAGE_SIZE = 2;
 const MAX_PAGE_SIZE = 10;
 

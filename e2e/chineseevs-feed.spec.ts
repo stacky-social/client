@@ -8,7 +8,7 @@ import mockData from '../src/app/FakeData/listy-injection.json';
 // First focus-post id from the mock data, used by the detail-view test.
 const firstFocusId = (mockData as any)[0].focusPost.id as string;
 
-test.describe('ChineseEVs feed', () => {
+test.describe('AI workforce demo feed', () => {
   test('renders the hashtag header, stats, post cards and interactions', async ({ page }) => {
     const firstPageResponse = page.waitForResponse((response) =>
       response.url().includes('/api/demo/timelines/chinese-evs') && response.status() === 200
@@ -22,7 +22,7 @@ test.describe('ChineseEVs feed', () => {
     expect(firstPage.stats.posts).toBeGreaterThan(2);
 
     // Hashtag header + stat labels.
-    await expect(page.getByText('#ChineseEVs')).toBeVisible();
+    await expect(page.getByText('#AIWorkforce')).toBeVisible();
     await expect(page.getByText('Posts', { exact: true })).toBeVisible();
     await expect(page.getByText('Participants', { exact: true })).toBeVisible();
     await expect(page.getByText('Responses', { exact: true })).toBeVisible();
@@ -31,6 +31,7 @@ test.describe('ChineseEVs feed', () => {
     const cards = page.locator('[data-post-id]');
     await expect(cards.first()).toBeVisible();
     await expect(cards.nth(1)).toBeVisible();
+    await expect(cards.first().getByTestId('quoted-post')).toBeVisible();
 
     // "Read more" affordance (collapsed posts) — present on at least one card.
     await expect(page.getByText('Read more').first()).toBeVisible();
@@ -100,7 +101,7 @@ test.describe('ChineseEVs feed', () => {
 
     // Full post content remains an ordinary post; AI provenance belongs only
     // to compact related cards where the missing context needs explanation.
-    await page.goto('/ChineseEVs/posts/149288649?from=143195604');
+    await page.goto(`/ChineseEVs/posts/${firstFocusId}`);
     await expect(page.getByTestId('feed').locator('[data-ai-edit]')).toHaveCount(0);
   });
 

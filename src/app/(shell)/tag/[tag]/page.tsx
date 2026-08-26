@@ -70,7 +70,7 @@ function MastodonTagPage({
 
   // Claim the route before either public read completes. If metadata or the
   // timeline is empty/unavailable, the tag page must not inherit related posts
-  // selected on Home or #ChineseEVs from the long-lived shell provider.
+  // selected on Home or #AIWorkforce from the long-lived shell provider.
   useEffect(() => {
     enterFeedSurface(`api:${timelineUrl}`);
   }, [enterFeedSurface, timelineUrl]);
@@ -158,7 +158,7 @@ function MastodonTagPage({
           <Anchor component={Link} href="/home" size="sm" fw={600}>
             Back to home
           </Anchor>
-          <Anchor component={Link} href="/ChineseEVs" size="sm" fw={600}>
+          <Anchor component={Link} href="/tag/AIWorkforce" size="sm" fw={600}>
             Browse the demo thread
           </Anchor>
         </Group>

@@ -1,6 +1,6 @@
 # crossweave
 
-crossweave is a Mastodon-compatible social client built with Next.js. Users browse a feed of posts and explore **stacks** — groups of related posts — in a right-hand panel connected to the post they are reading. It also includes a `/ChineseEVs` research feed backed by local mock JSON, which doubles as a zero-setup demo. The stack is Next.js 15 (App Router) with TypeScript, Node 22.x, pnpm, Mantine v7, and axios.
+crossweave is a Mastodon-compatible social client built with Next.js. Users browse a feed of posts and explore **stacks** — groups of related posts — in a right-hand panel connected to the post they are reading. It also includes an `#AIWorkforce` research feed backed by the bundled live-demo corpus, which doubles as a zero-setup demo. The stack is Next.js 15 (App Router) with TypeScript, Node 22.x, pnpm, Mantine v7, and axios.
 
 ## Quick demo (no credentials needed)
 
@@ -12,10 +12,20 @@ pnpm install
 pnpm dev
 ```
 
-Then open <http://localhost:3000/ChineseEVs>. The feed calls a bundled simulated
+Then open <http://localhost:3000/tag/AIWorkforce>. The feed calls a bundled simulated
 backend (`/api/demo`) that serves cursor-paginated data from the local fixture
 with realistic latency. Likes, bookmarks, and replies all work and persist
 locally in your browser via localStorage — nothing leaves your machine.
+
+To regenerate that fixture from a CrossWeave checkout:
+
+```bash
+CROSSWEAVE_LIVE_DEMO_DIR=/path/to/crossweave/live_demo_data pnpm demo:import
+```
+
+The importer automatically discovers every complete topic under
+`prepared_data/`. Set `STRICT_SOURCE=1` to reject malformed source annotations
+instead of reporting and omitting them.
 
 ## Prerequisites
 
@@ -53,7 +63,8 @@ reply-sort, thread-filter, reply-relations, and experiment-flag helpers.
 
 ## Connecting a live Mastodon-compatible backend (optional)
 
-Most of the app runs fully offline: the `/ChineseEVs` simulated API plus the `/home`,
+Most of the app runs fully offline: the `#AIWorkforce` demo (whose legacy physical
+route remains `/ChineseEVs`) plus the `/home`,
 `/search`, `/user`, `/bookmarks`, and `/liked` feeds are backed by a local
 store in your browser's localStorage. Only the legacy live-mode surfaces
 (`/posts/[id]`, `/tag`, `/oldversion`, `/explore`, `/annotation`) call the

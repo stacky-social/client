@@ -10,7 +10,7 @@ import { filterReplies } from '../../src/utils/threadFilter.mjs';
 // (src/app/FakeData/listy-injection.json), not synthetic rows. threadFilter's
 // own suite already unit-tests the topic branch in isolation; this checks the
 // wiring holds over the REAL crossweave descendant reply relations (emitted by
-// convert-demo-data.mjs), including the branch-union rule the detail page relies on
+// convert-live-demo-data.mjs), including the branch-union rule the detail page relies on
 // so a matching NESTED reply keeps its branch visible. See [[demo-data-provenance]].
 
 const here = dirname(fileURLToPath(import.meta.url));
