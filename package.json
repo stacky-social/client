@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "demo:import": "node scripts/convert-live-demo-data.mjs",
     "test:unit": "node --test tests/unit/*.mjs",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"

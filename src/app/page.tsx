@@ -109,7 +109,7 @@ export default function LandingPage() {
 
             <button className={classes.demoButton} type="button" onClick={handleStartDemo} data-testid="start-study-session">
               <span>
-                <strong>Explore the JSON demo</strong>
+                <strong>Explore the AI &amp; workforce demo</strong>
                 <small>No account needed · changes stay on this device</small>
               </span>
               <IconArrowRight size={18} />

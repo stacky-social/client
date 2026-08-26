@@ -9,15 +9,15 @@ export interface HashtagDefinition {
 /**
  * Hashtags that anchor intentional conversations in CrossWeave.
  *
- * ChineseEVs is backed by the bundled study corpus until that corpus is
+ * AIWorkforce is backed by the bundled study corpus until that corpus is
  * imported into Mastodon. StackyInjection uses Mastodon's normal tag APIs; it
  * is listed here so people can discover the older server conversation without
  * exposing implementation-oriented source labels on individual posts.
  */
 export const HASHTAG_CATALOG: readonly HashtagDefinition[] = [
   {
-    name: "ChineseEVs",
-    description: "Electric vehicles, batteries, manufacturing, and industrial policy",
+    name: "AIWorkforce",
+    description: "AI, jobs, worker transitions, automation, and economic policy",
     local: true,
   },
   {

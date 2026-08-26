@@ -15,6 +15,20 @@ export interface PreviewCardType {
     url: string;
 }
 
+/** Compact embedded source shown inside a lifted quote-tweet root. */
+export interface QuotedPostMock {
+  id: string;
+  title?: string;
+  content: string;
+  account: {
+    display_name: string;
+    acct: string;
+    avatar: string;
+  };
+  created_at: string;
+  url?: string;
+}
+
 export interface PostType {
     postId: string;
     text: string;
@@ -34,6 +48,8 @@ export interface PostType {
     replies_count: number;
     relatedStacks: any[];
     previewCard?: PreviewCardType | null;
+    /** Embedded source on a lifted quote-tweet root. */
+    quotedPost?: QuotedPostMock | null;
     /** Thread parent supplied by the timeline/status payload. */
     inReplyToId?: string | null;
     /** Parent account handle, resolved by the data adapter for X-style reply context. */
@@ -81,6 +97,8 @@ export interface Relation {
 
 export interface FocusPostMock {
   id: string;
+  /** Stable corpus join key retained for provenance/debugging. */
+  sourceKey?: string;
   /** ID of the post this is a comment to (inherent thread hierarchy). Null/absent = root post. */
   inReplyToId?: string | null;
   /** HTML string (Mastodon-style, e.g. <p>…</p>) used for default rendering */
@@ -97,10 +115,16 @@ export interface FocusPostMock {
   replies_count: number;
   favourited: boolean;
   bookmarked: boolean;
+  /** Source article reachable from this post's thread, when available. */
+  previewCard?: PreviewCardType | null;
+  /** Embedded article/OP for a corpus quote-tweet root. */
+  quotedPost?: QuotedPostMock | null;
 }
 
 export interface RelatedPostMock {
   id: string;
+  /** Stable corpus join key retained for provenance/debugging. */
+  sourceKey?: string;
   /** ID of the post this is a comment to (inherent thread hierarchy). Null/absent = root post. */
   inReplyToId?: string | null;
   category: CategoryKey;
@@ -122,9 +146,14 @@ export interface RelatedPostMock {
   replies_count: number;
   favourited: boolean;
   bookmarked: boolean;
+  /** Source article reachable from this post's thread, when available. */
+  previewCard?: PreviewCardType | null;
+  quotedPost?: QuotedPostMock | null;
   rewrite?: {
     content: string;
     significant: boolean;
+    /** Authored text before backend decontextualization. */
+    originalContent?: string;
     /** Plain-language reason the contextual edit was made. */
     editSummary?: string;
   };
@@ -144,6 +173,10 @@ export interface ReplyMock extends FocusPostMock {
 }
 
 export interface ListyInjectionEntry {
+  /** Prepared-data topic directory that produced this entry. */
+  topicId?: string;
+  /** True only for roots in corpus_threads.threads (the actual main timeline). */
+  timelineRoot?: boolean;
   focusPost: FocusPostMock;
   relatedPosts: RelatedPostMock[];
   /**

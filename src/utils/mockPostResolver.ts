@@ -27,6 +27,8 @@ export interface MockPostType {
   favourited: boolean;
   bookmarked: boolean;
   media_attachments: any[];
+  card?: FocusPostMock["previewCard"];
+  quotedPost?: FocusPostMock["quotedPost"];
   relatedStacks: any[];
   in_reply_to_id?: string | null;
 }
@@ -61,6 +63,8 @@ function toMockPostType(
     favourited: p.favourited,
     bookmarked: p.bookmarked,
     media_attachments: [],
+    card: p.previewCard ?? null,
+    quotedPost: p.quotedPost ?? null,
     relatedStacks,
     in_reply_to_id: threadParentId,
   };
@@ -70,7 +74,8 @@ function toMockPostType(
 
 const entryByFocusId = new Map<string, ListyInjectionEntry>();
 const relatedById = new Map<string, { rp: RelatedPostMock; parent: ListyInjectionEntry }>();
-const replyById = new Map<string, { reply: ReplyMock; parent: ListyInjectionEntry }>();
+const replyById = new Map<string, Array<{ reply: ReplyMock; parent: ListyInjectionEntry }>>();
+const replyByFocusAndId = new Map<string, { reply: ReplyMock; parent: ListyInjectionEntry }>();
 const allPostsById = new Map<string, FocusPostMock | RelatedPostMock>();
 /** child id → parent id (inherent thread hierarchy) */
 const parentMap = new Map<string, string>();
@@ -99,7 +104,10 @@ for (const e of entries) {
   if (e.focusPost.inReplyToId) parentMap.set(e.focusPost.id, e.focusPost.inReplyToId);
 
   for (const reply of e.replies ?? []) {
-    if (!replyById.has(reply.id)) replyById.set(reply.id, { reply, parent: e });
+    const records = replyById.get(reply.id) ?? [];
+    records.push({ reply, parent: e });
+    replyById.set(reply.id, records);
+    replyByFocusAndId.set(`${e.focusPost.id}:${reply.id}`, { reply, parent: e });
     if (!allPostsById.has(reply.id)) allPostsById.set(reply.id, reply);
     const parentId = reply.inReplyToId ?? e.focusPost.id;
     if (!parentMap.has(reply.id)) parentMap.set(reply.id, parentId);
@@ -178,7 +186,10 @@ export function getMockReplies(id: string): MockPostType[] {
     const cid = stack.shift()!;
     if (seen.has(cid)) continue;
     seen.add(cid);
-    const post = allPostsById.get(cid);
+    // Descendant display text is backend-decontextualized and its relation
+    // offsets are scoped to this focus entry. Prefer that scoped copy over the
+    // same post's canonical focused-body copy.
+    const post = replyByFocusAndId.get(`${id}:${cid}`)?.reply ?? allPostsById.get(cid);
     // A post can occur twice in the fixture: once as a related response and
     // once as a reply. The related copy may omit its parent, so pass the
     // canonical graph edge instead of whichever copy happened to be stored.
@@ -211,7 +222,7 @@ export function getMockRelatedStacks(id: string): any[] {
   if (!entry) {
     // Replies inherit the parent entry's related stacks ("discussion context").
     // This keeps the aside populated when the user navigates into a reply thread.
-    const fromReply = replyById.get(id);
+    const fromReply = replyById.get(id)?.[0];
     if (fromReply) return getMockRelatedStacks(fromReply.parent.focusPost.id);
     // Synthetic: this id is a related post in another entry. Build a synthetic
     // sibling set from its parent entry (mirrors syntheticEntryFromRelated in
@@ -282,7 +293,9 @@ export function getMockRecommended(id: string): MockPostType[] {
  *  the one on screen — rendering them under a different focus would put marks
  *  at offsets belonging to someone else's text. */
 export function getMockReplyRelations(id: string, focusId?: string): Relation[] {
-  const fromReply = replyById.get(id);
+  const fromReply = focusId
+    ? replyByFocusAndId.get(`${focusId}:${id}`)
+    : replyById.get(id)?.[0];
   if (fromReply && (!focusId || fromReply.parent.focusPost.id === focusId)) {
     return firstTypeRelations(fromReply.reply.relations);
   }
@@ -297,7 +310,7 @@ export function getMockReplyRelations(id: string, focusId?: string): Relation[] 
  *  reply rank; dual-role related posts' `rank` field is a within-category rank
  *  with different semantics, so it is deliberately NOT consulted here. */
 export function getMockReplyRank(id: string): number | undefined {
-  return replyById.get(id)?.reply.rank;
+  return replyById.get(id)?.[0]?.reply.rank;
 }
 
 /** True if the id exists anywhere in the mock data. */

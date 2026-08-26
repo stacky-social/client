@@ -801,6 +801,8 @@ export default function MockPostView() {
       favourited={p.favourited}
       bookmarked={p.bookmarked}
       mediaAttachments={(p.media_attachments || []).map((m: any) => m.url)}
+      initialCard={p.card ?? null}
+      quotedPost={p.quotedPost ?? null}
       onStackIconClick={() => {}}
       setIsModalOpen={() => {}}
       setIsExpandModalOpen={() => {}}
@@ -866,7 +868,7 @@ export default function MockPostView() {
         <Text size="xs" c="dimmed" mt="xs">
           It may have been removed or created in a different participant session. Head back to the{" "}
           <Anchor component={Link} href="/ChineseEVs" size="xs">
-            #ChineseEVs discussion
+            #AIWorkforce discussion
           </Anchor>{" "}
           to pick a post that exists.
         </Text>

@@ -4,15 +4,17 @@
 
 Data format for the `/ChineseEVs` research feed (the former listy-injection prototype). Describes the contract between backend and frontend for focus posts, related posts, and their NLP-derived relations.
 
-> **Provenance:** this fixture is generated from the crossweave NYT demo corpus by
-> [`scripts/convert-demo-data.mjs`](../../../scripts/convert-demo-data.mjs). It maps
-> the crossweave `prepared_data_with_descendants/` (focused posts + MMR-ranked
-> candidate side posts + annotated nested replies) onto this schema and joins
-> `src_data/` (+ `src_data/descendants/`) for real like/reply counts. Regenerate with
-> `CROSSWEAVE_DEMO_DIR=/path/to/crossweave/demo_data node scripts/convert-demo-data.mjs`
-> (set `MAX_CANDIDATES=N` to cap side posts per focus; unset keeps all). Do not
-> hand-edit the JSON. (Older `prepared_data/` checkouts without descendants still
-> work — replies then fall back to the flat, relation-free `src_data` threads.)
+> **Provenance:** the current fixture is generated from CrossWeave's multi-source
+> `live_demo_data/prepared_data/{topic}/` output by
+> [`scripts/convert-live-demo-data.mjs`](../../../scripts/convert-live-demo-data.mjs).
+> The importer joins lean annotations to `corpus_threads.json`, resolves quote-tweet
+> `embedded_key` links, preserves backend decontextualization, maps
+> `full_thread_text` spans onto the ancestor post that owns them, and validates
+> every emitted offset. Regenerate with
+> `CROSSWEAVE_LIVE_DEMO_DIR=/path/to/crossweave/live_demo_data node scripts/convert-live-demo-data.mjs`.
+> `DEMO_TOPICS` can select complete topics and `MAX_CANDIDATES` can cap each pane.
+> Do not hand-edit the JSON. The older NYT-only importer remains available as
+> `scripts/convert-demo-data.mjs` for archived corpus checkouts.
 
 ## Top-level structure
 
@@ -20,6 +22,8 @@ Data format for the `/ChineseEVs` research feed (the former listy-injection prot
 type ListyInjectionData = ListyInjectionEntry[];
 
 interface ListyInjectionEntry {
+  topicId?: string;             // prepared-data topic slug (for example ai-workforce)
+  timelineRoot?: boolean;       // true for article/OP and lifted quote-tweet roots
   focusPost: FocusPost;
   relatedPosts: RelatedPost[];
   ancestors?: FocusPost[];     // optional ancestor chain (root → immediate parent)
@@ -63,6 +67,7 @@ A feed post that other posts respond to.
 ```typescript
 interface FocusPost {
   id: string;
+  sourceKey?: string;    // original corpus-wide source_file::post_id key
   content: string;       // HTML (Mastodon-style, e.g. <p>...</p>)
   plainText: string;     // plain text — used as the offset base for relations
   account: {
@@ -75,6 +80,15 @@ interface FocusPost {
   replies_count: number;
   favourited: boolean;
   bookmarked: boolean;
+  previewCard?: { title: string; description: string; url: string } | null;
+  quotedPost?: {          // present on lifted Fox/NYT quote-tweet roots
+    id: string;
+    title?: string;
+    content: string;
+    account: { display_name: string; acct: string; avatar: string };
+    created_at: string;
+    url?: string;
+  } | null;
 }
 ```
 
@@ -85,6 +99,7 @@ A post that relates to the focus post. Contains one or more `Relation` entries d
 ```typescript
 interface RelatedPost {
   id: string;
+  sourceKey?: string;
   category: CategoryKey;   // primary relation type (used for badge, filter chips)
   rank: number;             // rank within category (1 = most relevant)
   globalRank: number;       // rank across all categories
@@ -100,6 +115,12 @@ interface RelatedPost {
   replies_count: number;
   favourited: boolean;
   bookmarked: boolean;
+  rewrite?: {
+    content: string;          // backend decontextualized display text
+    originalContent?: string; // authored text used by the AI-redline disclosure
+    significant: boolean;
+    editSummary?: string;
+  };
 }
 ```
 

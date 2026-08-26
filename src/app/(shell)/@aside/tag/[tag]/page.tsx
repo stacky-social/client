@@ -15,7 +15,7 @@ export default function HashtagAside() {
 
   if (!pathname?.startsWith("/tag/") || !activePostId || !relatedStacks?.length) return null;
   const normalizedTag = tag?.toLowerCase();
-  const isLocalConversation = normalizedTag === "chineseevs";
+  const isLocalConversation = normalizedTag === "aiworkforce" || normalizedTag === "chineseevs";
   const usesModernRelatedUi = isLocalConversation || normalizedTag === "stackyinjection";
 
   return (

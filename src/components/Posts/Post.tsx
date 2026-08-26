@@ -4,13 +4,13 @@ import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallba
 import { useRouter } from 'next/navigation';
 import { Text, Avatar, Group, Paper, UnstyledButton, Divider, Anchor, Button, Menu, Modal } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconShare, IconDots, IconTrash, IconExternalLink } from '@tabler/icons-react';
+import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconShare, IconDots, IconTrash, IconExternalLink, IconQuote } from '@tabler/icons-react';
 import { copyLink } from '../../utils/share';
 import { format } from 'date-fns';
 import { formatPostDate } from '../../utils/formatPostDate';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
-import { PreviewCardType } from '../../types/PostType';
+import { PreviewCardType, type QuotedPostMock } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
 import { toggleFavourite, toggleBookmark, deleteStatus } from '../../utils/mastoActions';
 import { getMe, getPost, isLiked as storeIsLiked, isBookmarked as storeIsBookmarked } from '../../utils/localStore';
@@ -1090,6 +1090,8 @@ interface PostProps {
   activePostId: string | null;
   setActivePostId: (id: string | null) => void;
   initialCard?: PreviewCard | null;
+  /** Embedded article/OP on a lifted quote-tweet root. */
+  quotedPost?: QuotedPostMock | null;
   /** When provided, intercepts post navigation instead of routing to /posts/{id} */
   onNavigate?: (postId: string) => void;
   /** Relations for the focus post's own text spans — used to render dimmed marks in the default state */
@@ -1137,6 +1139,7 @@ function Post({
   activePostId,
   setActivePostId,
   initialCard,
+  quotedPost,
   onNavigate,
   focusRelations = [],
   clampLines = 5,
@@ -1853,7 +1856,7 @@ function Post({
           dangerouslySetInnerHTML={{ __html: displayText }}
         />
       )}
-      {articleUrl && (
+      {articleUrl && !quotedPost && (
         <Anchor
           href={articleUrl}
           target="_blank"
@@ -1887,6 +1890,7 @@ function Post({
           styles={(theme) => ({
             root: {
               padding: 0,
+              marginLeft: articleUrl && !quotedPost ? '0.5rem' : 0,
               background: 'none',
               color: '#1c2b4a',
               fontWeight: 600,
@@ -1904,6 +1908,33 @@ function Post({
         </Anchor>
       )}
     </div>
+          {quotedPost && (
+            <button
+              type="button"
+              className="quoted-post-card"
+              data-testid="quoted-post"
+              aria-label={`Open quoted post by ${quotedPost.account.display_name}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (onNavigate) onNavigate(quotedPost.id);
+                else router.push(getPost(quotedPost.id) ? `/ChineseEVs/posts/${quotedPost.id}` : `/posts/${quotedPost.id}`);
+              }}
+              onMouseDown={(event) => event.stopPropagation()}
+              onMouseUp={(event) => event.stopPropagation()}
+            >
+              <span className="quoted-post-label">
+                <IconQuote size={13} stroke={2} aria-hidden />
+                Quoted article
+              </span>
+              <span className="quoted-post-meta">
+                <strong>{quotedPost.account.display_name}</strong>
+                <span aria-hidden>·</span>
+                <span>{formatPostDate(quotedPost.created_at)}</span>
+              </span>
+              {quotedPost.title && <span className="quoted-post-title">{quotedPost.title}</span>}
+              <span className="quoted-post-copy">{quotedPost.content}</span>
+            </button>
+          )}
           {POST_IMAGES_ENABLED && mediaAttachments.length > 0 && (
             <div style={{ paddingLeft: '0', paddingRight: '0', paddingTop: '1rem' }}>
               {mediaAttachments.map((url, index) => (
