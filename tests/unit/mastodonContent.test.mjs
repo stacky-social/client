@@ -3,10 +3,22 @@ import test from 'node:test';
 
 import {
   extractMastodonLinks,
+  maskDuplicateArticleReferences,
   mastodonLinkHost,
   normalizeMastodonText,
   resolveMastodonRevision,
 } from '../../src/utils/mastodonContent.mjs';
+
+test('masks a duplicated Markdown article URL without shifting annotation offsets', () => {
+  const article = 'https://en.wikipedia.org/wiki/Jevons_paradox';
+  const input = `The Jevons Paradox\n\n[https://en.wikipedia.org/wiki/Jevons\\_paradox](https://en.wikipedia.org/wiki/Jevons\\_paradox)\n\nEssentially all jobs return. See https://example.com/context.`;
+  const masked = maskDuplicateArticleReferences(input, article);
+
+  assert.equal(masked.length, input.length);
+  assert.equal(masked.indexOf('Essentially'), input.indexOf('Essentially'));
+  assert.equal(masked.includes('en.wikipedia.org'), false);
+  assert.equal(masked.includes('https://example.com/context'), true);
+});
 
 test('normalizes Mastodon split-link HTML and removes imported publication metadata', () => {
   const html = `<p><strong>Florida teens' dangerous social media challenge</strong> Authorities warned parents

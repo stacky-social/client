@@ -23,7 +23,7 @@ import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 import type { Relation } from '../../types/PostType';
 import { showTooltip, hideTooltip } from '../HoverTooltip';
 import { showUndoableAction } from '../../utils/actionNotifications';
-import { mastodonLinkHost } from '../../utils/mastodonContent.mjs';
+import { maskDuplicateArticleReferences, mastodonLinkHost } from '../../utils/mastodonContent.mjs';
 import { pointBridgesInlineRects } from '../../utils/inlineHighlightGeometry.mjs';
 import { saveFeedScrollSnapshot } from '../../utils/feedScrollRestoration';
 import { postRouteFor } from '../../utils/postRoute';
@@ -243,6 +243,11 @@ function cleanPostHtml(html: string, card: PreviewCard | null | undefined): Clea
       const href = String(attributes).match(/href\s*=\s*["']([^"']+)["']/i)?.[1];
       return href && isSameArticleUrl(href, card.url) ? '' : anchor;
     });
+
+    // Markdown and plain-text duplicates need the same treatment as anchors.
+    // Masking preserves offset geometry for annotated content while collapsing
+    // to nothing visually under normal HTML whitespace rules.
+    cleaned = maskDuplicateArticleReferences(cleaned, card.url);
 
     // Imported posts sometimes contain the same source as plain text rather
     // than an anchor. Match only that preview URL so unrelated links survive.
@@ -1193,6 +1198,10 @@ function Post({
     [text, previewCards],
   );
   const articleHost = articleUrl ? mastodonLinkHost(articleUrl) : '';
+  const contentPlainText = useMemo(
+    () => maskDuplicateArticleReferences(stripHtml(text), articleUrl),
+    [text, articleUrl],
+  );
 
   const [isOverflowing, setIsOverflowing] = useState(false);
   const textRef = useRef<HTMLDivElement>(null);
@@ -1808,7 +1817,7 @@ function Post({
           }}
         >
           <ReplyHighlightedContent
-            plainText={stripHtml(text)}
+            plainText={contentPlainText}
             relations={contentRelations}
             replyId={id}
             onSpanClick={onContentSpanClick}

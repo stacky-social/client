@@ -7,6 +7,10 @@ const longQuote = timeline[1];
 const annaEntry = (mockData as any[]).find(
   (entry) => entry.focusPost.account.acct === 'anna@nytimes.com',
 );
+const linkedReplyId = 'cw-AKIXHkh6YtvzbL3D';
+const linkedReplyEntry = (mockData as any[]).find(
+  (entry) => entry.relatedPosts?.some((post: any) => post.id === linkedReplyId),
+);
 
 test.describe('post-card feedback', () => {
   test('shows truncation only when content is actually clamped and keeps quotes compact', async ({ page }) => {
@@ -57,5 +61,21 @@ test.describe('post-card feedback', () => {
     await expect(page).toHaveURL(/\/user\/anna(?:%40|@)nytimes\.com$/);
     await expect(page.getByText("Couldn't load @anna@nytimes.com.")).toHaveCount(0);
     await expect(page.getByText('@anna@nytimes.com', { exact: true })).toBeVisible();
+  });
+
+  test('shows an extracted article URL only in the source action', async ({ page }) => {
+    expect(linkedReplyEntry).toBeTruthy();
+    await page.goto(`/AIWorkforce/posts/${linkedReplyEntry.focusPost.id}`);
+
+    const card = page.locator('[data-related-card]').filter({
+      has: page.locator(`[data-post-id="${linkedReplyId}"]`),
+    }).first();
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(card.locator('[data-related-card-content]')).not.toContainText('en.wikipedia.org');
+    await expect(card.locator('mark').first()).toBeVisible();
+    await expect(card.getByRole('link', { name: 'Read article · en.wikipedia.org' })).toHaveAttribute(
+      'href',
+      'https://en.wikipedia.org/wiki/Jevons_paradox',
+    );
   });
 });

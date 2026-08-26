@@ -28,7 +28,7 @@ import {
 import { pointBridgesInlineRects } from '../utils/inlineHighlightGeometry.mjs';
 import { useHydrated, useLocalStore } from '../utils/localStore';
 import { RELATED_POSTS_API_URL } from '../utils/mastodonApi';
-import { extractMastodonLinks, mastodonLinkHost, normalizeMastodonText, resolveMastodonRevision } from '../utils/mastodonContent.mjs';
+import { extractMastodonLinks, maskDuplicateArticleReferences, mastodonLinkHost, normalizeMastodonText, resolveMastodonRevision } from '../utils/mastodonContent.mjs';
 import { saveFeedScrollSnapshot } from '../utils/feedScrollRestoration';
 import { postRouteFor } from '../utils/postRoute';
 import './RelatedStacks.css';
@@ -102,14 +102,22 @@ function stackMatchesCategories(stack: RelatedStackType, filters: Set<string>): 
 /** Offset-annotated study posts must preserve their exact plain-text geometry.
  * Legacy Mastodon cards have no offsets, so they can safely receive the fuller
  * HTML/URL/publication-metadata normalization they need. */
-function relatedCardText(post: PostType, value: string): string {
+function relatedArticleUrl(post: PostType): string | null {
+  return post.card?.url
+    || extractMastodonLinks(post.content || '')[0]
+    || extractMastodonLinks(post.rewrite?.content || '')[0]
+    || null;
+}
+
+function relatedCardText(post: PostType, value: string, articleUrl: string | null = null): string {
   // Revision notation is never part of the authored text. Resolve it even on
   // offset-annotated cards; contextual rewrites remap those relation offsets
   // immediately after this conversion. Applying only the full normalizer to
   // unannotated cards left legacy annotated AI rewrites displaying ⌈[,]⌉ and
   // ⌈[an]⌉ as literal brackets in the default edited view.
   if ((post.relations?.length ?? 0) > 0) {
-    return resolveMastodonRevision(value).replace(/<[^>]*>/g, '');
+    const resolved = resolveMastodonRevision(value).replace(/<[^>]*>/g, '');
+    return maskDuplicateArticleReferences(resolved, articleUrl);
   }
   return normalizeMastodonText(value);
 }
@@ -1239,12 +1247,14 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     for (const stack of relatedStacks) {
       const rewrite = stack.topPost.rewrite;
       if (!rewrite?.significant || !rewrite.content) continue;
+      const articleUrl = relatedArticleUrl(stack.topPost);
       const offsetsAlreadyTargetRewrite = stack.topPost.rewrite.originalContent !== undefined;
       const original = relatedCardText(
         stack.topPost,
         stack.topPost.rewrite.originalContent ?? stack.topPost.content ?? '',
+        articleUrl,
       );
-      const revised = relatedCardText(stack.topPost, rewrite.content);
+      const revised = relatedCardText(stack.topPost, rewrite.content, articleUrl);
       const chunks = createWordDiff(original, revised);
       diffs.set(stack.topPost.id, {
         originalContent: original,
@@ -2512,16 +2522,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           // geometry. Unannotated Mastodon cards instead receive full parsing:
           // split URL spans, Published metadata, rewrite brackets, and entities
           // are presentation transport details and must not leak into prose.
-          const plainContent = relatedCardText(stack.topPost, stack.topPost.content || '');
+          const articleUrl = relatedArticleUrl(stack.topPost);
+          const plainContent = relatedCardText(stack.topPost, stack.topPost.content || '', articleUrl);
           const rels = stack.topPost.relations;
           // Contextual rewrites are the published/default card text. The
           // original survives only inside the hover/focus track-changes layer.
           const visibleContent = aiDiffSet?.revisedContent ?? plainContent;
           const visibleRelations = aiDiffSet?.revisedRelations ?? rels;
-          const articleUrl = stack.topPost.card?.url
-            || extractMastodonLinks(stack.topPost.content || '')[0]
-            || extractMastodonLinks(stack.topPost.rewrite?.content || '')[0]
-            || null;
           const articleHost = articleUrl ? mastodonLinkHost(articleUrl) : '';
           // Mastodon's status timestamp is the canonical feed date. Preview-card
           // published_at frequently lands near midnight UTC and can shift to the
