@@ -53,6 +53,7 @@ export default function AiModifiedDisclosure({
       <button
         type="button"
         className="ai-edit-badge"
+        aria-label="Modified by AI"
         aria-pressed={active}
         aria-describedby={descriptionId}
         onClick={(event) => {
@@ -68,7 +69,7 @@ export default function AiModifiedDisclosure({
         }}
       >
         <IconSparkles size={12} stroke={2} aria-hidden />
-        Modified by AI
+        Modified
       </button>
       <span id={descriptionId} className="ai-edit-sr-only">
         This visible section includes edited wording. Hover or focus to reveal

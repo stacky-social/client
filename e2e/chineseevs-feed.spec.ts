@@ -48,7 +48,11 @@ test.describe('AI workforce demo feed', () => {
     const aside = page.getByTestId('col-aside');
     const badge = aside.getByRole('button', { name: 'Modified by AI' }).first();
     await expect(badge).toBeVisible();
+    await expect(badge).toHaveText('Modified');
+    await expect(badge.locator('svg')).toHaveCount(1);
     const card = badge.locator('xpath=ancestor::*[@data-post-id][1]');
+    await expect(card.locator('[data-related-tag-cluster] [data-ai-edit]')).toHaveCount(1);
+    await expect(card.locator('[data-related-card-content] [data-ai-edit]')).toHaveCount(0);
     const beforeHover = await card.boundingBox();
     const editedText = card.locator('[data-ai-edited-default]');
     const inlineDiff = card.locator('[data-ai-inline-diff]');

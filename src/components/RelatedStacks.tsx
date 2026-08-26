@@ -3120,9 +3120,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                   </Anchor>
                   <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>· {formatPostDate(displayDate)}</Text>
                 </div>
-                {/* Category tags — icon-only and pushed right. Kept on one line so
-                    author and date retain the readable portion of the header. */}
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'nowrap', justifyContent: 'flex-end', marginLeft: 'auto', flexShrink: 0 }}>
+                {/* Relationship and provenance tags — compact and pushed right. Kept
+                    on one line so author and date retain the readable portion of the
+                    header while related-post metadata stays in one predictable place. */}
+                <div
+                  data-related-tag-cluster
+                  style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'nowrap', justifyContent: 'flex-end', marginLeft: 'auto', flexShrink: 0 }}
+                >
                   {(() => {
                     // Dedupe categories from relations, preserving order
                     const rels = stack.topPost.relations ?? [];
@@ -3224,6 +3228,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       );
                     });
                   })()}
+                  {hasVisibleAiEdit && (
+                    <AiModifiedDisclosure
+                      active={isAiEditActive}
+                      editSummary={stack.topPost.rewrite.editSummary}
+                      onActiveChange={(active) => {
+                        setActiveAiEditPostId(active ? stack.topPost.id : null);
+                      }}
+                    />
+                  )}
                 </div>
 
                 {/* F: Relation indicator — top-right. Shows the active grouping topic
@@ -3329,16 +3342,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                   style={{ paddingLeft: '54px', paddingRight: '1rem', cursor: 'pointer' }}
                 >
                   {/* D3: shortest common related text label — only when span filter is active */}
-                  {hasVisibleAiEdit && (
-                    <AiModifiedDisclosure
-                      active={isAiEditActive}
-                      editSummary={stack.topPost.rewrite.editSummary}
-                      onActiveChange={(active) => {
-                        setActiveAiEditPostId(active ? stack.topPost.id : null);
-                      }}
-                    />
-                  )}
-
                   {shortestCommonText !== null && (
                     <div style={{
                       display: 'inline-flex', alignItems: 'center',
