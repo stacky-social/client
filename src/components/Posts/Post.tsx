@@ -10,7 +10,7 @@ import { format } from 'date-fns';
 import { formatPostDate } from '../../utils/formatPostDate';
 import axios from 'axios';
 import AnnotationModal from '../AnnotationModal';
-import { PreviewCardType, type QuotedPostMock } from '../../types/PostType';
+import { PreviewCardType, type AuthorStats, type QuotedPostMock } from '../../types/PostType';
 import InteractionControl from '../InteractionControl';
 import { toggleFavourite, toggleBookmark, deleteStatus } from '../../utils/mastoActions';
 import { getMe, getPost, isLiked as storeIsLiked, isBookmarked as storeIsBookmarked } from '../../utils/localStore';
@@ -27,6 +27,7 @@ import { maskDuplicateArticleReferences, mastodonLinkHost } from '../../utils/ma
 import { pointBridgesInlineRects } from '../../utils/inlineHighlightGeometry.mjs';
 import { saveFeedScrollSnapshot } from '../../utils/feedScrollRestoration';
 import { postRouteFor } from '../../utils/postRoute';
+import AuthorHoverInfo from '../AuthorHoverInfo';
 
 /** X-style left-pane indent (px): avatar (Mantine md = 38px) + the header row's
  *  `gap="xs"` (10px) = 48px, i.e. where the username's left edge sits. The post
@@ -1082,6 +1083,7 @@ interface PostProps {
   account: string;
   /** Stable Mastodon account id, used for exact owner-only action gating. */
   accountId?: string;
+  authorStats?: AuthorStats;
   avatar: string;
   repliesCount: number;
   createdAt: string;
@@ -1133,6 +1135,7 @@ function Post({
   author,
   account,
   accountId,
+  authorStats,
   avatar,
   repliesCount,
   createdAt,
@@ -1648,9 +1651,9 @@ function Post({
           borderWidth: '2px',
           borderColor: isActive ? '#45a99e' : '#dfe4ea',
           boxShadow: isActive
-            ? '0 14px 30px rgba(28, 43, 74, 0.16), 0 5px 12px rgba(28, 43, 74, 0.10)'
-            : '0 2px 9px rgba(28, 43, 74, 0.055)',
-          transform: isActive ? 'translateY(-2px)' : 'none',
+            ? '0 5px 14px rgba(28, 43, 74, 0.10), 0 2px 5px rgba(28, 43, 74, 0.06)'
+            : '0 1px 6px rgba(28, 43, 74, 0.045)',
+          transform: isActive ? 'translateY(-1px)' : 'none',
           // Border switches instantly (not transitioned) so the active outline
           // can't be caught mid-fade showing the inactive colour during scroll
           // re-renders (R-FEED-5). Elevation/lift still animate.
@@ -1716,25 +1719,27 @@ function Post({
             <UnstyledButton onClick={handleNavigateToUser} className="avatarHoverDim">
               <Avatar src={avatar} alt={author} radius="xl" />
             </UnstyledButton>
-            <Anchor
-              component="button"
-              onClick={(e: React.MouseEvent) => {
-                e.stopPropagation();
-                handleNavigateToUser(e);
-              }}
-              underline="hover"
-              // Username at body-text size (weight/colour carry the hierarchy,
-              // not size) so the header reads denser — `inherit` tracks the card's
-              // own font size (14px reply / 16px focus) so it always equals the
-              // body text, X/YouTube-style. Truncate rather than push the inline
-              // date/badges off the row.
-              style={{
-                color: '#011445', fontWeight: 700, minWidth: 0, fontSize: 'inherit',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}
-            >
-              {author}
-            </Anchor>
+            <AuthorHoverInfo displayName={author} account={account} stats={authorStats}>
+              <Anchor
+                component="button"
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  handleNavigateToUser(e);
+                }}
+                underline="hover"
+                // Username at body-text size (weight/colour carry the hierarchy,
+                // not size) so the header reads denser — `inherit` tracks the card's
+                // own font size (14px reply / 16px focus) so it always equals the
+                // body text, X/YouTube-style. Truncate rather than push the inline
+                // date/badges off the row.
+                style={{
+                  color: '#011445', fontWeight: 700, minWidth: 0, fontSize: 'inherit',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}
+              >
+                {author}
+              </Anchor>
+            </AuthorHoverInfo>
             <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
               · {formatPostDate(createdAt)}
             </Text>
