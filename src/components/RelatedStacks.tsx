@@ -3415,11 +3415,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                         aria-hidden={!isAiEditActive}
                         aria-label={stack.topPost.rewrite.editSummary || 'AI changes shown in this post'}
                       >
-                        <span className="ai-edit-legend" data-ai-edit-legend>
-                          <span className="ai-edit-legend-label">AI edits:</span>
-                          <ins>added</ins>
-                          <del>removed</del>
-                        </span>
                         {aiDiff.hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
                         {trackedContentNodes}
                         {aiDiff.hasSuffix && !isExpanded && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
