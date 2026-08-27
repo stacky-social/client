@@ -11,6 +11,16 @@ type FocusSample = {
   recordedAt: number;
 };
 
+type ViewportFocusSample = {
+  activeId: string | null;
+  panelFocusId: string | null;
+  activeTop: number | null;
+  activeBottom: number | null;
+  viewportTop: number;
+  viewportBottom: number;
+  visibleIds: string[];
+};
+
 async function openFollowedHome(page: Page) {
   await page.goto('/tag/ChineseEVs');
   const follow = page.getByRole('button', { name: 'Follow hashtag' });
@@ -56,7 +66,10 @@ async function cardCenterScrollY(page: Page, postId: string) {
     const element = document.querySelector(`[data-store-feed-post="${id}"]`);
     if (!(element instanceof HTMLElement)) throw new Error(`Missing post ${id}`);
     const rect = element.getBoundingClientRect();
-    return window.scrollY + rect.top + rect.height / 2 - window.innerHeight / 2;
+    const viewportTop = document.querySelector<HTMLElement>('[data-testid="top-nav"]')
+      ?.getBoundingClientRect().bottom ?? 0;
+    const contentCenter = viewportTop + (window.innerHeight - viewportTop) / 2;
+    return window.scrollY + rect.top + rect.height / 2 - contentCenter;
   }, postId);
 }
 
@@ -67,6 +80,43 @@ async function cardTopLineScrollY(page: Page, postId: string, beyondBoundaryPx =
     return window.scrollY + element.getBoundingClientRect().top
       - (window.innerHeight * 0.3) + beyond;
   }, { id: postId, beyond: beyondBoundaryPx });
+}
+
+async function sampleDemoFocusAfterScroll(page: Page, scrollY: number): Promise<ViewportFocusSample> {
+  return page.evaluate(async (y) => {
+    window.scrollTo(0, y);
+    // The live focus listener runs on the first frame. Two additional frames
+    // allow React's active-card and panel state to commit before sampling, while
+    // remaining well below the former 100/220ms settled-scroll delay.
+    await new Promise<void>((resolve) => requestAnimationFrame(() =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    ));
+
+    const active = document.querySelector<HTMLElement>(
+      '[data-testid="post"][data-active="true"]',
+    );
+    const activeRect = active?.getBoundingClientRect() ?? null;
+    const nav = document.querySelector<HTMLElement>('[data-testid="top-nav"]');
+    const viewportTop = nav?.getBoundingClientRect().bottom ?? 0;
+    const visible = Array.from(document.querySelectorAll<HTMLElement>('[data-demo-feed-post]'))
+      .map((element) => ({
+        id: element.dataset.demoFeedPost ?? '',
+        rect: element.getBoundingClientRect(),
+      }))
+      .filter(({ rect }) => rect.bottom > viewportTop && rect.top < window.innerHeight)
+      .sort((a, b) => a.rect.top - b.rect.top);
+
+    return {
+      activeId: active?.dataset.postId ?? null,
+      panelFocusId: document.querySelector('[data-testid="col-aside"] [data-related-focus-post-id]')
+        ?.getAttribute('data-related-focus-post-id') ?? null,
+      activeTop: activeRect?.top ?? null,
+      activeBottom: activeRect?.bottom ?? null,
+      viewportTop,
+      viewportBottom: window.innerHeight,
+      visibleIds: visible.map(({ id }) => id),
+    };
+  }, scrollY);
 }
 
 test.describe('stable feed focus', () => {
@@ -153,6 +203,41 @@ test.describe('stable feed focus', () => {
     expect(new Set(activeIds).size).toBe(activeIds.length);
     expect(samples.every(({ activeId, panelFocusId }) => activeId === panelFocusId)).toBe(true);
   });
+
+  test('keeps the active demo card visible and synchronized on every scroll frame', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/AIWorkforce');
+    await expect(page.locator('[data-demo-feed-post]')).toHaveCount(4);
+    const firstId = await page.locator('[data-demo-feed-post]').first()
+      .getAttribute('data-demo-feed-post');
+    await expect(page.locator(`[data-testid="post"][data-post-id="${firstId}"]`))
+      .toHaveAttribute('data-active', 'true');
+
+    const targetY = await page.locator('[data-demo-feed-post]').nth(3).evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return window.scrollY + rect.top - window.innerHeight * 0.3 + 100;
+    });
+    const jumped = await sampleDemoFocusAfterScroll(page, targetY);
+    expect(jumped.activeId).not.toBe(firstId);
+    expect(jumped.visibleIds).toContain(jumped.activeId);
+    expect(jumped.activeBottom).toBeGreaterThan(jumped.viewportTop);
+    expect(jumped.activeTop).toBeLessThan(jumped.viewportBottom);
+    expect(jumped.panelFocusId).toBe(jumped.activeId);
+    await expect(page.getByTestId('weave-bridge')).toHaveAttribute('data-focus-id', jumped.activeId!);
+
+    const top = await sampleDemoFocusAfterScroll(page, 0);
+    expect(top.activeId).toBe(top.visibleIds[0]);
+    expect(top.panelFocusId).toBe(top.activeId);
+    await expect(page.getByTestId('weave-bridge')).toHaveAttribute('data-focus-id', top.activeId!);
+
+    const documentBottom = await page.evaluate(() => document.documentElement.scrollHeight);
+    const bottom = await sampleDemoFocusAfterScroll(page, documentBottom);
+    expect(bottom.activeId).toBe(bottom.visibleIds.at(-1));
+    expect(bottom.activeBottom).toBeGreaterThan(bottom.viewportTop);
+    expect(bottom.activeTop).toBeLessThan(bottom.viewportBottom);
+    expect(bottom.panelFocusId).toBe(bottom.activeId);
+    await expect(page.getByTestId('weave-bridge')).toHaveAttribute('data-focus-id', bottom.activeId!);
+  });
 });
 
 test.describe('focus retention algorithm', () => {
@@ -216,5 +301,44 @@ test.describe('focus retention algorithm', () => {
       viewportHeight: 1000,
       mode: 'top-line',
     })?.id).toBe('a');
+  });
+
+  test('does not retain a card hidden behind the sticky navigation', () => {
+    const candidates: Array<FeedFocusCandidate<string>> = [
+      { id: 'hidden', value: 'hidden', rect: { top: -300, bottom: 40, height: 340 } },
+      { id: 'visible', value: 'visible', rect: { top: 72, bottom: 420, height: 348 } },
+    ];
+    expect(selectStableFeedFocus({
+      candidates,
+      currentId: 'hidden',
+      viewportTop: 56,
+      viewportHeight: 900,
+      mode: 'center',
+    })?.id).toBe('visible');
+  });
+
+  test('selects the first and last visible cards at feed boundaries', () => {
+    const unordered: Array<FeedFocusCandidate<string>> = [
+      { id: 'below', value: 'below', rect: { top: 920, bottom: 1220, height: 300 } },
+      { id: 'last-visible', value: 'last-visible', rect: { top: 520, bottom: 840, height: 320 } },
+      { id: 'first-visible', value: 'first-visible', rect: { top: 80, bottom: 400, height: 320 } },
+      { id: 'behind-nav', value: 'behind-nav', rect: { top: -250, bottom: 48, height: 298 } },
+    ];
+    expect(selectStableFeedFocus({
+      candidates: unordered,
+      currentId: 'last-visible',
+      viewportTop: 56,
+      viewportHeight: 900,
+      mode: 'center',
+      atTop: true,
+    })?.id).toBe('first-visible');
+    expect(selectStableFeedFocus({
+      candidates: unordered,
+      currentId: 'first-visible',
+      viewportTop: 56,
+      viewportHeight: 900,
+      mode: 'center',
+      atBottom: true,
+    })?.id).toBe('last-visible');
   });
 });

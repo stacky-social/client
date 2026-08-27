@@ -32,35 +32,42 @@ export function feedFocusHysteresisPx(viewportHeight: number): number {
 export function selectStableFeedFocus<T>({
   candidates,
   currentId,
+  viewportTop = 0,
   viewportHeight,
   mode,
   anchorRatio = 0.3,
+  atTop = false,
   atBottom = false,
 }: {
   candidates: Array<FeedFocusCandidate<T>>;
   currentId: string | null;
+  viewportTop?: number;
   viewportHeight: number;
   mode: FeedFocusMode;
   anchorRatio?: number;
+  atTop?: boolean;
   atBottom?: boolean;
 }): FeedFocusCandidate<T> | null {
   if (candidates.length === 0) return null;
 
-  const visible = candidates.filter(
-    ({ rect }) => rect.bottom > 0 && rect.top < viewportHeight,
+  const ordered = [...candidates].sort((a, b) => a.rect.top - b.rect.top);
+  const visible = ordered.filter(
+    ({ rect }) => rect.bottom > viewportTop && rect.top < viewportHeight,
   );
   if (visible.length === 0) return null;
 
-  if (atBottom) return candidates[candidates.length - 1] ?? visible[visible.length - 1];
+  if (atTop) return visible[0];
+  if (atBottom) return visible[visible.length - 1];
 
-  const current = candidates.find(({ id }) => id === currentId) ?? null;
+  const current = ordered.find(({ id }) => id === currentId) ?? null;
   const currentVisible = current
-    ? current.rect.bottom > 0 && current.rect.top < viewportHeight
+    ? current.rect.bottom > viewportTop && current.rect.top < viewportHeight
     : false;
-  const hysteresis = feedFocusHysteresisPx(viewportHeight);
+  const usableViewportHeight = Math.max(1, viewportHeight - viewportTop);
+  const hysteresis = feedFocusHysteresisPx(usableViewportHeight);
 
   if (mode === "center") {
-    const viewportCenter = viewportHeight / 2;
+    const viewportCenter = viewportTop + usableViewportHeight / 2;
     const distance = (candidate: FeedFocusCandidate<T>) =>
       Math.abs(candidate.rect.top + candidate.rect.height / 2 - viewportCenter);
     const proposed = visible.reduce((best, candidate) =>
@@ -75,9 +82,9 @@ export function selectStableFeedFocus<T>({
     return distance(current) - distance(proposed) >= hysteresis ? proposed : current;
   }
 
-  const anchor = viewportHeight * anchorRatio;
+  const anchor = viewportTop + usableViewportHeight * anchorRatio;
   let proposed: FeedFocusCandidate<T> | null = null;
-  for (const candidate of candidates) {
+  for (const candidate of visible) {
     if (candidate.rect.top <= anchor) proposed = candidate;
   }
   proposed ??= visible[0];
@@ -86,8 +93,8 @@ export function selectStableFeedFocus<T>({
     return proposed;
   }
 
-  const currentIndex = candidates.indexOf(current);
-  const proposedIndex = candidates.indexOf(proposed);
+  const currentIndex = ordered.indexOf(current);
+  const proposedIndex = ordered.indexOf(proposed);
   if (proposedIndex > currentIndex) {
     return proposed.rect.top <= anchor - hysteresis ? proposed : current;
   }
@@ -130,5 +137,32 @@ export function onStableWindowScroll(callback: () => void): () => void {
     clearTimers();
     window.removeEventListener("scroll", onScroll);
     window.removeEventListener("scrollend", onScrollEnd);
+  };
+}
+
+/**
+ * Keep feed focus synchronized with the viewport before each scroll frame is
+ * painted, then run one final settled calculation for layout changes that land
+ * at the end of momentum scrolling. The selector's retention band—not a long
+ * debounce—prevents adjacent cards from oscillating.
+ */
+export function onFeedFocusScroll(callback: () => void): () => void {
+  let animationFrame = 0;
+
+  const onScrollFrame = () => {
+    if (animationFrame) return;
+    animationFrame = requestAnimationFrame(() => {
+      animationFrame = 0;
+      callback();
+    });
+  };
+
+  const stopStableListener = onStableWindowScroll(callback);
+  window.addEventListener("scroll", onScrollFrame, { passive: true });
+
+  return () => {
+    if (animationFrame) cancelAnimationFrame(animationFrame);
+    window.removeEventListener("scroll", onScrollFrame);
+    stopStableListener();
   };
 }

@@ -28,10 +28,11 @@ import {
     type Post as StorePost,
 } from '../utils/localStore';
 import {
-    onStableWindowScroll,
+    onFeedFocusScroll,
     selectStableFeedFocus,
     type FeedFocusCandidate,
 } from '../utils/stableFeedFocus';
+import { TOP_NAV_HEIGHT } from './NavBar/TopNav';
 import {
     restoreFeedScrollSnapshot,
     saveFeedScrollSnapshot,
@@ -401,53 +402,23 @@ const ApiFeedCore: React.FC<PostListProps & {
     const [hasMore, setHasMore] = useState(() => cachedSnapshot.current?.hasMore ?? Boolean(cachedSnapshot.current?.maxId));
     const hasAutoHighlightedFirstPostRef = useRef(false);
     const hasPublishedFirstPostStacksRef = useRef(false);
-    const lastUserActivateRef = useRef<number>(0);
     const manualActiveIdRef = useRef<string | null>(null);
     const manualLockRef = useRef(false);
     const fetchKeyRef = useRef<string | null>(null);
     const loadMoreInFlightRef = useRef(false);
     const restoredScrollRef = useRef(false);
 
-    // Currently-viewport-intersecting post nodes, keyed by data-post-id. Kept up
-    // to date by an IntersectionObserver so the active-post computation only has
-    // to read rects for the handful of visible nodes instead of querying and
-    // measuring every rendered [data-post-id] in the document on each scroll stop.
-    const visiblePostElsRef = useRef<Map<string, Element>>(new Map());
-    // Every currently-observed post node, keyed by id, so unmount can unobserve
-    // precisely (the visible map only holds the intersecting subset).
+    // Every currently-mounted virtualized post node, keyed by id. Virtuoso only
+    // mounts the viewport neighborhood, so measuring this small set each frame
+    // avoids an IntersectionObserver timing gap after large scroll jumps.
     const observedPostElsRef = useRef<Map<string, Element>>(new Map());
-    const postObserverRef = useRef<IntersectionObserver | null>(null);
-    // Lazily create the observer so the post ref-callbacks (which run during the
-    // first commit, before effects) have something to register with.
-    const getPostObserver = (): IntersectionObserver | null => {
-        if (typeof IntersectionObserver === 'undefined') return null;
-        if (!postObserverRef.current) {
-            postObserverRef.current = new IntersectionObserver((entries) => {
-                for (const entry of entries) {
-                    const id = entry.target.getAttribute('data-post-id');
-                    if (!id) continue;
-                    // isIntersecting mirrors the old visibility test
-                    // (rect.bottom > 0 && rect.top < window.innerHeight).
-                    if (entry.isIntersecting) visiblePostElsRef.current.set(id, entry.target);
-                    else visiblePostElsRef.current.delete(id);
-                }
-            });
-        }
-        return postObserverRef.current;
-    };
-    // Stable ref-callback attached to each rendered post wrapper. Observes the
-    // node on mount and unobserves + forgets it on unmount, so the visible set
-    // tracks Virtuoso's dynamic mounting/unmounting without a full-DOM query.
+    // Stable ref-callback attached to each rendered post wrapper. It tracks
+    // Virtuoso's dynamic mounting/unmounting without a full-DOM query.
     const registerPostNodeRef = useRef((node: HTMLDivElement | null, postId: string) => {
-        const observer = getPostObserver();
         if (node) {
             observedPostElsRef.current.set(postId, node);
-            observer?.observe(node);
         } else {
-            const prev = observedPostElsRef.current.get(postId);
-            if (prev) observer?.unobserve(prev);
             observedPostElsRef.current.delete(postId);
-            visiblePostElsRef.current.delete(postId);
         }
     });
 
@@ -637,21 +608,12 @@ const ApiFeedCore: React.FC<PostListProps & {
         }
     };
 
-    // Auto-select a post after scrolling settles. The current post is retained
+    // Auto-select a visible post while scrolling. The current post is retained
     // inside a hysteresis band so tiny trackpad reversals do not make the focus
     // marker and entire related-post panel oscillate between adjacent cards.
     // Reads the DOM ([data-post-id]) rather than a refs array so it works with
     // virtualization (only the mounted/visible posts exist in the DOM).
     useEffect(() => {
-        // Ensure the observer exists and is watching every currently-mounted post
-        // node. Ref-callbacks register nodes during commit, but on a Strict-Mode
-        // re-mount (cleanup nulled the observer) the nodes persist without their
-        // ref-callbacks re-firing, so we (re)observe the tracked set here.
-        const observer = getPostObserver();
-        if (observer) {
-            observedPostElsRef.current.forEach((node) => observer.observe(node));
-        }
-
         const evaluateActiveByCenter = () => {
             const currentPosts = postsRef.current;
 
@@ -660,18 +622,17 @@ const ApiFeedCore: React.FC<PostListProps & {
                 const el = document.querySelector(`[data-post-id="${CSS.escape(manualActiveIdRef.current)}"]`);
                 if (el) {
                     const rect = el.getBoundingClientRect();
-                    if (rect.bottom > 0 && rect.top < window.innerHeight) return; // keep manual selection
+                    if (rect.bottom > TOP_NAV_HEIGHT && rect.top < window.innerHeight) return; // keep manual selection
                 }
                 manualLockRef.current = false; // no longer visible; allow auto-selection again
             }
 
-            // Only the currently-intersecting nodes (maintained by the
-            // IntersectionObserver) are candidates, so we read rects for a
-            // handful of visible nodes instead of every rendered [data-post-id].
+            // Virtuoso keeps only a viewport neighborhood mounted, so this
+            // remains a small layout read even while focus follows every frame.
             const candidates: Array<FeedFocusCandidate<PostType>> = [];
-            for (const [id, el] of Array.from(visiblePostElsRef.current.entries())) {
+            for (const [id, el] of Array.from(observedPostElsRef.current.entries())) {
                 const rect = el.getBoundingClientRect();
-                if (rect.bottom <= 0 || rect.top >= window.innerHeight) continue; // not visible
+                if (rect.bottom <= TOP_NAV_HEIGHT || rect.top >= window.innerHeight) continue; // not visible
                 const post = currentPosts.find((candidate) => candidate.postId === id);
                 if (post) candidates.push({ id, value: post, rect });
             }
@@ -679,8 +640,12 @@ const ApiFeedCore: React.FC<PostListProps & {
             const selected = selectStableFeedFocus({
                 candidates,
                 currentId: activePostIdRef.current,
+                viewportTop: TOP_NAV_HEIGHT,
                 viewportHeight: window.innerHeight,
                 mode: 'center',
+                atTop: window.scrollY <= 2,
+                atBottom:
+                    window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2,
             });
             if (selected && selected.id !== activePostIdRef.current) {
                 setActivePostIdRef.current(selected.id);
@@ -696,26 +661,12 @@ const ApiFeedCore: React.FC<PostListProps & {
             }
         };
 
-        const evaluateAfterManualGuard = () => {
-            if (Date.now() - lastUserActivateRef.current < 400) return;
-            evaluateActiveByCenter();
-        };
-
-        // The IntersectionObserver delivers its first entries asynchronously, so
-        // the visible set may be empty on this synchronous mount tick. Defer the
-        // initial evaluation one frame so it runs against a populated set
-        // (preserving the old on-mount auto-selection by viewport center).
+        // Defer the initial evaluation one frame so post refs have committed.
         const initialRaf = requestAnimationFrame(() => evaluateActiveByCenter());
-        const stopListening = onStableWindowScroll(evaluateAfterManualGuard);
+        const stopListening = onFeedFocusScroll(evaluateActiveByCenter);
         return () => {
             stopListening();
             cancelAnimationFrame(initialRaf);
-            postObserverRef.current?.disconnect();
-            postObserverRef.current = null;
-            // Clear the visible (intersecting) set — the observer that fed it is
-            // gone. Keep observedPostElsRef: it tracks which nodes are mounted so
-            // a Strict-Mode re-mount can re-observe them via getPostObserver().
-            visiblePostElsRef.current.clear();
         };
     }, []); // attach once — reads latest values via refs
 
@@ -881,7 +832,6 @@ const ApiFeedCore: React.FC<PostListProps & {
                 relatedStacks={post.relatedStacks}
                 activePostId={activePostId}
                 setActivePostId={(id: string | null) => {
-                    lastUserActivateRef.current = Date.now();
                     manualActiveIdRef.current = id;
                     manualLockRef.current = !!id;
                     setActivePostId(id);
@@ -1080,7 +1030,6 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
     // Manual clicks win until that card leaves the viewport. This mirrors the
     // API feed and prevents the scroll-settle callback from immediately undoing
     // an explicit user choice.
-    const lastUserActivateRef = useRef<number>(0);
     const manualActiveIdRef = useRef<string | null>(null);
     const manualLockRef = useRef(false);
     const publishedRetrievedRef = useRef(new Map<string, { stacks: any[]; count: number }>());
@@ -1115,7 +1064,7 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                 );
                 if (manualElement) {
                     const rect = manualElement.getBoundingClientRect();
-                    if (rect.bottom > 0 && rect.top < window.innerHeight) return;
+                    if (rect.bottom > TOP_NAV_HEIGHT && rect.top < window.innerHeight) return;
                 }
                 manualLockRef.current = false;
             }
@@ -1126,7 +1075,7 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
             );
             for (const element of elements) {
                 const rect = element.getBoundingClientRect();
-                if (rect.bottom <= 0 || rect.top >= window.innerHeight) continue;
+                if (rect.bottom <= TOP_NAV_HEIGHT || rect.top >= window.innerHeight) continue;
                 const postId = element.dataset.storeFeedPost;
                 const post = postId ? postMapRef.current.get(postId) : undefined;
                 if (!post) continue;
@@ -1136,8 +1085,12 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
             const selected = selectStableFeedFocus({
                 candidates,
                 currentId: activePostIdRef.current,
+                viewportTop: TOP_NAV_HEIGHT,
                 viewportHeight: window.innerHeight,
                 mode: 'center',
+                atTop: window.scrollY <= 2,
+                atBottom:
+                    window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2,
             });
             if (!selected || selected.id === activePostIdRef.current) return;
             activePostIdRef.current = selected.id;
@@ -1149,7 +1102,7 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
         };
 
         const initialFrame = requestAnimationFrame(evaluate);
-        const stopListening = onStableWindowScroll(evaluate);
+        const stopListening = onFeedFocusScroll(evaluate);
         return () => {
             cancelAnimationFrame(initialFrame);
             stopListening();
@@ -1222,7 +1175,6 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                         relatedStacks={post.relatedStacks}
                         activePostId={activePostId}
                         setActivePostId={(id: string | null) => {
-                            lastUserActivateRef.current = Date.now();
                             manualActiveIdRef.current = id;
                             manualLockRef.current = !!id;
                             setActivePostId(id);

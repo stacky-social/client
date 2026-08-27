@@ -6,7 +6,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import type { PostType } from "../../types/PostType";
 import {
-  onStableWindowScroll,
+  onFeedFocusScroll,
   selectStableFeedFocus,
   type FeedFocusCandidate,
 } from "../../utils/stableFeedFocus";
@@ -15,6 +15,7 @@ import {
   saveFeedScrollSnapshot,
 } from "../../utils/feedScrollRestoration";
 import Post from "../Posts/Post";
+import { TOP_NAV_HEIGHT } from "../NavBar/TopNav";
 import { postRouteFor } from "../../utils/postRoute";
 
 export type SearchFeedPost = PostType & { origin: "local" | "mastodon" };
@@ -78,7 +79,7 @@ export default function SearchPostFeed({
         );
         if (selected) {
           const rect = selected.getBoundingClientRect();
-          if (rect.bottom > 0 && rect.top < window.innerHeight) return;
+          if (rect.bottom > TOP_NAV_HEIGHT && rect.top < window.innerHeight) return;
         }
         manualLockRef.current = false;
       }
@@ -87,7 +88,7 @@ export default function SearchPostFeed({
       const candidates: Array<FeedFocusCandidate<SearchFeedPost>> = [];
       document.querySelectorAll<HTMLElement>("[data-search-feed-post]").forEach((element) => {
         const rect = element.getBoundingClientRect();
-        if (rect.bottom <= 0 || rect.top >= window.innerHeight) return;
+        if (rect.bottom <= TOP_NAV_HEIGHT || rect.top >= window.innerHeight) return;
         const id = element.dataset.searchFeedPost;
         const post = id ? byId.get(id) : undefined;
         if (id && post) candidates.push({ id, value: post, rect });
@@ -96,8 +97,12 @@ export default function SearchPostFeed({
       const selected = selectStableFeedFocus({
         candidates,
         currentId: activePostIdRef.current,
+        viewportTop: TOP_NAV_HEIGHT,
         viewportHeight: window.innerHeight,
         mode: "center",
+        atTop: window.scrollY <= 2,
+        atBottom:
+          window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2,
       });
       if (selected && selected.id !== activePostIdRef.current) publish(selected.value);
     };
@@ -105,7 +110,7 @@ export default function SearchPostFeed({
     // Do not eagerly claim the first result merely because it happens to fit
     // below the discovery summary. Search starts with an intentionally blank
     // related pane; a real scroll gesture (or explicit post action) selects it.
-    const stopListening = onStableWindowScroll(evaluate);
+    const stopListening = onFeedFocusScroll(evaluate);
     return () => {
       stopListening();
     };
