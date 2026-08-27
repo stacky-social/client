@@ -16,10 +16,11 @@ import { useLocalStore, useHydrated, isFollowingTag, toggleTagFollow } from "../
 import { DEMO_TIMELINE_PAGE_SIZE, getDemoTimelinePage, type TimelineStats } from "../../../services/demoApiClient";
 import { getMockReplyCount } from "../../../utils/mockPostResolver";
 import {
-  onStableWindowScroll,
+  onFeedFocusScroll,
   selectStableFeedFocus,
   type FeedFocusCandidate,
 } from "../../../utils/stableFeedFocus";
+import { TOP_NAV_HEIGHT } from "../../../components/NavBar/TopNav";
 import {
   restoreFeedScrollSnapshot,
   saveFeedScrollSnapshot,
@@ -685,10 +686,9 @@ export default function ListyInjectionPage() {
   // Keep ref in sync
   useEffect(() => { activePostIdRef.current = activePostId; }, [activePostId]);
 
-  // Scroll-based focus detection (feed mode only). Focus is recalculated once
-  // the gesture settles and retained inside a Schmitt-trigger band around the
-  // 30% line. This prevents A -> B -> A flashes in the focus rail, relation
-  // tags and related cards during small trackpad direction corrections.
+  // Scroll-based focus detection (feed mode only). Focus follows the visible
+  // feed on animation frames, while a Schmitt-trigger band around the 30% line
+  // prevents A -> B -> A flashes during small direction corrections.
   useEffect(() => {
     if (inThreadMode) return;
     const evaluate = () => {
@@ -703,9 +703,11 @@ export default function ListyInjectionPage() {
       const selected = selectStableFeedFocus({
         candidates,
         currentId: activePostIdRef.current,
+        viewportTop: TOP_NAV_HEIGHT,
         viewportHeight: window.innerHeight,
         mode: "top-line",
         anchorRatio: 0.3,
+        atTop: window.scrollY <= 2,
         atBottom:
           window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2,
       });
@@ -720,7 +722,7 @@ export default function ListyInjectionPage() {
     // and we don't want to clobber it with bestIdx=0 (top of feed) before
     // scrollTo lands. Subsequent scroll events still fire normally.
     const initialFrame = !isRestoringRef.current ? requestAnimationFrame(evaluate) : 0;
-    const stopListening = onStableWindowScroll(evaluate);
+    const stopListening = onFeedFocusScroll(evaluate);
     return () => {
       stopListening();
       if (initialFrame) cancelAnimationFrame(initialFrame);
