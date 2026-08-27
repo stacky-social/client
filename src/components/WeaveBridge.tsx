@@ -244,8 +244,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
         sourceBottomY + targetExpansion,
       ));
       const bridgeWidth = targetX - sourceX;
-      const sourceLeadX = round(sourceX + clamp(bridgeWidth * 0.18, 10, 16));
-      const sourceBendX = round(sourceX + clamp(bridgeWidth * 0.27, 15, 24));
+      const sourceControlX = round(sourceX + clamp(bridgeWidth * 0.18, 9, 14));
       const terminalControlX = round(targetX - Math.max(10, bridgeWidth * 0.22));
       const upperTerminalLeg = clamp(
         round((sourceTopY - targetTopY) * 0.58),
@@ -260,24 +259,22 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
       const upperTerminalControlY = round(targetTopY + upperTerminalLeg);
       const lowerTerminalControlY = round(targetBottomY - lowerTerminalLeg);
       const local = (viewportY: number) => round(viewportY - TOP_NAV_HEIGHT);
-      // The card borders continue horizontally, then fan directly away from
-      // each other in one uninterrupted curve. Y controls stay between source
-      // and target so neither strand can form the rejected inward pinch.
+      // One cubic leaves each card corner with a horizontal tangent and starts
+      // bending immediately. Avoiding a separate line segment removes the
+      // straight-then-turn kink while the bounded Y controls still prevent an
+      // inward pinch.
       const upperPath = [
         `M ${sourceX} ${local(sourceTopY)}`,
-        `L ${sourceLeadX} ${local(sourceTopY)}`,
-        `C ${sourceBendX} ${local(sourceTopY)}, ${terminalControlX} ${local(upperTerminalControlY)}, ${targetX} ${local(targetTopY)}`,
+        `C ${sourceControlX} ${local(sourceTopY)}, ${terminalControlX} ${local(upperTerminalControlY)}, ${targetX} ${local(targetTopY)}`,
       ].join(" ");
       const lowerPath = [
         `M ${sourceX} ${local(sourceBottomY)}`,
-        `L ${sourceLeadX} ${local(sourceBottomY)}`,
-        `C ${sourceBendX} ${local(sourceBottomY)}, ${terminalControlX} ${local(lowerTerminalControlY)}, ${targetX} ${local(targetBottomY)}`,
+        `C ${sourceControlX} ${local(sourceBottomY)}, ${terminalControlX} ${local(lowerTerminalControlY)}, ${targetX} ${local(targetBottomY)}`,
       ].join(" ");
       const ribbonPath = [
         upperPath,
         `L ${targetX} ${local(targetBottomY)}`,
-        `C ${terminalControlX} ${local(lowerTerminalControlY)}, ${sourceBendX} ${local(sourceBottomY)}, ${sourceLeadX} ${local(sourceBottomY)}`,
-        `L ${sourceX} ${local(sourceBottomY)}`,
+        `C ${terminalControlX} ${local(lowerTerminalControlY)}, ${sourceControlX} ${local(sourceBottomY)}, ${sourceX} ${local(sourceBottomY)}`,
         "Z",
       ].join(" ");
       const coordinates = [sourceX, sourceTopY, sourceBottomY, targetX, targetTopY, targetBottomY];
