@@ -28,6 +28,7 @@ async function geometry(page: Page) {
         return { x: point.x, y: point.y };
       };
       const samples = Array.from({ length: 61 }, (_, index) => at(length * index / 60));
+      const steps = samples.slice(1).map((point, index) => point.y - samples[index].y);
       return {
         start: at(0),
         sourceProbe: at(Math.min(10, length * 0.12)),
@@ -35,6 +36,8 @@ async function geometry(page: Page) {
         terminalProbe: at(Math.max(0, length - Math.min(14, length * 0.16))),
         maxY: samples.reduce((best, point) => point.y > best.y ? point : best),
         minY: samples.reduce((best, point) => point.y < best.y ? point : best),
+        maxYIncrease: Math.max(...steps),
+        maxYDecrease: Math.max(...steps.map((step) => -step)),
       };
     };
     const upper = inspectPath('weave-strand-upper');
@@ -49,15 +52,17 @@ async function geometry(page: Page) {
       upperStart: upper.start,
       upperSourceProbe: upper.sourceProbe,
       upperEnd: upper.end,
-      upperWaist: upper.maxY,
+      upperMaxY: upper.maxY,
+      upperMinY: upper.minY,
+      upperMaxYIncrease: upper.maxYIncrease,
       upperTerminalProbe: upper.terminalProbe,
       lowerStart: lower.start,
       lowerSourceProbe: lower.sourceProbe,
       lowerEnd: lower.end,
-      lowerWaist: lower.minY,
+      lowerMaxY: lower.maxY,
+      lowerMinY: lower.minY,
+      lowerMaxYDecrease: lower.maxYDecrease,
       lowerTerminalProbe: lower.terminalProbe,
-      seamStart: inspectPath('weave-divider-seam').start,
-      seamEnd: inspectPath('weave-divider-seam').end,
     };
   });
 }
@@ -124,14 +129,13 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
   expect(g.lowerSourceProbe.x - g.lowerStart.x).toBeGreaterThan(
     Math.abs(g.lowerSourceProbe.y - g.lowerStart.y) * 1.5,
   );
-  // Concept B: the strands first bend toward each other before reversing into
-  // the large flare. The extrema must occur inside the bridge runway.
-  expect(g.upperWaist.y).toBeGreaterThan(g.sourceTopY + 10);
-  expect(g.lowerWaist.y).toBeLessThan(g.sourceBottomY - 10);
-  expect(g.upperWaist.x).toBeGreaterThan(g.sourceX + 4);
-  expect(g.upperWaist.x).toBeLessThan(g.targetX - 16);
-  expect(g.lowerWaist.x).toBeGreaterThan(g.sourceX + 4);
-  expect(g.lowerWaist.x).toBeLessThan(g.targetX - 16);
+  // Every sampled point moves straight outward (or stays level along the
+  // source lead). Any downward upper excursion or upward lower excursion is
+  // the rejected inward pinch.
+  expect(g.upperMaxY.y).toBeLessThanOrEqual(g.sourceTopY + 1);
+  expect(g.lowerMinY.y).toBeGreaterThanOrEqual(g.sourceBottomY - 1);
+  expect(g.upperMaxYIncrease).toBeLessThanOrEqual(0.5);
+  expect(g.lowerMaxYDecrease).toBeLessThanOrEqual(0.5);
   expectNear(g.upperEnd.x, g.targetX); expectNear(g.upperEnd.y, g.targetTopY);
   expectNear(g.lowerEnd.x, g.targetX); expectNear(g.lowerEnd.y, g.targetBottomY);
   // The final segment must arrive steeply. A horizontal tangent is the old
@@ -142,8 +146,9 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
     / (g.lowerEnd.x - g.lowerTerminalProbe.x);
   expect(upperTerminalSlope).toBeGreaterThan(2.4);
   expect(lowerTerminalSlope).toBeGreaterThan(2.4);
-  expectNear(g.seamStart.x, g.targetX); expectNear(g.seamStart.y, g.targetTopY);
-  expectNear(g.seamEnd.x, g.targetX); expectNear(g.seamEnd.y, g.targetBottomY);
+  await expect(bridge(page).getByTestId('weave-divider-seam')).toHaveCount(0);
+  await expect(bridge(page).getByTestId('weave-ribbon-gradient').locator('stop').last())
+    .toHaveAttribute('stop-opacity', '0');
   expect(overlay!.y).toBeGreaterThanOrEqual(nav!.y + nav!.height - 1);
   await expect(bridge(page)).toHaveAttribute('aria-hidden', 'true');
   await expect(bridge(page)).toHaveCSS('pointer-events', 'none');
@@ -204,8 +209,8 @@ test('keeps the full-frame flare at a narrow desktop split', async ({ page }) =>
   expect(g.targetBottomY - g.targetTopY).toBeGreaterThan(
     (g.sourceBottomY - g.sourceTopY) * 1.75,
   );
-  expect(g.upperWaist.y).toBeGreaterThan(g.sourceTopY + 10);
-  expect(g.lowerWaist.y).toBeLessThan(g.sourceBottomY - 10);
+  expect(g.upperMaxY.y).toBeLessThanOrEqual(g.sourceTopY + 1);
+  expect(g.lowerMinY.y).toBeGreaterThanOrEqual(g.sourceBottomY - 1);
 });
 
 test('keeps a usable feed column at the minimum resizable split', async ({ page }) => {

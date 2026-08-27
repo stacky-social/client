@@ -13,7 +13,7 @@ type BridgeGeometry = {
   viewportWidth: number; viewportHeight: number;
   sourceX: number; sourceTopY: number; sourceBottomY: number;
   targetX: number; targetTopY: number; targetBottomY: number;
-  upperPath: string; lowerPath: string; ribbonPath: string; seamPath: string;
+  upperPath: string; lowerPath: string; ribbonPath: string;
 };
 
 type LayerPhase = "entering" | "connected" | "exiting";
@@ -34,7 +34,6 @@ type BridgeMotion = {
 const MIN_VISIBLE_SOURCE_HEIGHT = 32, MIN_BRIDGE_WIDTH = 12, VIEWPORT_EDGE_GUTTER = 8;
 const SOURCE_CORNER_INSET = 10, TARGET_EXPANSION_RATIO = 0.52;
 const MIN_TARGET_EXPANSION = 72, MAX_TARGET_EXPANSION = 220;
-const INWARD_PINCH_RATIO = 0.14, MIN_INWARD_PINCH = 12, MAX_INWARD_PINCH = 36;
 const ENTER_MS = 210, RETARGET_DELAY_MS = 45, RETARGET_ENTER_MS = 190;
 const EXIT_MS = 100, FINAL_EXIT_MS = 120;
 const ENTER_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -212,58 +211,42 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
         sourceBottomY + targetExpansion,
       ));
       const bridgeWidth = targetX - sourceX;
-      const inwardPinch = clamp(
-        round(sourceSpan * INWARD_PINCH_RATIO),
-        MIN_INWARD_PINCH,
-        MAX_INWARD_PINCH,
-      );
-      const waistX = round(sourceX + bridgeWidth * 0.34);
-      const upperWaistY = round(sourceTopY + inwardPinch);
-      const lowerWaistY = round(sourceBottomY - inwardPinch);
       const sourceLeadX = round(sourceX + clamp(bridgeWidth * 0.18, 10, 16));
       const sourceBendX = round(sourceX + clamp(bridgeWidth * 0.27, 15, 24));
-      const flareControlX = round(sourceX + bridgeWidth * 0.5);
       const terminalControlX = round(targetX - Math.max(10, bridgeWidth * 0.22));
       const upperTerminalLeg = clamp(
-        round((upperWaistY - targetTopY) * 0.56),
+        round((sourceTopY - targetTopY) * 0.58),
         12,
         110,
       );
       const lowerTerminalLeg = clamp(
-        round((targetBottomY - lowerWaistY) * 0.56),
+        round((targetBottomY - sourceBottomY) * 0.58),
         12,
         110,
       );
       const upperTerminalControlY = round(targetTopY + upperTerminalLeg);
       const lowerTerminalControlY = round(targetBottomY - lowerTerminalLeg);
       const local = (viewportY: number) => round(viewportY - TOP_NAV_HEIGHT);
-      // Two joined cubics produce concept B's deliberate reverse curve. Each
-      // strand first continues its horizontal card border away from the open
-      // frame, then bends toward the other strand, reverses through a short
-      // waist, and arrives at the divider on a steep diagonal. Keeping the
-      // terminal control point away from the endpoint prevents the old
-      // horizontal attachment-tab silhouette.
+      // The card borders continue horizontally, then fan directly away from
+      // each other in one uninterrupted curve. Y controls stay between source
+      // and target so neither strand can form the rejected inward pinch.
       const upperPath = [
         `M ${sourceX} ${local(sourceTopY)}`,
         `L ${sourceLeadX} ${local(sourceTopY)}`,
-        `C ${sourceBendX} ${local(sourceTopY)}, ${sourceBendX} ${local(upperWaistY)}, ${waistX} ${local(upperWaistY)}`,
-        `C ${flareControlX} ${local(upperWaistY)}, ${terminalControlX} ${local(upperTerminalControlY)}, ${targetX} ${local(targetTopY)}`,
+        `C ${sourceBendX} ${local(sourceTopY)}, ${terminalControlX} ${local(upperTerminalControlY)}, ${targetX} ${local(targetTopY)}`,
       ].join(" ");
       const lowerPath = [
         `M ${sourceX} ${local(sourceBottomY)}`,
         `L ${sourceLeadX} ${local(sourceBottomY)}`,
-        `C ${sourceBendX} ${local(sourceBottomY)}, ${sourceBendX} ${local(lowerWaistY)}, ${waistX} ${local(lowerWaistY)}`,
-        `C ${flareControlX} ${local(lowerWaistY)}, ${terminalControlX} ${local(lowerTerminalControlY)}, ${targetX} ${local(targetBottomY)}`,
+        `C ${sourceBendX} ${local(sourceBottomY)}, ${terminalControlX} ${local(lowerTerminalControlY)}, ${targetX} ${local(targetBottomY)}`,
       ].join(" ");
       const ribbonPath = [
         upperPath,
         `L ${targetX} ${local(targetBottomY)}`,
-        `C ${terminalControlX} ${local(lowerTerminalControlY)}, ${flareControlX} ${local(lowerWaistY)}, ${waistX} ${local(lowerWaistY)}`,
-        `C ${sourceBendX} ${local(lowerWaistY)}, ${sourceBendX} ${local(sourceBottomY)}, ${sourceLeadX} ${local(sourceBottomY)}`,
+        `C ${terminalControlX} ${local(lowerTerminalControlY)}, ${sourceBendX} ${local(sourceBottomY)}, ${sourceLeadX} ${local(sourceBottomY)}`,
         `L ${sourceX} ${local(sourceBottomY)}`,
         "Z",
       ].join(" ");
-      const seamPath = `M ${targetX} ${local(targetTopY)} L ${targetX} ${local(targetBottomY)}`;
       const coordinates = [sourceX, sourceTopY, sourceBottomY, targetX, targetTopY, targetBottomY];
       const next: BridgeGeometry = {
         focusId: activePostId,
@@ -280,7 +263,6 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
         upperPath,
         lowerPath,
         ribbonPath,
-        seamPath,
       };
       setMeasuredGeometry((current) => current?.signature === next.signature ? current : next);
     };
@@ -454,6 +436,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
       ? RETARGET_ENTER_MS : ENTER_MS;
     const delay = entering ? layer.enterDelay / 1000 : 0;
     const geometry = layer.geometry;
+    const ribbonGradientId = `weave-ribbon-gradient-${layer.key}`;
     const testId = role === "current" ? (value: string) => value : () => undefined;
     return (
       <motion.g
@@ -470,9 +453,25 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
           ease: exiting ? EXIT_EASE : ENTER_EASE,
         }}
       >
+        <defs>
+          <linearGradient
+            id={ribbonGradientId}
+            data-testid={testId("weave-ribbon-gradient")}
+            gradientUnits="userSpaceOnUse"
+            x1={geometry.sourceX}
+            x2={geometry.targetX}
+            y1="0"
+            y2="0"
+          >
+            <stop offset="0%" stopColor="#45a99e" stopOpacity="0.1" />
+            <stop offset="72%" stopColor="#45a99e" stopOpacity="0.08" />
+            <stop offset="100%" stopColor="#45a99e" stopOpacity="0" />
+          </linearGradient>
+        </defs>
         <motion.path
           className={classes.ribbon}
           d={geometry.ribbonPath}
+          style={{ fill: `url(#${ribbonGradientId})` }}
           data-testid={testId("weave-ribbon")}
           initial={entering ? { opacity: 0 } : { opacity: 1 }}
           animate={{ opacity: exiting ? 0 : 1 }}
@@ -493,18 +492,6 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
             }}
           />
         ))}
-        <motion.path
-          className={classes.seam}
-          d={geometry.seamPath}
-          data-testid={testId("weave-divider-seam")}
-          initial={entering ? { opacity: 0, pathLength: 0 } : { opacity: 1, pathLength: 1 }}
-          animate={{ opacity: exiting ? 0 : 1, pathLength: exiting ? 0 : 1 }}
-          transition={{
-            duration: (exiting ? EXIT_MS : Math.round(enterDuration * 0.52)) / 1000,
-            delay: delay + (entering ? enterDuration * 0.38 / 1000 : 0),
-            ease: exiting ? EXIT_EASE : ENTER_EASE,
-          }}
-        />
       </motion.g>
     );
   };
