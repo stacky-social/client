@@ -9,6 +9,17 @@
     --cw-line: #dfe4ea;
 }
 
+/* WeaveBridge owns this attribute so the frame opens only while an actual
+   current or outgoing bridge layer replaces the right edge. Keeping the full
+   frame teal during exit prevents the curve detaching mid-transition. */
+[data-testid="post"][data-weave-source-open="true"] {
+    border-color: var(--cw-teal) !important;
+    border-right-color: transparent !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    clip-path: inset(-24px 0 -24px -24px);
+}
+
 /* Auto-hide scrollbar: visible only while scrolling or on hover */
 html {
     scrollbar-gutter: stable;

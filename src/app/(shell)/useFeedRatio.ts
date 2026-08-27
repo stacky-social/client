@@ -8,10 +8,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * centerWidth/relatedWidth model (`stacky:centerWidth` / `stacky:relatedWidth`).
  *
  * Stored under `stacky:feedRatio`. Default 0.65 (65% feed / 35% related).
- * Clamped to [MIN, MAX] so neither panel can vanish.
+ * Clamped to [MIN, MAX] so neither panel can vanish. The feed minimum also
+ * preserves a useful reading column after reserving the Weave Bridge runway.
  */
 export const FEED_RATIO_DEFAULT = 0.65;
-export const FEED_RATIO_MIN = 0.15;
+export const FEED_RATIO_MIN = 0.35;
 export const FEED_RATIO_MAX = 0.85;
 const LS_KEY = "stacky:feedRatio";
 

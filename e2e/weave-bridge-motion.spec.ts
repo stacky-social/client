@@ -1,7 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 
 type Layer = { slot: string | null; id: string | null; phase: string | null };
-type Snapshot = { state: string | null; motion: string | null; revision: string | null; layers: Layer[] };
+type Snapshot = {
+  state: string | null;
+  motion: string | null;
+  revision: string | null;
+  layers: Layer[];
+  openIds: string[];
+};
 type RecorderWindow = Window & { __weaveEvents?: Snapshot[]; __weaveSignature?: string };
 
 const root = (page: Page) => page.getByTestId('weave-bridge');
@@ -24,6 +30,10 @@ async function installRecorder(page: Page) {
           id: layer.getAttribute('data-focus-id'),
           phase: layer.getAttribute('data-phase'),
         })),
+        openIds: Array.from(document.querySelectorAll('[data-weave-source-open="true"]'))
+          .map((post) => post.getAttribute('data-post-id') ?? '')
+          .filter(Boolean)
+          .sort(),
       };
       const signature = JSON.stringify(snapshot);
       if (signature === state.__weaveSignature) return;
@@ -87,6 +97,16 @@ test('switches A to B and settles with one correctly keyed layer', async ({ page
     layer.slot === 'current' && layer.id === nextId && layer.phase === 'entering'))).toBe(true);
   expect(history.some((event) => event.layers.some((layer) =>
     layer.slot === 'outgoing' && layer.id === firstId && layer.phase === 'exiting'))).toBe(true);
+  const handoff = history.filter((event) => event.state === 'retargeting');
+  expect(handoff.some((event) =>
+    event.openIds.includes(firstId!) && !event.openIds.includes(nextId))).toBe(true);
+  expect(handoff.some((event) =>
+    event.openIds.includes(firstId!) && event.openIds.includes(nextId))).toBe(true);
+  expect(handoff.every((event) => event.openIds.length <= 2)).toBe(true);
+  await expect(page.locator(`[data-post-id="${firstId}"][data-testid="post"]`))
+    .not.toHaveAttribute('data-weave-source-open', 'true');
+  await expect(page.locator(`[data-post-id="${nextId}"][data-testid="post"]`))
+    .toHaveAttribute('data-weave-source-open', 'true');
   expect(history.every((event) => {
     const active = event.layers.filter((layer) => layer.slot === 'current');
     const old = event.layers.filter((layer) => layer.slot === 'outgoing');

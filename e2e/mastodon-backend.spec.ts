@@ -69,7 +69,8 @@ test.describe('Mastodon-backed client mode', () => {
     await expect(page.getByRole('main')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
     await expect(page.getByRole('main')).toHaveCSS('overflow', 'visible');
     const homeCard = page.locator('[data-post-id="live-1"] [data-testid="post"]');
-    await expect(homeCard).toHaveCSS('border-radius', '10px');
+    await expect(homeCard).toHaveCSS('border-radius', '10px 0px 0px 10px');
+    await expect(homeCard).toHaveCSS('border-right-color', 'rgba(0, 0, 0, 0)');
     expect(await homeCard.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe('none');
     expect(authorization).toMatch(/^Bearer backend-token-/);
   });
