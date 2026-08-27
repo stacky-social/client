@@ -5,12 +5,13 @@
   overflow: visible; pointer-events: none;
 }
 
-.ribbon { stroke: none; }
-
-.strand {
-  fill: none; stroke: #45a99e; stroke-width: 2;
-  stroke-linecap: round;
-  vector-effect: non-scaling-stroke;
+.ribbon {
+  stroke: none;
+  shape-rendering: geometricPrecision;
 }
 
-.accentStrand { stroke: #45a99e; }
+.guide {
+  fill: none;
+  stroke: none;
+  pointer-events: none;
+}

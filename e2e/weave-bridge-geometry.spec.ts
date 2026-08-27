@@ -78,7 +78,7 @@ test.beforeEach(async ({ page }) => {
 
 test('aligns both strands with the synchronized focus post and aside', async ({ page }) => {
   await expectConnectedBridge(page);
-  const [g, card, aside, divider, nav, overlay, frameStyle, strandStyle] = await Promise.all([
+  const [g, card, aside, divider, nav, overlay, frameStyle, guideStyles] = await Promise.all([
     geometry(page), activePost(page).boundingBox(), page.getByTestId('col-aside').boundingBox(),
     page.getByRole('separator', { name: 'Resize feed and related panels' }).boundingBox(),
     page.getByTestId('top-nav').boundingBox(), bridge(page).boundingBox(),
@@ -89,19 +89,18 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
         topRightRadius: style.borderTopRightRadius,
         bottomRightRadius: style.borderBottomRightRadius,
         clipPath: style.clipPath,
-        topBorder: style.borderTopColor,
-        topBorderWidth: style.borderTopWidth,
       };
     }),
-    bridge(page).getByTestId('weave-strand-upper').evaluate((strand) => {
-      const style = getComputedStyle(strand);
-      return { stroke: style.stroke, strokeWidth: style.strokeWidth };
-    }),
+    Promise.all([
+      bridge(page).getByTestId('weave-strand-upper'),
+      bridge(page).getByTestId('weave-strand-lower'),
+    ].map((guide) => guide.evaluate((path) => getComputedStyle(path).stroke))),
   ]);
   expect(card && aside && divider && nav && overlay).toBeTruthy();
   expect(Object.values(g).flatMap((value) => typeof value === 'number' ? [value] : [value.x, value.y])
     .every(Number.isFinite)).toBe(true);
-  expectNear(g.sourceX, card!.x + card!.width);
+  expect(card!.x + card!.width - g.sourceX).toBeGreaterThanOrEqual(2);
+  expect(card!.x + card!.width - g.sourceX).toBeLessThanOrEqual(4);
   expectNear(g.targetX, divider!.x + divider!.width / 2);
   expect(g.targetX).toBeLessThan(aside!.x);
   expect(g.targetX - g.sourceX).toBeGreaterThanOrEqual(60);
@@ -109,8 +108,7 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
   expect(frameStyle.topRightRadius).toBe('0px');
   expect(frameStyle.bottomRightRadius).toBe('0px');
   expect(frameStyle.clipPath).toBe('inset(-24px 0px -24px -24px)');
-  expect(strandStyle.stroke).toBe(frameStyle.topBorder);
-  expect(strandStyle.strokeWidth).toBe(frameStyle.topBorderWidth);
+  expect(guideStyles).toEqual(['none', 'none']);
   expectNear(g.sourceTopY, card!.y, 3);
   expectNear(g.sourceBottomY, card!.y + card!.height, 3);
   expect(g.sourceBottomY - g.sourceTopY).toBeGreaterThan(card!.height - 4);
@@ -153,6 +151,44 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
   await expect(bridge(page)).toHaveAttribute('aria-hidden', 'true');
   await expect(bridge(page)).toHaveCSS('pointer-events', 'none');
   await expect(page.getByTestId('resize-divider-guide')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+});
+
+test('keeps the bridge joined during every scroll event', async ({ page }) => {
+  await expectConnectedBridge(page);
+  const samples = await page.evaluate(async () => {
+    const readings: Array<{
+      topGap: number;
+      bottomGap: number;
+      sourceOverlap: number;
+    }> = [];
+    const record = () => {
+      const active = document.querySelector<HTMLElement>(
+        '[data-testid="feed"] [data-testid="post"][data-active="true"]',
+      );
+      const svg = document.querySelector<SVGSVGElement>('[data-testid="weave-bridge"]');
+      if (!active || !svg || svg.getAttribute('data-focus-id') !== active.dataset.postId) return;
+      const rect = active.getBoundingClientRect();
+      readings.push({
+        topGap: Math.abs(Number(svg.getAttribute('data-source-top-y')) - Math.round(rect.top)),
+        bottomGap: Math.abs(Number(svg.getAttribute('data-source-bottom-y')) - Math.round(rect.bottom)),
+        sourceOverlap: rect.right - Number(svg.getAttribute('data-source-x')),
+      });
+    };
+    window.addEventListener('scroll', record, { passive: true });
+    for (let step = 0; step < 6; step += 1) {
+      window.scrollBy(0, 6);
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    }
+    window.removeEventListener('scroll', record);
+    return readings;
+  });
+  expect(samples.length).toBeGreaterThanOrEqual(4);
+  samples.forEach(({ topGap, bottomGap, sourceOverlap }) => {
+    expect(topGap).toBeLessThanOrEqual(1);
+    expect(bottomGap).toBeLessThanOrEqual(1);
+    expect(sourceOverlap).toBeGreaterThanOrEqual(2);
+    expect(sourceOverlap).toBeLessThanOrEqual(4);
+  });
 });
 
 test('retargets to the resting post after scrolling', async ({ page }) => {

@@ -10,8 +10,8 @@
 }
 
 /* WeaveBridge owns this attribute so the frame opens only while an actual
-   current or outgoing bridge layer replaces the right edge. Keeping the full
-   frame teal during exit prevents the curve detaching mid-transition. */
+   current or outgoing bridge layer replaces the right edge with its soft
+   translucent wash. Keeping the frame open through exit prevents a seam. */
 [data-testid="post"][data-weave-source-open="true"] {
     border-color: var(--cw-teal) !important;
     border-right-color: transparent !important;
