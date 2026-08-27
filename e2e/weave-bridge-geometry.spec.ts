@@ -30,6 +30,7 @@ async function geometry(page: Page) {
       const samples = Array.from({ length: 61 }, (_, index) => at(length * index / 60));
       const steps = samples.slice(1).map((point, index) => point.y - samples[index].y);
       return {
+        pathData: path.getAttribute('d') ?? '',
         start: at(0),
         sourceProbe: at(Math.min(10, length * 0.12)),
         end: at(length),
@@ -50,6 +51,7 @@ async function geometry(page: Page) {
       targetTopY: number('data-target-top-y'),
       targetBottomY: number('data-target-bottom-y'),
       upperStart: upper.start,
+      upperPathData: upper.pathData,
       upperSourceProbe: upper.sourceProbe,
       upperEnd: upper.end,
       upperMaxY: upper.maxY,
@@ -57,6 +59,7 @@ async function geometry(page: Page) {
       upperMaxYIncrease: upper.maxYIncrease,
       upperTerminalProbe: upper.terminalProbe,
       lowerStart: lower.start,
+      lowerPathData: lower.pathData,
       lowerSourceProbe: lower.sourceProbe,
       lowerEnd: lower.end,
       lowerMaxY: lower.maxY,
@@ -97,7 +100,9 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
     ].map((guide) => guide.evaluate((path) => getComputedStyle(path).stroke))),
   ]);
   expect(card && aside && divider && nav && overlay).toBeTruthy();
-  expect(Object.values(g).flatMap((value) => typeof value === 'number' ? [value] : [value.x, value.y])
+  expect(Object.values(g).flatMap((value) => typeof value === 'number'
+    ? [value]
+    : typeof value === 'object' ? [value.x, value.y] : [])
     .every(Number.isFinite)).toBe(true);
   expect(card!.x + card!.width - g.sourceX).toBeGreaterThanOrEqual(2);
   expect(card!.x + card!.width - g.sourceX).toBeLessThanOrEqual(4);
@@ -119,17 +124,20 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
   );
   expectNear(g.upperStart.x, g.sourceX); expectNear(g.upperStart.y, g.sourceTopY);
   expectNear(g.lowerStart.x, g.sourceX); expectNear(g.lowerStart.y, g.sourceBottomY);
-  // The frame border must travel outward before it bends. A vertical source
-  // tangent recreates a short right edge even when the actual border is open.
+  // A single cubic keeps the tangent horizontal without a separate straight
+  // lead, and must already be bending outward within the first ten pixels.
+  expect(g.upperPathData).not.toMatch(/\sL\s/);
+  expect(g.lowerPathData).not.toMatch(/\sL\s/);
   expect(g.upperSourceProbe.x - g.upperStart.x).toBeGreaterThan(
     Math.abs(g.upperSourceProbe.y - g.upperStart.y) * 1.5,
   );
   expect(g.lowerSourceProbe.x - g.lowerStart.x).toBeGreaterThan(
     Math.abs(g.lowerSourceProbe.y - g.lowerStart.y) * 1.5,
   );
-  // Every sampled point moves straight outward (or stays level along the
-  // source lead). Any downward upper excursion or upward lower excursion is
-  // the rejected inward pinch.
+  expect(g.upperStart.y - g.upperSourceProbe.y).toBeGreaterThan(0.25);
+  expect(g.lowerSourceProbe.y - g.lowerStart.y).toBeGreaterThan(0.25);
+  // Every sampled point moves outward. Any downward upper excursion or upward
+  // lower excursion is the rejected inward pinch.
   expect(g.upperMaxY.y).toBeLessThanOrEqual(g.sourceTopY + 1);
   expect(g.lowerMinY.y).toBeGreaterThanOrEqual(g.sourceBottomY - 1);
   expect(g.upperMaxYIncrease).toBeLessThanOrEqual(0.5);
