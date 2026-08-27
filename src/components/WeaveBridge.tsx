@@ -32,6 +32,7 @@ type BridgeMotion = {
 };
 
 const MIN_VISIBLE_SOURCE_HEIGHT = 32, MIN_BRIDGE_WIDTH = 12, VIEWPORT_EDGE_GUTTER = 8;
+const SOURCE_OVERLAP_PX = 3;
 const SOURCE_CORNER_INSET = 10, TARGET_EXPANSION_RATIO = 0.52;
 const MIN_TARGET_EXPANSION = 72, MAX_TARGET_EXPANSION = 220;
 const ENTER_MS = 210, RETARGET_DELAY_MS = 45, RETARGET_ENTER_MS = 190;
@@ -48,6 +49,34 @@ function elementWithValue(root: HTMLElement, selector: string, attribute: string
   ) ?? null;
 }
 
+function syncRenderedGeometry(svg: SVGSVGElement | null, geometry: BridgeGeometry) {
+  if (!svg) return;
+  const layer = Array.from(svg.querySelectorAll<SVGGElement>('[data-weave-layer="current"]')).find(
+    (candidate) => candidate.getAttribute("data-focus-id") === geometry.focusId,
+  );
+  if (!layer) return;
+
+  svg.setAttribute("viewBox", `0 0 ${geometry.viewportWidth} ${geometry.viewportHeight}`);
+  svg.setAttribute("data-source-kind", geometry.sourceKind);
+  svg.setAttribute("data-source-x", String(geometry.sourceX));
+  svg.setAttribute("data-source-top-y", String(geometry.sourceTopY));
+  svg.setAttribute("data-source-bottom-y", String(geometry.sourceBottomY));
+  svg.setAttribute("data-target-x", String(geometry.targetX));
+  svg.setAttribute("data-target-top-y", String(geometry.targetTopY));
+  svg.setAttribute("data-target-bottom-y", String(geometry.targetBottomY));
+  layer.querySelector<SVGPathElement>('[data-testid="weave-ribbon"]')
+    ?.setAttribute("d", geometry.ribbonPath);
+  layer.querySelector<SVGPathElement>('[data-testid="weave-strand-upper"]')
+    ?.setAttribute("d", geometry.upperPath);
+  layer.querySelector<SVGPathElement>('[data-testid="weave-strand-lower"]')
+    ?.setAttribute("d", geometry.lowerPath);
+  const gradient = layer.querySelector<SVGLinearGradientElement>(
+    '[data-testid="weave-ribbon-gradient"]',
+  );
+  gradient?.setAttribute("x1", String(geometry.sourceX));
+  gradient?.setAttribute("x2", String(geometry.targetX));
+}
+
 /**
  * Measures and animates the connection between the active post and related
  * pane. It deliberately reads existing semantic DOM hooks instead of owning
@@ -62,6 +91,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
     current: null, outgoing: null, revision: 0, state: "connected",
   };
   const [bridgeMotion, setBridgeMotion] = useState<BridgeMotion>(initialMotion);
+  const bridgeRef = useRef<SVGSVGElement>(null);
   const motionRef = useRef<BridgeMotion>(initialMotion);
   const timersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const openCardsRef = useRef<Set<HTMLElement>>(new Set());
@@ -170,7 +200,10 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
 
       const visibleTop = Math.max(sourceRect.top, TOP_NAV_HEIGHT + VIEWPORT_EDGE_GUTTER);
       const visibleBottom = Math.min(sourceRect.bottom, window.innerHeight - VIEWPORT_EDGE_GUTTER);
-      const sourceX = round(sourceRect.right);
+      // Begin beneath the card instead of exactly beside it. The card paints
+      // above this overlay, so the small overlap is invisible but prevents a
+      // subpixel gap from flashing while the document scrolls.
+      const sourceX = round(sourceRect.right) - (sourceKind === "card" ? SOURCE_OVERLAP_PX : 0);
       const targetX = dividerRect
         ? round(dividerRect.left + dividerRect.width / 2)
         : round((sourceRect.right + asideRect.left) / 2);
@@ -264,12 +297,33 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
         lowerPath,
         ribbonPath,
       };
+      const previous = motionRef.current;
+      if (
+        previous.current?.geometry.focusId === next.focusId
+        && previous.current.geometry.signature !== next.signature
+      ) {
+        // Scroll geometry is time-sensitive: patch the live SVG during the
+        // scroll event, before React's state/effect cycle, and commit the same
+        // geometry to state so the next render cannot snap it back.
+        const synchronized: BridgeMotion = {
+          ...previous,
+          current: { ...previous.current, geometry: next },
+        };
+        commitMotion(synchronized);
+        syncRenderedGeometry(bridgeRef.current, next);
+      }
       setMeasuredGeometry((current) => current?.signature === next.signature ? current : next);
     };
 
     function scheduleMeasure() {
       if (frame) return;
       frame = requestAnimationFrame(measure);
+    }
+
+    function measureScrollSynchronously() {
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+      measure();
     }
 
     const layoutObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleMeasure);
@@ -285,19 +339,19 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
     });
     contentObserver?.observe(aside, { childList: true, subtree: true });
 
-    window.addEventListener("scroll", scheduleMeasure, { passive: true });
+    window.addEventListener("scroll", measureScrollSynchronously, { passive: true });
     window.addEventListener("resize", scheduleMeasure);
     scheduleMeasure();
 
     return () => {
       if (frame) cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", scheduleMeasure);
+      window.removeEventListener("scroll", measureScrollSynchronously);
       window.removeEventListener("resize", scheduleMeasure);
       sourceObserver?.disconnect();
       layoutObserver?.disconnect();
       contentObserver?.disconnect();
     };
-  }, [activePostId, asideRef, enabled, feedRef]);
+  }, [activePostId, asideRef, commitMotion, enabled, feedRef]);
 
   useEffect(() => {
     const previous = motionRef.current;
@@ -345,6 +399,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
     }
 
     if (previous.current?.geometry.focusId === measuredGeometry.focusId) {
+      if (previous.current.geometry.signature === measuredGeometry.signature) return;
       // Scroll, card expansion and divider-resize geometry must stay attached to
       // the same focus without restarting or delaying its current animation.
       commitMotion({
@@ -432,8 +487,6 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
   const renderLayer = (layer: BridgeLayer, role: "current" | "outgoing") => {
     const entering = layer.phase === "entering";
     const exiting = layer.phase === "exiting";
-    const enterDuration = role === "current" && bridgeMotion.state === "retargeting"
-      ? RETARGET_ENTER_MS : ENTER_MS;
     const delay = entering ? layer.enterDelay / 1000 : 0;
     const geometry = layer.geometry;
     const ribbonGradientId = `weave-ribbon-gradient-${layer.key}`;
@@ -463,8 +516,8 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
             y1="0"
             y2="0"
           >
-            <stop offset="0%" stopColor="#45a99e" stopOpacity="0.1" />
-            <stop offset="72%" stopColor="#45a99e" stopOpacity="0.08" />
+            <stop offset="0%" stopColor="#45a99e" stopOpacity="0.12" />
+            <stop offset="72%" stopColor="#45a99e" stopOpacity="0.06" />
             <stop offset="100%" stopColor="#45a99e" stopOpacity="0" />
           </linearGradient>
         </defs>
@@ -477,27 +530,23 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
           animate={{ opacity: exiting ? 0 : 1 }}
           transition={{ duration: (exiting ? EXIT_MS : 150) / 1000, delay: delay + (entering ? 0.04 : 0) }}
         />
-        {([geometry.upperPath, geometry.lowerPath] as const).map((path, index) => (
-          <motion.path
-            key={index}
-            className={`${classes.strand} ${index === 1 ? classes.accentStrand : ""}`}
-            d={path}
-            data-testid={testId(index === 0 ? "weave-strand-upper" : "weave-strand-lower")}
-            initial={entering ? { pathLength: 0 } : { pathLength: 1 }}
-            animate={{ pathLength: exiting ? 0 : 1 }}
-            transition={{
-              duration: (exiting ? EXIT_MS : enterDuration) / 1000,
-              delay: delay + (entering && index === 1 ? 0.018 : 0),
-              ease: exiting ? EXIT_EASE : ENTER_EASE,
-            }}
-          />
-        ))}
+        <path
+          className={classes.guide}
+          d={geometry.upperPath}
+          data-testid={testId("weave-strand-upper")}
+        />
+        <path
+          className={classes.guide}
+          d={geometry.lowerPath}
+          data-testid={testId("weave-strand-lower")}
+        />
       </motion.g>
     );
   };
 
   return (
     <svg
+      ref={bridgeRef}
       aria-hidden="true"
       focusable="false"
       className={classes.bridge}
