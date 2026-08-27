@@ -64,9 +64,11 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
   expectNear(g.sourceX, card!.x + card!.width);
   expectNear(g.targetX, divider!.x + divider!.width / 2);
   expect(g.targetX).toBeLessThan(aside!.x);
-  expect(g.sourceTopY).toBeGreaterThanOrEqual(card!.y - 2);
-  expect(g.sourceBottomY).toBeLessThanOrEqual(card!.y + card!.height + 2);
-  expect(g.sourceBottomY).toBeGreaterThan(g.sourceTopY);
+  expectNear(g.sourceTopY, card!.y + 10, 3);
+  expectNear(g.sourceBottomY, card!.y + card!.height - 10, 3);
+  expect(g.sourceBottomY - g.sourceTopY).toBeGreaterThan(card!.height - 26);
+  expect(g.targetTopY).toBeLessThanOrEqual(g.sourceTopY - 40);
+  expect(g.targetBottomY).toBeGreaterThanOrEqual(g.sourceBottomY + 40);
   expect(g.targetBottomY - g.targetTopY).toBeGreaterThan(
     (g.sourceBottomY - g.sourceTopY) * 1.25,
   );
@@ -123,6 +125,20 @@ test('retargets after pointer and keyboard divider resizing', async ({ page }) =
   await expect(divider).toHaveAttribute('aria-valuenow', /\d+/);
 });
 
+test('keeps the full-frame flare at a narrow desktop split', async ({ page }) => {
+  await page.setViewportSize({ width: 1010, height: 882 });
+  await expectConnectedBridge(page);
+  const [g, card] = await Promise.all([geometry(page), activePost(page).boundingBox()]);
+  expect(card).toBeTruthy();
+  expectNear(g.sourceTopY, card!.y + 10, 3);
+  expectNear(g.sourceBottomY, card!.y + card!.height - 10, 3);
+  expect(g.targetTopY).toBeLessThanOrEqual(g.sourceTopY - 40);
+  expect(g.targetBottomY).toBeGreaterThanOrEqual(g.sourceBottomY + 40);
+  expect(g.targetBottomY - g.targetTopY).toBeGreaterThan(
+    (g.sourceBottomY - g.sourceTopY) * 1.5,
+  );
+});
+
 test('keeps the sticky focus source narrower than the divider opening', async ({ page }) => {
   await page.goto(`/AIWorkforce/posts/${stickyFocusId}`);
   await expect(activePost(page)).toBeVisible();
@@ -131,7 +147,11 @@ test('keeps the sticky focus source narrower than the divider opening', async ({
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await expect(page.getByTestId('focus-sticky-bar')).toBeVisible();
   await expect(bridge(page)).toHaveAttribute('data-source-kind', 'sticky');
-  const g = await geometry(page);
+  const [g, sticky] = await Promise.all([
+    geometry(page), page.getByTestId('focus-sticky-bar').boundingBox(),
+  ]);
+  expect(sticky).toBeTruthy();
+  expect(g.sourceBottomY - g.sourceTopY).toBeGreaterThan(sticky!.height * 0.7);
   expect(g.targetBottomY - g.targetTopY).toBeGreaterThan(
     (g.sourceBottomY - g.sourceTopY) * 1.25,
   );
