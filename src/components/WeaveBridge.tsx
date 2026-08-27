@@ -32,6 +32,8 @@ type BridgeMotion = {
 };
 
 const MIN_VISIBLE_SOURCE_HEIGHT = 32, MIN_BRIDGE_WIDTH = 12, VIEWPORT_EDGE_GUTTER = 8;
+const SOURCE_CORNER_INSET = 10, TARGET_EXPANSION_RATIO = 0.3;
+const MIN_TARGET_EXPANSION = 44, MAX_TARGET_EXPANSION = 140;
 const ENTER_MS = 210, RETARGET_DELAY_MS = 45, RETARGET_ENTER_MS = 190;
 const EXIT_MS = 100, FINAL_EXIT_MS = 120;
 const ENTER_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -158,16 +160,30 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
         return;
       }
 
-      const centerY = round((visibleTop + visibleBottom) / 2);
-      const halfSource = clamp(round((visibleBottom - visibleTop) * 0.18), 22, 48);
-      // The bridge is a gate opening into the panel split, not a funnel entering
-      // the aside. Widen the target decisively and terminate it on the actual
-      // resize-divider center so the focus post visually becomes part of that seam.
-      const halfTarget = clamp(round(halfSource * 1.72), halfSource + 16, 88);
-      const sourceTopY = round(centerY - halfSource);
-      const sourceBottomY = round(centerY + halfSource);
-      const targetTopY = round(centerY - halfTarget);
-      const targetBottomY = round(centerY + halfTarget);
+      const topEdgeVisible = sourceRect.top >= TOP_NAV_HEIGHT + VIEWPORT_EDGE_GUTTER;
+      const bottomEdgeVisible = sourceRect.bottom <= window.innerHeight - VIEWPORT_EDGE_GUTTER;
+      // Attach to the focus frame itself. The small inset lands each strand on
+      // the vertical edge just past the rounded corner instead of floating near
+      // the card's center or starting in empty space beyond its border.
+      const sourceTopY = round(visibleTop + (topEdgeVisible ? SOURCE_CORNER_INSET : 0));
+      const sourceBottomY = round(visibleBottom - (bottomEdgeVisible ? SOURCE_CORNER_INSET : 0));
+      const sourceSpan = sourceBottomY - sourceTopY;
+      // Open well beyond BOTH ends of the source frame. At ordinary card sizes
+      // this makes the divider mouth about 60% taller than its full-height card
+      // attachment, so it reads as a structural merge rather than a center tab.
+      const targetExpansion = clamp(
+        round(sourceSpan * TARGET_EXPANSION_RATIO),
+        MIN_TARGET_EXPANSION,
+        MAX_TARGET_EXPANSION,
+      );
+      const targetTopY = round(Math.max(
+        TOP_NAV_HEIGHT + VIEWPORT_EDGE_GUTTER,
+        sourceTopY - targetExpansion,
+      ));
+      const targetBottomY = round(Math.min(
+        window.innerHeight - VIEWPORT_EDGE_GUTTER,
+        sourceBottomY + targetExpansion,
+      ));
       const bridgeWidth = targetX - sourceX;
       const firstControlX = round(sourceX + bridgeWidth * 0.42);
       const secondControlX = round(targetX - bridgeWidth * 0.28);
