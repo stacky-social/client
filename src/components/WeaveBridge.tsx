@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useRelatedStacks } from "../app/(shell)/related-stacks-context";
 import { TOP_NAV_HEIGHT } from "./NavBar/TopNav";
@@ -32,8 +32,9 @@ type BridgeMotion = {
 };
 
 const MIN_VISIBLE_SOURCE_HEIGHT = 32, MIN_BRIDGE_WIDTH = 12, VIEWPORT_EDGE_GUTTER = 8;
-const SOURCE_CORNER_INSET = 10, TARGET_EXPANSION_RATIO = 0.3;
-const MIN_TARGET_EXPANSION = 44, MAX_TARGET_EXPANSION = 140;
+const SOURCE_CORNER_INSET = 10, TARGET_EXPANSION_RATIO = 0.52;
+const MIN_TARGET_EXPANSION = 72, MAX_TARGET_EXPANSION = 220;
+const INWARD_PINCH_RATIO = 0.14, MIN_INWARD_PINCH = 12, MAX_INWARD_PINCH = 36;
 const ENTER_MS = 210, RETARGET_DELAY_MS = 45, RETARGET_ENTER_MS = 190;
 const EXIT_MS = 100, FINAL_EXIT_MS = 120;
 const ENTER_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -64,6 +65,30 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
   const [bridgeMotion, setBridgeMotion] = useState<BridgeMotion>(initialMotion);
   const motionRef = useRef<BridgeMotion>(initialMotion);
   const timersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const openCardsRef = useRef<Set<HTMLElement>>(new Set());
+  const openedLayerKeysRef = useRef<Set<number>>(new Set());
+
+  const syncOpenSourceCards = useCallback((layers: Array<BridgeLayer | null>) => {
+    const next = new Set<HTMLElement>();
+    const feed = feedRef.current;
+    if (feed) {
+      layers.forEach((layer) => {
+        if (!layer || layer.geometry.sourceKind !== "card") return;
+        const card = elementWithValue(
+          feed,
+          '[data-testid="post"][data-post-id]',
+          "data-post-id",
+          layer.geometry.focusId,
+        );
+        if (card) next.add(card);
+      });
+    }
+    openCardsRef.current.forEach((card) => {
+      if (!next.has(card)) card.removeAttribute("data-weave-source-open");
+    });
+    next.forEach((card) => card.setAttribute("data-weave-source-open", "true"));
+    openCardsRef.current = next;
+  }, [feedRef]);
 
   const commitMotion = useCallback((next: BridgeMotion) => {
     motionRef.current = next;
@@ -162,15 +187,17 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
 
       const topEdgeVisible = sourceRect.top >= TOP_NAV_HEIGHT + VIEWPORT_EDGE_GUTTER;
       const bottomEdgeVisible = sourceRect.bottom <= window.innerHeight - VIEWPORT_EDGE_GUTTER;
-      // Attach to the focus frame itself. The small inset lands each strand on
-      // the vertical edge just past the rounded corner instead of floating near
-      // the card's center or starting in empty space beyond its border.
-      const sourceTopY = round(visibleTop + (topEdgeVisible ? SOURCE_CORNER_INSET : 0));
-      const sourceBottomY = round(visibleBottom - (bottomEdgeVisible ? SOURCE_CORNER_INSET : 0));
+      // The active card has no right edge: its top and bottom borders become
+      // these strands, so card sources begin at the exact frame corners. The
+      // compact sticky source remains closed and keeps its rounded-corner inset.
+      const sourceInset = sourceKind === "card" ? 0 : SOURCE_CORNER_INSET;
+      const sourceTopY = round(visibleTop + (topEdgeVisible ? sourceInset : 0));
+      const sourceBottomY = round(visibleBottom - (bottomEdgeVisible ? sourceInset : 0));
       const sourceSpan = sourceBottomY - sourceTopY;
       // Open well beyond BOTH ends of the source frame. At ordinary card sizes
-      // this makes the divider mouth about 60% taller than its full-height card
-      // attachment, so it reads as a structural merge rather than a center tab.
+      // the divider mouth is roughly twice the source height, so the focused
+      // frame reads as opening into the panel boundary rather than plugging a
+      // small tab into its center.
       const targetExpansion = clamp(
         round(sourceSpan * TARGET_EXPANSION_RATIO),
         MIN_TARGET_EXPANSION,
@@ -185,12 +212,57 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
         sourceBottomY + targetExpansion,
       ));
       const bridgeWidth = targetX - sourceX;
-      const firstControlX = round(sourceX + bridgeWidth * 0.42);
-      const secondControlX = round(targetX - bridgeWidth * 0.28);
+      const inwardPinch = clamp(
+        round(sourceSpan * INWARD_PINCH_RATIO),
+        MIN_INWARD_PINCH,
+        MAX_INWARD_PINCH,
+      );
+      const waistX = round(sourceX + bridgeWidth * 0.34);
+      const upperWaistY = round(sourceTopY + inwardPinch);
+      const lowerWaistY = round(sourceBottomY - inwardPinch);
+      const sourceLeadX = round(sourceX + clamp(bridgeWidth * 0.18, 10, 16));
+      const sourceBendX = round(sourceX + clamp(bridgeWidth * 0.27, 15, 24));
+      const flareControlX = round(sourceX + bridgeWidth * 0.5);
+      const terminalControlX = round(targetX - Math.max(10, bridgeWidth * 0.22));
+      const upperTerminalLeg = clamp(
+        round((upperWaistY - targetTopY) * 0.56),
+        12,
+        110,
+      );
+      const lowerTerminalLeg = clamp(
+        round((targetBottomY - lowerWaistY) * 0.56),
+        12,
+        110,
+      );
+      const upperTerminalControlY = round(targetTopY + upperTerminalLeg);
+      const lowerTerminalControlY = round(targetBottomY - lowerTerminalLeg);
       const local = (viewportY: number) => round(viewportY - TOP_NAV_HEIGHT);
-      const upperPath = `M ${sourceX} ${local(sourceTopY)} C ${firstControlX} ${local(sourceTopY)}, ${secondControlX} ${local(targetTopY)}, ${targetX} ${local(targetTopY)}`;
-      const lowerPath = `M ${sourceX} ${local(sourceBottomY)} C ${firstControlX} ${local(sourceBottomY)}, ${secondControlX} ${local(targetBottomY)}, ${targetX} ${local(targetBottomY)}`;
-      const ribbonPath = `${upperPath} L ${targetX} ${local(targetBottomY)} C ${secondControlX} ${local(targetBottomY)}, ${firstControlX} ${local(sourceBottomY)}, ${sourceX} ${local(sourceBottomY)} Z`;
+      // Two joined cubics produce concept B's deliberate reverse curve. Each
+      // strand first continues its horizontal card border away from the open
+      // frame, then bends toward the other strand, reverses through a short
+      // waist, and arrives at the divider on a steep diagonal. Keeping the
+      // terminal control point away from the endpoint prevents the old
+      // horizontal attachment-tab silhouette.
+      const upperPath = [
+        `M ${sourceX} ${local(sourceTopY)}`,
+        `L ${sourceLeadX} ${local(sourceTopY)}`,
+        `C ${sourceBendX} ${local(sourceTopY)}, ${sourceBendX} ${local(upperWaistY)}, ${waistX} ${local(upperWaistY)}`,
+        `C ${flareControlX} ${local(upperWaistY)}, ${terminalControlX} ${local(upperTerminalControlY)}, ${targetX} ${local(targetTopY)}`,
+      ].join(" ");
+      const lowerPath = [
+        `M ${sourceX} ${local(sourceBottomY)}`,
+        `L ${sourceLeadX} ${local(sourceBottomY)}`,
+        `C ${sourceBendX} ${local(sourceBottomY)}, ${sourceBendX} ${local(lowerWaistY)}, ${waistX} ${local(lowerWaistY)}`,
+        `C ${flareControlX} ${local(lowerWaistY)}, ${terminalControlX} ${local(lowerTerminalControlY)}, ${targetX} ${local(targetBottomY)}`,
+      ].join(" ");
+      const ribbonPath = [
+        upperPath,
+        `L ${targetX} ${local(targetBottomY)}`,
+        `C ${terminalControlX} ${local(lowerTerminalControlY)}, ${flareControlX} ${local(lowerWaistY)}, ${waistX} ${local(lowerWaistY)}`,
+        `C ${sourceBendX} ${local(lowerWaistY)}, ${sourceBendX} ${local(sourceBottomY)}, ${sourceLeadX} ${local(sourceBottomY)}`,
+        `L ${sourceX} ${local(sourceBottomY)}`,
+        "Z",
+      ].join(" ");
       const seamPath = `M ${targetX} ${local(targetTopY)} L ${targetX} ${local(targetBottomY)}`;
       const coordinates = [sourceX, sourceTopY, sourceBottomY, targetX, targetTopY, targetBottomY];
       const next: BridgeGeometry = {
@@ -302,7 +374,12 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
 
     clearMotionTimers();
     const revision = previous.revision + 1;
-    const isRetarget = previous.current !== null;
+    // A scroll handoff can briefly invalidate measurement between the old and
+    // new cards. Preserve that already-exiting layer as the retarget source so
+    // its open frame does not snap shut before the replacement strand begins.
+    const priorLayer = previous.current ?? previous.outgoing;
+    const isRetarget = priorLayer !== null
+      && priorLayer.geometry.focusId !== measuredGeometry.focusId;
     const current: BridgeLayer = {
       key: revision,
       geometry: measuredGeometry,
@@ -312,7 +389,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
     commitMotion({
       current,
       outgoing: isRetarget
-        ? { ...previous.current!, phase: "exiting", enterDelay: 0 }
+        ? { ...priorLayer, phase: "exiting", enterDelay: 0 }
         : null,
       revision,
       state: isRetarget ? "retargeting" : "entering",
@@ -333,6 +410,35 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
   }, [clearMotionTimers, commitMotion, enabled, measuredGeometry, reduceMotion, scheduleMotion]);
 
   useEffect(() => () => clearMotionTimers(), [clearMotionTimers]);
+
+  // The open frame belongs to visible bridge layers, not merely to the active
+  // post. During retargeting the old card stays open through its exit, and the
+  // new card opens exactly when its delayed strand begins drawing.
+  useLayoutEffect(() => {
+    const current = bridgeMotion.current;
+    const liveKeys = new Set(
+      [bridgeMotion.outgoing?.key, current?.key].filter((key): key is number => key !== undefined),
+    );
+    openedLayerKeysRef.current.forEach((key) => {
+      if (!liveKeys.has(key)) openedLayerKeysRef.current.delete(key);
+    });
+    const currentReady = current
+      && (current.enterDelay === 0 || openedLayerKeysRef.current.has(current.key));
+    const immediateCurrent = currentReady ? current : null;
+    syncOpenSourceCards([bridgeMotion.outgoing, immediateCurrent]);
+
+    if (!current || currentReady) return;
+    const revision = bridgeMotion.revision;
+    const timer = window.setTimeout(() => {
+      const latest = motionRef.current;
+      if (latest.revision !== revision) return;
+      openedLayerKeysRef.current.add(current.key);
+      syncOpenSourceCards([latest.outgoing, latest.current]);
+    }, current.enterDelay);
+    return () => window.clearTimeout(timer);
+  }, [bridgeMotion, syncOpenSourceCards]);
+
+  useEffect(() => () => syncOpenSourceCards([]), [syncOpenSourceCards]);
 
   const displayGeometry = bridgeMotion.current?.geometry ?? bridgeMotion.outgoing?.geometry;
   if (!displayGeometry) return null;

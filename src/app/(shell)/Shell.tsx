@@ -6,7 +6,7 @@ import { HoverTooltip } from "../../components/HoverTooltip";
 import { TopNav, TOP_NAV_HEIGHT } from "../../components/NavBar/TopNav";
 import { RelatedStacksProvider } from "./related-stacks-context";
 import { ResizableDivider } from "./ResizableDivider";
-import { useFeedRatio } from "./useFeedRatio";
+import { FEED_RATIO_MAX, FEED_RATIO_MIN, useFeedRatio } from "./useFeedRatio";
 import WeaveBridge from "../../components/WeaveBridge";
 
 /**
@@ -16,7 +16,9 @@ import WeaveBridge from "../../components/WeaveBridge";
  */
 const MAX_CONTENT_WIDTH = 1280;
 const SLIDER_W = 8;
+const WEAVE_RUNWAY = 64;
 const PANE_GUTTER = 10;
+const FEED_WEAVE_INSET = WEAVE_RUNWAY - PANE_GUTTER - (SLIDER_W / 2);
 const BRIDGE_EXIT_GRACE_MS = 140;
 
 export default function Shell({
@@ -143,11 +145,6 @@ export default function Shell({
                     ref={feedRef}
                     style={{
                         paddingTop: 16,
-                        // Container-query context so the shared Post card can react
-                        // to the feed column's own width (set by the resize divider),
-                        // not the viewport — mirrors the aside. Lets category tags on
-                        // the focus/feed cards compress to icon-only when narrow.
-                        containerType: "inline-size",
                         // With an aside, take the slider-controlled share of the row.
                         // Without one (liked / bookmarks / search, or on a narrow
                         // viewport), render a
@@ -159,7 +156,19 @@ export default function Shell({
                             : { width: "100%", maxWidth: 760, margin: "0 auto" }),
                     }}
                 >
-                    {children}
+                    <div
+                        data-testid="feed-content"
+                        style={{
+                            width: showAside ? `calc(100% - ${FEED_WEAVE_INSET}px)` : "100%",
+                            // The inset reserves a real drawing runway without
+                            // moving the divider or stealing width from the
+                            // related panel. It is also the nearest container-query
+                            // context, so cards react to their true rendered width.
+                            containerType: "inline-size",
+                        }}
+                    >
+                        {children}
+                    </div>
                 </div>
 
                 {showAside && (
@@ -169,8 +178,8 @@ export default function Shell({
                         onDoubleClick={reset}
                         quietIdleLine
                         valueNow={Math.round(ratio * 100)}
-                        valueMin={15}
-                        valueMax={85}
+                        valueMin={Math.round(FEED_RATIO_MIN * 100)}
+                        valueMax={Math.round(FEED_RATIO_MAX * 100)}
                         style={{
                             position: "relative",
                             top: "auto",

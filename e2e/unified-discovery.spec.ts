@@ -143,12 +143,12 @@ test.describe('unified discovery and interactions', () => {
     await expect(remoteRelation).toBeVisible();
     await remoteRelation.click();
     await expect(page.getByText('Related evidence for the battery result')).toBeVisible();
-    await expect(page.locator('[data-related-focus-post-id="live-search"]')).toBeVisible();
+    await expect(page.locator('[data-related-focus-post-id="live-search"]').first()).toBeVisible();
 
     await remotePost.getByText('Remote battery manufacturing result', { exact: true }).click();
     await expect(page).toHaveURL(/\/posts\/live-search(?:\?|$)/);
     await expect(page.getByText('Related evidence for the battery result')).toBeVisible();
-    await expect(page.locator('[data-related-focus-post-id="live-search"]')).toBeVisible();
+    await expect(page.locator('[data-related-focus-post-id="live-search"]').first()).toBeVisible();
   });
 
   test('keeps a linked Mastodon post consistent after opening its detail view', async ({ page }) => {

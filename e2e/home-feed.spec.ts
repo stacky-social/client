@@ -97,13 +97,19 @@ test.describe('Home timeline', () => {
         background: style.backgroundColor,
         left: style.borderLeftWidth,
         right: style.borderRightWidth,
-        radius: style.borderRadius,
+        rightColor: style.borderRightColor,
+        topLeftRadius: style.borderTopLeftRadius,
+        topRightRadius: style.borderTopRightRadius,
+        bottomRightRadius: style.borderBottomRightRadius,
         shadow: style.boxShadow,
       };
     });
     expect(postCardStyle.left).toBe('2px');
     expect(postCardStyle.right).toBe('2px');
-    expect(postCardStyle.radius).toBe('10px');
+    expect(postCardStyle.rightColor).toBe('rgba(0, 0, 0, 0)');
+    expect(postCardStyle.topLeftRadius).toBe('10px');
+    expect(postCardStyle.topRightRadius).toBe('0px');
+    expect(postCardStyle.bottomRightRadius).toBe('0px');
     expect(postCardStyle.shadow).not.toBe('none');
     expect(postCardStyle.background).toBe('rgb(255, 255, 255)');
 
@@ -126,7 +132,7 @@ test.describe('Home timeline', () => {
 
     const focusedFeedPost = page.locator('[data-store-feed-post="152053690"]');
     await focusedFeedPost.evaluate((element) => element.scrollIntoView({ block: 'center' }));
-    await expect(page.locator('[data-related-focus-post-id="152053690"]')).toBeVisible();
+    await expect(page.locator('[data-related-focus-post-id="152053690"]').first()).toBeVisible();
 
     const composer = page.getByRole('region', { name: 'Create a post' });
     const draft = composer.getByRole('textbox', { name: 'Post text' });
@@ -137,10 +143,10 @@ test.describe('Home timeline', () => {
     await expect(composer.getByText('Your main point is clear.')).toBeVisible();
     await expect(page.getByTestId('col-aside').getByText('Your main point is clear.')).toHaveCount(0);
     await expect(page.getByTestId('col-aside').locator('[data-related-card]').first()).toBeVisible();
-    await expect(page.getByTestId('col-aside').locator('[data-related-focus-post-id^="draft-"]')).toBeVisible();
+    await expect(page.getByTestId('col-aside').locator('[data-related-focus-post-id^="draft-"]').first()).toBeVisible();
 
     await draft.fill('');
-    await expect(page.locator('[data-related-focus-post-id="152053690"]')).toBeVisible();
+    await expect(page.locator('[data-related-focus-post-id="152053690"]').first()).toBeVisible();
 
     const composerBox = (await composer.boundingBox())!;
     const postBox = (await page.locator('[data-store-feed-post]').first().getByTestId('post').boundingBox())!;

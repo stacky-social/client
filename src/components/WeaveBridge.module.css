@@ -8,12 +8,12 @@
 .ribbon { fill: rgba(69, 169, 158, 0.1); stroke: none; }
 
 .strand {
-  fill: none; stroke: rgba(28, 43, 74, 0.34); stroke-width: 1.35;
+  fill: none; stroke: #45a99e; stroke-width: 2;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
 }
 
-.accentStrand { stroke: rgba(69, 169, 158, 0.72); stroke-width: 1.6; }
+.accentStrand { stroke: #45a99e; }
 
 .seam {
   fill: none; stroke: rgba(46, 105, 105, 0.48); stroke-width: 1.8;
