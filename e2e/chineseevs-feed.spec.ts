@@ -104,6 +104,8 @@ test.describe('AI workforce demo feed', () => {
     await expect(aside.getByRole('note')).toHaveCount(0);
     await expect(editedText).toHaveAttribute('aria-hidden', 'true');
     await expect(inlineDiff).toHaveAttribute('aria-hidden', 'false');
+    await expect(card.locator('[data-ai-edit-legend]')).toHaveCount(0);
+    await expect(inlineDiff).not.toContainText('AI edits:');
     await expect(inlineDiff.locator('del').first()).toBeVisible();
     await expect(inlineDiff.locator('ins').first()).toBeVisible();
     await expect(inlineDiff.locator('mark').first()).toBeVisible();
