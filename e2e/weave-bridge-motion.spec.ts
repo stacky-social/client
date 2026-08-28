@@ -1,7 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
+import mockData from '../src/app/FakeData/listy-injection.json';
 
-type Layer = { slot: string | null; id: string | null; phase: string | null };
+const stickyFocusId = (mockData as any[]).find((entry) => entry.replies?.length >= 10)!.focusPost.id as string;
+
+type Layer = { slot: string | null; id: string | null; phase: string | null; sourceKind: string | null };
 type SourceFrame = { id: string; phase: string | null };
+type Aperture = { id: string; width: number; height: number; railScale: number };
 type Snapshot = {
   state: string | null;
   motion: string | null;
@@ -9,6 +13,7 @@ type Snapshot = {
   layers: Layer[];
   openIds: string[];
   sourceFrames: SourceFrame[];
+  aperture: Aperture | null;
 };
 type RecorderWindow = Window & { __weaveEvents?: Snapshot[]; __weaveSignature?: string };
 
@@ -23,6 +28,13 @@ async function installRecorder(page: Page) {
     const record = () => {
       const bridge = document.querySelector('[data-testid="weave-bridge"]');
       if (!bridge) return;
+      const currentLayer = bridge.querySelector('[data-weave-layer="current"]');
+      const focusId = currentLayer?.getAttribute('data-focus-id') ?? '';
+      const reveal = currentLayer?.querySelector<SVGRectElement>('[data-testid="weave-reveal-window"]');
+      const source = document.querySelector<HTMLElement>(
+        `[data-testid="post"][data-post-id="${CSS.escape(focusId)}"]`,
+      );
+      const box = reveal?.getBBox();
       const snapshot: Snapshot = {
         state: bridge.getAttribute('data-weave-state'),
         motion: bridge.getAttribute('data-weave-motion'),
@@ -31,6 +43,7 @@ async function installRecorder(page: Page) {
           slot: layer.getAttribute('data-weave-layer'),
           id: layer.getAttribute('data-focus-id'),
           phase: layer.getAttribute('data-phase'),
+          sourceKind: layer.getAttribute('data-source-kind'),
         })),
         openIds: Array.from(document.querySelectorAll('[data-weave-source-open="true"]'))
           .map((post) => post.getAttribute('data-post-id') ?? '')
@@ -43,6 +56,12 @@ async function installRecorder(page: Page) {
           }))
           .filter((frame) => Boolean(frame.id))
           .sort((a, b) => a.id.localeCompare(b.id)),
+        aperture: box && source ? {
+          id: focusId,
+          width: box.width,
+          height: box.height,
+          railScale: new DOMMatrix(getComputedStyle(source, '::before').transform).d,
+        } : null,
       };
       const signature = JSON.stringify(snapshot);
       if (signature === state.__weaveSignature) return;
@@ -108,14 +127,10 @@ test('switches A to B and settles with one correctly keyed layer', async ({ page
     layer.slot === 'outgoing' && layer.id === firstId && layer.phase === 'exiting'))).toBe(true);
   const handoff = history.filter((event) => event.state === 'retargeting');
   expect(handoff.every((event) => event.openIds.length <= 2)).toBe(true);
-  const oldRetracting = history.findIndex((event) =>
+  const coupledExit = history.findIndex((event) =>
     event.layers.some((layer) => layer.slot === 'outgoing' && layer.id === firstId && layer.phase === 'exiting')
-    && event.sourceFrames.some((frame) => frame.id === firstId && frame.phase === 'open'));
-  const oldClosing = history.findIndex((event) =>
-    !event.layers.some((layer) => layer.id === firstId)
     && event.sourceFrames.some((frame) => frame.id === firstId && frame.phase === 'closing'));
-  expect(oldRetracting).toBeGreaterThanOrEqual(0);
-  expect(oldClosing).toBeGreaterThan(oldRetracting);
+  expect(coupledExit).toBeGreaterThanOrEqual(0);
   await expect(page.locator(`[data-post-id="${firstId}"][data-testid="post"]`))
     .not.toHaveAttribute('data-weave-source-open', 'true');
   await expect(page.locator(`[data-post-id="${nextId}"][data-testid="post"]`))
@@ -123,42 +138,81 @@ test('switches A to B and settles with one correctly keyed layer', async ({ page
   expect(history.every((event) => {
     const active = event.layers.filter((layer) => layer.slot === 'current');
     const old = event.layers.filter((layer) => layer.slot === 'outgoing');
-    return active.length <= 1 && old.length <= 1 && (!active[0] || !old[0] || active[0].id !== old[0].id);
+    return active.length <= 1 && old.length <= 1 && (
+      !active[0] || !old[0]
+      || active[0].id !== old[0].id
+      || active[0].sourceKind !== old[0].sourceKind
+    );
   })).toBe(true);
 });
 
-test('opens the source midpoint before revealing the bridge', async ({ page }) => {
+test('grows the bridge vertically and horizontally as the source rails retract', async ({ page }) => {
   await openDemo(page);
   const firstId = await current(page).getAttribute('data-focus-id');
+  await clearEvents(page);
   const nextId = await scrollToPost(page, 2);
   await expect(current(page)).toHaveAttribute('data-focus-id', nextId);
-  await expect(current(page)).toHaveAttribute('data-phase', 'entering');
-
-  const nextCard = page.locator(`[data-post-id="${nextId}"][data-testid="post"]`);
-  await page.waitForFunction((id) => document.querySelector(
-    `[data-post-id="${id}"][data-testid="post"]`,
-  )?.getAttribute('data-weave-source-phase') === 'opening', nextId, { polling: 'raf' });
-  const [revealWidth, sourceX, railMotion] = await Promise.all([
-    root(page).getByTestId('weave-reveal-window').evaluate((rect) =>
-      Number.parseFloat(rect.getAttribute('width') ?? '')),
-    root(page).getAttribute('data-source-x').then(Number),
-    nextCard.evaluate((card) => ({
-      topAnimation: getComputedStyle(card, '::before').animationName,
-      bottomAnimation: getComputedStyle(card, '::after').animationName,
-    })),
-  ]);
-  expect(revealWidth).toBeLessThanOrEqual(sourceX + 1);
-  expect(railMotion).toEqual({
-    topAnimation: 'weave-source-edge-open',
-    bottomAnimation: 'weave-source-edge-open',
-  });
-
-  await expect(nextCard).toHaveAttribute('data-weave-source-phase', 'open');
-  await expect.poll(async () => Number.parseFloat(
-    await root(page).getByTestId('weave-reveal-window').getAttribute('width') ?? '',
-  )).toBeGreaterThan(sourceX + 1);
+  await expect(current(page)).toHaveAttribute('data-phase', 'connected');
+  const samples = (await events(page)).flatMap((event) => event.aperture?.id === nextId
+    ? [event.aperture] : []);
+  expect(Math.max(...samples.map((sample) => sample.width))
+    - Math.min(...samples.map((sample) => sample.width))).toBeGreaterThan(12);
+  expect(Math.max(...samples.map((sample) => sample.height))
+    - Math.min(...samples.map((sample) => sample.height))).toBeGreaterThan(40);
+  expect(Math.max(...samples.map((sample) => sample.railScale))
+    - Math.min(...samples.map((sample) => sample.railScale))).toBeGreaterThan(0.15);
+  expect(samples.some((sample) => sample.width > 8 && sample.height > 40
+    && sample.railScale < 0.85 && sample.railScale > 0.05)).toBe(true);
   await expect(page.locator(`[data-post-id="${firstId}"][data-testid="post"]`))
     .not.toHaveAttribute('data-weave-source-open', 'true');
+});
+
+test('never skips the source-rail transition across repeated focus handoffs', async ({ page }) => {
+  await openDemo(page);
+  for (const index of [1, 3, 0, 2]) {
+    await clearEvents(page);
+    const id = await scrollToPost(page, index);
+    await expect(current(page)).toHaveAttribute('data-focus-id', id);
+    await expect(current(page)).toHaveAttribute('data-phase', 'connected');
+    await expect(page.locator(`[data-post-id="${id}"][data-testid="post"]`))
+      .toHaveAttribute('data-weave-source-phase', 'open');
+    const history = await events(page);
+    expect(history.some((event) => event.sourceFrames.some((frame) =>
+      frame.id === id && frame.phase === 'opening'))).toBe(true);
+    expect(history.some((event) => event.sourceFrames.some((frame) =>
+      frame.id === id && frame.phase === 'open'))).toBe(true);
+  }
+});
+
+test('animates the same focus when its source changes between card and sticky bar', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await installRecorder(page);
+  await page.goto(`/AIWorkforce/posts/${stickyFocusId}`);
+  await expect(page.locator('[data-testid="feed"] [data-testid="post"][data-active="true"]')).toBeVisible();
+  await expect(root(page)).toHaveAttribute('data-weave-state', 'connected');
+  await expect(root(page)).toHaveAttribute('data-source-kind', 'card');
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight))
+    .toBeGreaterThan(1200);
+
+  await clearEvents(page);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect(root(page)).toHaveAttribute('data-source-kind', 'sticky');
+  await expect(root(page)).toHaveAttribute('data-weave-state', 'connected');
+  let history = await events(page);
+  expect(history.some((event) => event.layers.some((layer) =>
+    layer.id === stickyFocusId && layer.phase === 'entering' && layer.sourceKind === 'sticky'))).toBe(true);
+
+  await clearEvents(page);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(root(page)).toHaveAttribute('data-source-kind', 'card');
+  await expect(root(page)).toHaveAttribute('data-weave-state', 'connected');
+  await expect(page.locator(`[data-post-id="${stickyFocusId}"][data-testid="post"]`))
+    .toHaveAttribute('data-weave-source-phase', 'open');
+  history = await events(page);
+  expect(history.some((event) => event.layers.some((layer) =>
+    layer.id === stickyFocusId && layer.phase === 'entering' && layer.sourceKind === 'card'))).toBe(true);
+  expect(history.some((event) => event.sourceFrames.some((frame) =>
+    frame.id === stickyFocusId && frame.phase === 'opening'))).toBe(true);
 });
 
 test('rapid retarget keeps only the latest focus and removes stale layers', async ({ page }) => {

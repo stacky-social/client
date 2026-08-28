@@ -9,9 +9,9 @@
     --cw-line: #dfe4ea;
 }
 
-/* WeaveBridge replaces the right edge with two temporary half-rails. They
-   retract away from the midpoint before the ribbon reveals, then close back
-   toward the midpoint only after the ribbon has returned to the card. */
+/* WeaveBridge replaces the right edge with two temporary half-rails. Their
+   reversible transforms share the bridge morph's timing, so the opening and
+   ribbon expand from the midpoint as one continuous gesture. */
 [data-testid="post"][data-weave-source-open="true"] {
     border-color: var(--cw-teal) !important;
     border-right-color: transparent !important;
@@ -30,6 +30,8 @@
     height: 50%;
     background: var(--cw-teal);
     pointer-events: none;
+    transform: scaleY(1);
+    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 [data-testid="post"][data-weave-source-open="true"]::before {
@@ -43,10 +45,7 @@
 }
 
 [data-testid="post"][data-weave-source-phase="opening"]::before,
-[data-testid="post"][data-weave-source-phase="opening"]::after {
-    animation: weave-source-edge-open 120ms cubic-bezier(0.4, 0, 1, 1) forwards;
-}
-
+[data-testid="post"][data-weave-source-phase="opening"]::after,
 [data-testid="post"][data-weave-source-phase="open"]::before,
 [data-testid="post"][data-weave-source-phase="open"]::after {
     transform: scaleY(0);
@@ -54,30 +53,14 @@
 
 [data-testid="post"][data-weave-source-phase="closing"]::before,
 [data-testid="post"][data-weave-source-phase="closing"]::after {
-    animation: weave-source-edge-close 120ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-@keyframes weave-source-edge-open {
-    from { transform: scaleY(1); }
-    to { transform: scaleY(0); }
-}
-
-@keyframes weave-source-edge-close {
-    from { transform: scaleY(0); }
-    to { transform: scaleY(1); }
+    transform: scaleY(1);
+    transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    [data-testid="post"][data-weave-source-phase="opening"]::before,
-    [data-testid="post"][data-weave-source-phase="opening"]::after {
-        animation: none;
-        transform: scaleY(0);
-    }
-
-    [data-testid="post"][data-weave-source-phase="closing"]::before,
-    [data-testid="post"][data-weave-source-phase="closing"]::after {
-        animation: none;
-        transform: scaleY(1);
+    [data-testid="post"][data-weave-source-open="true"]::before,
+    [data-testid="post"][data-weave-source-open="true"]::after {
+        transition: none;
     }
 }
 
