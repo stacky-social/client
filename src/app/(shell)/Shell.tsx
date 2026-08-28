@@ -19,7 +19,7 @@ const SLIDER_W = 8;
 const WEAVE_RUNWAY = 64;
 const PANE_GUTTER = 10;
 const FEED_WEAVE_INSET = WEAVE_RUNWAY - PANE_GUTTER - (SLIDER_W / 2);
-const BRIDGE_EXIT_GRACE_MS = 140;
+const BRIDGE_EXIT_GRACE_MS = 240;
 
 export default function Shell({
     children,
