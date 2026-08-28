@@ -40,12 +40,13 @@ test.describe('Related-panel viewport continuity', () => {
     const aside = page.getByTestId('col-aside');
     await expect(page.locator('[data-related-card]')).toHaveCount(10);
 
-    await aside.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: 'instant' }));
-    const beforeLoad = await measureViewport(page);
-    await page.getByTestId('related-load-more').click();
+    const beforeLoadTop = await aside.evaluate((element) => {
+      element.scrollTo({ top: element.scrollHeight, behavior: 'instant' });
+      return element.scrollTop;
+    });
     await expect(page.locator('[data-related-card]')).toHaveCount(20);
     const afterLoad = await measureViewport(page);
-    expect(afterLoad.scrollTop).toBeCloseTo(beforeLoad.scrollTop, 0);
+    expect(afterLoad.scrollTop).toBeCloseTo(beforeLoadTop, 0);
 
     const expandable = page.locator('[data-related-card]').filter({
       has: page.getByRole('button', { name: 'Read more' }),
@@ -97,7 +98,6 @@ test.describe('Related-panel viewport continuity', () => {
     await page.goto(DETAIL_URL);
     const aside = page.getByTestId('col-aside');
     await aside.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: 'instant' }));
-    await page.getByTestId('related-load-more').click();
     await expect(page.locator('[data-related-card]')).toHaveCount(20);
 
     const target = page.locator('[data-related-card]').nth(14);

@@ -63,34 +63,45 @@
     text-decoration: underline;
   }
 
-  .related-load-more {
+  .related-auto-load,
+  .related-list-end {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    justify-content: center;
+    gap: 8px;
     width: 100%;
     margin-top: 2px;
-    padding: 11px 13px;
-    color: #1c2b4a;
-    background: #ffffff;
-    border: 1px solid #cfd4df;
-    border-radius: 9px;
+    padding: 12px 8px;
+    color: #667085;
     font: inherit;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background-color 150ms ease, border-color 150ms ease;
-  }
-
-  .related-load-more span {
-    color: #6b7280;
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 600;
   }
 
-  .related-load-more:hover {
-    background: #eef8f6;
-    border-color: #45a99e;
+  .related-auto-load-count::before {
+    content: "·";
+    margin-right: 8px;
+  }
+
+  .related-auto-load-indicator {
+    width: 13px;
+    height: 13px;
+    border: 2px solid rgba(69, 169, 158, 0.22);
+    border-top-color: #45a99e;
+    border-radius: 50%;
+    animation: related-auto-load-spin 650ms linear infinite;
+  }
+
+  .related-list-end::before,
+  .related-list-end::after {
+    content: "";
+    width: 28px;
+    height: 1px;
+    background: #dfe4ea;
+  }
+
+  @keyframes related-auto-load-spin {
+    to { transform: rotate(360deg); }
   }
 
   /* Contextual AI edits borrow the visual grammar of document track changes:
@@ -193,6 +204,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .related-auto-load-indicator { animation: none; }
     .ai-edit-badge,
     .ai-edit-edited-text,
     .ai-edit-inline-text { transition: none; }
