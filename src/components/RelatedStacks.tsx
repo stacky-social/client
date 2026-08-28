@@ -1229,6 +1229,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const [visibleCardCount, setVisibleCardCount] = useState(RELATED_PAGE_SIZE);
   const visibleCardCountRef = useRef(RELATED_PAGE_SIZE);
+  const autoLoadSentinelRef = useRef<HTMLDivElement | null>(null);
   const panelFocusIdRef = useRef<string | null>(null);
   const restoringPanelScrollRef = useRef(false);
   const pendingViewportRestoreRef = useRef<PanelViewportSnapshot | null>(null);
@@ -1766,6 +1767,40 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     savePanelViewport(focusId, snapshot);
     return snapshot;
   }, [sourcePostId, ctxActivePostId]);
+
+  const revealNextRelatedPage = React.useCallback(() => {
+    if (restoringPanelScrollRef.current) return;
+    const current = visibleCardCountRef.current;
+    const next = Math.min(displayStacks.length, current + RELATED_PAGE_SIZE);
+    if (next <= current) return;
+    // Update the ref first so a second observer delivery cannot enqueue another
+    // page, and so the saved viewport already knows how many cards Back needs.
+    visibleCardCountRef.current = next;
+    capturePanelViewport();
+    setVisibleCardCount((value) => Math.max(value, next));
+  }, [capturePanelViewport, displayStacks.length]);
+
+  useEffect(() => {
+    const sentinel = autoLoadSentinelRef.current;
+    if (!sentinel || remainingCardCount <= 0) return;
+    const aside = sentinel.closest('[data-testid="col-aside"]') as HTMLElement | null;
+    if (!aside) return;
+
+    if (typeof IntersectionObserver === 'undefined') {
+      const onScroll = () => {
+        if (aside.scrollHeight - aside.scrollTop - aside.clientHeight <= 320) revealNextRelatedPage();
+      };
+      aside.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+      return () => aside.removeEventListener('scroll', onScroll);
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) revealNextRelatedPage();
+    }, { root: aside, rootMargin: '0px 0px 320px 0px', threshold: 0.01 });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [remainingCardCount, revealNextRelatedPage]);
 
   // Restore after pagination has rendered enough cards to include the semantic
   // anchor. The card + offset wins over raw pixels and therefore survives card
@@ -3544,23 +3579,23 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           }); // end visibleDisplayStacks.flatMap
         })()} {/* end activeAnchorTopic IIFE */}
 
-        {remainingCardCount > 0 && (
-          <button
-            type="button"
-            className="related-load-more"
-            data-testid="related-load-more"
-            onClick={() => {
-              pendingViewportRestoreRef.current = capturePanelViewport();
-              const next = Math.min(displayStacks.length, effectiveVisibleCardCount + RELATED_PAGE_SIZE);
-              setVisibleCardCount(next);
-              visibleCardCountRef.current = next;
-              setViewportRestoreEpoch((current) => current + 1);
-            }}
+        {remainingCardCount > 0 ? (
+          <div
+            ref={autoLoadSentinelRef}
+            className="related-auto-load"
+            data-testid="related-auto-load"
+            role="status"
+            aria-live="polite"
           >
-            Load more
-            <span>{Math.min(RELATED_PAGE_SIZE, remainingCardCount)} of {remainingCardCount} remaining</span>
-          </button>
-        )}
+            <span className="related-auto-load-indicator" aria-hidden="true" />
+            <span>Loading more posts…</span>
+            <span className="related-auto-load-count">{remainingCardCount} remaining</span>
+          </div>
+        ) : displayStacks.length > RELATED_PAGE_SIZE ? (
+          <div className="related-list-end" data-testid="related-list-end" role="status">
+            All related posts loaded
+          </div>
+        ) : null}
       </div>
 
       <StackPostsModal

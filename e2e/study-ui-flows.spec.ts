@@ -5,16 +5,17 @@ const firstFocusId = (mockData as any)[0].focusPost.id as string;
 const DETAIL_URL = `/AIWorkforce/posts/${firstFocusId}`;
 
 test.describe('Study-ready related posts and composers', () => {
-  test('related posts reveal ten cards at a time', async ({ page }) => {
+  test('related posts automatically reveal the next ten near the panel bottom', async ({ page }) => {
     await page.goto(DETAIL_URL);
 
     const cards = page.locator('[data-related-card]');
     await expect(cards).toHaveCount(10);
-
-    const loadMore = page.getByTestId('related-load-more');
-    await expect(loadMore).toContainText('Load more');
-    await loadMore.click();
-
+    await expect(page.getByTestId('related-load-more')).toHaveCount(0);
+    await page.getByTestId('col-aside').evaluate((aside) => {
+      aside.scrollTo({ top: aside.scrollHeight, behavior: 'instant' });
+    });
+    await expect(cards).toHaveCount(20);
+    await page.waitForTimeout(200);
     await expect(cards).toHaveCount(20);
   });
 
