@@ -1,12 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 
 type Layer = { slot: string | null; id: string | null; phase: string | null };
+type SourceFrame = { id: string; phase: string | null };
 type Snapshot = {
   state: string | null;
   motion: string | null;
   revision: string | null;
   layers: Layer[];
   openIds: string[];
+  sourceFrames: SourceFrame[];
 };
 type RecorderWindow = Window & { __weaveEvents?: Snapshot[]; __weaveSignature?: string };
 
@@ -34,6 +36,13 @@ async function installRecorder(page: Page) {
           .map((post) => post.getAttribute('data-post-id') ?? '')
           .filter(Boolean)
           .sort(),
+        sourceFrames: Array.from(document.querySelectorAll('[data-weave-source-open="true"]'))
+          .map((post) => ({
+            id: post.getAttribute('data-post-id') ?? '',
+            phase: post.getAttribute('data-weave-source-phase'),
+          }))
+          .filter((frame) => Boolean(frame.id))
+          .sort((a, b) => a.id.localeCompare(b.id)),
       };
       const signature = JSON.stringify(snapshot);
       if (signature === state.__weaveSignature) return;
@@ -98,11 +107,15 @@ test('switches A to B and settles with one correctly keyed layer', async ({ page
   expect(history.some((event) => event.layers.some((layer) =>
     layer.slot === 'outgoing' && layer.id === firstId && layer.phase === 'exiting'))).toBe(true);
   const handoff = history.filter((event) => event.state === 'retargeting');
-  expect(handoff.some((event) =>
-    event.openIds.includes(firstId!) && !event.openIds.includes(nextId))).toBe(true);
-  expect(handoff.some((event) =>
-    event.openIds.includes(firstId!) && event.openIds.includes(nextId))).toBe(true);
   expect(handoff.every((event) => event.openIds.length <= 2)).toBe(true);
+  const oldRetracting = history.findIndex((event) =>
+    event.layers.some((layer) => layer.slot === 'outgoing' && layer.id === firstId && layer.phase === 'exiting')
+    && event.sourceFrames.some((frame) => frame.id === firstId && frame.phase === 'open'));
+  const oldClosing = history.findIndex((event) =>
+    !event.layers.some((layer) => layer.id === firstId)
+    && event.sourceFrames.some((frame) => frame.id === firstId && frame.phase === 'closing'));
+  expect(oldRetracting).toBeGreaterThanOrEqual(0);
+  expect(oldClosing).toBeGreaterThan(oldRetracting);
   await expect(page.locator(`[data-post-id="${firstId}"][data-testid="post"]`))
     .not.toHaveAttribute('data-weave-source-open', 'true');
   await expect(page.locator(`[data-post-id="${nextId}"][data-testid="post"]`))
@@ -112,6 +125,40 @@ test('switches A to B and settles with one correctly keyed layer', async ({ page
     const old = event.layers.filter((layer) => layer.slot === 'outgoing');
     return active.length <= 1 && old.length <= 1 && (!active[0] || !old[0] || active[0].id !== old[0].id);
   })).toBe(true);
+});
+
+test('opens the source midpoint before revealing the bridge', async ({ page }) => {
+  await openDemo(page);
+  const firstId = await current(page).getAttribute('data-focus-id');
+  const nextId = await scrollToPost(page, 2);
+  await expect(current(page)).toHaveAttribute('data-focus-id', nextId);
+  await expect(current(page)).toHaveAttribute('data-phase', 'entering');
+
+  const nextCard = page.locator(`[data-post-id="${nextId}"][data-testid="post"]`);
+  await page.waitForFunction((id) => document.querySelector(
+    `[data-post-id="${id}"][data-testid="post"]`,
+  )?.getAttribute('data-weave-source-phase') === 'opening', nextId, { polling: 'raf' });
+  const [revealWidth, sourceX, railMotion] = await Promise.all([
+    root(page).getByTestId('weave-reveal-window').evaluate((rect) =>
+      Number.parseFloat(rect.getAttribute('width') ?? '')),
+    root(page).getAttribute('data-source-x').then(Number),
+    nextCard.evaluate((card) => ({
+      topAnimation: getComputedStyle(card, '::before').animationName,
+      bottomAnimation: getComputedStyle(card, '::after').animationName,
+    })),
+  ]);
+  expect(revealWidth).toBeLessThanOrEqual(sourceX + 1);
+  expect(railMotion).toEqual({
+    topAnimation: 'weave-source-edge-open',
+    bottomAnimation: 'weave-source-edge-open',
+  });
+
+  await expect(nextCard).toHaveAttribute('data-weave-source-phase', 'open');
+  await expect.poll(async () => Number.parseFloat(
+    await root(page).getByTestId('weave-reveal-window').getAttribute('width') ?? '',
+  )).toBeGreaterThan(sourceX + 1);
+  await expect(page.locator(`[data-post-id="${firstId}"][data-testid="post"]`))
+    .not.toHaveAttribute('data-weave-source-open', 'true');
 });
 
 test('rapid retarget keeps only the latest focus and removes stale layers', async ({ page }) => {

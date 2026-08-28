@@ -24,6 +24,7 @@ type BridgeLayer = {
   enterDelay: number;
 };
 type WeaveMotionState = "entering" | "connected" | "retargeting" | "exiting";
+type SourceFramePhase = "opening" | "open" | "closing";
 type BridgeMotion = {
   current: BridgeLayer | null;
   outgoing: BridgeLayer | null;
@@ -35,8 +36,9 @@ const MIN_VISIBLE_SOURCE_HEIGHT = 32, MIN_BRIDGE_WIDTH = 12, VIEWPORT_EDGE_GUTTE
 const SOURCE_OVERLAP_PX = 3;
 const SOURCE_CORNER_INSET = 10, TARGET_EXPANSION_RATIO = 0.52;
 const MIN_TARGET_EXPANSION = 72, MAX_TARGET_EXPANSION = 220;
-const ENTER_MS = 210, RETARGET_DELAY_MS = 45, RETARGET_ENTER_MS = 190;
-const EXIT_MS = 100, FINAL_EXIT_MS = 120;
+const SOURCE_EDGE_MS = 120, SOURCE_HANDOFF_MS = 20;
+const BRIDGE_ENTER_MS = 180, BRIDGE_EXIT_MS = 110;
+const RETARGET_DELAY_MS = BRIDGE_EXIT_MS;
 const ENTER_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const EXIT_EASE: [number, number, number, number] = [0.4, 0, 1, 1];
 
@@ -95,10 +97,11 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
   const motionRef = useRef<BridgeMotion>(initialMotion);
   const timersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const openCardsRef = useRef<Set<HTMLElement>>(new Set());
+  const sourceFrameTimersRef = useRef<Map<HTMLElement, ReturnType<typeof setTimeout>>>(new Map());
   const openedLayerKeysRef = useRef<Set<number>>(new Set());
 
-  const syncOpenSourceCards = useCallback((layers: Array<BridgeLayer | null>) => {
-    const next = new Set<HTMLElement>();
+  const syncOpenSourceCards = useCallback((layers: Array<BridgeLayer | null>, clearImmediately = false) => {
+    const next = new Map<HTMLElement, SourceFramePhase>();
     const feed = feedRef.current;
     if (feed) {
       layers.forEach((layer) => {
@@ -109,15 +112,62 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
           "data-post-id",
           layer.geometry.focusId,
         );
-        if (card) next.add(card);
+        if (!card) return;
+        // If a rapid retarget interrupts a card before its edge has opened,
+        // reverse that edge immediately instead of popping it fully open just
+        // because its (still-clipped) bridge layer is now outgoing.
+        if (layer.phase === "exiting" && card.getAttribute("data-weave-source-phase") !== "open") return;
+        next.set(card, layer.phase === "entering" ? "opening" : "open");
       });
     }
+
+    const clearFrameTimer = (card: HTMLElement) => {
+      const timer = sourceFrameTimersRef.current.get(card);
+      if (timer) clearTimeout(timer);
+      sourceFrameTimersRef.current.delete(card);
+    };
+
     openCardsRef.current.forEach((card) => {
-      if (!next.has(card)) card.removeAttribute("data-weave-source-open");
+      if (next.has(card)) return;
+      if (clearImmediately || reduceMotion) {
+        clearFrameTimer(card);
+        card.removeAttribute("data-weave-source-open");
+        card.removeAttribute("data-weave-source-phase");
+        openCardsRef.current.delete(card);
+        return;
+      }
+      if (card.getAttribute("data-weave-source-phase") === "closing") return;
+      clearFrameTimer(card);
+      card.setAttribute("data-weave-source-phase", "closing");
+      const timer = setTimeout(() => {
+        if (card.getAttribute("data-weave-source-phase") !== "closing") return;
+        card.removeAttribute("data-weave-source-open");
+        card.removeAttribute("data-weave-source-phase");
+        openCardsRef.current.delete(card);
+        sourceFrameTimersRef.current.delete(card);
+      }, SOURCE_EDGE_MS);
+      sourceFrameTimersRef.current.set(card, timer);
     });
-    next.forEach((card) => card.setAttribute("data-weave-source-open", "true"));
-    openCardsRef.current = next;
-  }, [feedRef]);
+
+    next.forEach((desiredPhase, card) => {
+      const currentPhase = card.getAttribute("data-weave-source-phase");
+      if (currentPhase === desiredPhase || (currentPhase === "opening" && desiredPhase === "opening")) return;
+      clearFrameTimer(card);
+      openCardsRef.current.add(card);
+      card.setAttribute("data-weave-source-open", "true");
+      if (reduceMotion || desiredPhase === "open") {
+        card.setAttribute("data-weave-source-phase", "open");
+        return;
+      }
+      card.setAttribute("data-weave-source-phase", "opening");
+      const timer = setTimeout(() => {
+        if (card.getAttribute("data-weave-source-phase") !== "opening") return;
+        card.setAttribute("data-weave-source-phase", "open");
+        sourceFrameTimersRef.current.delete(card);
+      }, SOURCE_EDGE_MS);
+      sourceFrameTimersRef.current.set(card, timer);
+    });
+  }, [feedRef, reduceMotion]);
 
   const commitMotion = useCallback((next: BridgeMotion) => {
     motionRef.current = next;
@@ -389,7 +439,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
         revision,
         state: "exiting",
       });
-      scheduleMotion(revision, FINAL_EXIT_MS, (current) => ({
+      scheduleMotion(revision, BRIDGE_EXIT_MS, (current) => ({
         ...current, outgoing: null, state: "connected",
       }));
       return;
@@ -429,11 +479,14 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
       state: isRetarget ? "retargeting" : "entering",
     });
     if (isRetarget) {
-      scheduleMotion(revision, EXIT_MS, (value) => ({ ...value, outgoing: null }));
+      scheduleMotion(revision, BRIDGE_EXIT_MS, (value) => ({ ...value, outgoing: null }));
     }
+    const sourceOpeningMs = current.geometry.sourceKind === "card"
+      ? SOURCE_EDGE_MS + SOURCE_HANDOFF_MS
+      : 0;
     scheduleMotion(
       revision,
-      isRetarget ? RETARGET_DELAY_MS + RETARGET_ENTER_MS : ENTER_MS,
+      current.enterDelay + sourceOpeningMs + BRIDGE_ENTER_MS,
       (value) => ({
         ...value,
         current: value.current ? { ...value.current, phase: "connected", enterDelay: 0 } : null,
@@ -446,8 +499,8 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
   useEffect(() => () => clearMotionTimers(), [clearMotionTimers]);
 
   // The open frame belongs to visible bridge layers, not merely to the active
-  // post. During retargeting the old card stays open through its exit, and the
-  // new card opens exactly when its delayed strand begins drawing.
+  // post. During retargeting the old card stays open through bridge retraction;
+  // the new card then opens at the delayed handoff, before its reveal begins.
   useLayoutEffect(() => {
     const current = bridgeMotion.current;
     const liveKeys = new Set(
@@ -472,7 +525,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
     return () => window.clearTimeout(timer);
   }, [bridgeMotion, syncOpenSourceCards]);
 
-  useEffect(() => () => syncOpenSourceCards([]), [syncOpenSourceCards]);
+  useEffect(() => () => syncOpenSourceCards([], true), [syncOpenSourceCards]);
 
   const displayGeometry = bridgeMotion.current?.geometry ?? bridgeMotion.outgoing?.geometry;
   if (!displayGeometry) return null;
@@ -484,24 +537,23 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
   const renderLayer = (layer: BridgeLayer, role: "current" | "outgoing") => {
     const entering = layer.phase === "entering";
     const exiting = layer.phase === "exiting";
-    const delay = entering ? layer.enterDelay / 1000 : 0;
     const geometry = layer.geometry;
     const ribbonGradientId = `weave-ribbon-gradient-${layer.key}`;
+    const revealClipId = `weave-reveal-clip-${layer.key}`;
+    const sourceOpeningDelay = entering && geometry.sourceKind === "card"
+      ? SOURCE_EDGE_MS + SOURCE_HANDOFF_MS
+      : 0;
+    const revealDelay = entering ? layer.enterDelay + sourceOpeningDelay : 0;
     const testId = role === "current" ? (value: string) => value : () => undefined;
     return (
-      <motion.g
+      <g
         key={layer.key}
         data-testid="weave-bridge-layer"
         data-weave-layer={role}
         data-focus-id={geometry.focusId}
         data-phase={layer.phase}
-        initial={entering ? { opacity: 0 } : { opacity: 1 }}
-        animate={{ opacity: exiting ? 0 : 1 }}
-        transition={{
-          duration: (exiting ? EXIT_MS : 150) / 1000,
-          delay,
-          ease: exiting ? EXIT_EASE : ENTER_EASE,
-        }}
+        data-reveal-delay-ms={revealDelay}
+        data-reveal-duration-ms={exiting ? BRIDGE_EXIT_MS : BRIDGE_ENTER_MS}
       >
         <defs>
           <linearGradient
@@ -517,27 +569,45 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
             <stop offset="72%" stopColor="#45a99e" stopOpacity="0.06" />
             <stop offset="100%" stopColor="#45a99e" stopOpacity="0" />
           </linearGradient>
+          <clipPath id={revealClipId} clipPathUnits="userSpaceOnUse">
+            {/* Growing the reveal window from source to divider makes the
+                ribbon emerge from the newly opened edge instead of fading in
+                as a fully formed attachment. */}
+            <motion.rect
+              x="0"
+              y="0"
+              height={geometry.viewportHeight}
+              width={geometry.targetX}
+              data-testid={testId("weave-reveal-window")}
+              initial={entering ? { width: geometry.sourceX } : false}
+              animate={{ width: exiting ? geometry.sourceX : geometry.targetX }}
+              transition={{
+                duration: (exiting ? BRIDGE_EXIT_MS : BRIDGE_ENTER_MS) / 1000,
+                delay: revealDelay / 1000,
+                ease: exiting ? EXIT_EASE : ENTER_EASE,
+              }}
+            />
+          </clipPath>
         </defs>
-        <motion.path
-          className={classes.ribbon}
-          d={geometry.ribbonPath}
-          style={{ fill: `url(#${ribbonGradientId})` }}
-          data-testid={testId("weave-ribbon")}
-          initial={entering ? { opacity: 0 } : { opacity: 1 }}
-          animate={{ opacity: exiting ? 0 : 1 }}
-          transition={{ duration: (exiting ? EXIT_MS : 150) / 1000, delay: delay + (entering ? 0.04 : 0) }}
-        />
-        <path
-          className={classes.guide}
-          d={geometry.upperPath}
-          data-testid={testId("weave-strand-upper")}
-        />
-        <path
-          className={classes.guide}
-          d={geometry.lowerPath}
-          data-testid={testId("weave-strand-lower")}
-        />
-      </motion.g>
+        <g clipPath={`url(#${revealClipId})`}>
+          <path
+            className={classes.ribbon}
+            d={geometry.ribbonPath}
+            style={{ fill: `url(#${ribbonGradientId})` }}
+            data-testid={testId("weave-ribbon")}
+          />
+          <path
+            className={classes.guide}
+            d={geometry.upperPath}
+            data-testid={testId("weave-strand-upper")}
+          />
+          <path
+            className={classes.guide}
+            d={geometry.lowerPath}
+            data-testid={testId("weave-strand-lower")}
+          />
+        </g>
+      </g>
     );
   };
 

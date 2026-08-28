@@ -9,8 +9,10 @@ const activePost = (page: Page) =>
 
 async function expectConnectedBridge(page: Page) {
   await expect(bridge(page)).toHaveAttribute('data-bridge-state', 'connected');
+  await expect(bridge(page)).toHaveAttribute('data-weave-state', 'connected');
   const activeId = await activePost(page).getAttribute('data-post-id');
   await expect(bridge(page)).toHaveAttribute('data-focus-id', activeId!);
+  await expect(activePost(page)).toHaveAttribute('data-weave-source-phase', 'open');
   await expect(page.getByTestId('col-aside').locator('[data-related-focus-post-id]').first()).toHaveAttribute(
     'data-related-focus-post-id', activeId!,
   );
@@ -92,6 +94,9 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
         topRightRadius: style.borderTopRightRadius,
         bottomRightRadius: style.borderBottomRightRadius,
         clipPath: style.clipPath,
+        sourcePhase: post.getAttribute('data-weave-source-phase'),
+        upperRailTransform: getComputedStyle(post, '::before').transform,
+        lowerRailTransform: getComputedStyle(post, '::after').transform,
       };
     }),
     Promise.all([
@@ -112,7 +117,10 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
   expect(frameStyle.rightBorder).toBe('rgba(0, 0, 0, 0)');
   expect(frameStyle.topRightRadius).toBe('0px');
   expect(frameStyle.bottomRightRadius).toBe('0px');
-  expect(frameStyle.clipPath).toBe('inset(-24px 0px -24px -24px)');
+  expect(frameStyle.clipPath).toBe('inset(-24px -4px -24px -24px)');
+  expect(frameStyle.sourcePhase).toBe('open');
+  expect(frameStyle.upperRailTransform).toBe('matrix(1, 0, 0, 0, 0, 0)');
+  expect(frameStyle.lowerRailTransform).toBe('matrix(1, 0, 0, 0, 0, 0)');
   expect(guideStyles).toEqual(['none', 'none']);
   expectNear(g.sourceTopY, card!.y, 3);
   expectNear(g.sourceBottomY, card!.y + card!.height, 3);
