@@ -10,8 +10,8 @@
  * The app behaves as if it has a backend — like, bookmark, comment, follow, and
  * posting all work and PERSIST across reloads — but there is no network. All mutable
  * state lives here, is persisted to `localStorage` under a single versioned key, and
- * is seeded from the existing mock data (`FakeData/listy-injection.json` +
- * `FakeData/FakeUsers.js`) on first load.
+ * is seeded from the corrected multi-topic scale demo, the separate Chinese-EVs
+ * fixture, and `FakeData/FakeUsers.js` on first load.
  *
  * SWAP-TO-REST STORY
  * ------------------
@@ -39,6 +39,7 @@ import {
   allDemoEntries,
   DEMO_CORPORA,
   getDemoCorpusByHashtag,
+  scaleDemoTimelineEntries,
 } from "../data/demoCorpora";
 import {
   getMockFocusRelations,
@@ -631,6 +632,32 @@ export function getHomeFeed(includeReplies = false): Post[] {
     return Array.from(
       new Map([...personal, ...followedHashtags].map((post) => [post.id, post])).values(),
     )
+      .sort(byNewest);
+  });
+}
+
+/**
+ * Home's corrected scale-demo collection, plus the participant's own posts.
+ *
+ * The ids come from the registry's source-agnostic scale-demo export, so newly
+ * imported topics appear automatically. Chinese EV and the legacy
+ * listy-injection fixture are deliberately outside this collection.
+ */
+export function getCuratedHomeFeed(includeReplies = false): Post[] {
+  return memoized(`curatedHome:${includeReplies ? "with-replies" : "posts-only"}`, () => {
+    const curatedIds = new Set<string>();
+    for (const entry of scaleDemoTimelineEntries) {
+      curatedIds.add(entry.focusPost.id);
+      if (includeReplies) {
+        for (const reply of entry.replies ?? []) curatedIds.add(reply.id);
+      }
+    }
+
+    return Object.values(state.posts)
+      .filter((post) => (
+        curatedIds.has(post.id)
+        || (post.account.acct === state.me.acct && (includeReplies || !post.in_reply_to_id))
+      ))
       .sort(byNewest);
   });
 }

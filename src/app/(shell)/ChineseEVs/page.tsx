@@ -227,12 +227,14 @@ function replyToPostData(reply: FocusPostMock) {
 export default function ListyInjectionPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const isAiWorkforce = pathname?.toLowerCase().includes("aiworkforce") ?? false;
-  const topicId = isAiWorkforce ? "ai-workforce" : "chinese-evs";
-  const hashtag = isAiWorkforce ? "AIWorkforce" : "ChineseEVs";
+  const normalizedPath = pathname?.toLowerCase() ?? "";
+  const isEnergyTech = normalizedPath.includes("energytech");
+  const isAiWorkforce = normalizedPath.includes("aiworkforce");
+  const topicId = isEnergyTech ? "energy-tech" : isAiWorkforce ? "ai-workforce" : "chinese-evs";
+  const hashtag = isEnergyTech ? "EnergyTech" : isAiWorkforce ? "AIWorkforce" : "ChineseEVs";
   // Hashtag discovery may enter through /tag/AIWorkforce, but all detail URLs
   // use one canonical base so Back/share/session keys remain deterministic.
-  const routeBase = isAiWorkforce ? "/AIWorkforce" : "/ChineseEVs";
+  const routeBase = isEnergyTech ? "/EnergyTech" : isAiWorkforce ? "/AIWorkforce" : "/ChineseEVs";
   const { setFromPost, activePostId: ctxActivePostId } = useRelatedStacks();
   const [entries, setEntries] = useState<ListyInjectionEntry[]>([]);
   const [timelineStats, setTimelineStats] = useState<TimelineStats | null>(null);

@@ -1534,6 +1534,7 @@ function Post({
       currentPath === `/posts/${id}`
       || currentPath === `/ChineseEVs/posts/${id}`
       || currentPath === `/AIWorkforce/posts/${id}`
+      || currentPath === `/EnergyTech/posts/${id}`
     ) {
       router.replace('/home');
     }

@@ -4,12 +4,7 @@ import { Loader } from '@mantine/core';
 import Posts from '../../../components/Posts/Posts';
 import { MASTODON_INSTANCE_URL } from '../../../utils/mastodonApi';
 import { useAccessToken } from '../../../utils/useAccessToken';
-import { HASHTAG_CATALOG } from '../../../data/hashtagCatalog';
 import classes from './Home.module.css';
-
-const REMOTE_CONVERSATION_TAGS = HASHTAG_CATALOG
-    .filter((tag) => !tag.local)
-    .map((tag) => tag.apiTag ?? tag.name);
 
 export default function Home() {
     const { token, ready } = useAccessToken();
@@ -19,7 +14,7 @@ export default function Home() {
             <header className={classes.header}>
                 <div>
                     <h1 id="home-title" className={classes.title}>Home</h1>
-                    <p className={classes.subtitle}>Posts from accounts and hashtags you follow</p>
+                    <p className={classes.subtitle}>Curated conversations and posts from accounts you follow</p>
                 </div>
             </header>
             {!ready ? (
@@ -27,12 +22,11 @@ export default function Home() {
                     <Loader color="blue" size="sm" />
                 </div>
             ) : (
-                <div data-feed-mode={token ? 'mastodon' : 'json-demo'}>
+                <div data-feed-mode={token ? 'mastodon-with-curated' : 'curated-demo'}>
                     <Posts
                         apiUrl={token ? `${MASTODON_INSTANCE_URL}/api/v1/timelines/home` : undefined}
-                        source={token ? undefined : 'home'}
-                        localSupplement={token ? 'followed' : undefined}
-                        remoteSupplementTags={token ? REMOTE_CONVERSATION_TAGS : undefined}
+                        source={token ? undefined : 'curated-home'}
+                        localSupplement={token ? 'curated' : undefined}
                         loadStackInfo
                         showSubmitAndSearch
                         showLoadMore={Boolean(token)}

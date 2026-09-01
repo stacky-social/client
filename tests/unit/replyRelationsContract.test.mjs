@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 // Data contract for the REPLY side of the committed feed fixture
-// (src/app/FakeData/listy-injection.json), emitted by scripts/convert-demo-data.mjs
+// (src/app/FakeData/scale-demo.json), emitted by scripts/convert-live-demo-data.mjs
 // from the CrossWeave live-demo prepared corpus.
 //
 // The corpus annotates focused->descendant (nested reply) pairs, so real reply
@@ -16,7 +16,7 @@ import { dirname, join } from 'node:path';
 // committed artifact so a bad / missing regen can't land silently. See [[demo-data-provenance]].
 
 const here = dirname(fileURLToPath(import.meta.url));
-const data = JSON.parse(readFileSync(join(here, '../../src/app/FakeData/listy-injection.json'), 'utf8'));
+const data = JSON.parse(readFileSync(join(here, '../../src/app/FakeData/scale-demo.json'), 'utf8'));
 
 // Mirrors the fixture-consuming stripHtml in src/components/Posts/Post.tsx:
 // strip tags, then decode the entities esc() emits. The offset-alignment

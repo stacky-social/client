@@ -17,6 +17,7 @@ test('extracts opened post ids and every shareable filter from a URL', () => {
     },
   );
   assert.equal(sessionUrlProperties('/posts/live-42?fs=10-20').postId, 'live-42');
+  assert.equal(sessionUrlProperties('/EnergyTech/posts/energy-42').postId, 'energy-42');
 });
 
 test('discards unapproved query data and excludes authentication routes', () => {

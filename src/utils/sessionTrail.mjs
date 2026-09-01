@@ -17,7 +17,7 @@ export function isTrackableSessionPath(pathname) {
 
 export function sessionUrlProperties(relativeUrl) {
   const parsed = new URL(relativeUrl, 'https://crossweave.local');
-  const postMatch = /^\/(?:(?:ChineseEVs|AIWorkforce)\/)?posts\/([^/]+)$/.exec(parsed.pathname);
+  const postMatch = /^\/(?:(?:ChineseEVs|AIWorkforce|EnergyTech)\/)?posts\/([^/]+)$/.exec(parsed.pathname);
   const filters = {};
   const safeSearch = new URLSearchParams();
 

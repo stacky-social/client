@@ -89,6 +89,7 @@ test('ringTopMatchesScope is false for a null/absent scope', () => {
 test('detailFocusIdFromPath scopes both curated and live post routes', () => {
   assert.equal(detailFocusIdFromPath('/ChineseEVs/posts/curated-42'), 'curated-42');
   assert.equal(detailFocusIdFromPath('/AIWorkforce/posts/cw-42'), 'cw-42');
+  assert.equal(detailFocusIdFromPath('/EnergyTech/posts/energy-42'), 'energy-42');
   assert.equal(detailFocusIdFromPath('/posts/live-42'), 'live-42');
   assert.equal(detailFocusIdFromPath('/posts/encoded%20id/'), 'encoded id');
   assert.equal(detailFocusIdFromPath('/home'), null);

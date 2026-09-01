@@ -1,8 +1,10 @@
-import aiWorkforceFixture from "../app/FakeData/listy-injection.json";
 import chineseEvsFixture from "../app/FakeData/chinese-evs.json";
+import scaleDemoFixture from "../app/FakeData/scale-demo.json";
 import type { ListyInjectionEntry } from "../types/PostType";
 
-export const DEMO_TOPIC_IDS = ["chinese-evs", "ai-workforce"] as const;
+export const SCALE_DEMO_TOPIC_IDS = ["ai-workforce", "energy-tech"] as const;
+export type ScaleDemoTopicId = (typeof SCALE_DEMO_TOPIC_IDS)[number];
+export const DEMO_TOPIC_IDS = ["chinese-evs", ...SCALE_DEMO_TOPIC_IDS] as const;
 export type DemoTopicId = (typeof DEMO_TOPIC_IDS)[number];
 export type DemoCorpusEntry = Omit<ListyInjectionEntry, "topicId"> & {
   topicId: DemoTopicId;
@@ -10,10 +12,10 @@ export type DemoCorpusEntry = Omit<ListyInjectionEntry, "topicId"> & {
 
 export interface DemoCorpus {
   id: DemoTopicId;
-  hashtag: "ChineseEVs" | "AIWorkforce";
+  hashtag: "ChineseEVs" | "AIWorkforce" | "EnergyTech";
   label: string;
   description: string;
-  routeBase: "/ChineseEVs" | "/AIWorkforce";
+  routeBase: "/ChineseEVs" | "/AIWorkforce" | "/EnergyTech";
   entries: DemoCorpusEntry[];
 }
 
@@ -30,6 +32,36 @@ function entriesFor(
   }));
 }
 
+function scaleEntries(fixture: unknown): DemoCorpusEntry[] {
+  if (!Array.isArray(fixture)) throw new Error("Scale-demo corpus is not an array");
+  return (fixture as ListyInjectionEntry[]).map((entry) => {
+    const topicId = entry.topicId;
+    if (!topicId || !(SCALE_DEMO_TOPIC_IDS as readonly string[]).includes(topicId)) {
+      throw new Error(`Unknown scale-demo topic ${String(topicId)}`);
+    }
+    return { ...entry, topicId: topicId as ScaleDemoTopicId };
+  });
+}
+
+/** Corrected multi-topic corpus. This intentionally excludes legacy fixtures. */
+export const scaleDemoEntries: DemoCorpusEntry[] = scaleEntries(scaleDemoFixture);
+
+/** Actual feed roots from the corrected corpus, across every prepared topic. */
+export const scaleDemoTimelineEntries: DemoCorpusEntry[] = scaleDemoEntries.filter(
+  (entry) => entry.timelineRoot === true,
+);
+
+export function getScaleDemoTimelineEntries(): DemoCorpusEntry[] {
+  return scaleDemoTimelineEntries;
+}
+
+const scaleEntriesByTopic = new Map<ScaleDemoTopicId, DemoCorpusEntry[]>(
+  SCALE_DEMO_TOPIC_IDS.map((topicId) => [
+    topicId,
+    scaleDemoEntries.filter((entry) => entry.topicId === topicId),
+  ]),
+);
+
 export const DEMO_CORPORA: Readonly<Record<DemoTopicId, DemoCorpus>> = {
   "chinese-evs": {
     id: "chinese-evs",
@@ -45,13 +77,22 @@ export const DEMO_CORPORA: Readonly<Record<DemoTopicId, DemoCorpus>> = {
     label: "AI and the workforce",
     description: "AI, jobs, worker transitions, automation, and economic policy",
     routeBase: "/AIWorkforce",
-    entries: entriesFor(aiWorkforceFixture, "ai-workforce"),
+    entries: scaleEntriesByTopic.get("ai-workforce") ?? [],
+  },
+  "energy-tech": {
+    id: "energy-tech",
+    hashtag: "EnergyTech",
+    label: "Energy and technology",
+    description: "Electric vehicles, clean energy, power grids, and industrial competition",
+    routeBase: "/EnergyTech",
+    entries: scaleEntriesByTopic.get("energy-tech") ?? [],
   },
 };
 
-export const allDemoEntries: DemoCorpusEntry[] = DEMO_TOPIC_IDS.flatMap(
-  (topicId) => DEMO_CORPORA[topicId].entries,
-);
+export const allDemoEntries: DemoCorpusEntry[] = [
+  ...DEMO_CORPORA["chinese-evs"].entries,
+  ...scaleDemoEntries,
+];
 
 const corpusByHashtag = new Map(
   DEMO_TOPIC_IDS.map((topicId) => [
