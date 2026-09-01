@@ -60,7 +60,7 @@ test.describe('Mastodon-backed client mode', () => {
     });
 
     await page.goto('/home');
-    await expect(page.locator('[data-feed-mode="mastodon"]')).toBeVisible();
+    await expect(page.locator('[data-feed-mode="mastodon-with-curated"]')).toBeVisible();
     await expect(page.getByText('A post returned by the Mastodon home timeline.')).toBeVisible();
     await expect(page.locator('[data-store-feed-post]')).toHaveCount(0);
     await expect(page.getByRole('main')).toHaveCSS('border-left-width', '0px');
@@ -218,19 +218,15 @@ test.describe('Mastodon-backed client mode', () => {
     await centerPost('focus-6');
   });
 
-  test('blends an explicitly followed hashtag into authenticated Home', async ({ page }) => {
+  test('blends the corrected curated corpus into authenticated Home', async ({ page }) => {
     await page.route('https://beta.stacky.social/api/v1/timelines/home**', (route) => route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify([]),
     }));
 
-    await page.goto('/tag/ChineseEVs');
-    await page.getByRole('button', { name: 'Follow hashtag' }).click();
-    await expect(page.getByRole('button', { name: 'Unfollow hashtag' })).toBeVisible();
-
     await page.goto('/home');
-    await expect(page.locator('[data-feed-mode="mastodon"]')).toBeVisible();
+    await expect(page.locator('[data-feed-mode="mastodon-with-curated"]')).toBeVisible();
     await expect(page.locator('[data-feed-origin="demo"]').first()).toBeVisible();
     await expect(page.locator('[data-related-card]').first()).toBeVisible();
     await expect(page.getByText('Your Mastodon home timeline is empty.')).toHaveCount(0);

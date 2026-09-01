@@ -3,15 +3,11 @@
 import { Group, ActionIcon, Tooltip, Box } from "@mantine/core";
 import {
     IconHome,
-    IconMessages,
     IconSearch,
-    IconBookmark,
-    IconHeart,
     IconLogout,
 } from "@tabler/icons-react";
 import { useRouter, usePathname } from "next/navigation";
 import CrossweaveLogo from "./CrossweaveLogo";
-import { ExperimentPanel } from "./ExperimentPanel";
 import { endStudySession, useStudyMode } from "../../utils/studyMode";
 
 /** Height of the sticky top nav bar (used by the shell for sticky offsets). */
@@ -19,16 +15,12 @@ export const TOP_NAV_HEIGHT = 56;
 
 const LINKS = [
     { link: "/home", label: "Home", Icon: IconHome },
-    { link: "/ChineseEVs", label: "#ChineseEVs", Icon: IconMessages },
-    { link: "/AIWorkforce", label: "#AIWorkforce", Icon: IconMessages },
     { link: "/search", label: "Search", Icon: IconSearch },
-    { link: "/bookmarks", label: "Bookmarks", Icon: IconBookmark },
-    { link: "/liked", label: "Liked", Icon: IconHeart },
 ] as const;
 
 /**
- * Horizontal sticky top nav bar (D-NAV): logo on the left, condensed icon
- * links, and a compact log-out action on the right.
+ * Horizontal sticky top nav bar (D-NAV): logo on the left, production-level
+ * discovery links, and a compact log-out action on the right.
  * Replaces the old left nav column + collapse burger.
  */
 export function TopNav() {
@@ -119,7 +111,6 @@ export function TopNav() {
                     );
                 })}
 
-                {!studyMode && <ExperimentPanel />}
                 <Tooltip label="Log out" withArrow>
                     <ActionIcon
                         variant="subtle"

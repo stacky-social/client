@@ -1,0 +1,124 @@
+{
+  "schema_version": 2,
+  "baseline_source": {
+    "repository": "stacky-social/crossweave",
+    "commit": "78715f45c71b993f2213f1d0ea457088337bcac6",
+    "topic": "ai-workforce"
+  },
+  "verified_source": {
+    "repository": "stacky-social/crossweave",
+    "commit": "9f55f5d49b692b28d9999436bfcffac9a69d81c1",
+    "topics": ["ai-workforce", "energy-tech"],
+    "strict_source_passed": true
+  },
+  "summary": {
+    "baseline_failed_annotation_candidates": 11,
+    "resolved_annotation_candidates": 11,
+    "current_failed_annotation_candidates": 0,
+    "roots_missing_num_upvotes": 12
+  },
+  "resolved_annotation_candidates": [
+    {
+      "focused_post_id": "o9oogkk",
+      "focused_post_key": "cmv_ai_will_not_create_more_jobs_than_it_destroys.json::o9oogkk",
+      "candidate_rank": 28,
+      "highlight_side": "focused",
+      "highlight_field": "full_thread_text",
+      "failure_code": "INVALID_FOCUSED_FULL_THREAD_OFFSETS"
+    },
+    {
+      "focused_post_id": "o9p3il5",
+      "focused_post_key": "cmv_ai_will_not_create_more_jobs_than_it_destroys.json::o9p3il5",
+      "candidate_rank": 2,
+      "highlight_side": "focused",
+      "highlight_field": "full_thread_text",
+      "failure_code": "INVALID_FOCUSED_FULL_THREAD_OFFSETS"
+    },
+    {
+      "focused_post_id": "o9p3il5",
+      "focused_post_key": "cmv_ai_will_not_create_more_jobs_than_it_destroys.json::o9p3il5",
+      "candidate_rank": 6,
+      "highlight_side": "focused",
+      "highlight_field": "full_thread_text",
+      "failure_code": "INVALID_FOCUSED_FULL_THREAD_OFFSETS"
+    },
+    {
+      "focused_post_id": "o9p3il5",
+      "focused_post_key": "cmv_ai_will_not_create_more_jobs_than_it_destroys.json::o9p3il5",
+      "candidate_rank": 8,
+      "highlight_side": "focused",
+      "highlight_field": "full_thread_text",
+      "failure_code": "INVALID_FOCUSED_FULL_THREAD_OFFSETS"
+    },
+    {
+      "focused_post_id": "o9p3il5",
+      "focused_post_key": "cmv_ai_will_not_create_more_jobs_than_it_destroys.json::o9p3il5",
+      "candidate_rank": 9,
+      "highlight_side": "focused",
+      "highlight_field": "full_thread_text",
+      "failure_code": "INVALID_FOCUSED_FULL_THREAD_OFFSETS"
+    },
+    {
+      "focused_post_id": "o9p3il5",
+      "focused_post_key": "cmv_ai_will_not_create_more_jobs_than_it_destroys.json::o9p3il5",
+      "candidate_rank": 18,
+      "highlight_side": "focused",
+      "highlight_field": "full_thread_text",
+      "failure_code": "INVALID_FOCUSED_FULL_THREAD_OFFSETS"
+    },
+    {
+      "focused_post_id": "o9p3il5",
+      "focused_post_key": "cmv_ai_will_not_create_more_jobs_than_it_destroys.json::o9p3il5",
+      "candidate_rank": 21,
+      "highlight_side": "focused",
+      "highlight_field": "full_thread_text",
+      "failure_code": "INVALID_FOCUSED_FULL_THREAD_OFFSETS"
+    },
+    {
+      "focused_post_id": "o9p3il5",
+      "focused_post_key": "cmv_ai_will_not_create_more_jobs_than_it_destroys.json::o9p3il5",
+      "candidate_rank": 25,
+      "highlight_side": "focused",
+      "highlight_field": "full_thread_text",
+      "failure_code": "INVALID_FOCUSED_FULL_THREAD_OFFSETS"
+    },
+    {
+      "focused_post_id": "o9p3il5",
+      "focused_post_key": "cmv_ai_will_not_create_more_jobs_than_it_destroys.json::o9p3il5",
+      "candidate_rank": 49,
+      "highlight_side": "focused",
+      "highlight_field": "full_thread_text",
+      "failure_code": "INVALID_FOCUSED_FULL_THREAD_OFFSETS"
+    },
+    {
+      "focused_post_id": "o9p3il5",
+      "focused_post_key": "cmv_ai_will_not_create_more_jobs_than_it_destroys.json::o9p3il5",
+      "candidate_rank": 55,
+      "highlight_side": "focused",
+      "highlight_field": "full_thread_text",
+      "failure_code": "INVALID_FOCUSED_FULL_THREAD_OFFSETS"
+    },
+    {
+      "focused_post_id": "o9p3il5",
+      "focused_post_key": "cmv_ai_will_not_create_more_jobs_than_it_destroys.json::o9p3il5",
+      "candidate_rank": 56,
+      "highlight_side": "focused",
+      "highlight_field": "full_thread_text",
+      "failure_code": "INVALID_FOCUSED_FULL_THREAD_OFFSETS"
+    }
+  ],
+  "remaining_source_gaps": [
+    {
+      "failure_code": "MISSING_NUM_UPVOTES",
+      "record_type": "article_or_op_root",
+      "count": 12,
+      "record_ids_available": false,
+      "frontend_behavior": "Defaults favourites_count to 0"
+    }
+  ],
+  "notes": [
+    "Every annotation candidate listed above now imports with a valid post-local focused span and is covered by a regression test.",
+    "The current source audit identified missing num_upvotes only as an aggregate: six article/OP roots per topic. Their IDs are not recoverable from the generated fixture because missing values are normalized to zero.",
+    "Missing avatar and profile metadata affected all corpus accounts as a completeness limitation, not as individual rejected datapoints."
+  ]
+}

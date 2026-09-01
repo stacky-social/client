@@ -68,7 +68,7 @@ test.describe('Landing page', () => {
 
     await page.getByRole('button', { name: /Explore the AI & workforce demo/ }).click();
     await expect(page).toHaveURL(/\/home$/);
-    await expect(page.locator('[data-feed-mode="json-demo"]')).toBeVisible();
+    await expect(page.locator('[data-feed-mode="curated-demo"]')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Experiment settings' })).toHaveCount(0);
     await expect(page.getByTestId('nav-logout')).toBeVisible();
@@ -85,7 +85,7 @@ test.describe('Landing page', () => {
         authCode: localStorage.getItem('authCode'),
         flags: localStorage.getItem('stacky:experimentFlags:v1'),
         feedRatio: localStorage.getItem('stacky:feedRatio'),
-        sessionStorageLength: sessionStorage.length,
+        sessionStorageKeys: Object.keys(sessionStorage),
       };
     });
     expect(active.session.id).toBeTruthy();
@@ -99,7 +99,10 @@ test.describe('Landing page', () => {
     expect(active.authCode).toBeNull();
     expect(active.flags).toBeNull();
     expect(active.feedRatio).toBeNull();
-    expect(active.sessionStorageLength).toBe(0);
+    // Starting the participant session clears stale navigation state. Home may
+    // immediately create its own session-scoped shuffle/analytics keys.
+    expect(active.sessionStorageKeys).not.toContain('scrollY:/ChineseEVs');
+    expect(active.sessionStorageKeys).not.toContain('previousPath:/somewhere');
 
     await page.reload();
     await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();

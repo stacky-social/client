@@ -5,14 +5,14 @@ import PostList from '../PostList';
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { useAccessToken } from '../../utils/useAccessToken';
 
-export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch = false, showLoadMore = false, source, localSupplement, remoteSupplementTags, }: { apiUrl?: string, loadStackInfo: boolean, showSubmitAndSearch?: boolean, showLoadMore?: boolean; source?: "home" | "bookmarks" | "liked"; localSupplement?: "followed" | "bookmarks" | "liked"; remoteSupplementTags?: readonly string[]; }) {
+export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch = false, showLoadMore = false, source, localSupplement, remoteSupplementTags, }: { apiUrl?: string, loadStackInfo: boolean, showSubmitAndSearch?: boolean, showLoadMore?: boolean; source?: "home" | "curated-home" | "bookmarks" | "liked"; localSupplement?: "followed" | "curated" | "bookmarks" | "liked"; remoteSupplementTags?: readonly string[]; }) {
     const { token: accessToken, ready } = useAccessToken();
     const [activePostId, setActivePostId] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isExpandModalOpen, setIsExpandModalOpen] = useState(false);
 
     const { setFromPost, enterFeedSurface, activePostId: asideActivePostId, relatedStacks: asideStacks } = useRelatedStacks();
-    const isHomeTimeline = source === 'home' || apiUrl?.includes('/timelines/home');
+    const isHomeTimeline = source === 'home' || source === 'curated-home' || apiUrl?.includes('/timelines/home');
     const feedSurfaceKey = source ? `store:${source}` : `api:${apiUrl ?? ''}`;
 
     // Parallel-route context outlives individual feed pages. Claim the stable
@@ -50,7 +50,7 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch = fal
                 {showSubmitAndSearch && (
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: isHomeTimeline ? 0 : '2rem' }}>
                         <div style={{ width: '100%' }}>
-                            <SubmitPost appearance={source === 'home' || apiUrl?.includes('/timelines/home') ? 'timeline' : 'card'} />
+                            <SubmitPost appearance={source === 'home' || source === 'curated-home' || apiUrl?.includes('/timelines/home') ? 'timeline' : 'card'} />
                         </div>
                     </div>
                 )}

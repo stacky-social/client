@@ -12,7 +12,9 @@ export default function MockPostAside() {
   const pathname = usePathname();
   const router = useRouter();
   const focusPostId = typeof params?.id === "string" ? params.id : undefined;
-  const routeBase = pathname?.startsWith("/AIWorkforce") ? "/AIWorkforce" : "/ChineseEVs";
+  const routeBase = pathname?.startsWith("/EnergyTech")
+    ? "/EnergyTech"
+    : pathname?.startsWith("/AIWorkforce") ? "/AIWorkforce" : "/ChineseEVs";
 
   if (!relatedStacks || relatedStacks.length === 0) {
     return (

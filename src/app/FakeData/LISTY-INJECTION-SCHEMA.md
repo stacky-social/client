@@ -1,23 +1,29 @@
-# Demo feed data schema
+# Curated demo feed data schema
 
-The shared contract backs two independent fixtures: `chinese-evs.json` for
-`/ChineseEVs` and `listy-injection.json` for `/AIWorkforce`. The corpus registry
-in `src/data/demoCorpora.ts` keeps their routes, hashtags, and post ids separate.
+The shared contract backs `scale-demo.json`, the corrected multi-topic curated
+corpus, and the independent legacy `chinese-evs.json` fixture. The corpus
+registry in `src/data/demoCorpora.ts` keeps their routes, hashtags, and post ids
+separate. `listy-injection.json` is retained only as a historical fixture and is
+not an active registry source.
 
 It describes the contract between backend and frontend for focus posts, related
 posts, and their NLP-derived relations.
 
-> **Provenance:** the AI Workforce fixture is generated from CrossWeave's multi-source
+> **Provenance:** the scale-demo fixture is generated from CrossWeave's multi-source
 > `live_demo_data/prepared_data/{topic}/` output by
 > [`scripts/convert-live-demo-data.mjs`](../../../scripts/convert-live-demo-data.mjs).
 > The importer joins lean annotations to `corpus_threads.json`, resolves quote-tweet
 > `embedded_key` links, preserves backend decontextualization, maps
 > `full_thread_text` spans onto the ancestor post that owns them, and validates
-> every emitted offset. Regenerate with
+> every emitted offset, closes reply trees over unannotated intermediate parents,
+> and preserves descendants with failed span matching as unmarked replies. Regenerate with
 > `CROSSWEAVE_LIVE_DEMO_DIR=/path/to/crossweave/live_demo_data node scripts/convert-live-demo-data.mjs`.
 > `DEMO_TOPICS` can select complete topics and `MAX_CANDIDATES` can cap each pane.
 > Do not hand-edit the JSON. The Chinese EV fixture is generated independently by
 > `scripts/convert-demo-data.mjs`; each importer has a distinct safe output.
+>
+> The committed `scale-demo.json` was generated from CrossWeave `scale-demo`
+> commit `9f55f5d49b692b28d9999436bfcffac9a69d81c1`.
 
 ## Top-level structure
 

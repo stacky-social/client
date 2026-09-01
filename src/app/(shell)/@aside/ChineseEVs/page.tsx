@@ -17,7 +17,13 @@ export default function ListyInjectionAside() {
   // left intact (the post-detail route renders related inline from it).
   if (
     !pathname
-    || (!pathname.startsWith("/ChineseEVs") && !pathname.startsWith("/AIWorkforce") && !pathname.startsWith("/tag/AIWorkforce"))
+    || (
+      !pathname.startsWith("/ChineseEVs")
+      && !pathname.startsWith("/AIWorkforce")
+      && !pathname.startsWith("/EnergyTech")
+      && !pathname.startsWith("/tag/AIWorkforce")
+      && !pathname.startsWith("/tag/EnergyTech")
+    )
   ) return null;
 
   // No focus post selected — aside has nothing to anchor against.

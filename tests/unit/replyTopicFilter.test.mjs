@@ -7,14 +7,14 @@ import { filterReplies } from '../../src/utils/threadFilter.mjs';
 
 // T7: the reply-list TOPIC filter path (an aside-origin topic interaction
 // FILTERS the reply pane) exercised against the COMMITTED feed fixture
-// (src/app/FakeData/listy-injection.json), not synthetic rows. threadFilter's
+// (src/app/FakeData/scale-demo.json), not synthetic rows. threadFilter's
 // own suite already unit-tests the topic branch in isolation; this checks the
 // wiring holds over the REAL crossweave descendant reply relations (emitted by
 // convert-live-demo-data.mjs), including the branch-union rule the detail page relies on
 // so a matching NESTED reply keeps its branch visible. See [[demo-data-provenance]].
 
 const here = dirname(fileURLToPath(import.meta.url));
-const data = JSON.parse(readFileSync(join(here, '../../src/app/FakeData/listy-injection.json'), 'utf8'));
+const data = JSON.parse(readFileSync(join(here, '../../src/app/FakeData/scale-demo.json'), 'utf8'));
 
 // Reconstruct the exact reply model the detail page feeds to filterReplies:
 // top-level replies + relationsOf (own) + branchRelationsOf (own ∪ descendants).

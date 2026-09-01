@@ -20,6 +20,7 @@ import { useExperimentFlags } from '../utils/experimentFlags';
 import {
     useLocalStore,
     useHydrated,
+    getCuratedHomeFeed,
     getHomeFeed,
     getFollowedDemoFeed,
     getBookmarks,
@@ -38,15 +39,19 @@ import {
     saveFeedScrollSnapshot,
 } from '../utils/feedScrollRestoration';
 import { postRouteFor } from '../utils/postRoute';
+import { stableShuffle } from '../utils/stableShuffle.mjs';
 
 /** Local (no-backend) feed sources backed by the localStore. */
-export type FeedSource = 'home' | 'bookmarks' | 'liked';
-export type LocalSupplementSource = 'followed' | 'bookmarks' | 'liked';
+export type FeedSource = 'home' | 'curated-home' | 'bookmarks' | 'liked';
+export type LocalSupplementSource = 'followed' | 'curated' | 'bookmarks' | 'liked';
 const EMPTY_STORE_POSTS: StorePost[] = [];
+const CURATED_HOME_SESSION_SEED_KEY = 'crossweave:curatedHomeSeed:v1';
+let volatileCuratedHomeSeed: string | null = null;
 
 /** Friendly first line of the store-backed empty state, per feed source (F-23). */
 const EMPTY_FEED_COPY: Record<FeedSource, string> = {
     home: 'Your feed is empty.',
+    'curated-home': 'No curated posts are available.',
     bookmarks: 'No bookmarks yet.',
     liked: 'No liked posts yet.',
 };
@@ -54,6 +59,8 @@ const EMPTY_FEED_COPY: Record<FeedSource, string> = {
 /** Read the posts for a store-backed feed source. */
 function selectStoreFeed(source: FeedSource, includeHomeReplies = false): StorePost[] {
     switch (source) {
+        case 'curated-home':
+            return getCuratedHomeFeed(includeHomeReplies);
         case 'home':
             return getHomeFeed(includeHomeReplies);
         case 'bookmarks':
@@ -67,6 +74,8 @@ function selectStoreFeed(source: FeedSource, includeHomeReplies = false): StoreP
 
 function selectLocalSupplement(source?: LocalSupplementSource, includeHomeReplies = false): StorePost[] {
     switch (source) {
+        case 'curated':
+            return getCuratedHomeFeed(includeHomeReplies);
         case 'followed':
             return getFollowedDemoFeed(includeHomeReplies);
         case 'bookmarks':
@@ -75,6 +84,23 @@ function selectLocalSupplement(source?: LocalSupplementSource, includeHomeReplie
             return getLiked();
         default:
             return [];
+    }
+}
+
+/** One random-looking order per browser tab/session, stable across rerenders and navigation. */
+function readCuratedHomeSeed(): string {
+    if (typeof window === 'undefined') return 'server';
+    try {
+        const saved = window.sessionStorage.getItem(CURATED_HOME_SESSION_SEED_KEY);
+        if (saved) return saved;
+        const created = typeof window.crypto?.randomUUID === 'function'
+            ? window.crypto.randomUUID()
+            : `${Date.now()}-${Math.random()}`;
+        window.sessionStorage.setItem(CURATED_HOME_SESSION_SEED_KEY, created);
+        return created;
+    } catch {
+        volatileCuratedHomeSeed ??= `${Date.now()}-${Math.random()}`;
+        return volatileCuratedHomeSeed;
     }
 }
 
@@ -244,7 +270,14 @@ const ApiFeed: React.FC<PostListProps> = (props) => {
 const SupplementedApiFeed: React.FC<PostListProps> = (props) => {
     const { homeReplies } = useExperimentFlags();
     const localHydrated = useHydrated();
-    const localPosts = useLocalStore(() => selectLocalSupplement(props.localSupplement, homeReplies));
+    const selectedLocalPosts = useLocalStore(() => selectLocalSupplement(props.localSupplement, homeReplies));
+    const [curatedHomeSeed] = useState(readCuratedHomeSeed);
+    const localPosts = useMemo(
+        () => props.localSupplement === 'curated'
+            ? stableShuffle(selectedLocalPosts, curatedHomeSeed)
+            : selectedLocalPosts,
+        [curatedHomeSeed, props.localSupplement, selectedLocalPosts],
+    );
     const [remotePosts, setRemotePosts] = useState<PostType[]>([]);
     const [remoteLoading, setRemoteLoading] = useState(Boolean(props.remoteSupplementTags?.length));
     const remoteTagKey = (props.remoteSupplementTags ?? []).join('|');
@@ -915,7 +948,14 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
     // Re-renders on any store mutation (post/like/bookmark/follow) so the feed
     // stays live without a manual refresh.
     const hydrated = useHydrated();
-    const storePosts = useLocalStore(() => selectStoreFeed(source, homeReplies));
+    const selectedStorePosts = useLocalStore(() => selectStoreFeed(source, homeReplies));
+    const [curatedHomeSeed] = useState(readCuratedHomeSeed);
+    const storePosts = useMemo(
+        () => source === 'curated-home'
+            ? stableShuffle(selectedStorePosts, curatedHomeSeed)
+            : selectedStorePosts,
+        [curatedHomeSeed, selectedStorePosts, source],
+    );
     const [retrievedRelated, setRetrievedRelated] = useState<Record<string, { stacks: any[]; count: number }>>({});
     const requestedRelatedRef = useRef(new Set<string>());
     // Render empty on the server + first client render (the store reads
@@ -1055,7 +1095,7 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
     }, [retrievedRelated]);
 
     useEffect(() => {
-        if (source !== 'home' || !hydrated || postsRef.current.length === 0) return;
+        if ((source !== 'home' && source !== 'curated-home') || !hydrated || postsRef.current.length === 0) return;
 
         const evaluate = () => {
             if (manualLockRef.current && manualActiveIdRef.current) {

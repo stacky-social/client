@@ -7,34 +7,19 @@ import {
   Box,
   Paper,
   Text,
-  Loader,
 } from "@mantine/core";
 import { IconHash, IconSearch } from "@tabler/icons-react";
 import {
-  getHashtagPosts,
-  getSuggestedAccounts,
-  getUserPosts,
-  searchAccounts,
-  searchPosts,
-  useHydrated,
-  type Account,
-  type Post,
-} from "../../utils/localStore";
-import { useAccessToken } from "../../utils/useAccessToken";
-import {
-  fetchMastodonAccountStatuses,
-  fetchMastodonHashtagTimeline,
-  searchMastodon,
-  RELATED_POSTS_API_URL,
-  type MastodonSearchResults,
-  type MastodonStatus,
-} from "../../utils/mastodonApi";
-import {
-  getHashtagDefinition,
-  searchKnownHashtags,
-  type HashtagDefinition,
-} from "../../data/hashtagCatalog";
-import type { PreviewCardType, Relation } from "../../types/PostType";
+  getCuratedHashtags,
+  getCuratedPostsByAccount,
+  getCuratedPostsByHashtag,
+  getCuratedSuggestedAccounts,
+  searchCuratedAccounts,
+  searchCuratedPosts,
+  type CuratedSearchAccount,
+  type CuratedSearchHashtag,
+  type CuratedSearchPost,
+} from "../../utils/curatedSearch";
 import {
   normalizeSearchFilter,
   searchQueryForEntity,
@@ -44,46 +29,23 @@ import SearchPostFeed, { type SearchFeedPost } from "./SearchPostFeed";
 import classes from "./SearchBar.module.css";
 import ProfileAvatar from "../ProfileAvatar";
 
-type SearchAccount = Account & { mastodonId?: string; origin: "local" | "mastodon" };
-type SearchPost = Post & {
-  origin: "local" | "mastodon";
-  mastodonAccountId?: string;
-  authorStats?: { posts?: number; followers?: number; following?: number };
-  previewCard?: PreviewCardType | null;
-};
-
-type RelatedPayload = {
-  relatedStacks: any[];
-  stackCount: number;
-  focusRelations: Relation[];
-};
-
-interface SearchHashtag extends HashtagDefinition {
-  url?: string;
-}
-
-const EMPTY_REMOTE_RESULTS: MastodonSearchResults = {
-  accounts: [],
-  statuses: [],
-  hashtags: [],
-};
-
-const relatedSearchCache = new Map<string, RelatedPayload>();
-
-function focusRelationsFromStacks(stacks: any[]): Relation[] {
-  return stacks.flatMap((stack) =>
-    Array.isArray(stack?.topPost?.relations) ? stack.topPost.relations : [],
-  );
-}
+type SearchAccount = CuratedSearchAccount & { origin: "curated" };
+type SearchPost = CuratedSearchPost & { origin: "curated" };
+type SearchHashtag = CuratedSearchHashtag;
 
 type SearchFilter = "all" | "posts" | "hashtags" | "people";
 type EntityFilter = {
   kind: "hashtag" | "person";
   value: string;
-  accountId?: string;
-  origin?: SearchAccount["origin"];
-  apiValue?: string;
 };
+
+interface PersistedSearchState {
+  query: string;
+  filter: SearchFilter;
+  entityFilter: EntityFilter | null;
+}
+
+const SEARCH_STATE_KEY = "crossweave:curated-search:v1";
 
 const SEARCH_FILTER_OPTIONS: Array<{ value: SearchFilter; label: string }> = [
   { value: "all", label: "All" },
@@ -106,82 +68,56 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-function mastodonStatusToSearchPost(status: MastodonStatus): SearchPost {
-  return {
-    id: status.id,
-    content: status.content,
-    account: {
-      username: status.account.display_name || status.account.username,
-      acct: status.account.acct,
-      avatar: status.account.avatar,
-    },
-    replies_count: status.replies_count,
-    created_at: status.created_at,
-    stackCount: null,
-    favourites_count: status.favourites_count,
-    favourited: status.favourited,
-    bookmarked: status.bookmarked,
-    media_attachments: status.media_attachments,
-    relatedStacks: [],
-    focusRelations: [],
-    in_reply_to_id: typeof status.in_reply_to_id === "string" ? status.in_reply_to_id : null,
-    mastodonAccountId: status.account.id,
-    authorStats: {
-      posts: Number(status.account.statuses_count ?? 0),
-      followers: Number(status.account.followers_count ?? 0),
-      following: Number(status.account.following_count ?? 0),
-    },
-    previewCard: status.card ? {
-      title: status.card.title,
-      description: status.card.description,
-      image: status.card.image || undefined,
-      url: status.card.url,
-    } : null,
-    origin: "mastodon",
-  };
-}
-
 export default function SearchBar() {
-  const hydrated = useHydrated();
-  const { token, ready: authReady } = useAccessToken();
-
+  const [hydrated, setHydrated] = useState(false);
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [urlReady, setUrlReady] = useState(false);
   const [filter, setFilter] = useState<SearchFilter>("all");
   const [entityFilter, setEntityFilter] = useState<EntityFilter | null>(null);
-  const [remoteResults, setRemoteResults] = useState(EMPTY_REMOTE_RESULTS);
-  const [remoteEntityStatuses, setRemoteEntityStatuses] = useState<MastodonStatus[]>([]);
-  const [entityLoading, setEntityLoading] = useState(false);
-  const [entityError, setEntityError] = useState(false);
-  const [remoteRelated, setRemoteRelated] = useState<Record<string, RelatedPayload>>({});
-  const [remoteLoading, setRemoteLoading] = useState(false);
-  const [remoteError, setRemoteError] = useState(false);
+  const [scrollRequest, setScrollRequest] = useState(0);
 
-  // Search terms are first-class, shareable feed state. Hydrate from the URL
-  // before writing back so a shared /search?q=Rubio link never flashes empty.
+  // A URL is authoritative when it carries search state. A plain /search
+  // navigation restores the last session state, so leaving through the top nav
+  // and returning does not discard the participant's query or result set.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const initial = params.get("q") ?? "";
-    const initialFilter = normalizeSearchFilter(params.get("type")) as SearchFilter;
-    const rawEntity = params.get("entity")?.trim() ?? "";
+    const hasUrlState = params.has("q") || params.has("type") || params.has("entity");
+    let persisted: PersistedSearchState | null = null;
+    if (!hasUrlState) {
+      try {
+        persisted = JSON.parse(sessionStorage.getItem(SEARCH_STATE_KEY) ?? "null") as PersistedSearchState | null;
+      } catch {
+        sessionStorage.removeItem(SEARCH_STATE_KEY);
+      }
+    }
+    const initial = hasUrlState ? (params.get("q") ?? "") : (persisted?.query ?? "");
+    const initialFilter = hasUrlState
+      ? normalizeSearchFilter(params.get("type")) as SearchFilter
+      : normalizeSearchFilter(persisted?.filter) as SearchFilter;
+    const rawEntity = hasUrlState
+      ? (params.get("entity")?.trim() ?? "")
+      : persisted?.entityFilter
+        ? searchQueryForEntity(persisted.entityFilter.kind, persisted.entityFilter.value)
+        : "";
+    const restoredEntity = rawEntity.startsWith("#") || rawEntity.startsWith("@")
+      ? {
+          kind: rawEntity.startsWith("#") ? "hashtag" as const : "person" as const,
+          value: rawEntity.slice(1),
+        }
+      : null;
     setQuery(initial);
     setDebounced(initial);
-    setFilter(initialFilter);
-    if (rawEntity.startsWith("#") || rawEntity.startsWith("@")) {
-      const entityValue = rawEntity.slice(1);
-      const hashtagDefinition = rawEntity.startsWith("#")
-        ? getHashtagDefinition(entityValue)
-        : undefined;
-      setFilter("posts");
-      setEntityFilter({
-        kind: rawEntity.startsWith("#") ? "hashtag" : "person",
-        value: entityValue,
-        apiValue: hashtagDefinition?.apiTag,
-      });
-    }
+    setFilter(restoredEntity ? "posts" : initialFilter);
+    setEntityFilter(restoredEntity);
+    setHydrated(true);
     setUrlReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!urlReady) return;
+    sessionStorage.setItem(SEARCH_STATE_KEY, JSON.stringify({ query, filter, entityFilter }));
+  }, [entityFilter, filter, query, urlReady]);
 
   useEffect(() => {
     const timeout = setTimeout(() => setDebounced(query), 250);
@@ -209,246 +145,61 @@ export default function SearchBar() {
     }
   }, [entityFilter, filter, q, urlReady]);
 
-  useEffect(() => {
-    if (!authReady || !token || !q) {
-      setRemoteResults(EMPTY_REMOTE_RESULTS);
-      setRemoteLoading(false);
-      setRemoteError(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    setRemoteLoading(true);
-    setRemoteError(false);
-    searchMastodon(token, q, controller.signal)
-      .then((results) => setRemoteResults(results))
-      .catch((error) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        setRemoteResults(EMPTY_REMOTE_RESULTS);
-        setRemoteError(true);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setRemoteLoading(false);
-      });
-    return () => controller.abort();
-  }, [authReady, q, token]);
-
-  // Entity chips are a new query source, not a client-side narrowing of the
-  // preceding text-search response. This guarantees that choosing a person or
-  // hashtag can reveal posts that never contained the original query string.
-  useEffect(() => {
-    if (!entityFilter || !authReady) {
-      setRemoteEntityStatuses([]);
-      setEntityLoading(false);
-      setEntityError(false);
-      return;
-    }
-
-    if (entityFilter.kind === "person" && !entityFilter.accountId) {
-      setRemoteEntityStatuses([]);
-      setEntityLoading(false);
-      setEntityError(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    setEntityLoading(true);
-    setEntityError(false);
-    const request = entityFilter.kind === "person"
-      ? fetchMastodonAccountStatuses(entityFilter.accountId!, token, controller.signal)
-      : fetchMastodonHashtagTimeline(entityFilter.apiValue ?? entityFilter.value, token, controller.signal);
-    request
-      .then(setRemoteEntityStatuses)
-      .catch((error) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        setRemoteEntityStatuses([]);
-        setEntityError(true);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setEntityLoading(false);
-      });
-    return () => controller.abort();
-  }, [authReady, entityFilter, token]);
-
-  const localUsers = useMemo(
-    () => (hydrated && q ? searchAccounts(q).slice(0, 10) : []),
-    [hydrated, q],
-  );
-  const suggestedUsers = useMemo(
-    () => (hydrated ? getSuggestedAccounts(3) : []),
-    [hydrated],
-  );
-  const localPosts = useMemo(
-    () => (hydrated && q ? searchPosts(q) : []),
-    [hydrated, q],
-  );
-  const localEntityPosts = useMemo(() => {
-    if (!hydrated || !entityFilter) return [];
-    return entityFilter.kind === "person"
-      ? getUserPosts(entityFilter.value)
-      : getHashtagPosts(entityFilter.value);
-  }, [entityFilter, hydrated]);
-
-  const users = useMemo<SearchAccount[]>(() => {
-    const unique = new Map<string, SearchAccount>();
-    for (const account of localUsers) {
-      unique.set(account.acct.toLowerCase(), { ...account, origin: "local" });
-    }
-    for (const account of remoteResults.accounts) {
-      const key = account.acct.toLowerCase();
-      if (unique.has(key)) continue;
-      unique.set(key, {
-        acct: account.acct,
-        display_name: account.display_name || account.username,
-        username: account.username,
-        avatar: account.avatar,
-        followers_count: Number(account.followers_count ?? 0),
-        following_count: Number(account.following_count ?? 0),
-        statuses_count: Number(account.statuses_count ?? 0),
-        note: typeof account.note === "string" ? account.note : "",
-        mastodonId: account.id,
-        origin: "mastodon",
-      });
-    }
-    return Array.from(unique.values()).slice(0, 10);
-  }, [localUsers, remoteResults.accounts]);
-
-  // A shared person-filter URL stores the portable handle, not an instance-
-  // specific account id. Resolve that id from the accompanying search result
-  // before requesting the account's real status timeline.
-  useEffect(() => {
-    if (entityFilter?.kind !== "person" || entityFilter.accountId) return;
-    const match = users.find(
-      (account) => account.acct.toLowerCase() === entityFilter.value.toLowerCase(),
-    );
-    if (!match?.mastodonId) return;
-    setEntityFilter((current) => current?.kind === "person"
-      ? { ...current, accountId: match.mastodonId, origin: match.origin }
-      : current);
-  }, [entityFilter, users]);
-
-  const posts = useMemo<SearchPost[]>(() => {
-    const unique = new Map<string, SearchPost>();
-    for (const post of localPosts) unique.set(post.id, { ...post, origin: "local" });
-    for (const status of remoteResults.statuses) {
-      if (unique.has(status.id)) continue;
-      unique.set(status.id, mastodonStatusToSearchPost(status));
-    }
-    return Array.from(unique.values());
-  }, [localPosts, remoteResults.statuses]);
-
+  const users = useMemo<SearchAccount[]>(() => (
+    hydrated && q
+      ? searchCuratedAccounts(q).map((account) => ({ ...account, origin: "curated" }))
+      : []
+  ), [hydrated, q]);
+  const suggestedUsers = useMemo<SearchAccount[]>(() => (
+    hydrated
+      ? getCuratedSuggestedAccounts(3).map((account) => ({ ...account, origin: "curated" }))
+      : []
+  ), [hydrated]);
+  const posts = useMemo<SearchPost[]>(() => (
+    hydrated && q
+      ? searchCuratedPosts(q).map((post) => ({ ...post, origin: "curated" }))
+      : []
+  ), [hydrated, q]);
   const entityPosts = useMemo<SearchPost[]>(() => {
-    const unique = new Map<string, SearchPost>();
-    for (const post of localEntityPosts) unique.set(post.id, { ...post, origin: "local" });
-    for (const status of remoteEntityStatuses) {
-      if (!unique.has(status.id)) unique.set(status.id, mastodonStatusToSearchPost(status));
-    }
-    return Array.from(unique.values());
-  }, [localEntityPosts, remoteEntityStatuses]);
-
+    if (!hydrated || !entityFilter) return [];
+    const records = entityFilter.kind === "person"
+      ? getCuratedPostsByAccount(entityFilter.value)
+      : getCuratedPostsByHashtag(entityFilter.value);
+    return records.map((post) => ({ ...post, origin: "curated" }));
+  }, [entityFilter, hydrated]);
   const displayedPosts = entityFilter ? entityPosts : posts;
 
-  // Results render immediately; optional CrossWeave relation metadata hydrates
-  // progressively and is cached across query refinements/back navigation.
-  useEffect(() => {
-    const remoteIds = displayedPosts
-      .filter((post) => post.origin === "mastodon")
-      .map((post) => post.id);
-    if (remoteIds.length === 0) return;
+  const feedPosts = useMemo<SearchFeedPost[]>(() => displayedPosts.map((post): SearchFeedPost => ({
+    postId: post.id,
+    text: post.content,
+    author: post.account.username,
+    account: post.account.acct,
+    authorStats: {
+      posts: users.find((account) => account.acct === post.account.acct)?.statuses_count,
+      followers: 0,
+      following: 0,
+    },
+    avatar: post.account.avatar,
+    replies: [],
+    replies_count: post.replies_count,
+    createdAt: post.created_at,
+    stackCount: post.stackCount,
+    favouritesCount: post.favourites_count,
+    favourited: post.favourited,
+    bookmarked: post.bookmarked,
+    mediaAttachments: [],
+    relatedStacks: post.relatedStacks,
+    focusRelations: post.focusRelations,
+    previewCard: post.previewCard ?? null,
+    quotedPost: post.quotedPost ?? null,
+    inReplyToId: post.in_reply_to_id ?? null,
+    replyingToAccount: null,
+    origin: post.origin,
+  })), [displayedPosts, users]);
 
-    const controller = new AbortController();
-    let cancelled = false;
-    const load = async () => {
-      for (let index = 0; index < remoteIds.length; index += 3) {
-        const batch = remoteIds.slice(index, index + 3);
-        const payloads = await Promise.all(batch.map(async (id) => {
-          const cached = relatedSearchCache.get(id);
-          if (cached) return [id, cached] as const;
-          try {
-            const response = await fetch(
-              `${RELATED_POSTS_API_URL}/stacks/${encodeURIComponent(id)}/related`,
-              { signal: controller.signal },
-            );
-            if (!response.ok) throw new Error(`Related-post lookup failed (${response.status})`);
-            const data = await response.json();
-            const relatedStacks = Array.isArray(data?.relatedStacks) ? data.relatedStacks : [];
-            const payload: RelatedPayload = {
-              relatedStacks,
-              stackCount: Number.isFinite(data?.size) ? data.size : relatedStacks.length,
-              focusRelations: focusRelationsFromStacks(relatedStacks),
-            };
-            relatedSearchCache.set(id, payload);
-            return [id, payload] as const;
-          } catch (error) {
-            if (controller.signal.aborted) return null;
-            const payload: RelatedPayload = { relatedStacks: [], stackCount: 0, focusRelations: [] };
-            relatedSearchCache.set(id, payload);
-            return [id, payload] as const;
-          }
-        }));
-        if (cancelled) return;
-        setRemoteRelated((current) => {
-          const next = { ...current };
-          payloads.forEach((entry) => {
-            if (entry) next[entry[0]] = entry[1];
-          });
-          return next;
-        });
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [displayedPosts]);
-
-  const feedPosts = useMemo<SearchFeedPost[]>(() => displayedPosts.map((post): SearchFeedPost => {
-    const related = post.origin === "mastodon" ? remoteRelated[post.id] : undefined;
-    return {
-      postId: post.id,
-      text: post.content,
-      author: post.account.username,
-      account: post.account.acct,
-      accountId: post.mastodonAccountId,
-      authorStats: post.authorStats,
-      avatar: post.account.avatar,
-      replies: [],
-      replies_count: post.replies_count,
-      createdAt: post.created_at,
-      stackCount: related?.stackCount ?? post.stackCount,
-      favouritesCount: post.favourites_count,
-      favourited: post.favourited,
-      bookmarked: post.bookmarked,
-      mediaAttachments: (post.media_attachments ?? []).map((attachment: any) =>
-        typeof attachment === "string" ? attachment : attachment.url,
-      ),
-      relatedStacks: related?.relatedStacks ?? post.relatedStacks ?? [],
-      focusRelations: related?.focusRelations ?? post.focusRelations ?? [],
-      previewCard: post.previewCard ?? null,
-      inReplyToId: post.in_reply_to_id ?? null,
-      replyingToAccount: null,
-      origin: post.origin,
-    };
-  }), [displayedPosts, remoteRelated]);
-
-  const hashtags = useMemo<SearchHashtag[]>(() => {
-    const unique = new Map<string, SearchHashtag>();
-    for (const tag of searchKnownHashtags(q)) {
-      unique.set(tag.name.toLowerCase(), tag);
-    }
-    for (const tag of remoteResults.hashtags) {
-      const key = tag.name.toLowerCase();
-      if (unique.has(key)) continue;
-      unique.set(key, {
-        name: tag.name,
-        description: "",
-        local: false,
-        url: tag.url,
-      });
-    }
-    return Array.from(unique.values()).slice(0, 8);
-  }, [q, remoteResults.hashtags]);
+  const hashtags = useMemo<SearchHashtag[]>(() => (
+    hydrated ? getCuratedHashtags(q).slice(0, 8) : []
+  ), [hydrated, q]);
 
   const filterByEntity = (next: EntityFilter) => {
     if (!q) {
@@ -458,16 +209,13 @@ export default function SearchBar() {
     }
     setEntityFilter(next);
     setFilter("posts");
+    setScrollRequest((current) => current + 1);
   };
-
-  const filteredFeedPosts = useMemo(() => {
-    return feedPosts;
-  }, [feedPosts]);
 
   const hasQuery = q.length > 0;
   const hasResults = hashtags.length > 0 || users.length > 0 || displayedPosts.length > 0;
   const visibleHasResults =
-    (shouldShowSearchSection(filter, "posts") && filteredFeedPosts.length > 0) ||
+    (shouldShowSearchSection(filter, "posts") && feedPosts.length > 0) ||
     (shouldShowSearchSection(filter, "hashtags") && hashtags.length > 0) ||
     (shouldShowSearchSection(filter, "people") && users.length > 0);
   const entityLabel = entityFilter
@@ -487,10 +235,10 @@ export default function SearchBar() {
           onChange={(event) => {
             setQuery(event.currentTarget.value);
             setEntityFilter(null);
+            setScrollRequest((current) => current + 1);
           }}
           aria-label="Search hashtags, people, and posts"
           leftSection={<IconSearch style={{ width: rem(16), height: rem(16) }} />}
-          rightSection={remoteLoading || entityLoading ? <Loader size={14} /> : undefined}
         />
       </Paper>
 
@@ -532,19 +280,17 @@ export default function SearchBar() {
               <div className={classes.discoveryGrid}>
                 <DiscoveryColumn title="Hashtags">
                   {hashtags.slice(0, 3).map((tag) => (
-                    <HashtagResult key={tag.name} tag={tag} compact onSelect={(selected) => filterByEntity({ kind: "hashtag", value: selected.name, apiValue: selected.apiTag ?? selected.name })} />
+                    <HashtagResult key={tag.name} tag={tag} compact onSelect={(selected) => filterByEntity({ kind: "hashtag", value: selected.name })} />
                   ))}
                 </DiscoveryColumn>
                 <DiscoveryColumn title="People">
                   {suggestedUsers.map((account) => (
                     <PersonResult
                       key={account.acct}
-                      account={{ ...account, origin: "local" }}
+                      account={account}
                       onSelect={(selected) => filterByEntity({
                         kind: "person",
                         value: selected.acct,
-                        accountId: selected.mastodonId,
-                        origin: selected.origin,
                       })}
                     />
                   ))}
@@ -553,17 +299,11 @@ export default function SearchBar() {
             </Box>
           )}
 
-          {hasQuery && (!hasResults || !visibleHasResults) && !remoteLoading && !entityLoading && (
+          {hasQuery && (!hasResults || !visibleHasResults) && (
             <Text size="sm" c="dimmed" px="xs">
               {entityFilter
                 ? `No posts found for ${entityLabel}.`
                 : `No ${filter === "all" ? "results" : filter} for “${q}”.`}
-            </Text>
-          )}
-
-          {hasQuery && (remoteError || entityError) && (
-            <Text size="xs" c="dimmed" px="xs" mb="md" role="status">
-              Server search is unavailable. Showing results saved in this app.
             </Text>
           )}
 
@@ -581,7 +321,7 @@ export default function SearchBar() {
                         key={tag.name}
                         tag={tag}
                         compact
-                        onSelect={(selected) => filterByEntity({ kind: "hashtag", value: selected.name, apiValue: selected.apiTag ?? selected.name })}
+                        onSelect={(selected) => filterByEntity({ kind: "hashtag", value: selected.name })}
                       />
                     ))}
                   </DiscoveryColumn>
@@ -595,8 +335,6 @@ export default function SearchBar() {
                         onSelect={(selected) => filterByEntity({
                           kind: "person",
                           value: selected.acct,
-                          accountId: selected.mastodonId,
-                          origin: selected.origin,
                         })}
                       />
                     ))}
@@ -606,12 +344,14 @@ export default function SearchBar() {
             </Box>
           )}
 
-          {hasQuery && shouldShowSearchSection(filter, "posts") && filteredFeedPosts.length > 0 && (
+          {hasQuery && shouldShowSearchSection(filter, "posts") && feedPosts.length > 0 && (
             <Box mb="lg">
               <SectionTitle>Posts</SectionTitle>
               <SearchPostFeed
-                posts={filteredFeedPosts}
-                query={`${q}:${entityLabel ?? "all"}`}
+                posts={feedPosts}
+                query={q}
+                surfaceKey={`${q}:${entityLabel ?? "all"}`}
+                scrollRequest={scrollRequest}
               />
             </Box>
           )}
@@ -624,7 +364,7 @@ export default function SearchBar() {
                   <HashtagResult
                     key={tag.name}
                     tag={tag}
-                    onSelect={(selected) => filterByEntity({ kind: "hashtag", value: selected.name, apiValue: selected.apiTag ?? selected.name })}
+                    onSelect={(selected) => filterByEntity({ kind: "hashtag", value: selected.name })}
                   />
                 ))}
               </div>
@@ -642,8 +382,6 @@ export default function SearchBar() {
                     onSelect={(selected) => filterByEntity({
                       kind: "person",
                       value: selected.acct,
-                      accountId: selected.mastodonId,
-                      origin: selected.origin,
                     })}
                   />
                 ))}

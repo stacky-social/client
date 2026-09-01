@@ -42,10 +42,14 @@ const here = dirname(fileURLToPath(import.meta.url));
 // separate file. Callers may redirect output for validation without editing
 // the script or risking the other corpus.
 const CHINESE_EVS_PATH = resolve(here, '../src/app/FakeData/chinese-evs.json');
+const LEGACY_STACKY_PATH = resolve(here, '../src/app/FakeData/listy-injection.json');
 const OUT_PATH = resolve(process.env.DEMO_OUTPUT_PATH
-  || join(here, '../src/app/FakeData/listy-injection.json'));
+  || join(here, '../src/app/FakeData/scale-demo.json'));
 if (OUT_PATH === CHINESE_EVS_PATH) {
   throw new Error('Refusing to overwrite the Chinese-EVs fixture with live-demo data');
+}
+if (OUT_PATH === LEGACY_STACKY_PATH) {
+  throw new Error('Refusing to overwrite the legacy Stacky-injection fixture with curated scale-demo data');
 }
 const LIVE_DEMO_DIR = process.env.CROSSWEAVE_LIVE_DEMO_DIR
   || '/tmp/crossweave-scale-demo/live_demo_data';
@@ -520,16 +524,69 @@ function descendantReply(index, row, focusItem, context) {
   const item = index.byKey.get(row.descendant_post?.key);
   assert(item, `${context}: descendant_post key does not resolve: ${row.descendant_post?.key}`);
   const rewritten = sourceText(item.node.decontextualized_text ?? item.node.body);
+  const hasNoMarkup = row.span_match_ok === false
+    && (row.highlights_focused?.length ?? 0) === 0
+    && (row.highlights_side?.length ?? 0) === 0;
   const built = relationsFor(row, sourceText(focusItem.node.body), rewritten, context);
-  assert(!built.error, built.error);
+  // The prepared-data contract deliberately keeps every in-thread descendant,
+  // including responsive descendants whose judge spans did not match. Those
+  // render as ordinary replies without relation highlighting.
+  if (!hasNoMarkup) assert(!built.error, built.error);
   assert(item.parentKey, `${context}: descendant has no parent`);
   const base = basePost(index, item, 'side');
   return {
     ...base,
     inReplyToId: stableId(index.topic, item.parentKey),
     rank: Number(row.rank),
-    relations: built.relations,
+    relations: hasNoMarkup ? [] : built.relations,
+    unmarked: hasNoMarkup,
   };
+}
+
+// Prepared descendant lists contain the annotated descendants, but a deeper
+// descendant can be retained even when its direct parent has no annotation.
+// The frontend reply contract is a closed tree, so include those intermediate
+// corpus parents as plain replies. They intentionally have no relation markup.
+function closeReplyTree(index, focusItem, annotatedReplies, context) {
+  const repliesByKey = new Map(
+    annotatedReplies.map((reply) => [reply.sourceKey, reply]),
+  );
+  let addedParents = 0;
+
+  for (const reply of annotatedReplies) {
+    let cursor = index.byKey.get(reply.sourceKey);
+    assert(cursor, `${context}: descendant source key does not resolve: ${reply.sourceKey}`);
+    const seen = new Set([cursor.key]);
+
+    while (cursor.parentKey && cursor.parentKey !== focusItem.key) {
+      assert(!seen.has(cursor.parentKey), `${context}: descendant parent cycle at ${cursor.parentKey}`);
+      seen.add(cursor.parentKey);
+      const parent = index.byKey.get(cursor.parentKey);
+      assert(parent, `${context}: descendant parent does not resolve: ${cursor.parentKey}`);
+      if (!repliesByKey.has(parent.key)) {
+        repliesByKey.set(parent.key, {
+          ...basePost(index, parent, 'side'),
+          inReplyToId: parent.parentKey ? stableId(index.topic, parent.parentKey) : focusItem.key,
+          relations: [],
+        });
+        addedParents += 1;
+      }
+      cursor = parent;
+    }
+
+    assert(
+      cursor.parentKey === focusItem.key,
+      `${context}: ${reply.sourceKey} is not a descendant of focused post ${focusItem.key}`,
+    );
+  }
+
+  // corpus.post_keys is emitted in deterministic forest order, which also puts
+  // every parent before its children.
+  const sourceOrder = new Map(index.corpus.post_keys.map((key, position) => [key, position]));
+  const replies = [...repliesByKey.values()].sort(
+    (left, right) => sourceOrder.get(left.sourceKey) - sourceOrder.get(right.sourceKey),
+  );
+  return { replies, addedParents };
 }
 
 function validateRelation(relation, focusText, sideText, context) {
@@ -610,6 +667,8 @@ function convertTopic(topic) {
 
   const entries = [];
   let mergedCandidates = 0;
+  let closureReplies = 0;
+  let unmarkedDescendants = 0;
   for (const { file, record, focusKey, focusItem } of records) {
     const relatedPosts = [];
     const relatedById = new Map();
@@ -645,7 +704,7 @@ function convertTopic(topic) {
       post.globalRank = index + 1;
     }
 
-    const replies = [...(record.descendant_posts ?? [])]
+    const annotatedReplies = [...(record.descendant_posts ?? [])]
       .sort((a, b) => a.rank - b.rank)
       .map((row) => descendantReply(
         index,
@@ -653,6 +712,15 @@ function convertTopic(topic) {
         focusItem,
         `${topic}/${file} descendant rank ${row.rank}`,
       ));
+    const closedReplies = closeReplyTree(
+      index,
+      focusItem,
+      annotatedReplies,
+      `${topic}/${file}`,
+    );
+    closureReplies += closedReplies.addedParents;
+    unmarkedDescendants += annotatedReplies.filter((reply) => reply.unmarked).length;
+    for (const reply of annotatedReplies) delete reply.unmarked;
 
     const entry = {
       topicId: topic,
@@ -660,7 +728,7 @@ function convertTopic(topic) {
       focusPost: basePost(index, focusItem, 'focused'),
       relatedPosts,
       ancestors: ancestorsFor(index, focusKey),
-      replies,
+      replies: closedReplies.replies,
     };
     validateEntry(entry);
     entries.push(entry);
@@ -670,7 +738,15 @@ function convertTopic(topic) {
     entries.length === index.corpus.post_keys.length,
     `${topic}: ${entries.length} annotations for ${index.corpus.post_keys.length} corpus posts`,
   );
-  return { entries, diagnostics, index, retargetedCandidates, mergedCandidates };
+  return {
+    entries,
+    diagnostics,
+    index,
+    retargetedCandidates,
+    mergedCandidates,
+    closureReplies,
+    unmarkedDescendants,
+  };
 }
 
 const topics = requestedTopics();
@@ -696,16 +772,32 @@ const rewritten = entries.reduce(
 );
 const retargetedCandidates = results.reduce((sum, result) => sum + result.retargetedCandidates, 0);
 const mergedCandidates = results.reduce((sum, result) => sum + result.mergedCandidates, 0);
+const closureReplies = results.reduce((sum, result) => sum + result.closureReplies, 0);
+const unmarkedDescendants = results.reduce((sum, result) => sum + result.unmarkedDescendants, 0);
+const missingUpvotes = results.reduce(
+  (sum, result) => sum + [...result.index.byKey.values()]
+    .filter((item) => item.node.num_upvotes == null).length,
+  0,
+);
 
 console.log(`✓ wrote ${OUT_PATH}`);
 console.log(`  topics: ${topics.join(', ')}`);
-console.log(`  ${entries.length} focus posts, ${totalRelated} related posts, ${totalReplies} annotated descendants`);
+console.log(`  ${entries.length} focus posts, ${totalRelated} related posts, ${totalReplies} descendant replies`);
 console.log(`  ${totalQuotes} quote-tweet roots, ${rewritten} related cards with backend AI rewrites`);
 if (retargetedCandidates) {
   console.log(
     `  retained ${retargetedCandidates} full-thread candidate connections on their owning ancestors`
       + ` (${mergedCandidates} merged with an existing side card)`,
   );
+}
+if (closureReplies) {
+  console.log(`  included ${closureReplies} unannotated intermediate replies to keep descendant trees connected`);
+}
+if (unmarkedDescendants) {
+  console.log(`  retained ${unmarkedDescendants} source descendants without relation markup (span_match_ok=false)`);
+}
+if (missingUpvotes) {
+  console.log(`  defaulted ${missingUpvotes} source roots without num_upvotes to zero`);
 }
 if (diagnostics.length) {
   console.warn(`  omitted ${diagnostics.length} malformed candidate connections:`);

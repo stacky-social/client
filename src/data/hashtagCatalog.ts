@@ -26,6 +26,11 @@ export const HASHTAG_CATALOG: readonly HashtagDefinition[] = [
     local: true,
   },
   {
+    name: "EnergyTech",
+    description: "Electric vehicles, clean energy, power grids, and industrial competition",
+    local: true,
+  },
+  {
     name: "StackyInjection",
     description: "Earlier New York Times, Fox News, and community conversations",
     local: false,

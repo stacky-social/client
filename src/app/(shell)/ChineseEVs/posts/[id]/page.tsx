@@ -133,9 +133,10 @@ export default function MockPostView() {
   const router = useRouter();
   const searchParamsObj = useSearchParams();
   const { id } = params;
+  const isEnergyTech = pathname?.startsWith("/EnergyTech") ?? false;
   const isAiWorkforce = pathname?.startsWith("/AIWorkforce") ?? false;
-  const routeBase = isAiWorkforce ? "/AIWorkforce" : "/ChineseEVs";
-  const hashtag = isAiWorkforce ? "AIWorkforce" : "ChineseEVs";
+  const routeBase = isEnergyTech ? "/EnergyTech" : isAiWorkforce ? "/AIWorkforce" : "/ChineseEVs";
+  const hashtag = isEnergyTech ? "EnergyTech" : isAiWorkforce ? "AIWorkforce" : "ChineseEVs";
   const { setFromPost, relatedStacks: ctxRelatedStacks } = useRelatedStacks();
   const flags = useExperimentFlags();
   const { filterCategories, responseFilter, topicInteraction, replyBaseOrderIds } = useHighlightStore();

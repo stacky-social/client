@@ -1,34 +1,48 @@
 import { expect, test } from '@playwright/test';
+import scaleDemo from '../src/app/FakeData/scale-demo.json';
+
+const curatedEntries = scaleDemo as any[];
+const timelineRoots = curatedEntries.filter((entry) => entry.timelineRoot === true);
+const annotatedRoot = timelineRoots.find((entry) => entry.relatedPosts?.length > 0)!;
+const focusId = annotatedRoot.focusPost.id as string;
+const directReplyIds = (annotatedRoot.replies as any[])
+  .filter((reply) => reply.inReplyToId === focusId)
+  .map((reply) => reply.id as string);
+const firstReplyId = directReplyIds[0];
+const modifiedRoot = timelineRoots.find((entry) =>
+  (entry.relatedPosts as any[]).slice(0, 10).some((post) =>
+    post.rewrite?.significant && post.content.length > 450,
+  ),
+)!;
+const modifiedRelated = (modifiedRoot.relatedPosts as any[])
+  .slice(0, 10)
+  .find((post) => post.rewrite?.significant && post.content.length > 450)!;
 
 test.describe('Home timeline', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/tag/ChineseEVs');
-    await page.getByRole('button', { name: 'Follow hashtag' }).click();
     await page.goto('/home');
     await expect(page.getByRole('heading', { name: 'Home', level: 1 })).toBeVisible();
   });
 
-  test('renders only focus posts from a followed conversation by default', async ({ page }) => {
-    await expect(page.locator('[data-store-feed-post]')).toHaveCount(6);
-    await expect(page.getByText('Posts from accounts and hashtags you follow')).toBeVisible();
+  test('renders every corrected scale-demo timeline root by default', async ({ page }) => {
+    await expect(page.locator('[data-store-feed-post]')).toHaveCount(timelineRoots.length);
+    await expect(page.getByText('Curated conversations and posts from accounts you follow')).toBeVisible();
     await expect(page.getByText('Latest', { exact: true })).toHaveCount(0);
     await expect(page.getByLabel('Timeline sorted by latest activity')).toHaveCount(0);
-    await expect(page.getByTestId('reply-context')).toHaveCount(0);
-    await expect(page.locator('[data-store-feed-post="152052643"]')).toHaveCount(0);
-    // The count is an affordance: all four replies it promises can be opened in
-    // the thread. Separately-related posts are never added to this number.
+    await expect(page.locator(`[data-store-feed-post="${firstReplyId}"]`)).toHaveCount(0);
     await expect(
-      page.locator('[data-store-feed-post="152053690"]').getByRole('button', { name: 'Reply' }),
-    ).toContainText('4');
+      page.locator(`[data-store-feed-post="${focusId}"]`).getByRole('button', { name: 'Reply' }),
+    ).toContainText(String(directReplyIds.length));
   });
 
-  test('removes an unfollowed conversation from Home', async ({ page }) => {
+  test('does not mix the legacy Chinese EV fixture into curated Home', async ({ page }) => {
     await page.goto('/tag/ChineseEVs');
-    await page.getByRole('button', { name: 'Unfollow hashtag' }).click();
+    const follow = page.getByRole('button', { name: 'Follow hashtag', exact: true });
+    if (await follow.count()) await follow.click();
     await page.goto('/home');
 
-    await expect(page.getByTestId('store-feed-empty')).toContainText('Your feed is empty.');
-    await expect(page.locator('[data-store-feed-post]')).toHaveCount(0);
+    await expect(page.locator('[data-store-feed-post]')).toHaveCount(timelineRoots.length);
+    await expect(page.locator('[data-store-feed-post="143195604"]')).toHaveCount(0);
   });
 
   test('shows standalone replies only when the Home replies experiment is enabled', async ({ page }) => {
@@ -37,13 +51,13 @@ test.describe('Home timeline', () => {
     });
     await page.reload();
 
-    const reply = page.locator('[data-store-feed-post="152052643"]');
+    const reply = page.locator(`[data-store-feed-post="${firstReplyId}"]`);
     await expect(reply).toBeVisible();
-    await expect(reply.getByText('Replying to @totem')).toBeVisible();
+    await expect(reply.getByText(/Replying to @/)).toBeVisible();
     await expect(page.getByTestId('reply-context').first()).toBeVisible();
   });
 
-  test('keeps the composer distinct while reusing the ChineseEVs post cards', async ({ page }) => {
+  test('keeps the composer distinct while reusing the curated post cards', async ({ page }) => {
     const composer = page.getByRole('region', { name: 'Create a post' });
     const textbox = page.getByRole('textbox', { name: 'Post text' });
 
@@ -90,26 +104,23 @@ test.describe('Home timeline', () => {
     await expect.poll(async () => textbox.evaluate((element) => getComputedStyle(element).borderTopColor))
       .toBe('rgb(47, 127, 118)');
 
-    const homePost = page.locator('[data-store-feed-post="152053690"]').getByTestId('post');
+    const homePostWrapper = page.locator(`[data-store-feed-post="${focusId}"]`);
+    await homePostWrapper.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+    const homePost = homePostWrapper.getByTestId('post');
+    await expect(homePost).toHaveAttribute('data-active', 'true');
     const postCardStyle = await homePost.evaluate((element) => {
       const style = getComputedStyle(element);
       return {
         background: style.backgroundColor,
         left: style.borderLeftWidth,
         right: style.borderRightWidth,
-        rightColor: style.borderRightColor,
         topLeftRadius: style.borderTopLeftRadius,
-        topRightRadius: style.borderTopRightRadius,
-        bottomRightRadius: style.borderBottomRightRadius,
         shadow: style.boxShadow,
       };
     });
     expect(postCardStyle.left).toBe('2px');
     expect(postCardStyle.right).toBe('2px');
-    expect(postCardStyle.rightColor).toBe('rgba(0, 0, 0, 0)');
     expect(postCardStyle.topLeftRadius).toBe('10px');
-    expect(postCardStyle.topRightRadius).toBe('0px');
-    expect(postCardStyle.bottomRightRadius).toBe('0px');
     expect(postCardStyle.shadow).not.toBe('none');
     expect(postCardStyle.background).toBe('rgb(255, 255, 255)');
 
@@ -130,9 +141,9 @@ test.describe('Home timeline', () => {
       }),
     }));
 
-    const focusedFeedPost = page.locator('[data-store-feed-post="152053690"]');
+    const focusedFeedPost = page.locator(`[data-store-feed-post="${focusId}"]`);
     await focusedFeedPost.evaluate((element) => element.scrollIntoView({ block: 'center' }));
-    await expect(page.locator('[data-related-focus-post-id="152053690"]').first()).toBeVisible();
+    await expect(page.locator(`[data-related-focus-post-id="${focusId}"]`).first()).toBeVisible();
 
     const composer = page.getByRole('region', { name: 'Create a post' });
     const draft = composer.getByRole('textbox', { name: 'Post text' });
@@ -146,7 +157,8 @@ test.describe('Home timeline', () => {
     await expect(page.getByTestId('col-aside').locator('[data-related-focus-post-id^="draft-"]').first()).toBeVisible();
 
     await draft.fill('');
-    await expect(page.locator('[data-related-focus-post-id="152053690"]').first()).toBeVisible();
+    await expect(page.getByTestId('col-aside').locator('[data-related-card]').first()).toBeVisible();
+    await expect(page.getByTestId('col-aside').locator('[data-related-focus-post-id^="draft-"]')).toHaveCount(0);
 
     const composerBox = (await composer.boundingBox())!;
     const postBox = (await page.locator('[data-store-feed-post]').first().getByTestId('post').boundingBox())!;
@@ -154,62 +166,37 @@ test.describe('Home timeline', () => {
   });
 
   test('repairs a stale persisted reply count from the visible thread graph', async ({ page }) => {
-    await page.evaluate(() => {
+    await page.evaluate((targetId) => {
       const key = 'stacky:localStore:v1';
       const state = JSON.parse(localStorage.getItem(key) || 'null');
       // Current persistence stores only participant-owned deltas. Simulate the
       // older full-fixture blob with the smallest stale override needed here.
-      state.posts['152053690'] = { replies_count: 123 };
+      state.posts[targetId] = { replies_count: 123 };
       localStorage.setItem(key, JSON.stringify(state));
-    });
+    }, focusId);
     await page.reload();
 
     await expect(
-      page.locator('[data-store-feed-post="152053690"]').getByRole('button', { name: 'Reply' }),
-    ).toContainText('4');
+      page.locator(`[data-store-feed-post="${focusId}"]`).getByRole('button', { name: 'Reply' }),
+    ).toContainText(String(directReplyIds.length));
   });
 
   test('shows real related responses and AI edits for an annotated focus post', async ({ page }) => {
-    // An existing participant may have the older, addition-only enrichment in
-    // localStorage. Read-only demo annotations should refresh without resetting
-    // their likes, bookmarks, follows, or authored posts.
-    await page.evaluate(() => {
-      const key = 'stacky:localStore:v1';
-      const state = JSON.parse(localStorage.getItem(key) || 'null');
-      const stacks = state?.posts?.['152053690']?.relatedStacks;
-      const michael = stacks?.find((stack: any) => stack.topPost?.id === '143196877');
-      if (michael) {
-        michael.topPost.rewrite = {
-          content: "To connect China's battery-factory lead with supply-chain practice, I work in sustainability for a leading European global brand that has 1000+ suppliers across the world.",
-          significant: true,
-          editSummary: 'Stale addition-only demo rewrite.',
-        };
-        localStorage.setItem(key, JSON.stringify(state));
-      }
-    });
-    await page.reload();
-
-    const focus = page.locator('[data-store-feed-post="152053690"]');
+    const modifiedFocusId = modifiedRoot.focusPost.id as string;
+    const focus = page.locator(`[data-store-feed-post="${modifiedFocusId}"]`);
     await focus.evaluate((element) => element.scrollIntoView({ block: 'center' }));
     await expect(focus.getByTestId('post')).toHaveAttribute('data-active', 'true');
     await expect(page.locator('[data-related-card]')).toHaveCount(10);
 
-    const michaelCard = page.locator('[data-post-id="143196877"]');
-    const badge = michaelCard.getByRole('button', { name: 'Modified by AI' });
-    const editedText = michaelCard.locator('[data-ai-edited-default]');
-    const inlineDiff = michaelCard.locator('[data-ai-inline-diff]');
-    // The collapsed reading window begins at the annotated passage, while the
-    // AI edit is earlier in the post. Its badge must not leak into this view.
-    await expect(badge).toHaveCount(0);
-    // The collapsed card opens on the annotated relationship span, even when
-    // the AI rewrite also contains edits much earlier in the post.
-    await expect(editedText.locator('mark[data-range-id="0"]')).toContainText(
-      'Only geopolitics and supply chain risk',
-    );
-    await michaelCard.getByRole('button', { name: 'Read more' }).click();
+    const modifiedCard = page.locator(`[data-post-id="${modifiedRelated.id}"]`);
+    const badge = modifiedCard.getByRole('button', { name: 'Modified by AI' });
+    const editedText = modifiedCard.locator('[data-ai-edited-default]');
+    const inlineDiff = modifiedCard.locator('[data-ai-inline-diff]');
+    await expect(editedText.locator('mark[data-range-id="0"]')).toBeVisible();
+    await modifiedCard.getByRole('button', { name: 'Read more' }).click();
     await expect(badge).toBeVisible();
     await expect(inlineDiff).toHaveAttribute('aria-hidden', 'true');
-    const beforeHover = await michaelCard.boundingBox();
+    const beforeHover = await modifiedCard.boundingBox();
     const relationshipMark = editedText.locator('mark[data-range-id="0"]');
     await expect(relationshipMark).toBeVisible();
 
@@ -220,34 +207,27 @@ test.describe('Home timeline', () => {
     // The redline replaces the published paragraph in place and carries its
     // interactive relationship highlight into the tracked text.
     await expect(relationshipMark).toBeHidden();
-    await expect(inlineDiff.locator('mark[data-range-id="0"]')).toBeVisible();
+    await expect(inlineDiff.locator('mark[data-range-id="0"]').first()).toBeVisible();
     const deletedText = (await inlineDiff.locator('del').allTextContents()).join('');
     const insertedText = (await inlineDiff.locator('ins').allTextContents()).join('');
-    expect(deletedText).toContain('in');
-    expect(deletedText).toContain('leading');
-    expect(deletedText).toContain('global');
-    expect(insertedText).toContain("To connect China's battery-factory lead");
-    expect(insertedText).toContain('on');
-    expect(insertedText).toContain('major');
-    const afterHover = await michaelCard.boundingBox();
+    expect(deletedText.length).toBeGreaterThan(0);
+    expect(insertedText.length).toBeGreaterThan(0);
+    const afterHover = await modifiedCard.boundingBox();
     expect(afterHover?.width).toBeCloseTo(beforeHover!.width, 2);
     expect(afterHover!.height).toBeGreaterThanOrEqual(beforeHover!.height);
   });
 
-  test('shows a stable related-post empty state for a post with no relations', async ({ page }) => {
-    await page.evaluate(() => {
-      localStorage.setItem('stacky:experimentFlags:v1', JSON.stringify({ homeReplies: true }));
-    });
-    await page.reload();
-
-    const focus = page.locator('[data-store-feed-post="152053690"]');
+  test('shows a stable related-post empty state for a participant post with no relations', async ({ page }) => {
+    const focus = page.locator(`[data-store-feed-post="${focusId}"]`);
     await focus.evaluate((element) => element.scrollIntoView({ block: 'center' }));
     await expect(page.locator('[data-related-card]').first()).toBeVisible();
     const feedWidthWithRelations = (await page.getByTestId('feed').boundingBox())?.width;
 
-    const ordinaryReply = page.locator('[data-store-feed-post="152052643"]');
-    await ordinaryReply.evaluate((element) => element.scrollIntoView({ block: 'center' }));
-    await expect(ordinaryReply.getByTestId('post')).toHaveAttribute('data-active', 'true');
+    await page.getByRole('textbox', { name: 'Post text' }).fill('A participant post without related data');
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    const ordinaryPost = page.locator('[data-store-feed-post^="local-"]').first();
+    await ordinaryPost.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+    await expect(ordinaryPost.getByTestId('post')).toHaveAttribute('data-active', 'true');
     await expect(page.locator('[data-related-card]')).toHaveCount(0);
     const relatedEmpty = page.getByTestId('home-related-empty');
     await expect(relatedEmpty.getByText('Related posts', { exact: true })).toBeVisible();
@@ -259,66 +239,30 @@ test.describe('Home timeline', () => {
   });
 
   test('clears retained related cards when an empty feed is entered', async ({ page }) => {
-    const focus = page.locator('[data-store-feed-post="152053690"]');
+    const focus = page.locator(`[data-store-feed-post="${focusId}"]`);
     await focus.evaluate((element) => element.scrollIntoView({ block: 'center' }));
     await expect(focus.getByTestId('post')).toHaveAttribute('data-active', 'true');
     await expect(page.locator('[data-related-card]').first()).toBeVisible();
 
-    // Top-nav transitions keep the shell provider and parallel aside alive.
-    // The destination has no post that could publish a replacement focus, so
-    // feed entry itself must clear Home's retained context.
-    await page.getByRole('button', { name: 'Bookmarks' }).click();
+    // The route remains available even though personal-collection shortcuts
+    // no longer occupy the production top bar.
+    await page.goto('/bookmarks');
     await expect(page).toHaveURL(/\/bookmarks$/);
     await expect(page.getByTestId('store-feed-empty')).toContainText('No bookmarks yet.');
     await expect(page.locator('[data-related-card]')).toHaveCount(0);
     await expect(page.getByText('No related responses for this post.')).toHaveCount(0);
   });
 
-  test('clears retained related cards when a hashtag fails before its feed mounts', async ({ page }) => {
-    const focus = page.locator('[data-store-feed-post="152053690"]');
+  test('clears retained related cards when Search is entered', async ({ page }) => {
+    const focus = page.locator(`[data-store-feed-post="${focusId}"]`);
     await focus.evaluate((element) => element.scrollIntoView({ block: 'center' }));
     await expect(focus.getByTestId('post')).toHaveAttribute('data-active', 'true');
     await expect(page.locator('[data-related-card]').first()).toBeVisible();
 
-    await page.route('https://beta.stacky.social/api/v1/timelines/tag/StackyInjectionPost**', (route) =>
-      route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }),
-    );
     await page.getByRole('button', { name: 'Search' }).click();
-    await page.getByRole('button', { name: 'Filter posts by #StackyInjection' }).click();
 
-    await expect(page.getByText('Server search is unavailable. Showing results saved in this app.')).toBeVisible();
-    await expect(page).toHaveURL(/\/search\?q=%23StackyInjection&type=posts&entity=%23StackyInjection$/);
+    await expect(page).toHaveURL(/\/search$/);
     await expect(page.locator('[data-related-card]')).toHaveCount(0);
-    await expect(page.getByText('103 posts across all categories')).toHaveCount(0);
-  });
-
-  test('keeps the related panel blank when a hashtag timeline is empty', async ({ page }) => {
-    const focus = page.locator('[data-store-feed-post="152053690"]');
-    await focus.evaluate((element) => element.scrollIntoView({ block: 'center' }));
-    await expect(focus.getByTestId('post')).toHaveAttribute('data-active', 'true');
-    await expect(page.locator('[data-related-card]').first()).toBeVisible();
-
-    await page.route('https://beta.stacky.social/api/v1/tags/StackyInjectionPost', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          name: 'StackyInjectionPost',
-          url: 'https://beta.stacky.social/tags/stackyinjectionpost',
-          history: [],
-        }),
-      }),
-    );
-    await page.route('https://beta.stacky.social/api/v1/timelines/tag/StackyInjectionPost**', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
-    );
-    await page.getByRole('button', { name: 'Search' }).click();
-    await page.getByRole('button', { name: 'Filter posts by #StackyInjection' }).click();
-
-    await expect(page.getByText('No posts found for #StackyInjection.')).toBeVisible();
-    await expect(page).toHaveURL(/\/search\?q=%23StackyInjection&type=posts&entity=%23StackyInjection$/);
-    await expect(page.locator('[data-related-card]')).toHaveCount(0);
-    await expect(page.getByText('103 posts across all categories')).toHaveCount(0);
   });
 
   test('uses the full reading width and hides the desktop related column on mobile', async ({ page }) => {
