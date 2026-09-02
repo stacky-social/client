@@ -81,3 +81,9 @@ test('timestamps compare numerically (offset notation equals Z notation)', () =>
   // numeric compare ties them, so the id tiebreak decides.
   assert.deepEqual(sortReplies([y, x], 'time', { rankOf: () => undefined, relationsOf: () => [] }).map((r) => r.id), ['x', 'y']);
 });
+
+test('time mode recognizes Unix-second strings from the NYT corpus', () => {
+  const older = mk('older', '1782404924', 0);
+  const newer = mk('newer', '1782404984', 0);
+  assert.deepEqual(sortReplies([older, newer], 'time').map((r) => r.id), ['newer', 'older']);
+});

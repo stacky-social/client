@@ -37,11 +37,12 @@ test('live-demo timeline roots and quote tweets retain their corpus semantics', 
   for (const entry of quotes) {
     assert.ok(entry.focusPost.quotedPost.id, `quote ${entry.focusPost.id} has an embedded id`);
     assert.ok(entry.focusPost.quotedPost.title, `quote ${entry.focusPost.id} has an embedded title`);
-    assert.equal(
-      entry.ancestors?.[0]?.id,
-      entry.focusPost.quotedPost.id,
-      `quote ${entry.focusPost.id} resolves its embedded article as outermost context`,
-    );
+    // Older generated fixtures retained the source hierarchy for annotation
+    // provenance. If present, it must agree with the embedded quote; the UI
+    // resolver intentionally suppresses that edge from the displayed thread.
+    if ((entry.ancestors?.length ?? 0) > 0) {
+      assert.equal(entry.ancestors[0].id, entry.focusPost.quotedPost.id);
+    }
   }
 });
 

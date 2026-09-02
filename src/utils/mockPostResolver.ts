@@ -77,6 +77,10 @@ const relatedById = new Map<string, { rp: RelatedPostMock; parent: ListyInjectio
 const replyById = new Map<string, Array<{ reply: ReplyMock; parent: ListyInjectionEntry }>>();
 const replyByFocusAndId = new Map<string, { reply: ReplyMock; parent: ListyInjectionEntry }>();
 const allPostsById = new Map<string, FocusPostMock | RelatedPostMock>();
+/** Lifted quote-tweet ids never inherit the source article as a thread parent. */
+const quoteFocusIds = new Set(
+  entries.filter((entry) => !!entry.focusPost.quotedPost).map((entry) => entry.focusPost.id),
+);
 /** child id → parent id (inherent thread hierarchy) */
 const parentMap = new Map<string, string>();
 /** parent id → child ids */
@@ -93,15 +97,17 @@ for (const e of entries) {
     if (!allPostsById.has(a.id)) allPostsById.set(a.id, a);
   }
   for (let i = 1; i < ancestorChain.length; i++) {
-    if (!parentMap.has(ancestorChain[i].id)) {
+    if (!quoteFocusIds.has(ancestorChain[i].id) && !parentMap.has(ancestorChain[i].id)) {
       parentMap.set(ancestorChain[i].id, ancestorChain[i - 1].id);
     }
   }
-  if (ancestorChain.length > 0 && !parentMap.has(e.focusPost.id)) {
+  if (ancestorChain.length > 0 && !e.focusPost.quotedPost && !parentMap.has(e.focusPost.id)) {
     parentMap.set(e.focusPost.id, ancestorChain[ancestorChain.length - 1].id);
   }
   // Focus post may declare an explicit parent (overrides ancestor-derived link)
-  if (e.focusPost.inReplyToId) parentMap.set(e.focusPost.id, e.focusPost.inReplyToId);
+  if (!e.focusPost.quotedPost && e.focusPost.inReplyToId) {
+    parentMap.set(e.focusPost.id, e.focusPost.inReplyToId);
+  }
 
   for (const reply of e.replies ?? []) {
     const records = replyById.get(reply.id) ?? [];
@@ -110,13 +116,17 @@ for (const e of entries) {
     replyByFocusAndId.set(`${e.focusPost.id}:${reply.id}`, { reply, parent: e });
     if (!allPostsById.has(reply.id)) allPostsById.set(reply.id, reply);
     const parentId = reply.inReplyToId ?? e.focusPost.id;
-    if (!parentMap.has(reply.id)) parentMap.set(reply.id, parentId);
+    if (!quoteFocusIds.has(reply.id) && !parentMap.has(reply.id)) {
+      parentMap.set(reply.id, parentId);
+    }
   }
 
   for (const rp of e.relatedPosts) {
     if (!relatedById.has(rp.id)) relatedById.set(rp.id, { rp, parent: e });
     if (!allPostsById.has(rp.id)) allPostsById.set(rp.id, rp);
-    if (rp.inReplyToId && !parentMap.has(rp.id)) parentMap.set(rp.id, rp.inReplyToId);
+    if (rp.inReplyToId && !quoteFocusIds.has(rp.id) && !parentMap.has(rp.id)) {
+      parentMap.set(rp.id, rp.inReplyToId);
+    }
   }
 }
 

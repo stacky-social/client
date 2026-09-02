@@ -2,6 +2,8 @@
 // node:test suite imports it directly; the page passes accessors for rank and
 // relations so this module stays data-shape agnostic.
 
+import { postDateTimestamp } from './postDate.mjs';
+
 /** Final tiebreak: stable id order. Keeps every mode's ordering fully
  *  deterministic (reproducible study orderings) even for replies that tie on
  *  timestamp AND score/likes. */
@@ -13,7 +15,7 @@ export function sortReplies(replies, mode, { rankOf = () => undefined, relations
   // Numeric timestamp compare — String.localeCompare on ISO dates is
   // locale-collation dependent in theory; Date.parse is not. Ties fall to id.
   const byNewest = (a, b) =>
-    (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0) || byId(a, b);
+    (postDateTimestamp(b.created_at) ?? 0) - (postDateTimestamp(a.created_at) ?? 0) || byId(a, b);
 
   if (mode === 'liked') {
     return arr.sort((a, b) => (b.favourites_count ?? 0) - (a.favourites_count ?? 0) || byNewest(a, b));

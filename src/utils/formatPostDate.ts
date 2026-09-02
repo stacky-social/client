@@ -1,4 +1,5 @@
 import { format, formatDistanceToNow, differenceInDays } from 'date-fns';
+import { parsePostDate } from './postDate.mjs';
 
 /**
  * Hybrid date formatter for post cards.
@@ -11,9 +12,9 @@ import { format, formatDistanceToNow, differenceInDays } from 'date-fns';
  * "almost 2 years ago" for all archived posts, and replaces hard-coded
  * `format(date, "MMM d, yyyy")` calls that lost relative recency info.
  */
-export function formatPostDate(input: string | Date): string {
-  const d = input instanceof Date ? input : new Date(input);
-  if (Number.isNaN(d.getTime())) return 'Date unavailable';
+export function formatPostDate(input: string | number | Date): string {
+  const d = parsePostDate(input);
+  if (!d) return 'Date unavailable';
   const now = new Date();
   const days = differenceInDays(now, d);
   // Future or clock-skewed dates: avoid "in about 3 hours ago".
