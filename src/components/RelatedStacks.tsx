@@ -490,7 +490,15 @@ interface HighlightRange { start: number; end: number }
 
 // ─── Overlap detection for multi-range highlights ────────────────────────────
 
-interface TaggedRange { start: number; end: number; rangeIndex: number; category: string; topic?: string; comment?: string }
+interface TaggedRange {
+  start: number;
+  end: number;
+  rangeIndex: number;
+  category: string;
+  topic?: string;
+  commentStart?: number;
+  commentEnd?: number;
+}
 
 /** Split overlapping ranges into non-overlapping segments, each tagged with contributing ranges */
 interface Segment { start: number; end: number; contributors: TaggedRange[] }
@@ -512,6 +520,45 @@ function buildSegments(tagged: TaggedRange[]): Segment[] {
     }
   }
   return segments;
+}
+
+/** Render exact offset-authored crux ranges inside one flat highlight segment.
+ *  String searching was ambiguous when a phrase appeared twice and silently
+ *  failed whenever overlap segmentation split the crux across two marks. */
+function emphasizeSegmentCruxes(
+  text: string,
+  segmentStart: number,
+  ranges: Array<{ start: number; end: number }>,
+): React.ReactNode {
+  const clipped = ranges
+    .map((range) => ({
+      start: Math.max(segmentStart, range.start),
+      end: Math.min(segmentStart + text.length, range.end),
+    }))
+    .filter((range) => range.end > range.start);
+  if (clipped.length === 0) return text;
+
+  const points = new Set<number>([0, text.length]);
+  clipped.forEach((range) => {
+    points.add(range.start - segmentStart);
+    points.add(range.end - segmentStart);
+  });
+  const sorted = Array.from(points).sort((a, b) => a - b);
+  return sorted.slice(0, -1).map((start, index) => {
+    const end = sorted[index + 1];
+    const part = text.slice(start, end);
+    const emphasized = clipped.some((range) =>
+      range.start < segmentStart + end && segmentStart + start < range.end);
+    return emphasized ? (
+      <span
+        key={`${start}-${end}`}
+        data-content-comment
+        style={{ textShadow: '0 0 0.7px currentColor, 0 0 0.7px currentColor' }}
+      >
+        {part}
+      </span>
+    ) : part;
+  });
 }
 
 /** Build React nodes for multi-range highlights with overlap support.
@@ -562,9 +609,11 @@ function buildMultiHighlightNodes(
     start: r.contentStart, end: r.contentEnd, rangeIndex: ((r as any).__idx ?? i) as number,
     category: r.category,
     topic: r.topic,
-    // contentComment is the substring plain[contentCommentStart:contentCommentEnd]
-    comment: (r.contentCommentStart < r.contentCommentEnd)
-      ? plain.slice(r.contentCommentStart, r.contentCommentEnd)
+    commentStart: r.contentCommentStart < r.contentCommentEnd
+      ? r.contentCommentStart
+      : undefined,
+    commentEnd: r.contentCommentStart < r.contentCommentEnd
+      ? r.contentCommentEnd
       : undefined,
   }));
 
@@ -620,6 +669,15 @@ function buildMultiHighlightNodes(
         const rgba = hexToRgba(c.colors.bg, a);
         return `${rgba} ${pct1}%, ${rgba} ${pct2}%`;
       }).join(', ');
+      const emphasizedCruxes = cats.flatMap((c) => {
+        const shouldEmphasize = opts.forceCommentEmphasis
+          || opts.isCardHovered
+          || isBandActive(c);
+        return shouldEmphasize && c.commentStart !== undefined && c.commentEnd !== undefined
+          ? [{ start: c.commentStart, end: c.commentEnd }]
+          : [];
+      });
+      const markContent = emphasizeSegmentCruxes(segText, seg.start, emphasizedCruxes);
 
       // Pointer + mouse handlers run side-by-side so an extension that blocks one
       // event family still leaves the other working (Chrome on Win/Linux hover bug).
@@ -699,7 +757,7 @@ function buildMultiHighlightNodes(
               WebkitTapHighlightColor: 'transparent',
             }}
           >
-            {segText}
+            {markContent}
           </mark>
         </span>
       );
@@ -754,21 +812,15 @@ function buildMultiHighlightNodes(
       // gate — requiring the span itself to be hovered (Level 2 only) meant the
       // crux never bolded on a plain card hover, which read as "boldface in the
       // side pane doesn't work".
-      const commentPhrase = c.comment;
-      let markContent: React.ReactNode;
-      if ((opts.isCardHovered || isThisRangeHovered || opts.forceCommentEmphasis)
-        && commentPhrase && segText.includes(commentPhrase)) {
-        const ci = segText.indexOf(commentPhrase);
-        markContent = (
-          <>
-            {ci > 0 && segText.slice(0, ci)}
-            <span style={{ textShadow: '0 0 0.7px currentColor, 0 0 0.7px currentColor' }}>{commentPhrase}</span>
-            {ci + commentPhrase.length < segText.length && segText.slice(ci + commentPhrase.length)}
-          </>
-        );
-      } else {
-        markContent = segText;
-      }
+      const shouldEmphasizeCrux = opts.isCardHovered
+        || isThisRangeHovered
+        || opts.forceCommentEmphasis
+        || (opts.focusHoverMatchedIdx?.has(c.rangeIndex) ?? false);
+      const markContent = shouldEmphasizeCrux
+        && c.commentStart !== undefined
+        && c.commentEnd !== undefined
+        ? emphasizeSegmentCruxes(segText, seg.start, [{ start: c.commentStart, end: c.commentEnd }])
+        : segText;
 
       nodes.push(
         <span key={`r${c.rangeIndex}-${seg.start}`} style={{ position: 'relative', display: 'inline' }}>

@@ -341,6 +341,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // (clicking a span re-renders + re-commits the innerHTML, wiping the imperative
   // fp-dark/fp-hovering classes; without this the span goes light until you move).
   const hoveringRef = useRef(false);
+  // Relation indices under the direct focus-post pointer. Keeping the exact
+  // contributors (rather than only their min/max envelope) lets the focus and
+  // related panes emphasize the same data-authored cruxes even when several
+  // relations overlap one flat rendered segment.
+  const directHoverRelationIndicesRef = useRef<number[]>([]);
   // Keep the exact relation spans in the active hover bucket. Collapsing a
   // disjoint bucket to one min/max envelope would incorrectly darken unrelated
   // marks between its spans after React replaces the innerHTML.
@@ -401,17 +406,29 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     };
   }, []);
 
-  // Compute which mark index (if any) should be visible in neutral grey
-  const filterIdx = responseFilter
-    ? focusRelations.findIndex(r => r.focusStart === responseFilter.start && r.focusEnd === responseFilter.end)
-    : -1;
-  const visibleMarkIdx = dwellOnMarkIndex !== null ? dwellOnMarkIndex : (filterIdx >= 0 ? filterIdx : null);
+  // A clicked flat segment can represent several overlapping relations. The
+  // resulting passage filter is their union, so an exact start/end lookup can
+  // legitimately find no single relation and used to make the selected
+  // highlight disappear. Retain every relation that overlaps the filter.
+  const filteredRelationIndices = useMemo(() => {
+    if (!responseFilter) return [];
+    return focusRelations.flatMap((relation, index) =>
+      relation.focusStart < responseFilter.end && responseFilter.start < relation.focusEnd
+        ? [index]
+        : [],
+    );
+  }, [focusRelations, responseFilter]);
+  const visibleMarkIndices = useMemo(
+    () => dwellOnMarkIndex !== null ? [dwellOnMarkIndex] : filteredRelationIndices,
+    [dwellOnMarkIndex, filteredRelationIndices],
+  );
+  const visibleMarkKey = visibleMarkIndices.join(',');
 
   // Expand-to-reveal triggers: the persistent filter span, OR a hovered related
   // card whose linked regions sit below the clamp — so the cross-highlight is
   // actually visible. Transient direct hover on this post stays CSS-only.
   const crossActive = hoveredRelations !== null && hoveredRelations.length > 0;
-  const anyMarkVisuallyActive = (responseFilter !== null && filterIdx >= 0) || crossActive;
+  const anyMarkVisuallyActive = filteredRelationIndices.length > 0 || crossActive;
   const revealKey = active && !isTextExpanded && anyMarkVisuallyActive
     ? crossActive
       ? [
@@ -421,8 +438,10 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
           hoveredCategory ?? '',
           hoveredRelations.length,
         ].join(':')
-      : visibleMarkIdx !== null
-      ? `mark:${visibleMarkIdx}`
+      : responseFilter !== null && filteredRelationIndices.length > 0
+      ? `filter:${responseFilter.start}:${responseFilter.end}:${visibleMarkKey}`
+      : dwellOnMarkIndex !== null
+      ? `mark:${dwellOnMarkIndex}`
       : null
     : null;
   const revealKeyRef = useRef(revealKey);
@@ -518,8 +537,12 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
         return rels.some((r) => a < r.focusEnd && r.focusStart < b);
       });
-    } else if (visibleMarkIdx !== null) {
-      marks = Array.from(el.querySelectorAll(`mark[data-range-ids~="${visibleMarkIdx}"]`));
+    } else if (visibleMarkIndices.length > 0) {
+      const activeIndices = new Set(visibleMarkIndices.map(String));
+      marks = (Array.from(el.querySelectorAll('mark[data-range-ids]')) as HTMLElement[])
+        .filter((mark) => (mark.getAttribute('data-range-ids') || '')
+          .split(/\s+/)
+          .some((index) => activeIndices.has(index)));
     } else {
       marks = Array.from(el.querySelectorAll('mark'));
     }
@@ -632,7 +655,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     // A smooth pixel animation necessarily exposes partial lines between valid
     // boundaries. Jump directly between legal whole-line excerpts instead.
     el.scrollTo({ top: target, behavior: 'auto' });
-  }, [revealKey, scrollMode, crossActive, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, visibleMarkIdx, html, windowPrefixOffset]);
+  }, [revealKey, scrollMode, crossActive, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, visibleMarkIndices, visibleMarkKey, html, windowPrefixOffset]);
 
   // Spec hover model (CSS-driven via classes — never re-parses the article):
   //  · enter the post       → faint ALL its spans (.fp-hovering on the container)
@@ -660,10 +683,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     // related-post counts, so they must be the full spans, not the segment.
     const unionFor = (mark: HTMLElement) => {
       const rels = focusRelationsRef.current || [];
-      const ranges: Array<{ fs: number; fe: number }> = (mark.getAttribute('data-range-ids') || '')
+      const relationIndices = (mark.getAttribute('data-range-ids') || '')
         .split(/\s+/)
         .filter(Boolean)
-        .map((s) => rels[parseInt(s, 10)])
+        .map((s) => parseInt(s, 10))
+        .filter((index) => Number.isFinite(index) && !!rels[index]);
+      const ranges: Array<{ fs: number; fe: number }> = relationIndices
+        .map((index) => rels[index])
         .filter(Boolean)
         .map((r) => ({ fs: r.focusStart, fe: r.focusEnd }));
       if (ranges.length === 0) {
@@ -677,7 +703,17 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         const b = parseInt((m as HTMLElement).getAttribute('data-fe') || 'NaN', 10);
         if (ranges.some((u) => a < u.fe && u.fs < b)) marks.push(m as HTMLElement);
       });
-      return { marks, ranges };
+      return { marks, ranges, relationIndices };
+    };
+    const emphasizeDirectCruxes = (relationIndices: number[]) => {
+      directHoverRelationIndicesRef.current = relationIndices;
+      clearFocusCommentBold(el);
+      for (const relationIndex of relationIndices) {
+        const relation = focusRelationsRef.current?.[relationIndex];
+        if (relation && relation.focusCommentEnd > relation.focusCommentStart) {
+          boldFocusCommentRange(el, relation.focusCommentStart, relation.focusCommentEnd);
+        }
+      }
     };
     // A dark mark is not necessarily the bucket currently under the cursor: an
     // adjacent overlap segment can already be dark because the PREVIOUS bucket
@@ -712,9 +748,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       if (related && el.contains(related)) return;
       hoveringRef.current = false;
       hoverRangesRef.current = null;
+      directHoverRelationIndicesRef.current = [];
       activeBucketKey = null;
       el.classList.remove('fp-hovering');
       clearDark();
+      clearFocusCommentBold(el);
       cancelDwell();
       publishFocusHover(null);
     };
@@ -734,6 +772,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       if (!mark) {
         latestMark = null;
         hoverRangesRef.current = null;
+        emphasizeDirectCruxes([]);
         activeBucketKey = null;
         clearDark();
         cancelDwell();
@@ -741,12 +780,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         return;
       }
       latestMark = mark;
-      const { marks, ranges } = unionFor(mark);
+      const { marks, ranges, relationIndices } = unionFor(mark);
       const bucketKey = bucketKeyFor(mark);
       if (bucketKey === activeBucketKey) return;
       activeBucketKey = bucketKey;
       clearDark();
       marks.forEach((m) => m.classList.add('fp-dark'));
+      emphasizeDirectCruxes(relationIndices);
       // Reverse cross-highlight: the corresponding aside spans light up while
       // this union is under the cursor (the aside dims its other spans).
       publishFocusHover(ranges);
@@ -936,10 +976,14 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         ? (matchedColors ? blendHex(matchedColors.bg, '#ffffff', 0.35) : '#eef0f3')
         : '';
     });
-    // Level 2: bold ONLY the data's optional bold sub-span, not the whole region.
-    if (level2 && level2.focusCommentEnd > level2.focusCommentStart) {
-      boldFocusCommentRange(el, level2.focusCommentStart, level2.focusCommentEnd);
-    }
+    // Keep crux emphasis symmetric with the related card: a card-level hover
+    // emphasizes every authored crux on both sides, while Level 2 still owns the
+    // stronger colour for the specifically hovered contribution.
+    hoveredRelations?.forEach((relation) => {
+      if (relation.focusCommentEnd > relation.focusCommentStart) {
+        boldFocusCommentRange(el, relation.focusCommentStart, relation.focusCommentEnd);
+      }
+    });
   });
 
   // Re-apply the DIRECT-hover grey after every commit. Clicking a span re-renders
@@ -966,6 +1010,16 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         m.classList.add('fp-dark');
         void m.offsetHeight; // force reflow so the dark paints immediately
         m.style.transition = '';
+      }
+    });
+    // The aside-hover reconciliation above clears wrappers on every commit.
+    // Restore the exact direct-hover cruxes after that commit just as we restore
+    // the direct-hover grey classes.
+    clearFocusCommentBold(el);
+    directHoverRelationIndicesRef.current.forEach((relationIndex) => {
+      const relation = focusRelationsRef.current?.[relationIndex];
+      if (relation && relation.focusCommentEnd > relation.focusCommentStart) {
+        boldFocusCommentRange(el, relation.focusCommentStart, relation.focusCommentEnd);
       }
     });
   });
@@ -1001,10 +1055,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     // random container-id mismatch can't leave the UA-default <mark> yellow showing
     // through. This injected rule is ONLY the persistent filter mark for the
     // focused post's clicked span (per-instance because it targets a data-range-id).
-    styleEl.textContent = active && visibleMarkIdx !== null
-      ? `#${id} mark[data-range-ids~="${visibleMarkIdx}"] { background: rgb(193,199,209) !important; }`
+    const persistentSelectors = visibleMarkIndices
+      .map((index) => `#${id} mark[data-range-ids~="${index}"]`)
+      .join(', ');
+    styleEl.textContent = active && persistentSelectors
+      ? `${persistentSelectors} { background: rgb(193,199,209) !important; }`
       : '';
-  }, [visibleMarkIdx, active]);
+  }, [visibleMarkIndices, visibleMarkKey, active]);
 
   // Cleanup scoped style on unmount
   useEffect(() => {
@@ -1589,7 +1646,16 @@ function Post({
   // survives the focus switch (setPanelFocus would otherwise clear it).
   const handleSpanFocusRequest = useCallback((span: { start: number; end: number; text: string }) => {
     setPendingResponseFilter(id, span);
-    setActivePostId(id);
+    // Publish the post and its related payload through the same shared-context
+    // transaction as an ordinary focus change. Updating only the feed-local id
+    // made the scroll observer believe the post had already been published; the
+    // aside stayed on the previous id, so both the pending filter and bridge
+    // were lost.
+    const position = paperRef.current?.getBoundingClientRect();
+    onStackIconClick(Array.isArray(tempRelatedStacks) ? tempRelatedStacks : [], id, {
+      top: position ? position.top + window.scrollY : 0,
+      height: position?.height ?? 0,
+    });
     // Scroll this post's top to the feed's "active line" (30% of the viewport, the
     // same line the feed uses to pick the focused post) so it settles focused —
     // centring it would leave a higher post on the line. Instant (not animated):
@@ -1601,7 +1667,7 @@ function Post({
       const targetY = window.scrollY + (el.getBoundingClientRect().top - window.innerHeight * 0.3) + 4;
       window.scrollTo(0, Math.max(0, targetY));
     }
-  }, [id, setActivePostId]);
+  }, [id, onStackIconClick, tempRelatedStacks]);
 
   const handleExpandText = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();

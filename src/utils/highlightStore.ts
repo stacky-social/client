@@ -573,7 +573,8 @@ export function setPanelFocus(
       ? validateTopicInteraction(saved.topicInteraction, resolveTopicKey)
       : saved.topicInteraction
     : null;
-  if (pendingResponseFilter && pendingResponseFilter.postId === focusId) {
+  const appliesPendingPassage = !!pendingResponseFilter && pendingResponseFilter.postId === focusId;
+  if (appliesPendingPassage && pendingResponseFilter) {
     incomingResponseFilter = pendingResponseFilter.span;
     pendingResponseFilter = null;
     // A fresh passage filter is the active interaction — replace-not-stack means
@@ -582,7 +583,9 @@ export function setPanelFocus(
   }
   state = {
     ...state,
-    filterCategories: urlOwnsInteraction
+    filterCategories: appliesPendingPassage
+      ? new Set()
+      : urlOwnsInteraction
       ? new Set(state.filterCategories)
       : saved
         ? new Set(saved.filterCategories)

@@ -1067,6 +1067,12 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
     postMapRef.current = new Map(posts.map((post) => [post.postId, post]));
     const stackHandlerRef = useRef(handleStackIconClick);
     stackHandlerRef.current = handleStackIconClick;
+    const prefetchedPostRoutesRef = useRef(new Set<string>());
+    const prefetchPostRoute = useCallback((postId: string) => {
+        if (prefetchedPostRoutesRef.current.has(postId)) return;
+        prefetchedPostRoutesRef.current.add(postId);
+        router.prefetch(postRouteFor(postId));
+    }, [router]);
     // Manual clicks win until that card leaves the viewport. This mirrors the
     // API feed and prevents the scroll-settle callback from immediately undoing
     // an explicit user choice.
@@ -1093,6 +1099,35 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
         publishedRetrievedRef.current.set(focusedId, retrieved);
         stackHandlerRef.current(retrieved.stacks, focusedId, { top: 0, height: 0 });
     }, [retrievedRelated]);
+
+    // Home's focused card is the most likely navigation target. Warm its detail
+    // route while the user reads, and warm any other card as soon as the pointer
+    // or keyboard enters it. Programmatic router.push has no automatic Link
+    // prefetch, so without this the first click paid the full detail chunk/RSC
+    // cost before anything on screen could change.
+    useEffect(() => {
+        if (!activePostId) return;
+        prefetchPostRoute(activePostId);
+    }, [activePostId, prefetchPostRoute]);
+
+    // Programmatic cards do not receive Next Link's viewport prefetching. Warm
+    // the cards in and just beyond the viewport while the user reads the feed,
+    // so clicking an ordinary (not-yet-focused) Home card is fast too. The Set
+    // above makes this one-shot per route rather than repeating on every scroll.
+    useEffect(() => {
+        if (typeof IntersectionObserver === 'undefined') return;
+        const observer = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+                if (!entry.isIntersecting) continue;
+                const postId = (entry.target as HTMLElement).dataset.storeFeedPost;
+                if (postId) prefetchPostRoute(postId);
+                observer.unobserve(entry.target);
+            }
+        }, { rootMargin: '600px 0px' });
+        const elements = document.querySelectorAll<HTMLElement>('[data-store-feed-post]');
+        elements.forEach((element) => observer.observe(element));
+        return () => observer.disconnect();
+    }, [posts, prefetchPostRoute]);
 
     useEffect(() => {
         if ((source !== 'home' && source !== 'curated-home') || !hydrated || postsRef.current.length === 0) return;
@@ -1184,6 +1219,8 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                     key={post.postId}
                     data-post-id={post.postId}
                     data-store-feed-post={post.postId}
+                    onPointerEnter={() => prefetchPostRoute(post.postId)}
+                    onFocusCapture={() => prefetchPostRoute(post.postId)}
                 >
                     <Post
                         id={post.postId}
@@ -1201,10 +1238,16 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                         mediaAttachments={post.mediaAttachments}
                         onStackIconClick={handleStackIconClick}
                         // Store feeds are local study surfaces: publish the same
-                        // related-panel focus as before, then open the compatible
-                        // local detail route (never the auth-gated REST route).
+                        // compatible local detail route (never the auth-gated REST
+                        // route). Publish a newly selected card immediately, but
+                        // do NOT send the already-focused card back through the
+                        // toggle-style stack handler: that used to clear its panel
+                        // while the route loaded. The destination publishes its
+                        // final, thread-suppressed detail context after navigation.
                         onNavigate={(postId: string) => {
-                            handleStackIconClick(post.relatedStacks ?? [], postId, { top: 0, height: 0 });
+                            if (postId !== activePostIdRef.current) {
+                                handleStackIconClick(post.relatedStacks ?? [], postId, { top: 0, height: 0 });
+                            }
                             const url = postRouteFor(postId);
                             sessionStorage.setItem(`previousPath:${url}`, window.location.pathname + window.location.search);
                             saveFeedScrollSnapshot();
