@@ -49,6 +49,7 @@ import {
 } from "./mockPostResolver";
 import { resolveReplyCount } from "./replyCount.mjs";
 import { normalizeHashtag } from "../data/hashtagCatalog";
+import { postDateTimestamp } from "./postDate.mjs";
 
 // ─── Exported data shapes ────────────────────────────────────────────────────
 
@@ -166,7 +167,10 @@ function htmlContentFor(p: FocusPostMock | RelatedPostMock): string {
 }
 
 /** Convert a mock post (focus/ancestor/reply/related) into the store `Post` shape. */
-function mockToPost(p: FocusPostMock | RelatedPostMock): Post {
+function mockToPost(
+  p: FocusPostMock | RelatedPostMock,
+  canonicalFocus = false,
+): Post {
   return {
     id: p.id,
     content: htmlContentFor(p),
@@ -186,10 +190,12 @@ function mockToPost(p: FocusPostMock | RelatedPostMock): Post {
     quotedPost: p.quotedPost ?? null,
     relatedStacks: [],
     focusRelations: [],
-    // Focus posts remain standalone timeline cards. Only ids explicitly used
-    // as replies inherit canonical graph parentage; this also repairs dual-role
-    // posts whose first fixture copy is a parentless related response.
-    in_reply_to_id: getMockReplyParentId(p.id) ?? p.inReplyToId ?? null,
+    // A lifted quote-tweet embeds its source; it is not a reply to that source.
+    // Other dual-role focus posts may still be real replies elsewhere in the
+    // corpus, so retain their canonical graph edge.
+    in_reply_to_id: canonicalFocus && p.quotedPost
+      ? null
+      : getMockReplyParentId(p.id) ?? p.inReplyToId ?? null,
   };
 }
 
@@ -238,7 +244,7 @@ function defaultAccountFor(acct: string): Account {
 
 /** Newest-first comparator on `created_at`. */
 function byNewest(a: Post, b: Post): number {
-  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  return (postDateTimestamp(b.created_at) ?? 0) - (postDateTimestamp(a.created_at) ?? 0);
 }
 
 // ─── Seeding ─────────────────────────────────────────────────────────────────
@@ -262,15 +268,20 @@ function seedState(meOverride?: Account): LocalState {
   const posts: Record<string, Post> = {};
   const accounts: Record<string, Account> = {};
 
-  const addPost = (mp: FocusPostMock | RelatedPostMock) => {
-    if (!posts[mp.id]) posts[mp.id] = mockToPost(mp);
+  const addPost = (mp: FocusPostMock | RelatedPostMock, canonicalFocus = false) => {
+    if (!posts[mp.id] || canonicalFocus) posts[mp.id] = mockToPost(mp, canonicalFocus);
     if (mp.account && !accounts[mp.account.acct]) {
       accounts[mp.account.acct] = mockAccount(mp.account);
     }
   };
 
+  // Canonical focus copies always win for duplicate ids. The same corpus post
+  // can also occur as a related/reply copy whose text is deliberately
+  // decontextualized for standalone reading; that copy must never seed Home or
+  // a focused detail view.
+  for (const e of entries) addPost(e.focusPost, true);
+
   for (const e of entries) {
-    addPost(e.focusPost);
     for (const a of e.ancestors ?? []) addPost(a);
     for (const r of e.replies ?? []) addPost(r);
     for (const rp of e.relatedPosts ?? []) addPost(rp);
@@ -377,8 +388,11 @@ function load(): LocalState {
       const wasLiked = (parsed.liked ?? []).includes(id);
       const wasBookmarked = (parsed.bookmarked ?? []).includes(id);
       posts[id] = {
-        ...seededPost,
         ...(persistedPost ?? {}),
+        // Fixture-authored fields are immutable source data. Refresh them on
+        // every load so an older localStorage blob cannot pin a response-role
+        // rewrite, stale quote hierarchy, or stale timestamp onto a focus post.
+        ...seededPost,
         favourited: persistedPost?.favourited ?? wasLiked,
         bookmarked: persistedPost?.bookmarked ?? wasBookmarked,
         favourites_count: persistedPost?.favourites_count

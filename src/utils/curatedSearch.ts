@@ -20,6 +20,7 @@ import {
   normalizeCuratedSearchText,
 } from './curatedSearchCore.mjs';
 import { normalizeMastodonText } from './mastodonContent.mjs';
+import { postDateTimestamp } from './postDate.mjs';
 
 type CuratedSourcePost = FocusPostMock | RelatedPostMock | ReplyMock;
 
@@ -156,7 +157,9 @@ function toSearchPost(indexed: IndexedPost): CuratedSearchPost {
     quotedPost: post.quotedPost ?? null,
     relatedStacks,
     focusRelations: canonicalFocus ? getMockFocusRelations(post.id) : [],
-    in_reply_to_id: getMockReplyParentId(post.id) ?? post.inReplyToId ?? null,
+    in_reply_to_id: canonicalFocus && post.quotedPost
+      ? null
+      : getMockReplyParentId(post.id) ?? post.inReplyToId ?? null,
     topicId,
     timelineRoot,
   };
@@ -178,7 +181,8 @@ export function searchCuratedPosts(query: string, limit = 60): CuratedSearchPost
     .sort((left, right) =>
       right.score - left.score
       || Number(right.record.timelineRoot) - Number(left.record.timelineRoot)
-      || Date.parse(right.record.post.created_at) - Date.parse(left.record.post.created_at)
+      || (postDateTimestamp(right.record.post.created_at) ?? 0)
+        - (postDateTimestamp(left.record.post.created_at) ?? 0)
       || left.record.post.id.localeCompare(right.record.post.id)
     )
     .slice(0, Math.max(0, limit))
@@ -232,7 +236,8 @@ export function getCuratedPostsByHashtag(hashtag: string): CuratedSearchPost[] {
   return indexedPosts
     .filter((record) => record.topicId === corpus.id && record.timelineRoot)
     .sort((left, right) =>
-      Date.parse(right.post.created_at) - Date.parse(left.post.created_at)
+      (postDateTimestamp(right.post.created_at) ?? 0)
+        - (postDateTimestamp(left.post.created_at) ?? 0)
       || left.post.id.localeCompare(right.post.id)
     )
     .map(toSearchPost);
@@ -243,7 +248,8 @@ export function getCuratedPostsByAccount(account: string): CuratedSearchPost[] {
   return indexedPosts
     .filter((record) => normalizeCuratedSearchText(record.post.account.acct) === normalized)
     .sort((left, right) =>
-      Date.parse(right.post.created_at) - Date.parse(left.post.created_at)
+      (postDateTimestamp(right.post.created_at) ?? 0)
+        - (postDateTimestamp(left.post.created_at) ?? 0)
       || left.post.id.localeCompare(right.post.id)
     )
     .slice(0, 60)

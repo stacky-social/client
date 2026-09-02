@@ -20,7 +20,7 @@
 // Display contract from live_demo_data/README.md:
 //   focused post       -> body
 //   side/descendant    -> decontextualized_text (fallback body)
-//   quote-tweet root   -> embedded_key is its semantic parent
+//   quote-tweet root   -> embedded_key is rendered as an embedded quote
 
 // Related-post `content` is the rewritten display/offset base. The authored body
 // is retained as `rewrite.originalContent`, allowing the FE to show its existing
@@ -216,9 +216,9 @@ function indexCorpus(topic, corpus) {
 
   for (const [rootKey, root] of roots) {
     const sourceFile = sourceFileOfRoot(rootKey, root);
-    // A lifted Fox/NYT depth-1 comment is a quote-tweet root. Treat its embedded
-    // article as the semantic parent so existing thread/ancestor UI renders the
-    // relationship without inventing a second copy of the comment.
+    // Keep the source edge while reconstructing full_thread_text annotations.
+    // The display fixture omits this edge from ancestors: a lifted depth-1
+    // comment is a quote-tweet, not a reply to the embedded article.
     const rootParentKey = root.embedded_key || null;
     const walk = (node, parentKey) => {
       const key = `${sourceFile}::${node.post_id}`;
@@ -302,7 +302,8 @@ function basePost(index, item, mode = 'focused') {
 function ancestorsFor(index, key) {
   const chain = [];
   const seen = new Set([key]);
-  let cursor = index.byKey.get(key)?.parentKey ?? null;
+  const focusItem = index.byKey.get(key);
+  let cursor = focusItem?.node.embedded_key ? null : focusItem?.parentKey ?? null;
   while (cursor) {
     assert(!seen.has(cursor), `${index.topic}: ancestor cycle at ${cursor}`);
     seen.add(cursor);
@@ -494,7 +495,9 @@ function relatedPost(index, row, focusItem, context) {
     post: {
       id: base.id,
       sourceKey: sideItem.key,
-      inReplyToId: sideItem.parentKey ? stableId(index.topic, sideItem.parentKey) : null,
+      inReplyToId: sideItem.node.embedded_key
+        ? null
+        : sideItem.parentKey ? stableId(index.topic, sideItem.parentKey) : null,
       category: built.relations[0].category,
       rank: 0,
       globalRank: Number(row.rank),

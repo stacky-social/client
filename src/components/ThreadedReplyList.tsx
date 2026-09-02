@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import styles from "./ThreadedReplyList.module.css";
 import { useExperimentFlags } from "../utils/experimentFlags";
+import { postDateTimestamp } from "../utils/postDate.mjs";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -120,7 +121,8 @@ function buildChildMap(replies: PostType[]): Map<string, PostType[]> {
   Array.from(map.values()).forEach((bucket) => {
     bucket.sort(
       (a, b) =>
-        Date.parse(b.created_at) - Date.parse(a.created_at) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+        (postDateTimestamp(b.created_at) ?? 0) - (postDateTimestamp(a.created_at) ?? 0)
+        || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
     );
   });
   return map;
