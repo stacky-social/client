@@ -6,62 +6,25 @@
     --cw-coral: #e15c52;
     --cw-amber: #f0a83e;
     --cw-canvas: #ffffff;
+    --cw-related-post: #f7f9fa;
     --cw-line: #dfe4ea;
 }
 
-/* WeaveBridge replaces the right edge with two temporary half-rails. Their
-   reversible transforms share the bridge morph's timing, so the opening and
-   ribbon expand from the midpoint as one continuous gesture. */
+/* A focused post in split view is a genuinely open surface. Apply this from
+   the shell state as well as the bridge lifecycle so neither the incoming nor
+   outgoing focus can flash a right edge during a handoff. */
+[data-testid="content-group"][data-weave-split="true"]
+    [data-testid="post"][data-active="true"],
 [data-testid="post"][data-weave-source-open="true"] {
-    border-color: var(--cw-teal) !important;
     border-right-color: transparent !important;
     border-top-right-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
     clip-path: inset(-24px -4px -24px -24px);
 }
 
-[data-testid="post"][data-weave-source-open="true"]::before,
-[data-testid="post"][data-weave-source-open="true"]::after {
-    content: "";
-    position: absolute;
-    right: -2px;
-    z-index: 8;
-    width: 2px;
-    height: 50%;
-    background: var(--cw-teal);
-    pointer-events: none;
-    transform: scaleY(1);
-    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-[data-testid="post"][data-weave-source-open="true"]::before {
-    top: 0;
-    transform-origin: top center;
-}
-
-[data-testid="post"][data-weave-source-open="true"]::after {
-    bottom: 0;
-    transform-origin: bottom center;
-}
-
-[data-testid="post"][data-weave-source-phase="opening"]::before,
-[data-testid="post"][data-weave-source-phase="opening"]::after,
-[data-testid="post"][data-weave-source-phase="open"]::before,
-[data-testid="post"][data-weave-source-phase="open"]::after {
-    transform: scaleY(0);
-}
-
-[data-testid="post"][data-weave-source-phase="closing"]::before,
-[data-testid="post"][data-weave-source-phase="closing"]::after {
-    transform: scaleY(1);
-    transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
-}
-
-@media (prefers-reduced-motion: reduce) {
-    [data-testid="post"][data-weave-source-open="true"]::before,
-    [data-testid="post"][data-weave-source-open="true"]::after {
-        transition: none;
-    }
+[data-testid="post"][data-weave-source-open="true"] {
+    border-color: var(--cw-teal) !important;
+    border-right-color: transparent !important;
 }
 
 /* Auto-hide scrollbar: visible only while scrolling or on hover */

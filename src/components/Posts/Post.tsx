@@ -1717,7 +1717,7 @@ function Post({
           borderRadius: '10px',
           borderStyle: 'solid',
           borderWidth: '2px',
-          borderColor: isActive ? '#45a99e' : '#dfe4ea',
+          borderColor: isActive ? 'var(--cw-teal)' : '#dfe4ea',
           boxShadow: isActive
             ? '0 5px 14px rgba(28, 43, 74, 0.10), 0 2px 5px rgba(28, 43, 74, 0.06)'
             : '0 1px 6px rgba(28, 43, 74, 0.045)',

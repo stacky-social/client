@@ -6,12 +6,18 @@
 }
 
 .ribbon {
+  fill: var(--cw-canvas);
   stroke: none;
   shape-rendering: geometricPrecision;
 }
 
-.guide {
+.guide,
+.dividerRail {
   fill: none;
-  stroke: none;
+  stroke: var(--cw-teal);
+  stroke-width: 2;
+  stroke-linecap: butt;
+  vector-effect: non-scaling-stroke;
   pointer-events: none;
+  shape-rendering: geometricPrecision;
 }

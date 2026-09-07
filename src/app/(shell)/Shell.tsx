@@ -16,8 +16,11 @@ import WeaveBridge from "../../components/WeaveBridge";
  */
 const MAX_CONTENT_WIDTH = 1280;
 const SLIDER_W = 8;
-const WEAVE_RUNWAY = 64;
-const PANE_GUTTER = 10;
+// Keep enough runway for the bridge's established curve without letting the
+// two panes feel detached. The old 64px span read as a separate connector;
+// this tighter span reads as the focused card opening into the divider.
+const WEAVE_RUNWAY = 48;
+const PANE_GUTTER = 8;
 const FEED_WEAVE_INSET = WEAVE_RUNWAY - PANE_GUTTER - (SLIDER_W / 2);
 const BRIDGE_EXIT_GRACE_MS = 240;
 
@@ -126,6 +129,7 @@ export default function Shell({
 
             <div
                 data-testid="content-group"
+                data-weave-split={showAside ? "true" : undefined}
                 ref={groupRef}
                 style={{
                     padding: "0 16px",
@@ -177,6 +181,7 @@ export default function Shell({
                         onResize={onSliderResize}
                         onDoubleClick={reset}
                         quietIdleLine
+                        activeLineColor="var(--cw-teal)"
                         valueNow={Math.round(ratio * 100)}
                         valueMin={Math.round(FEED_RATIO_MIN * 100)}
                         valueMax={Math.round(FEED_RATIO_MAX * 100)}
@@ -231,7 +236,7 @@ export default function Shell({
                         // top:0`, so any top padding on this scroll container leaves a
                         // transparent strip above the header that scrolled cards show
                         // through. An opaque background keeps the panel solid.
-                        background: "#ffffff",
+                        background: "var(--cw-canvas)",
                         // Container-query context: related cards detect a narrow panel
                         // (its width depends on the slider ratio, not just the viewport).
                         containerType: "inline-size",

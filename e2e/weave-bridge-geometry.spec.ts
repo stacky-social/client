@@ -83,7 +83,7 @@ test.beforeEach(async ({ page }) => {
 
 test('aligns both strands with the synchronized focus post and aside', async ({ page }) => {
   await expectConnectedBridge(page);
-  const [g, card, aside, divider, nav, overlay, frameStyle, guideStyles] = await Promise.all([
+  const [g, card, aside, divider, nav, overlay, frameStyle, bridgeStyles, panelStyles] = await Promise.all([
     geometry(page), activePost(page).boundingBox(), page.getByTestId('col-aside').boundingBox(),
     page.getByRole('separator', { name: 'Resize feed and related panels' }).boundingBox(),
     page.getByTestId('top-nav').boundingBox(), bridge(page).boundingBox(),
@@ -95,14 +95,23 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
         bottomRightRadius: style.borderBottomRightRadius,
         clipPath: style.clipPath,
         sourcePhase: post.getAttribute('data-weave-source-phase'),
-        upperRailTransform: getComputedStyle(post, '::before').transform,
-        lowerRailTransform: getComputedStyle(post, '::after').transform,
       };
     }),
     Promise.all([
+      bridge(page).getByTestId('weave-ribbon'),
       bridge(page).getByTestId('weave-strand-upper'),
       bridge(page).getByTestId('weave-strand-lower'),
-    ].map((guide) => guide.evaluate((path) => getComputedStyle(path).stroke))),
+      bridge(page).getByTestId('weave-divider-rail-upper'),
+      bridge(page).getByTestId('weave-divider-rail-lower'),
+    ].map((element) => element.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { fill: style.fill, stroke: style.stroke };
+    }))),
+    Promise.all([
+      page.getByTestId('col-aside').evaluate((node) => getComputedStyle(node).backgroundColor),
+      page.locator('[data-related-card] [data-post-id]').first()
+        .evaluate((node) => getComputedStyle(node).backgroundColor),
+    ]),
   ]);
   expect(card && aside && divider && nav && overlay).toBeTruthy();
   expect(Object.values(g).flatMap((value) => typeof value === 'number'
@@ -113,15 +122,21 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
   expect(card!.x + card!.width - g.sourceX).toBeLessThanOrEqual(4);
   expectNear(g.targetX, divider!.x + divider!.width / 2);
   expect(g.targetX).toBeLessThan(aside!.x);
-  expect(g.targetX - g.sourceX).toBeGreaterThanOrEqual(60);
+  expect(g.targetX - g.sourceX).toBeGreaterThanOrEqual(46);
+  expect(g.targetX - g.sourceX).toBeLessThanOrEqual(56);
   expect(frameStyle.rightBorder).toBe('rgba(0, 0, 0, 0)');
   expect(frameStyle.topRightRadius).toBe('0px');
   expect(frameStyle.bottomRightRadius).toBe('0px');
   expect(frameStyle.clipPath).toBe('inset(-24px -4px -24px -24px)');
   expect(frameStyle.sourcePhase).toBe('open');
-  expect(frameStyle.upperRailTransform).toBe('matrix(1, 0, 0, 0, 0, 0)');
-  expect(frameStyle.lowerRailTransform).toBe('matrix(1, 0, 0, 0, 0, 0)');
-  expect(guideStyles).toEqual(['none', 'none']);
+  expect(bridgeStyles).toEqual([
+    { fill: 'rgb(255, 255, 255)', stroke: 'none' },
+    { fill: 'none', stroke: 'rgb(69, 169, 158)' },
+    { fill: 'none', stroke: 'rgb(69, 169, 158)' },
+    { fill: 'none', stroke: 'rgb(69, 169, 158)' },
+    { fill: 'none', stroke: 'rgb(69, 169, 158)' },
+  ]);
+  expect(panelStyles).toEqual(['rgb(255, 255, 255)', 'rgb(247, 249, 250)']);
   expectNear(g.sourceTopY, card!.y, 3);
   expectNear(g.sourceBottomY, card!.y + card!.height, 3);
   expect(g.sourceBottomY - g.sourceTopY).toBeGreaterThan(card!.height - 4);
@@ -160,9 +175,8 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
     / (g.lowerEnd.x - g.lowerTerminalProbe.x);
   expect(upperTerminalSlope).toBeGreaterThan(2.4);
   expect(lowerTerminalSlope).toBeGreaterThan(2.4);
-  await expect(bridge(page).getByTestId('weave-divider-seam')).toHaveCount(0);
-  await expect(bridge(page).getByTestId('weave-ribbon-gradient').locator('stop').last())
-    .toHaveAttribute('stop-opacity', '0');
+  await expect(bridge(page).getByTestId('weave-divider-rail-upper')).toHaveCount(1);
+  await expect(bridge(page).getByTestId('weave-divider-rail-lower')).toHaveCount(1);
   expect(overlay!.y).toBeGreaterThanOrEqual(nav!.y + nav!.height - 1);
   await expect(bridge(page)).toHaveAttribute('aria-hidden', 'true');
   await expect(bridge(page)).toHaveCSS('pointer-events', 'none');
@@ -255,7 +269,8 @@ test('keeps the full-frame flare at a narrow desktop split', async ({ page }) =>
   expect(card).toBeTruthy();
   expectNear(g.sourceTopY, card!.y, 3);
   expectNear(g.sourceBottomY, card!.y + card!.height, 3);
-  expect(g.targetX - g.sourceX).toBeGreaterThanOrEqual(60);
+  expect(g.targetX - g.sourceX).toBeGreaterThanOrEqual(46);
+  expect(g.targetX - g.sourceX).toBeLessThanOrEqual(56);
   expect(g.targetTopY).toBeLessThanOrEqual(g.sourceTopY - 68);
   expect(g.targetBottomY).toBeGreaterThanOrEqual(g.sourceBottomY + 68);
   expect(g.targetBottomY - g.targetTopY).toBeGreaterThan(
@@ -278,7 +293,8 @@ test('keeps a usable feed column at the minimum resizable split', async ({ page 
   ]);
   expect(content).toBeTruthy();
   expect(content!.width).toBeGreaterThanOrEqual(240);
-  expect(g.targetX - g.sourceX).toBeGreaterThanOrEqual(60);
+  expect(g.targetX - g.sourceX).toBeGreaterThanOrEqual(46);
+  expect(g.targetX - g.sourceX).toBeLessThanOrEqual(56);
 });
 
 test('keeps the sticky focus source narrower than the divider opening', async ({ page }) => {
