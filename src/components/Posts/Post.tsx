@@ -296,6 +296,105 @@ const FOCUS_HOVER_DWELL_MS = 1500;
 // more" still fully expands; that's the only way to grow the post.
 const POST_LINE_HEIGHT_EM = 1.5;
 
+type ClampEllipsisPosition = { left: number; top: number; lineHeight: number };
+
+/**
+ * Find the final visible glyph in a clamped (or internally scrolled) text box.
+ * The browser's multiline ellipsis is not exposed as a DOM node, so the custom
+ * marker must be anchored to the caret position on the final visible line.
+ */
+function measureClampEllipsis(element: HTMLElement): ClampEllipsisPosition | null {
+  const shell = element.parentElement;
+  if (!shell) return null;
+
+  const elementRect = element.getBoundingClientRect();
+  const shellRect = shell.getBoundingClientRect();
+  const computed = getComputedStyle(element);
+  const lineHeight = Number.parseFloat(computed.lineHeight)
+    || Number.parseFloat(computed.fontSize) * POST_LINE_HEIGHT_EM;
+  const sampleY = elementRect.bottom - lineHeight / 2;
+
+  // Keep our existing overlay out of hit testing while finding the text caret.
+  const marker = shell.querySelector<HTMLElement>('[data-testid="post-clamp-ellipsis"]');
+  const previousDisplay = marker?.style.display ?? '';
+  if (marker) marker.style.display = 'none';
+
+  let anchorRect: DOMRect | null = null;
+  try {
+    const caretDocument = document as Document & {
+      caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+      caretRangeFromPoint?: (x: number, y: number) => Range | null;
+    };
+    const caretPosition = caretDocument.caretPositionFromPoint?.(elementRect.right - 1, sampleY);
+    const fallbackRange = caretPosition
+      ? null
+      : caretDocument.caretRangeFromPoint?.(elementRect.right - 1, sampleY);
+    const node = caretPosition?.offsetNode ?? fallbackRange?.startContainer;
+    let end = caretPosition?.offset ?? fallbackRange?.startOffset ?? 0;
+
+    if (node?.nodeType === Node.TEXT_NODE && element.contains(node)) {
+      const textNode = node as Text;
+      end = Math.min(end, textNode.data.length);
+      while (end > 0 && /\s/.test(textNode.data[end - 1])) end -= 1;
+      if (end > 0) {
+        const range = document.createRange();
+        range.setStart(textNode, end - 1);
+        range.setEnd(textNode, end);
+        const candidate = range.getBoundingClientRect();
+        const onFinalVisibleLine = candidate.bottom > elementRect.bottom - lineHeight - 2
+          && candidate.top < elementRect.bottom
+          && candidate.right <= elementRect.right + 1;
+        if (onFinalVisibleLine) anchorRect = candidate;
+      }
+    }
+
+    // Nested marks can occasionally make the caret API return an element
+    // boundary. Fall back to a reverse text-node scan, stopping at the first
+    // character that belongs to the final visible line.
+    if (!anchorRect) {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      const textNodes: Text[] = [];
+      let node: Node | null;
+      while ((node = walker.nextNode())) textNodes.push(node as Text);
+
+      outer: for (let nodeIndex = textNodes.length - 1; nodeIndex >= 0; nodeIndex -= 1) {
+        const textNode = textNodes[nodeIndex];
+        for (let offset = textNode.data.length; offset > 0; offset -= 1) {
+          if (/\s/.test(textNode.data[offset - 1])) continue;
+          const range = document.createRange();
+          range.setStart(textNode, offset - 1);
+          range.setEnd(textNode, offset);
+          const candidate = range.getBoundingClientRect();
+          if (
+            candidate.width > 0
+            && candidate.bottom > elementRect.bottom - lineHeight - 2
+            && candidate.top < elementRect.bottom
+            && candidate.left < elementRect.right
+            && candidate.right > elementRect.left
+          ) {
+            anchorRect = candidate;
+            break outer;
+          }
+        }
+      }
+    }
+  } finally {
+    if (marker) marker.style.display = previousDisplay;
+  }
+
+  if (!anchorRect) return null;
+  const fontSize = Number.parseFloat(computed.fontSize) || 16;
+  const markerWidth = Math.max(8, fontSize * 0.7);
+  return {
+    left: Math.round(Math.min(
+      anchorRect.right - shellRect.left + 1,
+      elementRect.right - shellRect.left - markerWidth,
+    ) * 100) / 100,
+    top: Math.round((anchorRect.top - shellRect.top) * 100) / 100,
+    lineHeight,
+  };
+}
+
 // Renders the interactive highlight spans for ANY post that has relations, not
 // just the focused one, so feed posts get span hover + click-to-focus. It
 // subscribes to the highlight store, but the store-driven work (cross-highlight,
@@ -1265,6 +1364,7 @@ function Post({
   );
 
   const [isOverflowing, setIsOverflowing] = useState(false);
+  const [clampEllipsisPosition, setClampEllipsisPosition] = useState<ClampEllipsisPosition | null>(null);
   const textRef = useRef<HTMLDivElement>(null);
   // Guards against setState after unmount: under feed virtualization a post can
   // unmount while a post-action refetch is still in flight.
@@ -1324,7 +1424,10 @@ function Post({
 
   useLayoutEffect(() => {
     const element = textRef.current;
-    if (!element || isTextExpanded) return;
+    if (!element || isTextExpanded) {
+      setClampEllipsisPosition(null);
+      return;
+    }
 
     let animationFrame = 0;
     let cancelled = false;
@@ -1334,18 +1437,30 @@ function Post({
       animationFrame = requestAnimationFrame(() => {
         // A one-pixel tolerance avoids a false "Read more" when fractional line
         // metrics round scrollHeight and clientHeight in opposite directions.
-        setIsOverflowing(element.scrollHeight - element.clientHeight > 1);
+        const overflowing = element.scrollHeight - element.clientHeight > 1;
+        setIsOverflowing(overflowing);
+        const nextPosition = overflowing ? measureClampEllipsis(element) : null;
+        setClampEllipsisPosition((current) => {
+          if (!current || !nextPosition) return current === nextPosition ? current : nextPosition;
+          return Math.abs(current.left - nextPosition.left) < 0.25
+            && Math.abs(current.top - nextPosition.top) < 0.25
+            && Math.abs(current.lineHeight - nextPosition.lineHeight) < 0.25
+            ? current
+            : nextPosition;
+        });
       });
     };
 
     measureOverflow();
     const resizeObserver = new ResizeObserver(measureOverflow);
     resizeObserver.observe(element);
+    element.addEventListener('scroll', measureOverflow, { passive: true });
     void document.fonts?.ready.then(measureOverflow);
 
     return () => {
       cancelled = true;
       cancelAnimationFrame(animationFrame);
+      element.removeEventListener('scroll', measureOverflow);
       resizeObserver.disconnect();
     };
   }, [displayText, text, isTextExpanded, clampLines, contentRelations, focusRelations]);
@@ -1961,7 +2076,18 @@ function Post({
         />
       )}
       {isOverflowing && !isTextExpanded && (
-        <span className="post-clamp-ellipsis" data-testid="post-clamp-ellipsis" aria-hidden="true">…</span>
+        <span
+          className="post-clamp-ellipsis"
+          data-testid="post-clamp-ellipsis"
+          data-inline-positioned={clampEllipsisPosition ? 'true' : 'false'}
+          aria-hidden="true"
+          style={clampEllipsisPosition ? {
+            left: `${clampEllipsisPosition.left}px`,
+            top: `${clampEllipsisPosition.top}px`,
+            height: `${clampEllipsisPosition.lineHeight}px`,
+            lineHeight: `${clampEllipsisPosition.lineHeight}px`,
+          } : undefined}
+        >…</span>
       )}
       </div>
       {articleUrl && !quotedPost && (

@@ -154,24 +154,23 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 /* WebKit line clamp does not consistently paint its own ellipsis for nested
-   paragraphs/marks. This small mask makes truncation unambiguous on every post
-   type while preserving the measured clamp height. */
+   paragraphs/marks. JS anchors this mask immediately after the last visible
+   glyph; the white tail covers any duplicate native marker to its right. */
 .post-clamp-ellipsis {
     position: absolute;
     right: 0;
-    bottom: 0;
     z-index: 2;
     display: inline-flex;
-    min-width: 2.7em;
-    justify-content: flex-end;
+    min-width: 0;
+    justify-content: flex-start;
     color: #011445;
-    /* Cover WebKit's inconsistent built-in clamp marker before drawing one
-       deterministic ellipsis. A translucent mask can leave both markers
-       visible, which reads as five or six dots. */
     background: #fff;
     font-weight: 600;
-    line-height: 1.5;
     pointer-events: none;
+}
+
+.post-clamp-ellipsis[data-inline-positioned="false"] {
+    visibility: hidden;
 }
 
 .avatarHoverDim {

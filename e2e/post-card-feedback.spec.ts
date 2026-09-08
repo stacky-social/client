@@ -25,8 +25,32 @@ test.describe('post-card feedback', () => {
     await expect(shortCard.getByTestId('post-clamp-ellipsis')).toHaveCount(0);
 
     await expect(longCard.getByRole('button', { name: 'Read more' })).toBeVisible();
-    await expect(longCard.getByTestId('post-clamp-ellipsis')).toBeVisible();
-    await expect(longCard.getByTestId('post-clamp-ellipsis')).toHaveText('…');
+    const ellipsis = longCard.getByTestId('post-clamp-ellipsis');
+    await expect(ellipsis).toBeVisible();
+    await expect(ellipsis).toHaveText('…');
+    await expect(ellipsis).toHaveAttribute('data-inline-positioned', 'true');
+    const trailingGap = await longCard.evaluate((card) => {
+      const text = card.querySelector<HTMLElement>('.postClampedText')!;
+      const marker = card.querySelector<HTMLElement>('[data-testid="post-clamp-ellipsis"]')!;
+      const markerRect = marker.getBoundingClientRect();
+      const priorDisplay = marker.style.display;
+      marker.style.display = 'none';
+      const textRect = text.getBoundingClientRect();
+      const lineHeight = Number.parseFloat(getComputedStyle(text).lineHeight);
+      const caret = document.caretPositionFromPoint(textRect.right - 1, textRect.bottom - lineHeight / 2);
+      marker.style.display = priorDisplay;
+      if (!caret || caret.offsetNode.nodeType !== Node.TEXT_NODE) return Number.POSITIVE_INFINITY;
+      const textNode = caret.offsetNode as Text;
+      let end = Math.min(caret.offset, textNode.data.length);
+      while (end > 0 && /\s/.test(textNode.data[end - 1])) end -= 1;
+      if (end === 0) return Number.POSITIVE_INFINITY;
+      const range = document.createRange();
+      range.setStart(textNode, end - 1);
+      range.setEnd(textNode, end);
+      return markerRect.left - range.getBoundingClientRect().right;
+    });
+    expect(trailingGap).toBeGreaterThanOrEqual(0);
+    expect(trailingGap).toBeLessThanOrEqual(2);
 
     const quoteAction = shortCard.getByTestId('quoted-post');
     await expect(quoteAction).toContainText('Quoted article');
