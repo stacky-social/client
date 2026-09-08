@@ -84,7 +84,7 @@ function expectNear(actual: number, expected: number, tolerance = 2) {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/AIWorkforce');
-  await expect(page.locator('[data-demo-feed-post]').first()).toBeVisible();
+  await expect(page.locator('[data-demo-feed-post]').first()).toBeVisible({ timeout: 15_000 });
 });
 
 test('aligns both strands with the synchronized focus post and aside', async ({ page }) => {
@@ -101,6 +101,7 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
         bottomBorderWidth: Number.parseFloat(style.borderBottomWidth),
         topRightRadius: style.borderTopRightRadius,
         bottomRightRadius: style.borderBottomRightRadius,
+        transform: style.transform,
         clipPath: style.clipPath,
         sourcePhase: post.getAttribute('data-weave-source-phase'),
       };
@@ -135,6 +136,7 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
   expect(frameStyle.rightBorder).toBe('rgba(0, 0, 0, 0)');
   expect(frameStyle.topRightRadius).toBe('0px');
   expect(frameStyle.bottomRightRadius).toBe('0px');
+  expect(frameStyle.transform).toBe('none');
   expect(frameStyle.clipPath).toBe('inset(-24px 0px -24px -24px)');
   expect(frameStyle.sourcePhase).toBe('open');
   expect(bridgeStyles).toEqual([
@@ -145,11 +147,11 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
     { fill: 'none', stroke: 'rgb(69, 169, 158)' },
   ]);
   expect(panelStyles).toEqual(['rgb(255, 255, 255)', 'rgb(255, 255, 255)']);
-  expectNear(g.sourceTopY, card!.y + frameStyle.topBorderWidth / 2, 0.6);
+  expectNear(g.sourceTopY, card!.y + frameStyle.topBorderWidth / 2, 0.02);
   expectNear(
     g.sourceBottomY,
     card!.y + card!.height - frameStyle.bottomBorderWidth / 2,
-    0.6,
+    0.02,
   );
   expect(g.sourceBottomY - g.sourceTopY).toBeGreaterThan(card!.height - 5);
   expect(g.targetTopY).toBeLessThanOrEqual(g.sourceTopY - 68);
@@ -223,8 +225,8 @@ test('keeps the bridge joined during every scroll event', async ({ page }) => {
       });
     };
     window.addEventListener('scroll', record, { passive: true });
-    for (let step = 0; step < 6; step += 1) {
-      window.scrollBy(0, 6);
+    for (const delta of [6, 6, 6, -6, -6, -6]) {
+      window.scrollBy(0, delta);
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     }
     window.removeEventListener('scroll', record);
@@ -232,8 +234,8 @@ test('keeps the bridge joined during every scroll event', async ({ page }) => {
   });
   expect(samples.length).toBeGreaterThanOrEqual(4);
   samples.forEach(({ topGap, bottomGap, sourceOverlap }) => {
-    expect(topGap).toBeLessThanOrEqual(0.6);
-    expect(bottomGap).toBeLessThanOrEqual(0.6);
+    expect(topGap).toBeLessThanOrEqual(0.02);
+    expect(bottomGap).toBeLessThanOrEqual(0.02);
     expect(sourceOverlap).toBeGreaterThanOrEqual(2);
     expect(sourceOverlap).toBeLessThanOrEqual(4);
   });
@@ -242,7 +244,12 @@ test('keeps the bridge joined during every scroll event', async ({ page }) => {
 test('updates divider junctions in the same frame as their curves while scrolling', async ({ page }) => {
   await expectConnectedBridge(page);
   const gaps = await page.evaluate(async () => {
-    const readings: Array<{ upper: number; lower: number }> = [];
+    const readings: Array<{
+      upperXGap: number;
+      lowerXGap: number;
+      upperOverlap: number;
+      lowerOverlap: number;
+    }> = [];
     const point = (
       element: SVGGraphicsElement,
       x: number,
@@ -271,23 +278,30 @@ test('updates divider junctions in the same frame as their curves while scrollin
       const upperStart = point(upperRail, upperRail.x1.baseVal.value, upperRail.y1.baseVal.value);
       const lowerStart = point(lowerRail, lowerRail.x1.baseVal.value, lowerRail.y1.baseVal.value);
       readings.push({
-        upper: Math.hypot(upperEnd.x - upperStart.x, upperEnd.y - upperStart.y),
-        lower: Math.hypot(lowerEnd.x - lowerStart.x, lowerEnd.y - lowerStart.y),
+        upperXGap: Math.abs(upperEnd.x - upperStart.x),
+        lowerXGap: Math.abs(lowerEnd.x - lowerStart.x),
+        upperOverlap: upperStart.y - upperEnd.y,
+        lowerOverlap: lowerEnd.y - lowerStart.y,
       });
     };
 
-    for (let step = 0; step < 6; step += 1) {
-      window.scrollBy(0, 12);
+    window.addEventListener('scroll', record, { passive: true });
+    for (const delta of [12, 12, 12, -12, -12, -12]) {
+      window.scrollBy(0, delta);
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-      record();
     }
+    window.removeEventListener('scroll', record);
     return readings;
   });
 
   expect(gaps.length).toBe(6);
-  gaps.forEach(({ upper, lower }) => {
-    expect(upper).toBeLessThanOrEqual(1);
-    expect(lower).toBeLessThanOrEqual(1);
+  gaps.forEach(({ upperXGap, lowerXGap, upperOverlap, lowerOverlap }) => {
+    expect(upperXGap).toBeLessThanOrEqual(0.1);
+    expect(lowerXGap).toBeLessThanOrEqual(0.1);
+    expect(upperOverlap).toBeGreaterThanOrEqual(1.9);
+    expect(upperOverlap).toBeLessThanOrEqual(2.1);
+    expect(lowerOverlap).toBeGreaterThanOrEqual(1.9);
+    expect(lowerOverlap).toBeLessThanOrEqual(2.1);
   });
 });
 

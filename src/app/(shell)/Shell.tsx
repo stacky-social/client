@@ -23,6 +23,14 @@ const PANE_GUTTER = 8;
 const FEED_WEAVE_INSET = WEAVE_RUNWAY - PANE_GUTTER - (SLIDER_W / 2);
 const BRIDGE_EXIT_GRACE_MS = 240;
 const BRIDGE_VARIANT_STORAGE_KEY = "stacky:weave-bridge-variant";
+type FocusConnectionVariant = WeaveBridgeVariant | "border";
+const BRIDGE_VARIANT_CYCLE: FocusConnectionVariant[] = ["open", "classic", "border"];
+
+const BRIDGE_VARIANT_LABEL: Record<FocusConnectionVariant, string> = {
+    open: "Open bridge design",
+    classic: "Classic bridge design",
+    border: "Border-only focus design",
+};
 
 export default function Shell({
     children,
@@ -34,7 +42,12 @@ export default function Shell({
     const { ratio, setRatio, reset } = useFeedRatio();
     const isNarrowViewport = useMediaQuery("(max-width: 48rem)", false);
     const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)", false);
-    const [bridgeVariant, setBridgeVariant] = useState<WeaveBridgeVariant>("open");
+    const [bridgeVariant, setBridgeVariant] = useState<FocusConnectionVariant>("open");
+    // Border-only mode draws no bridge. Retain the last drawn variant so the
+    // bridge does not switch visual treatments during the single render before
+    // its disabled-state effect removes the SVG.
+    const lastDrawnBridgeVariant = useRef<WeaveBridgeVariant>("open");
+    if (bridgeVariant !== "border") lastDrawnBridgeVariant.current = bridgeVariant;
 
     const groupRef = useRef<HTMLDivElement | null>(null);
     const feedRef = useRef<HTMLDivElement | null>(null);
@@ -48,7 +61,9 @@ export default function Shell({
 
     useEffect(() => {
         const saved = window.localStorage.getItem(BRIDGE_VARIANT_STORAGE_KEY);
-        if (saved === "classic" || saved === "open") setBridgeVariant(saved);
+        if (saved === "classic" || saved === "open" || saved === "border") {
+            setBridgeVariant(saved);
+        }
     }, []);
 
     useEffect(() => {
@@ -71,7 +86,8 @@ export default function Shell({
 
             event.preventDefault();
             setBridgeVariant((current) => {
-                const next: WeaveBridgeVariant = current === "open" ? "classic" : "open";
+                const currentIndex = BRIDGE_VARIANT_CYCLE.indexOf(current);
+                const next = BRIDGE_VARIANT_CYCLE[(currentIndex + 1) % BRIDGE_VARIANT_CYCLE.length];
                 window.localStorage.setItem(BRIDGE_VARIANT_STORAGE_KEY, next);
                 return next;
             });
@@ -287,6 +303,7 @@ export default function Shell({
 
             <div
                 role="status"
+                data-testid="weave-bridge-status"
                 aria-live="polite"
                 aria-atomic="true"
                 style={{
@@ -301,14 +318,14 @@ export default function Shell({
                     border: 0,
                 }}
             >
-                {bridgeVariant === "open" ? "Open bridge design" : "Classic bridge design"}
+                {BRIDGE_VARIANT_LABEL[bridgeVariant]}
             </div>
 
             <WeaveBridge
-                enabled={showAside}
+                enabled={showAside && bridgeVariant !== "border"}
                 feedRef={feedRef}
                 asideRef={asideRef}
-                variant={bridgeVariant}
+                variant={lastDrawnBridgeVariant.current}
             />
 
             <HoverTooltip />
