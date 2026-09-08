@@ -15,7 +15,7 @@ type WeaveBridgeProps = {
 type SourceKind = "card" | "sticky";
 
 type BridgeGeometry = {
-  focusId: string; sourceKind: SourceKind; signature: string;
+  focusId: string; sourceKind: SourceKind; variant: WeaveBridgeVariant; signature: string;
   viewportWidth: number; viewportHeight: number;
   sourceX: number; sourceTopY: number; sourceBottomY: number;
   targetX: number; targetTopY: number; targetBottomY: number;
@@ -29,7 +29,7 @@ type BridgeLayer = {
   phase: LayerPhase;
   enterDelay: number;
 };
-type WeaveMotionState = "entering" | "connected" | "retargeting" | "exiting";
+type WeaveMotionState = "entering" | "connected" | "retargeting" | "switching" | "exiting";
 type SourceFramePhase = "closed" | "opening" | "open" | "closing";
 type BridgeMotion = {
   current: BridgeLayer | null;
@@ -520,6 +520,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
       const next: BridgeGeometry = {
         focusId: activePostId,
         sourceKind,
+        variant,
         signature: `${variant}|${activePostId}|${sourceKind}|${window.innerWidth}|${window.innerHeight}|${coordinates.join("|")}`,
         viewportWidth: round(window.innerWidth),
         viewportHeight: round(window.innerHeight - TOP_NAV_HEIGHT),
@@ -537,6 +538,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
       if (
         previous.current?.geometry.focusId === next.focusId
         && previous.current.geometry.sourceKind === next.sourceKind
+        && previous.current.geometry.variant === next.variant
         && previous.current.phase === "connected"
         && previous.current.geometry.signature !== next.signature
       ) {
@@ -640,6 +642,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
     if (
       previous.current?.geometry.focusId === measuredGeometry.focusId
       && previous.current.geometry.sourceKind === measuredGeometry.sourceKind
+      && previous.current.geometry.variant === measuredGeometry.variant
     ) {
       if (previous.current.geometry.signature === measuredGeometry.signature) return;
       // Scroll, card expansion and divider-resize geometry must stay attached to
@@ -657,16 +660,24 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
     // new cards. Preserve that already-exiting layer as the retarget source so
     // its open frame does not snap shut before the replacement strand begins.
     const priorLayer = previous.current ?? previous.outgoing;
+    const isVariantChange = priorLayer !== null
+      && priorLayer.geometry.focusId === measuredGeometry.focusId
+      && priorLayer.geometry.sourceKind === measuredGeometry.sourceKind
+      && priorLayer.geometry.variant !== measuredGeometry.variant;
     const isRetarget = priorLayer !== null
       && (
         priorLayer.geometry.focusId !== measuredGeometry.focusId
         || priorLayer.geometry.sourceKind !== measuredGeometry.sourceKind
+        || isVariantChange
       );
     const current: BridgeLayer = {
       key: revision,
       geometry: measuredGeometry,
       phase: "entering",
-      enterDelay: isRetarget ? RETARGET_DELAY_MS : 0,
+      // A post handoff overlaps slightly to preserve continuity. A design
+      // switch is different: finish retracting the old treatment before the
+      // replacement starts, so no geometry or paint style teleports in place.
+      enterDelay: isVariantChange ? BRIDGE_MORPH_MS : isRetarget ? RETARGET_DELAY_MS : 0,
     };
     commitMotion({
       current,
@@ -674,7 +685,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
         ? { ...priorLayer, phase: "exiting", enterDelay: 0 }
         : null,
       revision,
-      state: isRetarget ? "retargeting" : "entering",
+      state: isVariantChange ? "switching" : isRetarget ? "retargeting" : "entering",
     });
     if (isRetarget) {
       scheduleMotion(revision, BRIDGE_MORPH_MS, (value) => ({ ...value, outgoing: null }));
@@ -743,6 +754,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
     const entering = layer.phase === "entering";
     const exiting = layer.phase === "exiting";
     const geometry = layer.geometry;
+    const layerClassic = geometry.variant === "classic";
     const ribbonGradientId = `weave-ribbon-gradient-${layer.key}`;
     const revealClipId = `weave-reveal-clip-${layer.key}`;
     const morphDelay = entering ? layer.enterDelay : 0;
@@ -760,12 +772,13 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
         data-weave-layer={role}
         data-focus-id={geometry.focusId}
         data-source-kind={geometry.sourceKind}
+        data-weave-variant={geometry.variant}
         data-phase={layer.phase}
         data-morph-delay-ms={morphDelay}
         data-morph-duration-ms={BRIDGE_MORPH_MS}
       >
         <defs>
-          {classic && (
+          {layerClassic && (
             <linearGradient
               id={ribbonGradientId}
               data-testid={testId("weave-ribbon-gradient")}
@@ -787,9 +800,9 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
               enterDelay={morphDelay}
               sourceX={geometry.sourceX}
               midpointY={revealMidY}
-              targetTopY={revealTop - (classic ? 0 : 2)}
-              targetWidth={revealWidth + (classic ? 0 : 2)}
-              targetHeight={revealHeight + (classic ? 0 : 4)}
+              targetTopY={revealTop - (layerClassic ? 0 : 2)}
+              targetWidth={revealWidth + (layerClassic ? 0 : 2)}
+              targetHeight={revealHeight + (layerClassic ? 0 : 4)}
               testId={testId("weave-reveal-window")}
             />
           </clipPath>
@@ -800,7 +813,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
           <path
             className={classes.ribbon}
             d={geometry.ribbonPath}
-            style={classic ? { fill: `url(#${ribbonGradientId})` } : undefined}
+            style={layerClassic ? { fill: `url(#${ribbonGradientId})` } : undefined}
             data-testid={testId("weave-ribbon")}
           />
           <path
@@ -814,7 +827,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
             data-testid={testId("weave-strand-lower")}
           />
         </g>
-        {!classic && (
+        {!layerClassic && (
           <DividerRails
             entering={entering}
             exiting={exiting}

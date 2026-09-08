@@ -1203,7 +1203,7 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                     <Text size="sm" c="dimmed">
                         Browse the{' '}
                         <Anchor component={Link} href="/AIWorkforce" size="sm">
-                            #AIWorkforce demo thread
+                            demo
                         </Anchor>{' '}
                         — no login required.
                     </Text>

@@ -109,13 +109,24 @@ async function clearEvents(page: Page) {
   await page.evaluate(() => { (window as RecorderWindow).__weaveEvents = []; });
 }
 
-async function scrollToPost(page: Page, index: number) {
+async function scrollToPost(page: Page, index: number, slowly = false) {
   const post = page.locator('[data-demo-feed-post]').nth(index);
   const id = (await post.getAttribute('data-demo-feed-post'))!;
-  await post.evaluate((node) => {
+  const targetY = await post.evaluate((node) => {
     const rect = node.getBoundingClientRect();
-    window.scrollTo(0, window.scrollY + rect.top - window.innerHeight * 0.3 + 100);
+    return window.scrollY + rect.top - window.innerHeight * 0.3 + 100;
   });
+  if (slowly) {
+    await page.evaluate(async (destination) => {
+      while (Math.abs(destination - window.scrollY) > 1) {
+        const distance = destination - window.scrollY;
+        window.scrollBy(0, Math.sign(distance) * Math.min(24, Math.abs(distance)));
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
+      }
+    }, targetY);
+  } else {
+    await page.evaluate((destination) => window.scrollTo(0, destination), targetY);
+  }
   return id;
 }
 
@@ -134,7 +145,10 @@ test('switches A to B and settles with one correctly keyed layer', async ({ page
   await openDemo(page);
   const firstId = await current(page).getAttribute('data-focus-id');
   await clearEvents(page);
-  const nextId = await scrollToPost(page, 2);
+  // Keep this below the fast-scroll suspension threshold: this test owns the
+  // ordinary A → B handoff, while weave-bridge-variant covers the high-speed
+  // bordered fallback and redraw behavior.
+  const nextId = await scrollToPost(page, 1, true);
   await expect(current(page)).toHaveAttribute('data-focus-id', nextId);
   await expect(current(page)).toHaveAttribute('data-phase', 'connected');
   await expect(outgoing(page)).toHaveCount(0);

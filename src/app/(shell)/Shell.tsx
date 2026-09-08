@@ -22,6 +22,8 @@ const WEAVE_RUNWAY = 48;
 const PANE_GUTTER = 8;
 const FEED_WEAVE_INSET = WEAVE_RUNWAY - PANE_GUTTER - (SLIDER_W / 2);
 const BRIDGE_EXIT_GRACE_MS = 240;
+const OPEN_BRIDGE_SUSPEND_SPEED_PX_PER_SECOND = 2000;
+const OPEN_BRIDGE_SCROLL_SETTLE_MS = 150;
 const BRIDGE_VARIANT_STORAGE_KEY = "stacky:weave-bridge-variant";
 type FocusConnectionVariant = WeaveBridgeVariant | "border";
 const BRIDGE_VARIANT_CYCLE: FocusConnectionVariant[] = ["open", "classic", "border"];
@@ -43,6 +45,8 @@ export default function Shell({
     const isNarrowViewport = useMediaQuery("(max-width: 48rem)", false);
     const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)", false);
     const [bridgeVariant, setBridgeVariant] = useState<FocusConnectionVariant>("open");
+    const [openBridgeSuspended, setOpenBridgeSuspended] = useState(false);
+    const openBridgeSuspendedRef = useRef(false);
     // Border-only mode draws no bridge. Retain the last drawn variant so the
     // bridge does not switch visual treatments during the single render before
     // its disabled-state effect removes the SVG.
@@ -96,6 +100,57 @@ export default function Shell({
         window.addEventListener("keydown", toggleBridgeVariant);
         return () => window.removeEventListener("keydown", toggleBridgeVariant);
     }, []);
+
+    // The open bridge is meant for close reading. During a fast document
+    // scroll, temporarily return to the ordinary bordered focus card instead
+    // of asking fixed SVG geometry to compete with rapidly moving content.
+    // Slow reading adjustments stay connected; once a fast scroll settles,
+    // enabling the bridge again reuses its normal opening animation.
+    useEffect(() => {
+        let settleTimer = 0;
+        let lastY = window.scrollY;
+        let lastAt = performance.now();
+
+        const setSuspended = (suspended: boolean) => {
+            if (openBridgeSuspendedRef.current === suspended) return;
+            openBridgeSuspendedRef.current = suspended;
+            setOpenBridgeSuspended(suspended);
+        };
+
+        if (bridgeVariant !== "open" || !showAside) {
+            setSuspended(false);
+            return;
+        }
+
+        const onScroll = () => {
+            const now = performance.now();
+            const distance = Math.abs(window.scrollY - lastY);
+            // Cap long idle gaps so the first large scroll gesture is measured
+            // as motion rather than diluted by all the time spent stationary.
+            const elapsedMs = Math.min(50, Math.max(8, now - lastAt));
+            const speed = distance / (elapsedMs / 1000);
+            lastY = window.scrollY;
+            lastAt = now;
+
+            if (speed >= OPEN_BRIDGE_SUSPEND_SPEED_PX_PER_SECOND) {
+                setSuspended(true);
+            }
+            if (!openBridgeSuspendedRef.current) return;
+
+            window.clearTimeout(settleTimer);
+            settleTimer = window.setTimeout(
+                () => setSuspended(false),
+                OPEN_BRIDGE_SCROLL_SETTLE_MS,
+            );
+        };
+
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => {
+            window.removeEventListener("scroll", onScroll);
+            window.clearTimeout(settleTimer);
+            setSuspended(false);
+        };
+    }, [bridgeVariant, showAside]);
 
     // Keep the split geometry alive just long enough for the bridge to unweave.
     // Narrow and reduced-motion transitions collapse immediately.
@@ -183,6 +238,7 @@ export default function Shell({
                 data-testid="content-group"
                 data-weave-split={showAside ? "true" : undefined}
                 data-weave-variant={bridgeVariant}
+                data-weave-suspended={openBridgeSuspended ? "fast-scroll" : undefined}
                 data-weave-shortcut="Shift+B"
                 aria-keyshortcuts="Shift+B"
                 ref={groupRef}
@@ -322,7 +378,7 @@ export default function Shell({
             </div>
 
             <WeaveBridge
-                enabled={showAside && bridgeVariant !== "border"}
+                enabled={showAside && bridgeVariant !== "border" && !openBridgeSuspended}
                 feedRef={feedRef}
                 asideRef={asideRef}
                 variant={lastDrawnBridgeVariant.current}

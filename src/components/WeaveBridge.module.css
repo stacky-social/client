@@ -28,6 +28,6 @@
   shape-rendering: geometricPrecision;
 }
 
-.bridge[data-weave-variant="classic"] .guide {
+.bridge [data-weave-variant="classic"] .guide {
   stroke: none;
 }
