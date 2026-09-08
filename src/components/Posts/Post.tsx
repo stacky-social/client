@@ -385,11 +385,18 @@ function measureClampEllipsis(element: HTMLElement): ClampEllipsisPosition | nul
   if (!anchorRect) return null;
   const fontSize = Number.parseFloat(computed.fontSize) || 16;
   const markerWidth = Math.max(8, fontSize * 0.7);
+  const nativeClampActive = computed.webkitLineClamp !== 'none';
+  const markerLeft = Math.min(
+    anchorRect.right - shellRect.left + 1,
+    elementRect.right - shellRect.left - markerWidth,
+  );
   return {
-    left: Math.round(Math.min(
-      anchorRect.right - shellRect.left + 1,
-      elementRect.right - shellRect.left - markerWidth,
-    ) * 100) / 100,
+    // A WebKit line clamp paints an anonymous ellipsis immediately before our
+    // marker. Start the opaque button one ellipsis-width earlier so it replaces
+    // that native glyph instead of appearing beside it. The internally-scrolled
+    // focus window has no native clamp, so its marker stays after the final
+    // visible character.
+    left: Math.round((markerLeft - (nativeClampActive ? markerWidth : 0)) * 100) / 100,
     top: Math.round((anchorRect.top - shellRect.top) * 100) / 100,
     lineHeight,
   };
@@ -2076,18 +2083,23 @@ function Post({
         />
       )}
       {isOverflowing && !isTextExpanded && (
-        <span
+        <button
+          type="button"
           className="post-clamp-ellipsis"
           data-testid="post-clamp-ellipsis"
           data-inline-positioned={clampEllipsisPosition ? 'true' : 'false'}
-          aria-hidden="true"
+          aria-label="Read full post"
+          title="Read more"
+          onClick={handleExpandText}
+          onMouseDown={(event) => event.stopPropagation()}
+          onMouseUp={(event) => event.stopPropagation()}
           style={clampEllipsisPosition ? {
             left: `${clampEllipsisPosition.left}px`,
             top: `${clampEllipsisPosition.top}px`,
             height: `${clampEllipsisPosition.lineHeight}px`,
             lineHeight: `${clampEllipsisPosition.lineHeight}px`,
           } : undefined}
-        >…</span>
+        >…</button>
       )}
       </div>
       {articleUrl && !quotedPost && (

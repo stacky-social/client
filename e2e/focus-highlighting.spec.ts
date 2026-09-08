@@ -327,8 +327,35 @@ test.describe('Focus-post highlighting', () => {
 
     await page.evaluate(() => (window as any).__hl.enterPost('143203013'));
     await expect.poll(async () => Math.round(await focus.evaluate((el) => el.scrollTop))).toBeGreaterThan(0);
-    await expect(page.locator('.focus-window-prefix')).toBeVisible();
+    const leadingContinuation = page.locator('.focus-window-prefix');
+    const focusCard = focus.locator('xpath=ancestor::*[@data-post-id][1]');
+    const trailingContinuation = focusCard.getByRole('button', { name: 'Read full post' });
+    await expect(leadingContinuation).toBeVisible();
+    await expect(trailingContinuation).toBeVisible();
     await expect(page.locator('[data-focus-window-offset="true"]')).toBeVisible();
+    const continuationStyles = await Promise.all([
+      leadingContinuation.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          color: style.color,
+          fontFamily: style.fontFamily,
+          fontSize: style.fontSize,
+          fontWeight: style.fontWeight,
+          lineHeight: style.lineHeight,
+        };
+      }),
+      trailingContinuation.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          color: style.color,
+          fontFamily: style.fontFamily,
+          fontSize: style.fontSize,
+          fontWeight: style.fontWeight,
+          lineHeight: style.lineHeight,
+        };
+      }),
+    ]);
+    expect(continuationStyles[1]).toEqual(continuationStyles[0]);
     await page.waitForTimeout(500);
     const settledTop = Math.round(await focus.evaluate((el) => el.scrollTop));
 

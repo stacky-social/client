@@ -145,14 +145,34 @@ html::-webkit-scrollbar-thumb:hover {
     display: inline-flex;
     min-width: 0;
     justify-content: flex-start;
-    color: #011445;
+    align-items: baseline;
+    box-sizing: border-box;
+    padding: 0 0 0 0.25em;
+    margin: 0;
+    border: 0;
+    color: #64748b;
     background: #fff;
+    font-family: inherit;
+    font-size: inherit;
     font-weight: 600;
-    pointer-events: none;
+    text-align: left;
+    vertical-align: baseline;
+    cursor: pointer;
+    user-select: none;
 }
 
 .post-clamp-ellipsis[data-inline-positioned="false"] {
     visibility: hidden;
+}
+
+.post-clamp-ellipsis:hover {
+    color: #1c2b4a;
+}
+
+.post-clamp-ellipsis:focus-visible {
+    outline: 2px solid #2f6f68;
+    outline-offset: -2px;
+    border-radius: 2px;
 }
 
 .avatarHoverDim {
