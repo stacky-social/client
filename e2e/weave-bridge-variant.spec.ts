@@ -9,7 +9,7 @@ const relatedPost = (page: Page) => page.locator('[data-related-card] [data-post
 
 async function openDemo(page: Page) {
   await page.goto('/AIWorkforce');
-  await expect(page.locator('[data-demo-feed-post]').first()).toBeVisible();
+  await expect(page.locator('[data-demo-feed-post]').first()).toBeVisible({ timeout: 15_000 });
   await expect(bridge(page)).toHaveAttribute('data-weave-state', 'connected');
 }
 
@@ -27,10 +27,12 @@ async function panelGap(page: Page) {
   return aside.x - (post.x + post.width);
 }
 
-test('Shift+B toggles and persists the classic and open bridge designs', async ({ page }) => {
+test('Shift+B cycles and persists open, classic, and border-only focus designs', async ({ page }) => {
   await openDemo(page);
+  const status = page.getByTestId('weave-bridge-status');
   await expect(group(page)).toHaveAttribute('data-weave-shortcut', 'Shift+B');
   await expect(group(page)).toHaveAttribute('data-weave-variant', 'open');
+  await expect(status).toHaveText('Open bridge design');
   await expect(bridge(page)).toHaveAttribute('data-weave-variant', 'open');
   await expect(bridge(page).getByTestId('weave-divider-rail-upper')).toHaveCount(1);
   await expect(bridge(page).getByTestId('weave-ribbon-gradient')).toHaveCount(0);
@@ -40,6 +42,14 @@ test('Shift+B toggles and persists the classic and open bridge designs', async (
 
   await page.keyboard.press('Shift+B');
   await expect(group(page)).toHaveAttribute('data-weave-variant', 'classic');
+  await expect(status).toHaveText('Classic bridge design');
+  await expect(bridge(page)).toHaveAttribute('data-weave-state', 'switching');
+  await expect(bridge(page).locator('[data-weave-layer="outgoing"]'))
+    .toHaveAttribute('data-weave-variant', 'open');
+  await expect(bridge(page).locator('[data-weave-layer="current"]'))
+    .toHaveAttribute('data-weave-variant', 'classic');
+  await expect(bridge(page).locator('[data-weave-layer="current"]'))
+    .toHaveAttribute('data-morph-delay-ms', '220');
   await expect(bridge(page)).toHaveAttribute('data-weave-variant', 'classic');
   await expect(bridge(page).getByTestId('weave-divider-rail-upper')).toHaveCount(0);
   await expect(bridge(page).getByTestId('weave-ribbon-gradient')).toHaveCount(1);
@@ -50,6 +60,7 @@ test('Shift+B toggles and persists the classic and open bridge designs', async (
   expect(Math.abs(await panelGap(page) - openPanelGap)).toBeLessThanOrEqual(1);
   await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY))
     .toBe('classic');
+  await expect(bridge(page)).toHaveAttribute('data-weave-state', 'connected');
 
   await page.reload();
   await expect(bridge(page)).toHaveAttribute('data-weave-state', 'connected');
@@ -66,11 +77,63 @@ test('Shift+B toggles and persists the classic and open bridge designs', async (
 
   await page.getByTestId('bridge-shortcut-input').evaluate((input) => input.remove());
   await page.keyboard.press('Shift+B');
+  await expect(group(page)).toHaveAttribute('data-weave-variant', 'border');
+  await expect(status).toHaveText('Border-only focus design');
+  await expect(bridge(page)).toHaveCount(0);
+  await expect(activePost(page)).toHaveCSS('border-right-color', 'rgb(69, 169, 158)');
+  await expect(activePost(page)).toHaveCSS('border-top-right-radius', '10px');
+  await expect(activePost(page)).toHaveCSS('border-bottom-right-radius', '10px');
+  await expect(activePost(page)).toHaveCSS('clip-path', 'none');
+  await expect(page.getByTestId('resize-divider-guide')).toHaveCSS(
+    'background-color',
+    'rgba(0, 0, 0, 0)',
+  );
+  expect(Math.abs(await panelGap(page) - openPanelGap)).toBeLessThanOrEqual(1);
+  await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY))
+    .toBe('border');
+
+  await page.reload();
+  await expect(group(page)).toHaveAttribute('data-weave-variant', 'border');
+  await expect(bridge(page)).toHaveCount(0);
+  await expect(activePost(page)).toHaveCSS('border-right-color', 'rgb(69, 169, 158)');
+
+  await page.keyboard.press('Shift+B');
   await expect(group(page)).toHaveAttribute('data-weave-variant', 'open');
+  await expect(status).toHaveText('Open bridge design');
+  await expect(bridge(page)).toHaveAttribute('data-weave-state', 'connected');
   await expect(bridge(page).getByTestId('weave-divider-rail-upper')).toHaveCount(1);
   await expect(bridge(page).getByTestId('weave-ribbon-gradient')).toHaveCount(0);
   await expect(relatedPost(page)).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect.poll(() => bridgeWidth(page)).toBeLessThanOrEqual(56);
   await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY))
     .toBe('open');
+});
+
+test('temporarily replaces only the open bridge during fast scrolling', async ({ page }) => {
+  await openDemo(page);
+
+  await page.evaluate(() => {
+    let step = 0;
+    const interval = window.setInterval(() => {
+      window.scrollBy(0, step % 2 === 0 ? 120 : -120);
+      step += 1;
+      if (step === 8) window.clearInterval(interval);
+    }, 30);
+  });
+
+  await expect(group(page)).toHaveAttribute('data-weave-suspended', 'fast-scroll');
+  await expect(bridge(page)).toHaveCount(0);
+  await expect(activePost(page)).toHaveCSS('border-right-color', 'rgb(69, 169, 158)');
+  await expect(activePost(page)).toHaveCSS('border-top-right-radius', '10px');
+  await expect(activePost(page)).toHaveCSS('clip-path', 'none');
+
+  await expect(group(page)).not.toHaveAttribute('data-weave-suspended', 'fast-scroll');
+  await expect(bridge(page)).toHaveAttribute('data-weave-state', 'connected');
+
+  await page.keyboard.press('Shift+B');
+  await expect(bridge(page)).toHaveAttribute('data-weave-state', 'connected');
+  await page.evaluate(() => window.scrollBy(0, 500));
+  await page.waitForTimeout(50);
+  await expect(group(page)).not.toHaveAttribute('data-weave-suspended', 'fast-scroll');
+  await expect(bridge(page)).toBeVisible();
 });

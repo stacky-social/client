@@ -13,18 +13,25 @@
 /* A focused post in split view is a genuinely open surface. Apply this from
    the shell state as well as the bridge lifecycle so neither the incoming nor
    outgoing focus can flash a right edge during a handoff. */
-[data-testid="content-group"][data-weave-split="true"]
+[data-testid="content-group"][data-weave-split="true"]:not([data-weave-variant="border"]):not([data-weave-suspended="fast-scroll"])
     [data-testid="post"][data-active="true"],
-[data-testid="post"][data-weave-source-open="true"] {
+[data-testid="content-group"][data-weave-split="true"]:not([data-weave-suspended="fast-scroll"])
+    [data-testid="post"][data-weave-source-open="true"] {
     border-right-color: transparent !important;
     border-top-right-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
+    /* An attached source cannot independently perform the card's one-pixel
+       focus lift: the fixed SVG would trail that compositor-only transition.
+       The bridge itself is the elevation cue in these two modes. Border-only
+       mode does not match this selector and retains the original card lift. */
+    transform: none !important;
     /* Both bridge variants keep the generous top/bottom/left shadow but cut
        the right-hand shadow exactly at the open edge. */
     clip-path: inset(-24px 0 -24px -24px);
 }
 
-[data-testid="post"][data-weave-source-open="true"] {
+[data-testid="content-group"]:not([data-weave-suspended="fast-scroll"])
+    [data-testid="post"][data-weave-source-open="true"] {
     border-color: var(--cw-teal) !important;
     border-right-color: transparent !important;
 }
