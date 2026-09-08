@@ -21,6 +21,7 @@ async function expectConnectedBridge(page: Page) {
 async function geometry(page: Page) {
   return bridge(page).evaluate((svg) => {
     const number = (name: string) => Number(svg.getAttribute(name));
+    const sourceX = number('data-source-x');
     const inspectPath = (testId: string) => {
       const path = svg.querySelector(`[data-testid="${testId}"]`) as SVGPathElement;
       const length = path.getTotalLength();
@@ -29,12 +30,15 @@ async function geometry(page: Page) {
         const point = path.getPointAtLength(distance).matrixTransform(matrix);
         return { x: point.x, y: point.y };
       };
+      const start = at(0);
+      const horizontalRun = Math.max(0, sourceX - start.x);
       const samples = Array.from({ length: 61 }, (_, index) => at(length * index / 60));
       const steps = samples.slice(1).map((point, index) => point.y - samples[index].y);
       return {
         pathData: path.getAttribute('d') ?? '',
-        start: at(0),
-        sourceProbe: at(Math.min(10, length * 0.12)),
+        start,
+        sourceJoint: at(horizontalRun),
+        curveProbe: at(Math.min(length, horizontalRun + Math.min(10, (length - horizontalRun) * 0.12))),
         end: at(length),
         terminalProbe: at(Math.max(0, length - Math.min(14, length * 0.16))),
         maxY: samples.reduce((best, point) => point.y > best.y ? point : best),
@@ -46,7 +50,7 @@ async function geometry(page: Page) {
     const upper = inspectPath('weave-strand-upper');
     const lower = inspectPath('weave-strand-lower');
     return {
-      sourceX: number('data-source-x'),
+      sourceX,
       sourceTopY: number('data-source-top-y'),
       sourceBottomY: number('data-source-bottom-y'),
       targetX: number('data-target-x'),
@@ -54,7 +58,8 @@ async function geometry(page: Page) {
       targetBottomY: number('data-target-bottom-y'),
       upperStart: upper.start,
       upperPathData: upper.pathData,
-      upperSourceProbe: upper.sourceProbe,
+      upperSourceJoint: upper.sourceJoint,
+      upperCurveProbe: upper.curveProbe,
       upperEnd: upper.end,
       upperMaxY: upper.maxY,
       upperMinY: upper.minY,
@@ -62,7 +67,8 @@ async function geometry(page: Page) {
       upperTerminalProbe: upper.terminalProbe,
       lowerStart: lower.start,
       lowerPathData: lower.pathData,
-      lowerSourceProbe: lower.sourceProbe,
+      lowerSourceJoint: lower.sourceJoint,
+      lowerCurveProbe: lower.curveProbe,
       lowerEnd: lower.end,
       lowerMaxY: lower.maxY,
       lowerMinY: lower.minY,
@@ -83,7 +89,7 @@ test.beforeEach(async ({ page }) => {
 
 test('aligns both strands with the synchronized focus post and aside', async ({ page }) => {
   await expectConnectedBridge(page);
-  const [g, card, aside, divider, nav, overlay, frameStyle, guideStyles] = await Promise.all([
+  const [g, card, aside, divider, nav, overlay, frameStyle, bridgeStyles, panelStyles] = await Promise.all([
     geometry(page), activePost(page).boundingBox(), page.getByTestId('col-aside').boundingBox(),
     page.getByRole('separator', { name: 'Resize feed and related panels' }).boundingBox(),
     page.getByTestId('top-nav').boundingBox(), bridge(page).boundingBox(),
@@ -95,14 +101,23 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
         bottomRightRadius: style.borderBottomRightRadius,
         clipPath: style.clipPath,
         sourcePhase: post.getAttribute('data-weave-source-phase'),
-        upperRailTransform: getComputedStyle(post, '::before').transform,
-        lowerRailTransform: getComputedStyle(post, '::after').transform,
       };
     }),
     Promise.all([
+      bridge(page).getByTestId('weave-ribbon'),
       bridge(page).getByTestId('weave-strand-upper'),
       bridge(page).getByTestId('weave-strand-lower'),
-    ].map((guide) => guide.evaluate((path) => getComputedStyle(path).stroke))),
+      bridge(page).getByTestId('weave-divider-rail-upper'),
+      bridge(page).getByTestId('weave-divider-rail-lower'),
+    ].map((element) => element.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { fill: style.fill, stroke: style.stroke };
+    }))),
+    Promise.all([
+      page.getByTestId('col-aside').evaluate((node) => getComputedStyle(node).backgroundColor),
+      page.locator('[data-related-card] [data-post-id]').first()
+        .evaluate((node) => getComputedStyle(node).backgroundColor),
+    ]),
   ]);
   expect(card && aside && divider && nav && overlay).toBeTruthy();
   expect(Object.values(g).flatMap((value) => typeof value === 'number'
@@ -113,15 +128,21 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
   expect(card!.x + card!.width - g.sourceX).toBeLessThanOrEqual(4);
   expectNear(g.targetX, divider!.x + divider!.width / 2);
   expect(g.targetX).toBeLessThan(aside!.x);
-  expect(g.targetX - g.sourceX).toBeGreaterThanOrEqual(60);
+  expect(g.targetX - g.sourceX).toBeGreaterThanOrEqual(46);
+  expect(g.targetX - g.sourceX).toBeLessThanOrEqual(56);
   expect(frameStyle.rightBorder).toBe('rgba(0, 0, 0, 0)');
   expect(frameStyle.topRightRadius).toBe('0px');
   expect(frameStyle.bottomRightRadius).toBe('0px');
-  expect(frameStyle.clipPath).toBe('inset(-24px -4px -24px -24px)');
+  expect(frameStyle.clipPath).toBe('inset(-24px 0px -24px -24px)');
   expect(frameStyle.sourcePhase).toBe('open');
-  expect(frameStyle.upperRailTransform).toBe('matrix(1, 0, 0, 0, 0, 0)');
-  expect(frameStyle.lowerRailTransform).toBe('matrix(1, 0, 0, 0, 0, 0)');
-  expect(guideStyles).toEqual(['none', 'none']);
+  expect(bridgeStyles).toEqual([
+    { fill: 'rgb(255, 255, 255)', stroke: 'none' },
+    { fill: 'none', stroke: 'rgb(69, 169, 158)' },
+    { fill: 'none', stroke: 'rgb(69, 169, 158)' },
+    { fill: 'none', stroke: 'rgb(69, 169, 158)' },
+    { fill: 'none', stroke: 'rgb(69, 169, 158)' },
+  ]);
+  expect(panelStyles).toEqual(['rgb(255, 255, 255)', 'rgb(255, 255, 255)']);
   expectNear(g.sourceTopY, card!.y, 3);
   expectNear(g.sourceBottomY, card!.y + card!.height, 3);
   expect(g.sourceBottomY - g.sourceTopY).toBeGreaterThan(card!.height - 4);
@@ -132,18 +153,20 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
   );
   expectNear(g.upperStart.x, g.sourceX); expectNear(g.upperStart.y, g.sourceTopY);
   expectNear(g.lowerStart.x, g.sourceX); expectNear(g.lowerStart.y, g.sourceBottomY);
-  // A single cubic keeps the tangent horizontal without a separate straight
-  // lead, and must already be bending outward within the first ten pixels.
-  expect(g.upperPathData).not.toMatch(/\sL\s/);
-  expect(g.lowerPathData).not.toMatch(/\sL\s/);
-  expect(g.upperSourceProbe.x - g.upperStart.x).toBeGreaterThan(
-    Math.abs(g.upperSourceProbe.y - g.upperStart.y) * 1.5,
+  expectNear(g.upperSourceJoint.x, g.sourceX); expectNear(g.upperSourceJoint.y, g.sourceTopY);
+  expectNear(g.lowerSourceJoint.x, g.sourceX); expectNear(g.lowerSourceJoint.y, g.sourceBottomY);
+  // The native card border remains untouched; each SVG stroke begins at its
+  // open right edge with a horizontal tangent and bends within ten pixels.
+  expect(g.upperPathData).toMatch(/^M .+ C /);
+  expect(g.lowerPathData).toMatch(/^M .+ C /);
+  expect(g.upperCurveProbe.x - g.upperSourceJoint.x).toBeGreaterThan(
+    Math.abs(g.upperCurveProbe.y - g.upperSourceJoint.y) * 1.5,
   );
-  expect(g.lowerSourceProbe.x - g.lowerStart.x).toBeGreaterThan(
-    Math.abs(g.lowerSourceProbe.y - g.lowerStart.y) * 1.5,
+  expect(g.lowerCurveProbe.x - g.lowerSourceJoint.x).toBeGreaterThan(
+    Math.abs(g.lowerCurveProbe.y - g.lowerSourceJoint.y) * 1.5,
   );
-  expect(g.upperStart.y - g.upperSourceProbe.y).toBeGreaterThan(0.25);
-  expect(g.lowerSourceProbe.y - g.lowerStart.y).toBeGreaterThan(0.25);
+  expect(g.upperSourceJoint.y - g.upperCurveProbe.y).toBeGreaterThan(0.25);
+  expect(g.lowerCurveProbe.y - g.lowerSourceJoint.y).toBeGreaterThan(0.25);
   // Every sampled point moves outward. Any downward upper excursion or upward
   // lower excursion is the rejected inward pinch.
   expect(g.upperMaxY.y).toBeLessThanOrEqual(g.sourceTopY + 1);
@@ -160,12 +183,12 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
     / (g.lowerEnd.x - g.lowerTerminalProbe.x);
   expect(upperTerminalSlope).toBeGreaterThan(2.4);
   expect(lowerTerminalSlope).toBeGreaterThan(2.4);
-  await expect(bridge(page).getByTestId('weave-divider-seam')).toHaveCount(0);
-  await expect(bridge(page).getByTestId('weave-ribbon-gradient').locator('stop').last())
-    .toHaveAttribute('stop-opacity', '0');
+  await expect(bridge(page).getByTestId('weave-divider-rail-upper')).toHaveCount(1);
+  await expect(bridge(page).getByTestId('weave-divider-rail-lower')).toHaveCount(1);
   expect(overlay!.y).toBeGreaterThanOrEqual(nav!.y + nav!.height - 1);
   await expect(bridge(page)).toHaveAttribute('aria-hidden', 'true');
   await expect(bridge(page)).toHaveCSS('pointer-events', 'none');
+  await expect(bridge(page)).toHaveCSS('overflow', 'hidden');
   await expect(page.getByTestId('resize-divider-guide')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 });
 
@@ -205,6 +228,93 @@ test('keeps the bridge joined during every scroll event', async ({ page }) => {
     expect(sourceOverlap).toBeGreaterThanOrEqual(2);
     expect(sourceOverlap).toBeLessThanOrEqual(4);
   });
+});
+
+test('updates divider junctions in the same frame as their curves while scrolling', async ({ page }) => {
+  await expectConnectedBridge(page);
+  const gaps = await page.evaluate(async () => {
+    const readings: Array<{ upper: number; lower: number }> = [];
+    const point = (
+      element: SVGGraphicsElement,
+      x: number,
+      y: number,
+    ) => {
+      const svg = element.ownerSVGElement!;
+      const value = svg.createSVGPoint();
+      value.x = x;
+      value.y = y;
+      return value.matrixTransform(element.getScreenCTM()!);
+    };
+    const record = () => {
+      const layer = document.querySelector<SVGGElement>(
+        '[data-testid="weave-bridge"] [data-weave-layer="current"]',
+      );
+      const upperPath = layer?.querySelector<SVGPathElement>('[data-testid="weave-strand-upper"]');
+      const lowerPath = layer?.querySelector<SVGPathElement>('[data-testid="weave-strand-lower"]');
+      const upperRail = layer?.querySelector<SVGLineElement>('[data-testid="weave-divider-rail-upper"]');
+      const lowerRail = layer?.querySelector<SVGLineElement>('[data-testid="weave-divider-rail-lower"]');
+      if (!upperPath || !lowerPath || !upperRail || !lowerRail) return;
+
+      const upperEnd = upperPath.getPointAtLength(upperPath.getTotalLength())
+        .matrixTransform(upperPath.getScreenCTM()!);
+      const lowerEnd = lowerPath.getPointAtLength(lowerPath.getTotalLength())
+        .matrixTransform(lowerPath.getScreenCTM()!);
+      const upperStart = point(upperRail, upperRail.x1.baseVal.value, upperRail.y1.baseVal.value);
+      const lowerStart = point(lowerRail, lowerRail.x1.baseVal.value, lowerRail.y1.baseVal.value);
+      readings.push({
+        upper: Math.hypot(upperEnd.x - upperStart.x, upperEnd.y - upperStart.y),
+        lower: Math.hypot(lowerEnd.x - lowerStart.x, lowerEnd.y - lowerStart.y),
+      });
+    };
+
+    for (let step = 0; step < 6; step += 1) {
+      window.scrollBy(0, 12);
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      record();
+    }
+    return readings;
+  });
+
+  expect(gaps.length).toBe(6);
+  gaps.forEach(({ upper, lower }) => {
+    expect(upper).toBeLessThanOrEqual(1);
+    expect(lower).toBeLessThanOrEqual(1);
+  });
+});
+
+test('keeps partially off-screen focus edges continuous and viewport-clipped', async ({ page }) => {
+  await page.goto(`/AIWorkforce/posts/${stickyFocusId}`);
+  await expect(activePost(page)).toBeVisible();
+  await expectConnectedBridge(page);
+
+  const [cardBefore, nav] = await Promise.all([
+    activePost(page).boundingBox(),
+    page.getByTestId('top-nav').boundingBox(),
+  ]);
+  expect(cardBefore && nav).toBeTruthy();
+  const navBottom = nav!.y + nav!.height;
+  const scrollDistance = Math.max(40, cardBefore!.y - navBottom + 48);
+  await page.evaluate((distance) => window.scrollBy(0, distance), scrollDistance);
+  await expect(bridge(page)).toHaveAttribute('data-source-kind', 'card');
+  await expect.poll(async () => {
+    const [g, card] = await Promise.all([geometry(page), activePost(page).boundingBox()]);
+    return card ? Math.abs(g.sourceTopY - card.y) : Number.POSITIVE_INFINITY;
+  }).toBeLessThanOrEqual(3);
+
+  const [g, cardAfter, connectedClip] = await Promise.all([
+    geometry(page),
+    activePost(page).boundingBox(),
+    bridge(page).getByTestId('weave-strand-upper')
+      .evaluate((path) => path.parentElement?.getAttribute('clip-path')),
+  ]);
+  expect(cardAfter).toBeTruthy();
+  expect(cardAfter!.y).toBeLessThan(navBottom - 16);
+  expect(cardAfter!.y + cardAfter!.height).toBeGreaterThan(navBottom + 32);
+  expectNear(g.sourceTopY, cardAfter!.y, 3);
+  expect(g.sourceTopY).toBeLessThan(navBottom);
+  expect(g.targetTopY).toBeLessThan(g.sourceTopY);
+  expect(connectedClip).toBeNull();
+  await expect(bridge(page)).toHaveCSS('overflow', 'hidden');
 });
 
 test('retargets to the resting post after scrolling', async ({ page }) => {
@@ -255,7 +365,8 @@ test('keeps the full-frame flare at a narrow desktop split', async ({ page }) =>
   expect(card).toBeTruthy();
   expectNear(g.sourceTopY, card!.y, 3);
   expectNear(g.sourceBottomY, card!.y + card!.height, 3);
-  expect(g.targetX - g.sourceX).toBeGreaterThanOrEqual(60);
+  expect(g.targetX - g.sourceX).toBeGreaterThanOrEqual(46);
+  expect(g.targetX - g.sourceX).toBeLessThanOrEqual(56);
   expect(g.targetTopY).toBeLessThanOrEqual(g.sourceTopY - 68);
   expect(g.targetBottomY).toBeGreaterThanOrEqual(g.sourceBottomY + 68);
   expect(g.targetBottomY - g.targetTopY).toBeGreaterThan(
@@ -278,7 +389,8 @@ test('keeps a usable feed column at the minimum resizable split', async ({ page 
   ]);
   expect(content).toBeTruthy();
   expect(content!.width).toBeGreaterThanOrEqual(240);
-  expect(g.targetX - g.sourceX).toBeGreaterThanOrEqual(60);
+  expect(g.targetX - g.sourceX).toBeGreaterThanOrEqual(46);
+  expect(g.targetX - g.sourceX).toBeLessThanOrEqual(56);
 });
 
 test('keeps the sticky focus source narrower than the divider opening', async ({ page }) => {

@@ -7,7 +7,7 @@ import { TopNav, TOP_NAV_HEIGHT } from "../../components/NavBar/TopNav";
 import { RelatedStacksProvider } from "./related-stacks-context";
 import { ResizableDivider } from "./ResizableDivider";
 import { FEED_RATIO_MAX, FEED_RATIO_MIN, useFeedRatio } from "./useFeedRatio";
-import WeaveBridge from "../../components/WeaveBridge";
+import WeaveBridge, { type WeaveBridgeVariant } from "../../components/WeaveBridge";
 
 /**
  * Max width of the centered (feed + related) group on wide screens — ~13in,
@@ -16,10 +16,13 @@ import WeaveBridge from "../../components/WeaveBridge";
  */
 const MAX_CONTENT_WIDTH = 1280;
 const SLIDER_W = 8;
-const WEAVE_RUNWAY = 64;
-const PANE_GUTTER = 10;
+// Both bridge treatments share the tighter spacing introduced by the open
+// design; the toggle changes the connector treatment, not pane layout.
+const WEAVE_RUNWAY = 48;
+const PANE_GUTTER = 8;
 const FEED_WEAVE_INSET = WEAVE_RUNWAY - PANE_GUTTER - (SLIDER_W / 2);
 const BRIDGE_EXIT_GRACE_MS = 240;
+const BRIDGE_VARIANT_STORAGE_KEY = "stacky:weave-bridge-variant";
 
 export default function Shell({
     children,
@@ -31,6 +34,7 @@ export default function Shell({
     const { ratio, setRatio, reset } = useFeedRatio();
     const isNarrowViewport = useMediaQuery("(max-width: 48rem)", false);
     const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)", false);
+    const [bridgeVariant, setBridgeVariant] = useState<WeaveBridgeVariant>("open");
 
     const groupRef = useRef<HTMLDivElement | null>(null);
     const feedRef = useRef<HTMLDivElement | null>(null);
@@ -41,6 +45,41 @@ export default function Shell({
     const [hasAside, setHasAside] = useState(false);
     const wantsAside = hasAside && !isNarrowViewport;
     const [showAside, setShowAside] = useState(false);
+
+    useEffect(() => {
+        const saved = window.localStorage.getItem(BRIDGE_VARIANT_STORAGE_KEY);
+        if (saved === "classic" || saved === "open") setBridgeVariant(saved);
+    }, []);
+
+    useEffect(() => {
+        const toggleBridgeVariant = (event: KeyboardEvent) => {
+            if (
+                event.defaultPrevented
+                || event.repeat
+                || event.key.toLowerCase() !== "b"
+                || !event.shiftKey
+                || event.altKey
+                || event.ctrlKey
+                || event.metaKey
+            ) return;
+
+            const target = event.target;
+            if (
+                target instanceof HTMLElement
+                && (target.isContentEditable || !!target.closest("input, textarea, select, [contenteditable='true']"))
+            ) return;
+
+            event.preventDefault();
+            setBridgeVariant((current) => {
+                const next: WeaveBridgeVariant = current === "open" ? "classic" : "open";
+                window.localStorage.setItem(BRIDGE_VARIANT_STORAGE_KEY, next);
+                return next;
+            });
+        };
+
+        window.addEventListener("keydown", toggleBridgeVariant);
+        return () => window.removeEventListener("keydown", toggleBridgeVariant);
+    }, []);
 
     // Keep the split geometry alive just long enough for the bridge to unweave.
     // Narrow and reduced-motion transitions collapse immediately.
@@ -126,6 +165,10 @@ export default function Shell({
 
             <div
                 data-testid="content-group"
+                data-weave-split={showAside ? "true" : undefined}
+                data-weave-variant={bridgeVariant}
+                data-weave-shortcut="Shift+B"
+                aria-keyshortcuts="Shift+B"
                 ref={groupRef}
                 style={{
                     padding: "0 16px",
@@ -177,6 +220,7 @@ export default function Shell({
                         onResize={onSliderResize}
                         onDoubleClick={reset}
                         quietIdleLine
+                        activeLineColor={bridgeVariant === "open" ? "var(--cw-teal)" : undefined}
                         valueNow={Math.round(ratio * 100)}
                         valueMin={Math.round(FEED_RATIO_MIN * 100)}
                         valueMax={Math.round(FEED_RATIO_MAX * 100)}
@@ -231,7 +275,7 @@ export default function Shell({
                         // top:0`, so any top padding on this scroll container leaves a
                         // transparent strip above the header that scrolled cards show
                         // through. An opaque background keeps the panel solid.
-                        background: "#ffffff",
+                        background: "var(--cw-canvas)",
                         // Container-query context: related cards detect a narrow panel
                         // (its width depends on the slider ratio, not just the viewport).
                         containerType: "inline-size",
@@ -241,7 +285,31 @@ export default function Shell({
                 </div>
             </div>
 
-            <WeaveBridge enabled={showAside} feedRef={feedRef} asideRef={asideRef} />
+            <div
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+                style={{
+                    position: "fixed",
+                    width: 1,
+                    height: 1,
+                    padding: 0,
+                    margin: -1,
+                    overflow: "hidden",
+                    clip: "rect(0, 0, 0, 0)",
+                    whiteSpace: "nowrap",
+                    border: 0,
+                }}
+            >
+                {bridgeVariant === "open" ? "Open bridge design" : "Classic bridge design"}
+            </div>
+
+            <WeaveBridge
+                enabled={showAside}
+                feedRef={feedRef}
+                asideRef={asideRef}
+                variant={bridgeVariant}
+            />
 
             <HoverTooltip />
         </RelatedStacksProvider>

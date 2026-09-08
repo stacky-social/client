@@ -5,7 +5,13 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useRelatedStacks } from "../app/(shell)/related-stacks-context";
 import { TOP_NAV_HEIGHT } from "./NavBar/TopNav";
 import classes from "./WeaveBridge.module.css";
-type WeaveBridgeProps = { enabled: boolean; feedRef: RefObject<HTMLElement>; asideRef: RefObject<HTMLElement> };
+export type WeaveBridgeVariant = "classic" | "open";
+type WeaveBridgeProps = {
+  enabled: boolean;
+  feedRef: RefObject<HTMLElement>;
+  asideRef: RefObject<HTMLElement>;
+  variant?: WeaveBridgeVariant;
+};
 type SourceKind = "card" | "sticky";
 
 type BridgeGeometry = {
@@ -34,10 +40,15 @@ type BridgeMotion = {
 
 const MIN_VISIBLE_SOURCE_HEIGHT = 32, MIN_BRIDGE_WIDTH = 12, VIEWPORT_EDGE_GUTTER = 8;
 const SOURCE_OVERLAP_PX = 3;
-const SOURCE_CORNER_INSET = 10, TARGET_EXPANSION_RATIO = 0.52;
-const MIN_TARGET_EXPANSION = 72, MAX_TARGET_EXPANSION = 220;
+const SOURCE_CORNER_INSET = 10;
+const OPEN_TARGET_EXPANSION_RATIO = 0.64;
+const OPEN_MIN_TARGET_EXPANSION = 84, OPEN_MAX_TARGET_EXPANSION = 252;
+const CLASSIC_TARGET_EXPANSION_RATIO = 0.52;
+const CLASSIC_MIN_TARGET_EXPANSION = 72, CLASSIC_MAX_TARGET_EXPANSION = 220;
 const BRIDGE_MORPH_MS = 220;
-const RETARGET_DELAY_MS = BRIDGE_MORPH_MS;
+// Start the incoming aperture shortly after the outgoing one begins closing.
+// A full-duration delay made the handoff feel like two unrelated animations.
+const RETARGET_DELAY_MS = 70;
 const ENTER_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const EXIT_EASE: [number, number, number, number] = [0.4, 0, 1, 1];
 
@@ -50,9 +61,7 @@ type RevealWindowProps = {
   testId?: string;
 };
 
-function RevealWindow(props: RevealWindowProps) {
-  const { entering, exiting, enterDelay, sourceX, midpointY,
-    targetTopY, targetWidth, targetHeight, testId } = props;
+function useOpeningState(entering: boolean, enterDelay: number) {
   const [opened, setOpened] = useState(!entering);
 
   useLayoutEffect(() => {
@@ -78,6 +87,13 @@ function RevealWindow(props: RevealWindowProps) {
     };
   }, [enterDelay, entering]);
 
+  return opened;
+}
+
+function RevealWindow(props: RevealWindowProps) {
+  const { entering, exiting, enterDelay, sourceX, midpointY,
+    targetTopY, targetWidth, targetHeight, testId } = props;
+  const opened = useOpeningState(entering, enterDelay);
   const expanded = opened && !exiting;
   return (
     <motion.rect
@@ -88,6 +104,66 @@ function RevealWindow(props: RevealWindowProps) {
         width: expanded ? targetWidth : 0, height: expanded ? targetHeight : 0 }}
       transition={{ duration: BRIDGE_MORPH_MS / 1000, ease: exiting ? EXIT_EASE : ENTER_EASE }}
     />
+  );
+}
+
+type DividerRailsProps = {
+  entering: boolean; exiting: boolean; enterDelay: number;
+  x: number; midpointY: number; targetTopY: number; targetBottomY: number;
+  viewportHeight: number; testId?: (value: string) => string | undefined;
+};
+
+/**
+ * Continues the bridge edges along the resize divider. Both rails grow from
+ * the same midpoint as the white bridge surface, so no detached divider line
+ * flashes before the focused card has opened far enough to meet it.
+ */
+function DividerRails(props: DividerRailsProps) {
+  const {
+    entering, exiting, enterDelay, x, midpointY, targetTopY,
+    targetBottomY, viewportHeight, testId = () => undefined,
+  } = props;
+  const opened = useOpeningState(entering, enterDelay);
+  const expanded = opened && !exiting;
+  // Connected geometry is already synchronized to the curve during the
+  // scroll event. Letting Framer interpolate those new rail coordinates over
+  // the normal morph duration makes the vertical line visibly trail the path
+  // junction. Only lifecycle changes should animate; ordinary scroll/resize
+  // tracking must land in the same painted frame as the curve.
+  const transition = entering || exiting
+    ? {
+        duration: BRIDGE_MORPH_MS / 1000,
+        ease: exiting ? EXIT_EASE : ENTER_EASE,
+      }
+    : { duration: 0 };
+
+  return (
+    <>
+      <motion.line
+        className={classes.dividerRail}
+        x1={x}
+        x2={x}
+        initial={false}
+        animate={{
+          y1: expanded ? targetTopY : midpointY,
+          y2: expanded ? 0 : midpointY,
+        }}
+        transition={transition}
+        data-testid={testId("weave-divider-rail-upper")}
+      />
+      <motion.line
+        className={classes.dividerRail}
+        x1={x}
+        x2={x}
+        initial={false}
+        animate={{
+          y1: expanded ? targetBottomY : midpointY,
+          y2: expanded ? viewportHeight : midpointY,
+        }}
+        transition={transition}
+        data-testid={testId("weave-divider-rail-lower")}
+      />
+    </>
   );
 }
 
@@ -123,6 +199,18 @@ function syncRenderedGeometry(svg: SVGSVGElement | null, geometry: BridgeGeometr
   );
   gradient?.setAttribute("x1", String(geometry.sourceX));
   gradient?.setAttribute("x2", String(geometry.targetX));
+  const localTargetTop = geometry.targetTopY - TOP_NAV_HEIGHT;
+  const localTargetBottom = geometry.targetBottomY - TOP_NAV_HEIGHT;
+  const upperRail = layer.querySelector<SVGLineElement>('[data-testid="weave-divider-rail-upper"]');
+  const lowerRail = layer.querySelector<SVGLineElement>('[data-testid="weave-divider-rail-lower"]');
+  [upperRail, lowerRail].forEach((rail) => {
+    rail?.setAttribute("x1", String(geometry.targetX));
+    rail?.setAttribute("x2", String(geometry.targetX));
+  });
+  upperRail?.setAttribute("y1", String(localTargetTop));
+  upperRail?.setAttribute("y2", "0");
+  lowerRail?.setAttribute("y1", String(localTargetBottom));
+  lowerRail?.setAttribute("y2", String(geometry.viewportHeight));
 }
 
 /**
@@ -131,9 +219,10 @@ function syncRenderedGeometry(svg: SVGSVGElement | null, geometry: BridgeGeometr
  * either pane's layout, so resizing and the two independent scroll containers
  * remain untouched.
  */
-export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
+export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: WeaveBridgeProps) {
   const { activePostId } = useRelatedStacks();
   const reduceMotion = !!useReducedMotion();
+  const classic = variant === "classic";
   const [measuredGeometry, setMeasuredGeometry] = useState<BridgeGeometry | null>(null);
   const initialMotion: BridgeMotion = {
     current: null, outgoing: null, revision: 0, state: "connected",
@@ -185,9 +274,9 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
       openCardsRef.current.add(card);
       card.setAttribute("data-weave-source-open", "true");
       if (isNewFrame) {
-        // Materialize the complete replacement rail for one style frame before
-        // asking it to retract. This makes the transition deterministic even
-        // when virtualization inserts a fresh post element mid-scroll.
+        // Materialize the open-source state before advancing its lifecycle.
+        // This keeps virtualized cards borderless from their first painted
+        // focus frame and preserves deterministic motion event sequencing.
         card.setAttribute("data-weave-source-phase", "closed");
         void card.offsetHeight;
       }
@@ -332,6 +421,9 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
         observedSource = source;
       }
 
+      // Visibility is only an eligibility check. Geometry keeps the source's
+      // real document-space edges even when they sit above or below the bridge
+      // viewport; the SVG itself clips those continuous paths cleanly.
       const visibleTop = Math.max(sourceRect.top, TOP_NAV_HEIGHT + VIEWPORT_EDGE_GUTTER);
       const visibleBottom = Math.min(sourceRect.bottom, window.innerHeight - VIEWPORT_EDGE_GUTTER);
       // Begin beneath the card instead of exactly beside it. The card paints
@@ -351,34 +443,32 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
         return;
       }
 
-      const topEdgeVisible = sourceRect.top >= TOP_NAV_HEIGHT + VIEWPORT_EDGE_GUTTER;
-      const bottomEdgeVisible = sourceRect.bottom <= window.innerHeight - VIEWPORT_EDGE_GUTTER;
       // The active card has no right edge: its top and bottom borders become
-      // these strands, so card sources begin at the exact frame corners. The
-      // compact sticky source remains closed and keeps its rounded-corner inset.
+      // these strands, so card sources begin at the real frame corners—even
+      // off-screen. The compact sticky source keeps its rounded-corner inset.
       const sourceInset = sourceKind === "card" ? 0 : SOURCE_CORNER_INSET;
-      const sourceTopY = round(visibleTop + (topEdgeVisible ? sourceInset : 0));
-      const sourceBottomY = round(visibleBottom - (bottomEdgeVisible ? sourceInset : 0));
+      const sourceTopY = round(sourceRect.top + sourceInset);
+      const sourceBottomY = round(sourceRect.bottom - sourceInset);
       const sourceSpan = sourceBottomY - sourceTopY;
-      // Open well beyond BOTH ends of the source frame. At ordinary card sizes
-      // the divider mouth is roughly twice the source height, so the focused
-      // frame reads as opening into the panel boundary rather than plugging a
-      // small tab into its center.
+      // Open well beyond BOTH ends of the source frame. The wider mouth makes
+      // the divider feel generated by the focused card rather than like a tab
+      // attached to a pre-existing split.
+      const targetExpansionRatio = classic
+        ? CLASSIC_TARGET_EXPANSION_RATIO
+        : OPEN_TARGET_EXPANSION_RATIO;
       const targetExpansion = clamp(
-        round(sourceSpan * TARGET_EXPANSION_RATIO),
-        MIN_TARGET_EXPANSION,
-        MAX_TARGET_EXPANSION,
+        round(sourceSpan * targetExpansionRatio),
+        classic ? CLASSIC_MIN_TARGET_EXPANSION : OPEN_MIN_TARGET_EXPANSION,
+        classic ? CLASSIC_MAX_TARGET_EXPANSION : OPEN_MAX_TARGET_EXPANSION,
       );
-      const targetTopY = round(Math.max(
-        TOP_NAV_HEIGHT + VIEWPORT_EDGE_GUTTER,
-        sourceTopY - targetExpansion,
-      ));
-      const targetBottomY = round(Math.min(
-        window.innerHeight - VIEWPORT_EDGE_GUTTER,
-        sourceBottomY + targetExpansion,
-      ));
+      const targetTopY = round(sourceTopY - targetExpansion);
+      const targetBottomY = round(sourceBottomY + targetExpansion);
       const bridgeWidth = targetX - sourceX;
-      const sourceControlX = round(sourceX + clamp(bridgeWidth * 0.18, 9, 14));
+      // Preserve the old bridge's calm, nearly-horizontal departure even though
+      // the panes now sit closer and the opening is taller.
+      const sourceControlX = round(sourceX + (classic
+        ? clamp(bridgeWidth * 0.18, 9, 14)
+        : clamp(bridgeWidth * 0.25, 12, 16)));
       const terminalControlX = round(targetX - Math.max(10, bridgeWidth * 0.22));
       const upperTerminalLeg = clamp(
         round((sourceTopY - targetTopY) * 0.58),
@@ -397,16 +487,20 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
       // bending immediately. Avoiding a separate line segment removes the
       // straight-then-turn kink while the bounded Y controls still prevent an
       // inward pinch.
-      const upperPath = [
+      const upperCurvePath = [
         `M ${sourceX} ${local(sourceTopY)}`,
         `C ${sourceControlX} ${local(sourceTopY)}, ${terminalControlX} ${local(upperTerminalControlY)}, ${targetX} ${local(targetTopY)}`,
       ].join(" ");
-      const lowerPath = [
+      const lowerCurvePath = [
         `M ${sourceX} ${local(sourceBottomY)}`,
         `C ${sourceControlX} ${local(sourceBottomY)}, ${terminalControlX} ${local(lowerTerminalControlY)}, ${targetX} ${local(targetBottomY)}`,
       ].join(" ");
+      // The card keeps its own top and bottom border. SVG strokes begin only
+      // at the open right edge, avoiding a second line painted over the post.
+      const upperPath = upperCurvePath;
+      const lowerPath = lowerCurvePath;
       const ribbonPath = [
-        upperPath,
+        upperCurvePath,
         `L ${targetX} ${local(targetBottomY)}`,
         `C ${terminalControlX} ${local(lowerTerminalControlY)}, ${sourceControlX} ${local(sourceBottomY)}, ${sourceX} ${local(sourceBottomY)}`,
         "Z",
@@ -415,7 +509,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
       const next: BridgeGeometry = {
         focusId: activePostId,
         sourceKind,
-        signature: `${activePostId}|${sourceKind}|${window.innerWidth}|${window.innerHeight}|${coordinates.join("|")}`,
+        signature: `${variant}|${activePostId}|${sourceKind}|${window.innerWidth}|${window.innerHeight}|${coordinates.join("|")}`,
         viewportWidth: round(window.innerWidth),
         viewportHeight: round(window.innerHeight - TOP_NAV_HEIGHT),
         sourceX,
@@ -484,14 +578,14 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
       layoutObserver?.disconnect();
       contentObserver?.disconnect();
     };
-  }, [activePostId, asideRef, commitMotion, enabled, feedRef]);
+  }, [activePostId, asideRef, classic, commitMotion, enabled, feedRef, variant]);
 
   useEffect(() => {
     const previous = motionRef.current;
 
     // Shell disables the bridge immediately at the single-column breakpoint.
-    // Route exits keep `enabled` true for the 140ms split grace, so they still
-    // receive the deliberate retract below before the panes collapse.
+    // Route exits keep `enabled` true for the split grace, so the white aperture
+    // and divider rails still close deliberately before the panes collapse.
     if (!enabled) {
       clearMotionTimers();
       if (previous.current || previous.outgoing) {
@@ -660,19 +754,21 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
         data-morph-duration-ms={BRIDGE_MORPH_MS}
       >
         <defs>
-          <linearGradient
-            id={ribbonGradientId}
-            data-testid={testId("weave-ribbon-gradient")}
-            gradientUnits="userSpaceOnUse"
-            x1={geometry.sourceX}
-            x2={geometry.targetX}
-            y1="0"
-            y2="0"
-          >
-            <stop offset="0%" stopColor="#45a99e" stopOpacity="0.12" />
-            <stop offset="72%" stopColor="#45a99e" stopOpacity="0.06" />
-            <stop offset="100%" stopColor="#45a99e" stopOpacity="0" />
-          </linearGradient>
+          {classic && (
+            <linearGradient
+              id={ribbonGradientId}
+              data-testid={testId("weave-ribbon-gradient")}
+              gradientUnits="userSpaceOnUse"
+              x1={geometry.sourceX}
+              x2={geometry.targetX}
+              y1="0"
+              y2="0"
+            >
+              <stop offset="0%" stopColor="#45a99e" stopOpacity="0.12" />
+              <stop offset="72%" stopColor="#45a99e" stopOpacity="0.06" />
+              <stop offset="100%" stopColor="#45a99e" stopOpacity="0" />
+            </linearGradient>
+          )}
           <clipPath id={revealClipId} clipPathUnits="userSpaceOnUse">
             <RevealWindow
               entering={entering}
@@ -680,33 +776,46 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
               enterDelay={morphDelay}
               sourceX={geometry.sourceX}
               midpointY={revealMidY}
-              targetTopY={revealTop}
-              targetWidth={revealWidth}
-              targetHeight={revealHeight}
+              targetTopY={revealTop - (classic ? 0 : 2)}
+              targetWidth={revealWidth + (classic ? 0 : 2)}
+              targetHeight={revealHeight + (classic ? 0 : 4)}
               testId={testId("weave-reveal-window")}
             />
           </clipPath>
         </defs>
         {/* The reveal window grows from the card midpoint in both axes, so the
             bridge widens and opens vertically in lockstep with the two rails. */}
-        <g clipPath={`url(#${revealClipId})`}>
+        <g clipPath={entering || exiting ? `url(#${revealClipId})` : undefined}>
           <path
             className={classes.ribbon}
             d={geometry.ribbonPath}
-            style={{ fill: `url(#${ribbonGradientId})` }}
+            style={classic ? { fill: `url(#${ribbonGradientId})` } : undefined}
             data-testid={testId("weave-ribbon")}
           />
+          <path
+            className={classes.guide}
+            d={geometry.upperPath}
+            data-testid={testId("weave-strand-upper")}
+          />
+          <path
+            className={classes.guide}
+            d={geometry.lowerPath}
+            data-testid={testId("weave-strand-lower")}
+          />
         </g>
-        <path
-          className={classes.guide}
-          d={geometry.upperPath}
-          data-testid={testId("weave-strand-upper")}
-        />
-        <path
-          className={classes.guide}
-          d={geometry.lowerPath}
-          data-testid={testId("weave-strand-lower")}
-        />
+        {!classic && (
+          <DividerRails
+            entering={entering}
+            exiting={exiting}
+            enterDelay={morphDelay}
+            x={geometry.targetX}
+            midpointY={revealMidY}
+            targetTopY={revealTop}
+            targetBottomY={geometry.targetBottomY - TOP_NAV_HEIGHT}
+            viewportHeight={geometry.viewportHeight}
+            testId={testId}
+          />
+        )}
       </g>
     );
   };
@@ -724,6 +833,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef }: WeaveBridgeProps) {
       data-bridge-state="connected"
       data-weave-state={bridgeMotion.state}
       data-weave-motion={reduceMotion ? "reduced" : "full"}
+      data-weave-variant={variant}
       data-weave-revision={bridgeMotion.revision}
       data-source-kind={displayGeometry.sourceKind}
       data-source-x={displayGeometry.sourceX}

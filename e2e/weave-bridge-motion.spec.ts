@@ -3,9 +3,21 @@ import mockData from '../src/app/FakeData/listy-injection.json';
 
 const stickyFocusId = (mockData as any[]).find((entry) => entry.replies?.length >= 10)!.focusPost.id as string;
 
-type Layer = { slot: string | null; id: string | null; phase: string | null; sourceKind: string | null };
-type SourceFrame = { id: string; phase: string | null };
-type Aperture = { id: string; width: number; height: number; railScale: number };
+type Layer = {
+  slot: string | null;
+  id: string | null;
+  phase: string | null;
+  sourceKind: string | null;
+  morphDelay: number;
+};
+type SourceFrame = { id: string; phase: string | null; rightBorder: string };
+type Aperture = {
+  id: string;
+  width: number;
+  height: number;
+  dividerSpan: number;
+  rightBorder: string;
+};
 type Snapshot = {
   state: string | null;
   motion: string | null;
@@ -31,6 +43,8 @@ async function installRecorder(page: Page) {
       const currentLayer = bridge.querySelector('[data-weave-layer="current"]');
       const focusId = currentLayer?.getAttribute('data-focus-id') ?? '';
       const reveal = currentLayer?.querySelector<SVGRectElement>('[data-testid="weave-reveal-window"]');
+      const upperDivider = currentLayer?.querySelector<SVGLineElement>('[data-testid="weave-divider-rail-upper"]');
+      const lowerDivider = currentLayer?.querySelector<SVGLineElement>('[data-testid="weave-divider-rail-lower"]');
       const source = document.querySelector<HTMLElement>(
         `[data-testid="post"][data-post-id="${CSS.escape(focusId)}"]`,
       );
@@ -44,6 +58,7 @@ async function installRecorder(page: Page) {
           id: layer.getAttribute('data-focus-id'),
           phase: layer.getAttribute('data-phase'),
           sourceKind: layer.getAttribute('data-source-kind'),
+          morphDelay: Number(layer.getAttribute('data-morph-delay-ms')),
         })),
         openIds: Array.from(document.querySelectorAll('[data-weave-source-open="true"]'))
           .map((post) => post.getAttribute('data-post-id') ?? '')
@@ -53,6 +68,7 @@ async function installRecorder(page: Page) {
           .map((post) => ({
             id: post.getAttribute('data-post-id') ?? '',
             phase: post.getAttribute('data-weave-source-phase'),
+            rightBorder: getComputedStyle(post).borderRightColor,
           }))
           .filter((frame) => Boolean(frame.id))
           .sort((a, b) => a.id.localeCompare(b.id)),
@@ -60,7 +76,11 @@ async function installRecorder(page: Page) {
           id: focusId,
           width: box.width,
           height: box.height,
-          railScale: new DOMMatrix(getComputedStyle(source, '::before').transform).d,
+          dividerSpan: upperDivider && lowerDivider
+            ? Math.abs(Number(upperDivider.getAttribute('y2')) - Number(upperDivider.getAttribute('y1')))
+              + Math.abs(Number(lowerDivider.getAttribute('y2')) - Number(lowerDivider.getAttribute('y1')))
+            : 0,
+          rightBorder: getComputedStyle(source).borderRightColor,
         } : null,
       };
       const signature = JSON.stringify(snapshot);
@@ -125,12 +145,23 @@ test('switches A to B and settles with one correctly keyed layer', async ({ page
     layer.slot === 'current' && layer.id === nextId && layer.phase === 'entering'))).toBe(true);
   expect(history.some((event) => event.layers.some((layer) =>
     layer.slot === 'outgoing' && layer.id === firstId && layer.phase === 'exiting'))).toBe(true);
+  const incoming = history.flatMap((event) => event.layers).filter((layer) =>
+    layer.slot === 'current' && layer.id === nextId && layer.phase === 'entering');
+  expect(incoming.length).toBeGreaterThan(0);
+  expect(incoming.every((layer) => layer.morphDelay > 0 && layer.morphDelay < 220)).toBe(true);
+  expect(history.some((event) =>
+    event.aperture?.id === nextId
+    && event.aperture.width > 8
+    && event.layers.some((layer) =>
+      layer.slot === 'outgoing' && layer.id === firstId && layer.phase === 'exiting'))).toBe(true);
   const handoff = history.filter((event) => event.state === 'retargeting');
   expect(handoff.every((event) => event.openIds.length <= 2)).toBe(true);
   const coupledExit = history.findIndex((event) =>
     event.layers.some((layer) => layer.slot === 'outgoing' && layer.id === firstId && layer.phase === 'exiting')
     && event.sourceFrames.some((frame) => frame.id === firstId && frame.phase === 'closing'));
   expect(coupledExit).toBeGreaterThanOrEqual(0);
+  expect(history.flatMap((event) => event.sourceFrames)
+    .every((frame) => frame.rightBorder === 'rgba(0, 0, 0, 0)')).toBe(true);
   await expect(page.locator(`[data-post-id="${firstId}"][data-testid="post"]`))
     .not.toHaveAttribute('data-weave-source-open', 'true');
   await expect(page.locator(`[data-post-id="${nextId}"][data-testid="post"]`))
@@ -146,7 +177,7 @@ test('switches A to B and settles with one correctly keyed layer', async ({ page
   })).toBe(true);
 });
 
-test('grows the bridge vertically and horizontally as the source rails retract', async ({ page }) => {
+test('grows the open bridge and divider together without reconstructing a right edge', async ({ page }) => {
   await openDemo(page);
   const firstId = await current(page).getAttribute('data-focus-id');
   await clearEvents(page);
@@ -159,15 +190,16 @@ test('grows the bridge vertically and horizontally as the source rails retract',
     - Math.min(...samples.map((sample) => sample.width))).toBeGreaterThan(12);
   expect(Math.max(...samples.map((sample) => sample.height))
     - Math.min(...samples.map((sample) => sample.height))).toBeGreaterThan(40);
-  expect(Math.max(...samples.map((sample) => sample.railScale))
-    - Math.min(...samples.map((sample) => sample.railScale))).toBeGreaterThan(0.15);
+  expect(Math.max(...samples.map((sample) => sample.dividerSpan))
+    - Math.min(...samples.map((sample) => sample.dividerSpan))).toBeGreaterThan(80);
   expect(samples.some((sample) => sample.width > 8 && sample.height > 40
-    && sample.railScale < 0.85 && sample.railScale > 0.05)).toBe(true);
+    && sample.dividerSpan > 30)).toBe(true);
+  expect(samples.every((sample) => sample.rightBorder === 'rgba(0, 0, 0, 0)')).toBe(true);
   await expect(page.locator(`[data-post-id="${firstId}"][data-testid="post"]`))
     .not.toHaveAttribute('data-weave-source-open', 'true');
 });
 
-test('never skips the source-rail transition across repeated focus handoffs', async ({ page }) => {
+test('never skips the open-source lifecycle across repeated focus handoffs', async ({ page }) => {
   await openDemo(page);
   for (const index of [1, 3, 0, 2]) {
     await clearEvents(page);

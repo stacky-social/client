@@ -6,22 +6,36 @@
     --cw-coral: #e15c52;
     --cw-amber: #f0a83e;
     --cw-canvas: #ffffff;
+    --cw-related-post-surface: #ffffff;
     --cw-line: #dfe4ea;
 }
 
-/* WeaveBridge replaces the right edge with two temporary half-rails. Their
-   reversible transforms share the bridge morph's timing, so the opening and
-   ribbon expand from the midpoint as one continuous gesture. */
+/* A focused post in split view is a genuinely open surface. Apply this from
+   the shell state as well as the bridge lifecycle so neither the incoming nor
+   outgoing focus can flash a right edge during a handoff. */
+[data-testid="content-group"][data-weave-split="true"]
+    [data-testid="post"][data-active="true"],
 [data-testid="post"][data-weave-source-open="true"] {
-    border-color: var(--cw-teal) !important;
     border-right-color: transparent !important;
     border-top-right-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
-    clip-path: inset(-24px -4px -24px -24px);
+    /* Both bridge variants keep the generous top/bottom/left shadow but cut
+       the right-hand shadow exactly at the open edge. */
+    clip-path: inset(-24px 0 -24px -24px);
 }
 
-[data-testid="post"][data-weave-source-open="true"]::before,
-[data-testid="post"][data-weave-source-open="true"]::after {
+[data-testid="post"][data-weave-source-open="true"] {
+    border-color: var(--cw-teal) !important;
+    border-right-color: transparent !important;
+}
+
+/* Classic mode preserves the old temporary right-edge rails. They retract as
+   the translucent ribbon opens, whereas the open-post design replaces them
+   with visible bridge and divider strokes. */
+[data-testid="content-group"][data-weave-variant="classic"]
+    [data-testid="post"][data-weave-source-open="true"]::before,
+[data-testid="content-group"][data-weave-variant="classic"]
+    [data-testid="post"][data-weave-source-open="true"]::after {
     content: "";
     position: absolute;
     right: -2px;
@@ -34,32 +48,42 @@
     transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-[data-testid="post"][data-weave-source-open="true"]::before {
+[data-testid="content-group"][data-weave-variant="classic"]
+    [data-testid="post"][data-weave-source-open="true"]::before {
     top: 0;
     transform-origin: top center;
 }
 
-[data-testid="post"][data-weave-source-open="true"]::after {
+[data-testid="content-group"][data-weave-variant="classic"]
+    [data-testid="post"][data-weave-source-open="true"]::after {
     bottom: 0;
     transform-origin: bottom center;
 }
 
-[data-testid="post"][data-weave-source-phase="opening"]::before,
-[data-testid="post"][data-weave-source-phase="opening"]::after,
-[data-testid="post"][data-weave-source-phase="open"]::before,
-[data-testid="post"][data-weave-source-phase="open"]::after {
+[data-testid="content-group"][data-weave-variant="classic"]
+    [data-testid="post"][data-weave-source-phase="opening"]::before,
+[data-testid="content-group"][data-weave-variant="classic"]
+    [data-testid="post"][data-weave-source-phase="opening"]::after,
+[data-testid="content-group"][data-weave-variant="classic"]
+    [data-testid="post"][data-weave-source-phase="open"]::before,
+[data-testid="content-group"][data-weave-variant="classic"]
+    [data-testid="post"][data-weave-source-phase="open"]::after {
     transform: scaleY(0);
 }
 
-[data-testid="post"][data-weave-source-phase="closing"]::before,
-[data-testid="post"][data-weave-source-phase="closing"]::after {
+[data-testid="content-group"][data-weave-variant="classic"]
+    [data-testid="post"][data-weave-source-phase="closing"]::before,
+[data-testid="content-group"][data-weave-variant="classic"]
+    [data-testid="post"][data-weave-source-phase="closing"]::after {
     transform: scaleY(1);
     transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    [data-testid="post"][data-weave-source-open="true"]::before,
-    [data-testid="post"][data-weave-source-open="true"]::after {
+    [data-testid="content-group"][data-weave-variant="classic"]
+        [data-testid="post"][data-weave-source-open="true"]::before,
+    [data-testid="content-group"][data-weave-variant="classic"]
+        [data-testid="post"][data-weave-source-open="true"]::after {
         transition: none;
     }
 }
@@ -112,24 +136,43 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 /* WebKit line clamp does not consistently paint its own ellipsis for nested
-   paragraphs/marks. This small mask makes truncation unambiguous on every post
-   type while preserving the measured clamp height. */
+   paragraphs/marks. JS anchors this mask immediately after the last visible
+   glyph; the white tail covers any duplicate native marker to its right. */
 .post-clamp-ellipsis {
     position: absolute;
     right: 0;
-    bottom: 0;
     z-index: 2;
     display: inline-flex;
-    min-width: 2.7em;
-    justify-content: flex-end;
-    color: #011445;
-    /* Cover WebKit's inconsistent built-in clamp marker before drawing one
-       deterministic ellipsis. A translucent mask can leave both markers
-       visible, which reads as five or six dots. */
+    min-width: 0;
+    justify-content: flex-start;
+    align-items: baseline;
+    box-sizing: border-box;
+    padding: 0 0 0 0.25em;
+    margin: 0;
+    border: 0;
+    color: #64748b;
     background: #fff;
+    font-family: inherit;
+    font-size: inherit;
     font-weight: 600;
-    line-height: 1.5;
-    pointer-events: none;
+    text-align: left;
+    vertical-align: baseline;
+    cursor: pointer;
+    user-select: none;
+}
+
+.post-clamp-ellipsis[data-inline-positioned="false"] {
+    visibility: hidden;
+}
+
+.post-clamp-ellipsis:hover {
+    color: #1c2b4a;
+}
+
+.post-clamp-ellipsis:focus-visible {
+    outline: 2px solid #2f6f68;
+    outline-offset: -2px;
+    border-radius: 2px;
 }
 
 .avatarHoverDim {

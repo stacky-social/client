@@ -296,6 +296,112 @@ const FOCUS_HOVER_DWELL_MS = 1500;
 // more" still fully expands; that's the only way to grow the post.
 const POST_LINE_HEIGHT_EM = 1.5;
 
+type ClampEllipsisPosition = { left: number; top: number; lineHeight: number };
+
+/**
+ * Find the final visible glyph in a clamped (or internally scrolled) text box.
+ * The browser's multiline ellipsis is not exposed as a DOM node, so the custom
+ * marker must be anchored to the caret position on the final visible line.
+ */
+function measureClampEllipsis(element: HTMLElement): ClampEllipsisPosition | null {
+  const shell = element.parentElement;
+  if (!shell) return null;
+
+  const elementRect = element.getBoundingClientRect();
+  const shellRect = shell.getBoundingClientRect();
+  const computed = getComputedStyle(element);
+  const lineHeight = Number.parseFloat(computed.lineHeight)
+    || Number.parseFloat(computed.fontSize) * POST_LINE_HEIGHT_EM;
+  const sampleY = elementRect.bottom - lineHeight / 2;
+
+  // Keep our existing overlay out of hit testing while finding the text caret.
+  const marker = shell.querySelector<HTMLElement>('[data-testid="post-clamp-ellipsis"]');
+  const previousDisplay = marker?.style.display ?? '';
+  if (marker) marker.style.display = 'none';
+
+  let anchorRect: DOMRect | null = null;
+  try {
+    const caretDocument = document as Document & {
+      caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+      caretRangeFromPoint?: (x: number, y: number) => Range | null;
+    };
+    const caretPosition = caretDocument.caretPositionFromPoint?.(elementRect.right - 1, sampleY);
+    const fallbackRange = caretPosition
+      ? null
+      : caretDocument.caretRangeFromPoint?.(elementRect.right - 1, sampleY);
+    const node = caretPosition?.offsetNode ?? fallbackRange?.startContainer;
+    let end = caretPosition?.offset ?? fallbackRange?.startOffset ?? 0;
+
+    if (node?.nodeType === Node.TEXT_NODE && element.contains(node)) {
+      const textNode = node as Text;
+      end = Math.min(end, textNode.data.length);
+      while (end > 0 && /\s/.test(textNode.data[end - 1])) end -= 1;
+      if (end > 0) {
+        const range = document.createRange();
+        range.setStart(textNode, end - 1);
+        range.setEnd(textNode, end);
+        const candidate = range.getBoundingClientRect();
+        const onFinalVisibleLine = candidate.bottom > elementRect.bottom - lineHeight - 2
+          && candidate.top < elementRect.bottom
+          && candidate.right <= elementRect.right + 1;
+        if (onFinalVisibleLine) anchorRect = candidate;
+      }
+    }
+
+    // Nested marks can occasionally make the caret API return an element
+    // boundary. Fall back to a reverse text-node scan, stopping at the first
+    // character that belongs to the final visible line.
+    if (!anchorRect) {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      const textNodes: Text[] = [];
+      let node: Node | null;
+      while ((node = walker.nextNode())) textNodes.push(node as Text);
+
+      outer: for (let nodeIndex = textNodes.length - 1; nodeIndex >= 0; nodeIndex -= 1) {
+        const textNode = textNodes[nodeIndex];
+        for (let offset = textNode.data.length; offset > 0; offset -= 1) {
+          if (/\s/.test(textNode.data[offset - 1])) continue;
+          const range = document.createRange();
+          range.setStart(textNode, offset - 1);
+          range.setEnd(textNode, offset);
+          const candidate = range.getBoundingClientRect();
+          if (
+            candidate.width > 0
+            && candidate.bottom > elementRect.bottom - lineHeight - 2
+            && candidate.top < elementRect.bottom
+            && candidate.left < elementRect.right
+            && candidate.right > elementRect.left
+          ) {
+            anchorRect = candidate;
+            break outer;
+          }
+        }
+      }
+    }
+  } finally {
+    if (marker) marker.style.display = previousDisplay;
+  }
+
+  if (!anchorRect) return null;
+  const fontSize = Number.parseFloat(computed.fontSize) || 16;
+  const markerWidth = Math.max(8, fontSize * 0.7);
+  const nativeClampActive = computed.webkitLineClamp !== 'none';
+  const markerLeft = Math.min(
+    anchorRect.right - shellRect.left + 1,
+    elementRect.right - shellRect.left - markerWidth,
+  );
+  return {
+    // A WebKit line clamp paints an anonymous ellipsis immediately before our
+    // marker. Start the opaque button one ellipsis-width earlier so it replaces
+    // that native glyph instead of appearing beside it. The internally-scrolled
+    // focus window has no native clamp, so its marker stays after the final
+    // visible character.
+    left: Math.round((markerLeft - (nativeClampActive ? markerWidth : 0)) * 100) / 100,
+    top: Math.round((anchorRect.top - shellRect.top) * 100) / 100,
+    lineHeight,
+  };
+}
+
 // Renders the interactive highlight spans for ANY post that has relations, not
 // just the focused one, so feed posts get span hover + click-to-focus. It
 // subscribes to the highlight store, but the store-driven work (cross-highlight,
@@ -341,6 +447,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
   // (clicking a span re-renders + re-commits the innerHTML, wiping the imperative
   // fp-dark/fp-hovering classes; without this the span goes light until you move).
   const hoveringRef = useRef(false);
+  // Relation indices under the direct focus-post pointer. Keeping the exact
+  // contributors (rather than only their min/max envelope) lets the focus and
+  // related panes emphasize the same data-authored cruxes even when several
+  // relations overlap one flat rendered segment.
+  const directHoverRelationIndicesRef = useRef<number[]>([]);
   // Keep the exact relation spans in the active hover bucket. Collapsing a
   // disjoint bucket to one min/max envelope would incorrectly darken unrelated
   // marks between its spans after React replaces the innerHTML.
@@ -401,17 +512,29 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     };
   }, []);
 
-  // Compute which mark index (if any) should be visible in neutral grey
-  const filterIdx = responseFilter
-    ? focusRelations.findIndex(r => r.focusStart === responseFilter.start && r.focusEnd === responseFilter.end)
-    : -1;
-  const visibleMarkIdx = dwellOnMarkIndex !== null ? dwellOnMarkIndex : (filterIdx >= 0 ? filterIdx : null);
+  // A clicked flat segment can represent several overlapping relations. The
+  // resulting passage filter is their union, so an exact start/end lookup can
+  // legitimately find no single relation and used to make the selected
+  // highlight disappear. Retain every relation that overlaps the filter.
+  const filteredRelationIndices = useMemo(() => {
+    if (!responseFilter) return [];
+    return focusRelations.flatMap((relation, index) =>
+      relation.focusStart < responseFilter.end && responseFilter.start < relation.focusEnd
+        ? [index]
+        : [],
+    );
+  }, [focusRelations, responseFilter]);
+  const visibleMarkIndices = useMemo(
+    () => dwellOnMarkIndex !== null ? [dwellOnMarkIndex] : filteredRelationIndices,
+    [dwellOnMarkIndex, filteredRelationIndices],
+  );
+  const visibleMarkKey = visibleMarkIndices.join(',');
 
   // Expand-to-reveal triggers: the persistent filter span, OR a hovered related
   // card whose linked regions sit below the clamp — so the cross-highlight is
   // actually visible. Transient direct hover on this post stays CSS-only.
   const crossActive = hoveredRelations !== null && hoveredRelations.length > 0;
-  const anyMarkVisuallyActive = (responseFilter !== null && filterIdx >= 0) || crossActive;
+  const anyMarkVisuallyActive = filteredRelationIndices.length > 0 || crossActive;
   const revealKey = active && !isTextExpanded && anyMarkVisuallyActive
     ? crossActive
       ? [
@@ -421,8 +544,10 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
           hoveredCategory ?? '',
           hoveredRelations.length,
         ].join(':')
-      : visibleMarkIdx !== null
-      ? `mark:${visibleMarkIdx}`
+      : responseFilter !== null && filteredRelationIndices.length > 0
+      ? `filter:${responseFilter.start}:${responseFilter.end}:${visibleMarkKey}`
+      : dwellOnMarkIndex !== null
+      ? `mark:${dwellOnMarkIndex}`
       : null
     : null;
   const revealKeyRef = useRef(revealKey);
@@ -518,8 +643,12 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         const b = parseInt(m.getAttribute('data-fe') || 'NaN', 10);
         return rels.some((r) => a < r.focusEnd && r.focusStart < b);
       });
-    } else if (visibleMarkIdx !== null) {
-      marks = Array.from(el.querySelectorAll(`mark[data-range-ids~="${visibleMarkIdx}"]`));
+    } else if (visibleMarkIndices.length > 0) {
+      const activeIndices = new Set(visibleMarkIndices.map(String));
+      marks = (Array.from(el.querySelectorAll('mark[data-range-ids]')) as HTMLElement[])
+        .filter((mark) => (mark.getAttribute('data-range-ids') || '')
+          .split(/\s+/)
+          .some((index) => activeIndices.has(index)));
     } else {
       marks = Array.from(el.querySelectorAll('mark'));
     }
@@ -632,7 +761,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     // A smooth pixel animation necessarily exposes partial lines between valid
     // boundaries. Jump directly between legal whole-line excerpts instead.
     el.scrollTo({ top: target, behavior: 'auto' });
-  }, [revealKey, scrollMode, crossActive, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, visibleMarkIdx, html, windowPrefixOffset]);
+  }, [revealKey, scrollMode, crossActive, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, visibleMarkIndices, visibleMarkKey, html, windowPrefixOffset]);
 
   // Spec hover model (CSS-driven via classes — never re-parses the article):
   //  · enter the post       → faint ALL its spans (.fp-hovering on the container)
@@ -660,10 +789,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     // related-post counts, so they must be the full spans, not the segment.
     const unionFor = (mark: HTMLElement) => {
       const rels = focusRelationsRef.current || [];
-      const ranges: Array<{ fs: number; fe: number }> = (mark.getAttribute('data-range-ids') || '')
+      const relationIndices = (mark.getAttribute('data-range-ids') || '')
         .split(/\s+/)
         .filter(Boolean)
-        .map((s) => rels[parseInt(s, 10)])
+        .map((s) => parseInt(s, 10))
+        .filter((index) => Number.isFinite(index) && !!rels[index]);
+      const ranges: Array<{ fs: number; fe: number }> = relationIndices
+        .map((index) => rels[index])
         .filter(Boolean)
         .map((r) => ({ fs: r.focusStart, fe: r.focusEnd }));
       if (ranges.length === 0) {
@@ -677,7 +809,17 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         const b = parseInt((m as HTMLElement).getAttribute('data-fe') || 'NaN', 10);
         if (ranges.some((u) => a < u.fe && u.fs < b)) marks.push(m as HTMLElement);
       });
-      return { marks, ranges };
+      return { marks, ranges, relationIndices };
+    };
+    const emphasizeDirectCruxes = (relationIndices: number[]) => {
+      directHoverRelationIndicesRef.current = relationIndices;
+      clearFocusCommentBold(el);
+      for (const relationIndex of relationIndices) {
+        const relation = focusRelationsRef.current?.[relationIndex];
+        if (relation && relation.focusCommentEnd > relation.focusCommentStart) {
+          boldFocusCommentRange(el, relation.focusCommentStart, relation.focusCommentEnd);
+        }
+      }
     };
     // A dark mark is not necessarily the bucket currently under the cursor: an
     // adjacent overlap segment can already be dark because the PREVIOUS bucket
@@ -712,9 +854,11 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       if (related && el.contains(related)) return;
       hoveringRef.current = false;
       hoverRangesRef.current = null;
+      directHoverRelationIndicesRef.current = [];
       activeBucketKey = null;
       el.classList.remove('fp-hovering');
       clearDark();
+      clearFocusCommentBold(el);
       cancelDwell();
       publishFocusHover(null);
     };
@@ -734,6 +878,7 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
       if (!mark) {
         latestMark = null;
         hoverRangesRef.current = null;
+        emphasizeDirectCruxes([]);
         activeBucketKey = null;
         clearDark();
         cancelDwell();
@@ -741,12 +886,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         return;
       }
       latestMark = mark;
-      const { marks, ranges } = unionFor(mark);
+      const { marks, ranges, relationIndices } = unionFor(mark);
       const bucketKey = bucketKeyFor(mark);
       if (bucketKey === activeBucketKey) return;
       activeBucketKey = bucketKey;
       clearDark();
       marks.forEach((m) => m.classList.add('fp-dark'));
+      emphasizeDirectCruxes(relationIndices);
       // Reverse cross-highlight: the corresponding aside spans light up while
       // this union is under the cursor (the aside dims its other spans).
       publishFocusHover(ranges);
@@ -936,10 +1082,14 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         ? (matchedColors ? blendHex(matchedColors.bg, '#ffffff', 0.35) : '#eef0f3')
         : '';
     });
-    // Level 2: bold ONLY the data's optional bold sub-span, not the whole region.
-    if (level2 && level2.focusCommentEnd > level2.focusCommentStart) {
-      boldFocusCommentRange(el, level2.focusCommentStart, level2.focusCommentEnd);
-    }
+    // Keep crux emphasis symmetric with the related card: a card-level hover
+    // emphasizes every authored crux on both sides, while Level 2 still owns the
+    // stronger colour for the specifically hovered contribution.
+    hoveredRelations?.forEach((relation) => {
+      if (relation.focusCommentEnd > relation.focusCommentStart) {
+        boldFocusCommentRange(el, relation.focusCommentStart, relation.focusCommentEnd);
+      }
+    });
   });
 
   // Re-apply the DIRECT-hover grey after every commit. Clicking a span re-renders
@@ -966,6 +1116,16 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
         m.classList.add('fp-dark');
         void m.offsetHeight; // force reflow so the dark paints immediately
         m.style.transition = '';
+      }
+    });
+    // The aside-hover reconciliation above clears wrappers on every commit.
+    // Restore the exact direct-hover cruxes after that commit just as we restore
+    // the direct-hover grey classes.
+    clearFocusCommentBold(el);
+    directHoverRelationIndicesRef.current.forEach((relationIndex) => {
+      const relation = focusRelationsRef.current?.[relationIndex];
+      if (relation && relation.focusCommentEnd > relation.focusCommentStart) {
+        boldFocusCommentRange(el, relation.focusCommentStart, relation.focusCommentEnd);
       }
     });
   });
@@ -1001,10 +1161,13 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     // random container-id mismatch can't leave the UA-default <mark> yellow showing
     // through. This injected rule is ONLY the persistent filter mark for the
     // focused post's clicked span (per-instance because it targets a data-range-id).
-    styleEl.textContent = active && visibleMarkIdx !== null
-      ? `#${id} mark[data-range-ids~="${visibleMarkIdx}"] { background: rgb(193,199,209) !important; }`
+    const persistentSelectors = visibleMarkIndices
+      .map((index) => `#${id} mark[data-range-ids~="${index}"]`)
+      .join(', ');
+    styleEl.textContent = active && persistentSelectors
+      ? `${persistentSelectors} { background: rgb(193,199,209) !important; }`
       : '';
-  }, [visibleMarkIdx, active]);
+  }, [visibleMarkIndices, visibleMarkKey, active]);
 
   // Cleanup scoped style on unmount
   useEffect(() => {
@@ -1208,6 +1371,7 @@ function Post({
   );
 
   const [isOverflowing, setIsOverflowing] = useState(false);
+  const [clampEllipsisPosition, setClampEllipsisPosition] = useState<ClampEllipsisPosition | null>(null);
   const textRef = useRef<HTMLDivElement>(null);
   // Guards against setState after unmount: under feed virtualization a post can
   // unmount while a post-action refetch is still in flight.
@@ -1267,7 +1431,10 @@ function Post({
 
   useLayoutEffect(() => {
     const element = textRef.current;
-    if (!element || isTextExpanded) return;
+    if (!element || isTextExpanded) {
+      setClampEllipsisPosition(null);
+      return;
+    }
 
     let animationFrame = 0;
     let cancelled = false;
@@ -1277,18 +1444,30 @@ function Post({
       animationFrame = requestAnimationFrame(() => {
         // A one-pixel tolerance avoids a false "Read more" when fractional line
         // metrics round scrollHeight and clientHeight in opposite directions.
-        setIsOverflowing(element.scrollHeight - element.clientHeight > 1);
+        const overflowing = element.scrollHeight - element.clientHeight > 1;
+        setIsOverflowing(overflowing);
+        const nextPosition = overflowing ? measureClampEllipsis(element) : null;
+        setClampEllipsisPosition((current) => {
+          if (!current || !nextPosition) return current === nextPosition ? current : nextPosition;
+          return Math.abs(current.left - nextPosition.left) < 0.25
+            && Math.abs(current.top - nextPosition.top) < 0.25
+            && Math.abs(current.lineHeight - nextPosition.lineHeight) < 0.25
+            ? current
+            : nextPosition;
+        });
       });
     };
 
     measureOverflow();
     const resizeObserver = new ResizeObserver(measureOverflow);
     resizeObserver.observe(element);
+    element.addEventListener('scroll', measureOverflow, { passive: true });
     void document.fonts?.ready.then(measureOverflow);
 
     return () => {
       cancelled = true;
       cancelAnimationFrame(animationFrame);
+      element.removeEventListener('scroll', measureOverflow);
       resizeObserver.disconnect();
     };
   }, [displayText, text, isTextExpanded, clampLines, contentRelations, focusRelations]);
@@ -1589,7 +1768,16 @@ function Post({
   // survives the focus switch (setPanelFocus would otherwise clear it).
   const handleSpanFocusRequest = useCallback((span: { start: number; end: number; text: string }) => {
     setPendingResponseFilter(id, span);
-    setActivePostId(id);
+    // Publish the post and its related payload through the same shared-context
+    // transaction as an ordinary focus change. Updating only the feed-local id
+    // made the scroll observer believe the post had already been published; the
+    // aside stayed on the previous id, so both the pending filter and bridge
+    // were lost.
+    const position = paperRef.current?.getBoundingClientRect();
+    onStackIconClick(Array.isArray(tempRelatedStacks) ? tempRelatedStacks : [], id, {
+      top: position ? position.top + window.scrollY : 0,
+      height: position?.height ?? 0,
+    });
     // Scroll this post's top to the feed's "active line" (30% of the viewport, the
     // same line the feed uses to pick the focused post) so it settles focused —
     // centring it would leave a higher post on the line. Instant (not animated):
@@ -1601,7 +1789,7 @@ function Post({
       const targetY = window.scrollY + (el.getBoundingClientRect().top - window.innerHeight * 0.3) + 4;
       window.scrollTo(0, Math.max(0, targetY));
     }
-  }, [id, setActivePostId]);
+  }, [id, onStackIconClick, tempRelatedStacks]);
 
   const handleExpandText = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
@@ -1651,7 +1839,7 @@ function Post({
           borderRadius: '10px',
           borderStyle: 'solid',
           borderWidth: '2px',
-          borderColor: isActive ? '#45a99e' : '#dfe4ea',
+          borderColor: isActive ? 'var(--cw-teal)' : '#dfe4ea',
           boxShadow: isActive
             ? '0 5px 14px rgba(28, 43, 74, 0.10), 0 2px 5px rgba(28, 43, 74, 0.06)'
             : '0 1px 6px rgba(28, 43, 74, 0.045)',
@@ -1895,7 +2083,23 @@ function Post({
         />
       )}
       {isOverflowing && !isTextExpanded && (
-        <span className="post-clamp-ellipsis" data-testid="post-clamp-ellipsis" aria-hidden="true">…</span>
+        <button
+          type="button"
+          className="post-clamp-ellipsis"
+          data-testid="post-clamp-ellipsis"
+          data-inline-positioned={clampEllipsisPosition ? 'true' : 'false'}
+          aria-label="Read full post"
+          title="Read more"
+          onClick={handleExpandText}
+          onMouseDown={(event) => event.stopPropagation()}
+          onMouseUp={(event) => event.stopPropagation()}
+          style={clampEllipsisPosition ? {
+            left: `${clampEllipsisPosition.left}px`,
+            top: `${clampEllipsisPosition.top}px`,
+            height: `${clampEllipsisPosition.lineHeight}px`,
+            lineHeight: `${clampEllipsisPosition.lineHeight}px`,
+          } : undefined}
+        >…</button>
       )}
       </div>
       {articleUrl && !quotedPost && (

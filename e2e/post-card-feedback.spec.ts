@@ -25,8 +25,40 @@ test.describe('post-card feedback', () => {
     await expect(shortCard.getByTestId('post-clamp-ellipsis')).toHaveCount(0);
 
     await expect(longCard.getByRole('button', { name: 'Read more' })).toBeVisible();
-    await expect(longCard.getByTestId('post-clamp-ellipsis')).toBeVisible();
-    await expect(longCard.getByTestId('post-clamp-ellipsis')).toHaveText('…');
+    const ellipsis = longCard.getByRole('button', { name: 'Read full post' });
+    await expect(ellipsis).toBeVisible();
+    await expect(ellipsis).toHaveText('…');
+    await expect(ellipsis).toHaveAttribute('data-inline-positioned', 'true');
+    const markerGeometry = await longCard.evaluate((card) => {
+      const text = card.querySelector<HTMLElement>('.postClampedText')!;
+      const marker = card.querySelector<HTMLElement>('[data-testid="post-clamp-ellipsis"]')!;
+      const markerRect = marker.getBoundingClientRect();
+      const textRect = text.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(marker);
+      const glyphRect = range.getBoundingClientRect();
+      const style = getComputedStyle(marker);
+      return {
+        maskBeforeGlyph: glyphRect.left - markerRect.left,
+        glyphRightInset: textRect.right - glyphRect.right,
+        coversTextTail: markerRect.right >= textRect.right - 0.5,
+        background: style.backgroundColor,
+        color: style.color,
+        fontSize: Number.parseFloat(style.fontSize),
+        fontWeight: style.fontWeight,
+      };
+    });
+    expect(markerGeometry.maskBeforeGlyph).toBeGreaterThanOrEqual(3);
+    expect(markerGeometry.glyphRightInset).toBeGreaterThanOrEqual(0);
+    expect(markerGeometry.glyphRightInset).toBeLessThanOrEqual(markerGeometry.fontSize);
+    expect(markerGeometry.coversTextTail).toBe(true);
+    expect(markerGeometry.background).toBe('rgb(255, 255, 255)');
+    expect(markerGeometry.color).toBe('rgb(100, 116, 139)');
+    expect(markerGeometry.fontWeight).toBe('600');
+
+    await ellipsis.click();
+    await expect(ellipsis).toHaveCount(0);
+    await expect(longCard.getByRole('button', { name: 'Read less' })).toBeVisible();
 
     const quoteAction = shortCard.getByTestId('quoted-post');
     await expect(quoteAction).toContainText('Quoted article');

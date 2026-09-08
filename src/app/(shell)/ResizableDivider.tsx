@@ -8,6 +8,7 @@ type Props = {
   style?: CSSProperties;
   ariaLabel?: string;
   quietIdleLine?: boolean;
+  activeLineColor?: string;
   valueNow?: number;
   valueMin?: number;
   valueMax?: number;
@@ -25,6 +26,7 @@ export function ResizableDivider({
   style,
   ariaLabel,
   quietIdleLine = false,
+  activeLineColor,
   valueNow,
   valueMin,
   valueMax,
@@ -117,7 +119,7 @@ export function ResizableDivider({
         style={{
           width: lineActive ? LINE_HOVER_WIDTH : LINE_WIDTH,
           backgroundColor: lineActive
-            ? LINE_HOVER_COLOR
+            ? activeLineColor ?? LINE_HOVER_COLOR
             : quietIdleLine
             ? "transparent"
             : LINE_COLOR,

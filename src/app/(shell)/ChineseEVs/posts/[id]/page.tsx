@@ -141,15 +141,27 @@ export default function MockPostView() {
   const flags = useExperimentFlags();
   const { filterCategories, responseFilter, topicInteraction, replyBaseOrderIds } = useHighlightStore();
 
-  const [post, setPost] = useState<MockPostType | null>(null);
-  const [ancestors, setAncestors] = useState<MockPostType[]>([]);
-  const [replies, setReplies] = useState<MockPostType[]>([]);
-  const [recommendedPosts, setRecommendedPosts] = useState<MockPostType[]>([]);
-  const [focusRelations, setFocusRelations] = useState<Relation[]>([]);
+  // Corpus data is already in the client bundle. Seed it synchronously instead
+  // of first rendering a loader and waiting for a passive effect to copy the
+  // same local maps into state. The load effect below still refreshes counts and
+  // handles participant-created posts after localStorage hydration.
+  const [post, setPost] = useState<MockPostType | null>(() => {
+    const initialPost = getMockPost(id);
+    return initialPost
+      ? {
+          ...initialPost,
+          replies_count: resolveReplyCount(getMockReplyCount(id), 0),
+        }
+      : null;
+  });
+  const [ancestors, setAncestors] = useState<MockPostType[]>(() => getMockAncestors(id));
+  const [replies, setReplies] = useState<MockPostType[]>(() => getMockReplies(id));
+  const [recommendedPosts, setRecommendedPosts] = useState<MockPostType[]>(() => getMockRecommended(id));
+  const [focusRelations, setFocusRelations] = useState<Relation[]>(() => getMockFocusRelations(id));
   // Default tab: "top" under the reply-sort-tabs flag (its default), "time" legacy.
   const [activeTab, setActiveTab] = useState<string>("top");
   const [visibleTopLevelReplies, setVisibleTopLevelReplies] = useState(5);
-  const [activePostId, setActivePostId] = useState<string | null>(null);
+  const [activePostId, setActivePostId] = useState<string | null>(() => mockHasPost(id) ? id : null);
   const [currentUser, setCurrentUser] = useState<any | null>(null);
   // Defer the (potentially large) reply thread one task so the focus post +
   // ancestors paint immediately and the heavy thread render doesn't block the
