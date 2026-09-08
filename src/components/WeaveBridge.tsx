@@ -114,10 +114,17 @@ function DividerRails(props: DividerRailsProps) {
   } = props;
   const opened = useOpeningState(entering, enterDelay);
   const expanded = opened && !exiting;
-  const transition = {
-    duration: BRIDGE_MORPH_MS / 1000,
-    ease: exiting ? EXIT_EASE : ENTER_EASE,
-  };
+  // Connected geometry is already synchronized to the curve during the
+  // scroll event. Letting Framer interpolate those new rail coordinates over
+  // the normal morph duration makes the vertical line visibly trail the path
+  // junction. Only lifecycle changes should animate; ordinary scroll/resize
+  // tracking must land in the same painted frame as the curve.
+  const transition = entering || exiting
+    ? {
+        duration: BRIDGE_MORPH_MS / 1000,
+        ease: exiting ? EXIT_EASE : ENTER_EASE,
+      }
+    : { duration: 0 };
 
   return (
     <>

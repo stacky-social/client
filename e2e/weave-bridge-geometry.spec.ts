@@ -232,6 +232,58 @@ test('keeps the bridge joined during every scroll event', async ({ page }) => {
   });
 });
 
+test('updates divider junctions in the same frame as their curves while scrolling', async ({ page }) => {
+  await expectConnectedBridge(page);
+  const gaps = await page.evaluate(async () => {
+    const readings: Array<{ upper: number; lower: number }> = [];
+    const point = (
+      element: SVGGraphicsElement,
+      x: number,
+      y: number,
+    ) => {
+      const svg = element.ownerSVGElement!;
+      const value = svg.createSVGPoint();
+      value.x = x;
+      value.y = y;
+      return value.matrixTransform(element.getScreenCTM()!);
+    };
+    const record = () => {
+      const layer = document.querySelector<SVGGElement>(
+        '[data-testid="weave-bridge"] [data-weave-layer="current"]',
+      );
+      const upperPath = layer?.querySelector<SVGPathElement>('[data-testid="weave-strand-upper"]');
+      const lowerPath = layer?.querySelector<SVGPathElement>('[data-testid="weave-strand-lower"]');
+      const upperRail = layer?.querySelector<SVGLineElement>('[data-testid="weave-divider-rail-upper"]');
+      const lowerRail = layer?.querySelector<SVGLineElement>('[data-testid="weave-divider-rail-lower"]');
+      if (!upperPath || !lowerPath || !upperRail || !lowerRail) return;
+
+      const upperEnd = upperPath.getPointAtLength(upperPath.getTotalLength())
+        .matrixTransform(upperPath.getScreenCTM()!);
+      const lowerEnd = lowerPath.getPointAtLength(lowerPath.getTotalLength())
+        .matrixTransform(lowerPath.getScreenCTM()!);
+      const upperStart = point(upperRail, upperRail.x1.baseVal.value, upperRail.y1.baseVal.value);
+      const lowerStart = point(lowerRail, lowerRail.x1.baseVal.value, lowerRail.y1.baseVal.value);
+      readings.push({
+        upper: Math.hypot(upperEnd.x - upperStart.x, upperEnd.y - upperStart.y),
+        lower: Math.hypot(lowerEnd.x - lowerStart.x, lowerEnd.y - lowerStart.y),
+      });
+    };
+
+    for (let step = 0; step < 6; step += 1) {
+      window.scrollBy(0, 12);
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      record();
+    }
+    return readings;
+  });
+
+  expect(gaps.length).toBe(6);
+  gaps.forEach(({ upper, lower }) => {
+    expect(upper).toBeLessThanOrEqual(1);
+    expect(lower).toBeLessThanOrEqual(1);
+  });
+});
+
 test('keeps partially off-screen focus edges continuous and viewport-clipped', async ({ page }) => {
   await page.goto(`/AIWorkforce/posts/${stickyFocusId}`);
   await expect(activePost(page)).toBeVisible();
