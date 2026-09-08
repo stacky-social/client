@@ -34,7 +34,7 @@ test('Shift+B toggles and persists the classic and open bridge designs', async (
   await expect(bridge(page)).toHaveAttribute('data-weave-variant', 'open');
   await expect(bridge(page).getByTestId('weave-divider-rail-upper')).toHaveCount(1);
   await expect(bridge(page).getByTestId('weave-ribbon-gradient')).toHaveCount(0);
-  await expect(relatedPost(page)).toHaveCSS('background-color', 'rgb(247, 249, 250)');
+  await expect(relatedPost(page)).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(activePost(page)).toHaveCSS('clip-path', 'inset(-24px 0px -24px -24px)');
   const openPanelGap = await panelGap(page);
 
@@ -69,7 +69,7 @@ test('Shift+B toggles and persists the classic and open bridge designs', async (
   await expect(group(page)).toHaveAttribute('data-weave-variant', 'open');
   await expect(bridge(page).getByTestId('weave-divider-rail-upper')).toHaveCount(1);
   await expect(bridge(page).getByTestId('weave-ribbon-gradient')).toHaveCount(0);
-  await expect(relatedPost(page)).toHaveCSS('background-color', 'rgb(247, 249, 250)');
+  await expect(relatedPost(page)).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect.poll(() => bridgeWidth(page)).toBeLessThanOrEqual(56);
   await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY))
     .toBe('open');

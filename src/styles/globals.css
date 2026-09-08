@@ -6,13 +6,8 @@
     --cw-coral: #e15c52;
     --cw-amber: #f0a83e;
     --cw-canvas: #ffffff;
-    --cw-related-post: #f7f9fa;
-    --cw-related-post-surface: var(--cw-related-post);
-    --cw-line: #dfe4ea;
-}
-
-[data-testid="content-group"][data-weave-variant="classic"] {
     --cw-related-post-surface: #ffffff;
+    --cw-line: #dfe4ea;
 }
 
 /* A focused post in split view is a genuinely open surface. Apply this from

@@ -142,7 +142,7 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
     { fill: 'none', stroke: 'rgb(69, 169, 158)' },
     { fill: 'none', stroke: 'rgb(69, 169, 158)' },
   ]);
-  expect(panelStyles).toEqual(['rgb(255, 255, 255)', 'rgb(247, 249, 250)']);
+  expect(panelStyles).toEqual(['rgb(255, 255, 255)', 'rgb(255, 255, 255)']);
   expectNear(g.sourceTopY, card!.y, 3);
   expectNear(g.sourceBottomY, card!.y + card!.height, 3);
   expect(g.sourceBottomY - g.sourceTopY).toBeGreaterThan(card!.height - 4);
