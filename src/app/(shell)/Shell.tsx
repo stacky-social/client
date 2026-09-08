@@ -7,7 +7,7 @@ import { TopNav, TOP_NAV_HEIGHT } from "../../components/NavBar/TopNav";
 import { RelatedStacksProvider } from "./related-stacks-context";
 import { ResizableDivider } from "./ResizableDivider";
 import { FEED_RATIO_MAX, FEED_RATIO_MIN, useFeedRatio } from "./useFeedRatio";
-import WeaveBridge from "../../components/WeaveBridge";
+import WeaveBridge, { type WeaveBridgeVariant } from "../../components/WeaveBridge";
 
 /**
  * Max width of the centered (feed + related) group on wide screens — ~13in,
@@ -16,13 +16,12 @@ import WeaveBridge from "../../components/WeaveBridge";
  */
 const MAX_CONTENT_WIDTH = 1280;
 const SLIDER_W = 8;
-// Keep enough runway for the bridge's established curve without letting the
-// two panes feel detached. The old 64px span read as a separate connector;
-// this tighter span reads as the focused card opening into the divider.
-const WEAVE_RUNWAY = 48;
-const PANE_GUTTER = 8;
-const FEED_WEAVE_INSET = WEAVE_RUNWAY - PANE_GUTTER - (SLIDER_W / 2);
+const OPEN_WEAVE_RUNWAY = 48;
+const OPEN_PANE_GUTTER = 8;
+const CLASSIC_WEAVE_RUNWAY = 64;
+const CLASSIC_PANE_GUTTER = 10;
 const BRIDGE_EXIT_GRACE_MS = 240;
+const BRIDGE_VARIANT_STORAGE_KEY = "stacky:weave-bridge-variant";
 
 export default function Shell({
     children,
@@ -34,6 +33,10 @@ export default function Shell({
     const { ratio, setRatio, reset } = useFeedRatio();
     const isNarrowViewport = useMediaQuery("(max-width: 48rem)", false);
     const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)", false);
+    const [bridgeVariant, setBridgeVariant] = useState<WeaveBridgeVariant>("open");
+    const paneGutter = bridgeVariant === "classic" ? CLASSIC_PANE_GUTTER : OPEN_PANE_GUTTER;
+    const weaveRunway = bridgeVariant === "classic" ? CLASSIC_WEAVE_RUNWAY : OPEN_WEAVE_RUNWAY;
+    const feedWeaveInset = weaveRunway - paneGutter - (SLIDER_W / 2);
 
     const groupRef = useRef<HTMLDivElement | null>(null);
     const feedRef = useRef<HTMLDivElement | null>(null);
@@ -44,6 +47,41 @@ export default function Shell({
     const [hasAside, setHasAside] = useState(false);
     const wantsAside = hasAside && !isNarrowViewport;
     const [showAside, setShowAside] = useState(false);
+
+    useEffect(() => {
+        const saved = window.localStorage.getItem(BRIDGE_VARIANT_STORAGE_KEY);
+        if (saved === "classic" || saved === "open") setBridgeVariant(saved);
+    }, []);
+
+    useEffect(() => {
+        const toggleBridgeVariant = (event: KeyboardEvent) => {
+            if (
+                event.defaultPrevented
+                || event.repeat
+                || event.key.toLowerCase() !== "b"
+                || !event.shiftKey
+                || event.altKey
+                || event.ctrlKey
+                || event.metaKey
+            ) return;
+
+            const target = event.target;
+            if (
+                target instanceof HTMLElement
+                && (target.isContentEditable || !!target.closest("input, textarea, select, [contenteditable='true']"))
+            ) return;
+
+            event.preventDefault();
+            setBridgeVariant((current) => {
+                const next: WeaveBridgeVariant = current === "open" ? "classic" : "open";
+                window.localStorage.setItem(BRIDGE_VARIANT_STORAGE_KEY, next);
+                return next;
+            });
+        };
+
+        window.addEventListener("keydown", toggleBridgeVariant);
+        return () => window.removeEventListener("keydown", toggleBridgeVariant);
+    }, []);
 
     // Keep the split geometry alive just long enough for the bridge to unweave.
     // Narrow and reduced-motion transitions collapse immediately.
@@ -65,13 +103,13 @@ export default function Shell({
         const el = groupRef.current;
         if (!el) return;
         const measure = () => {
-            groupInnerRef.current = Math.max(1, el.clientWidth - SLIDER_W - (PANE_GUTTER * 2));
+            groupInnerRef.current = Math.max(1, el.clientWidth - SLIDER_W - (paneGutter * 2));
         };
         measure();
         const ro = new ResizeObserver(measure);
         ro.observe(el);
         return () => ro.disconnect();
-    }, []);
+    }, [paneGutter]);
 
     // Detect whether the aside slot actually renders content. The parallel
     // route returns null when no post is focused (home/search/etc.); in that
@@ -130,6 +168,9 @@ export default function Shell({
             <div
                 data-testid="content-group"
                 data-weave-split={showAside ? "true" : undefined}
+                data-weave-variant={bridgeVariant}
+                data-weave-shortcut="Shift+B"
+                aria-keyshortcuts="Shift+B"
                 ref={groupRef}
                 style={{
                     padding: "0 16px",
@@ -163,7 +204,7 @@ export default function Shell({
                     <div
                         data-testid="feed-content"
                         style={{
-                            width: showAside ? `calc(100% - ${FEED_WEAVE_INSET}px)` : "100%",
+                            width: showAside ? `calc(100% - ${feedWeaveInset}px)` : "100%",
                             // The inset reserves a real drawing runway without
                             // moving the divider or stealing width from the
                             // related panel. It is also the nearest container-query
@@ -181,7 +222,7 @@ export default function Shell({
                         onResize={onSliderResize}
                         onDoubleClick={reset}
                         quietIdleLine
-                        activeLineColor="var(--cw-teal)"
+                        activeLineColor={bridgeVariant === "open" ? "var(--cw-teal)" : undefined}
                         valueNow={Math.round(ratio * 100)}
                         valueMin={Math.round(FEED_RATIO_MIN * 100)}
                         valueMax={Math.round(FEED_RATIO_MAX * 100)}
@@ -189,8 +230,8 @@ export default function Shell({
                             position: "relative",
                             top: "auto",
                             bottom: "auto",
-                            marginLeft: PANE_GUTTER,
-                            marginRight: PANE_GUTTER,
+                            marginLeft: paneGutter,
+                            marginRight: paneGutter,
                             alignSelf: "stretch",
                             flex: `0 0 ${SLIDER_W}px`,
                         }}
@@ -246,7 +287,31 @@ export default function Shell({
                 </div>
             </div>
 
-            <WeaveBridge enabled={showAside} feedRef={feedRef} asideRef={asideRef} />
+            <div
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+                style={{
+                    position: "fixed",
+                    width: 1,
+                    height: 1,
+                    padding: 0,
+                    margin: -1,
+                    overflow: "hidden",
+                    clip: "rect(0, 0, 0, 0)",
+                    whiteSpace: "nowrap",
+                    border: 0,
+                }}
+            >
+                {bridgeVariant === "open" ? "Open bridge design" : "Classic bridge design"}
+            </div>
+
+            <WeaveBridge
+                enabled={showAside}
+                feedRef={feedRef}
+                asideRef={asideRef}
+                variant={bridgeVariant}
+            />
 
             <HoverTooltip />
         </RelatedStacksProvider>

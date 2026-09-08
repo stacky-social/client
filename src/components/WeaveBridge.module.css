@@ -27,3 +27,7 @@
   pointer-events: none;
   shape-rendering: geometricPrecision;
 }
+
+.bridge[data-weave-variant="classic"] .guide {
+  stroke: none;
+}
