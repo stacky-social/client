@@ -50,7 +50,6 @@ async function geometry(page: Page) {
     const upper = inspectPath('weave-strand-upper');
     const lower = inspectPath('weave-strand-lower');
     return {
-      sourceLineX: number('data-source-line-x'),
       sourceX,
       sourceTopY: number('data-source-top-y'),
       sourceBottomY: number('data-source-bottom-y'),
@@ -152,15 +151,14 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
   expect(g.targetBottomY - g.targetTopY).toBeGreaterThan(
     (g.sourceBottomY - g.sourceTopY) * 1.75,
   );
-  expectNear(g.upperStart.x, g.sourceLineX); expectNear(g.upperStart.y, g.sourceTopY);
-  expectNear(g.lowerStart.x, g.sourceLineX); expectNear(g.lowerStart.y, g.sourceBottomY);
-  expect(g.sourceLineX).toBeLessThan(g.sourceX - 100);
+  expectNear(g.upperStart.x, g.sourceX); expectNear(g.upperStart.y, g.sourceTopY);
+  expectNear(g.lowerStart.x, g.sourceX); expectNear(g.lowerStart.y, g.sourceBottomY);
   expectNear(g.upperSourceJoint.x, g.sourceX); expectNear(g.upperSourceJoint.y, g.sourceTopY);
   expectNear(g.lowerSourceJoint.x, g.sourceX); expectNear(g.lowerSourceJoint.y, g.sourceBottomY);
-  // Each border is one uninterrupted SVG path: a horizontal card rule enters
-  // the cubic with a horizontal tangent, then bends outward within ten pixels.
-  expect(g.upperPathData).toMatch(/^M .+ L .+ C /);
-  expect(g.lowerPathData).toMatch(/^M .+ L .+ C /);
+  // The native card border remains untouched; each SVG stroke begins at its
+  // open right edge with a horizontal tangent and bends within ten pixels.
+  expect(g.upperPathData).toMatch(/^M .+ C /);
+  expect(g.lowerPathData).toMatch(/^M .+ C /);
   expect(g.upperCurveProbe.x - g.upperSourceJoint.x).toBeGreaterThan(
     Math.abs(g.upperCurveProbe.y - g.upperSourceJoint.y) * 1.5,
   );

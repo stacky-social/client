@@ -3,7 +3,13 @@ import mockData from '../src/app/FakeData/listy-injection.json';
 
 const stickyFocusId = (mockData as any[]).find((entry) => entry.replies?.length >= 10)!.focusPost.id as string;
 
-type Layer = { slot: string | null; id: string | null; phase: string | null; sourceKind: string | null };
+type Layer = {
+  slot: string | null;
+  id: string | null;
+  phase: string | null;
+  sourceKind: string | null;
+  morphDelay: number;
+};
 type SourceFrame = { id: string; phase: string | null; rightBorder: string };
 type Aperture = {
   id: string;
@@ -52,6 +58,7 @@ async function installRecorder(page: Page) {
           id: layer.getAttribute('data-focus-id'),
           phase: layer.getAttribute('data-phase'),
           sourceKind: layer.getAttribute('data-source-kind'),
+          morphDelay: Number(layer.getAttribute('data-morph-delay-ms')),
         })),
         openIds: Array.from(document.querySelectorAll('[data-weave-source-open="true"]'))
           .map((post) => post.getAttribute('data-post-id') ?? '')
@@ -138,6 +145,15 @@ test('switches A to B and settles with one correctly keyed layer', async ({ page
     layer.slot === 'current' && layer.id === nextId && layer.phase === 'entering'))).toBe(true);
   expect(history.some((event) => event.layers.some((layer) =>
     layer.slot === 'outgoing' && layer.id === firstId && layer.phase === 'exiting'))).toBe(true);
+  const incoming = history.flatMap((event) => event.layers).filter((layer) =>
+    layer.slot === 'current' && layer.id === nextId && layer.phase === 'entering');
+  expect(incoming.length).toBeGreaterThan(0);
+  expect(incoming.every((layer) => layer.morphDelay > 0 && layer.morphDelay < 220)).toBe(true);
+  expect(history.some((event) =>
+    event.aperture?.id === nextId
+    && event.aperture.width > 8
+    && event.layers.some((layer) =>
+      layer.slot === 'outgoing' && layer.id === firstId && layer.phase === 'exiting'))).toBe(true);
   const handoff = history.filter((event) => event.state === 'retargeting');
   expect(handoff.every((event) => event.openIds.length <= 2)).toBe(true);
   const coupledExit = history.findIndex((event) =>

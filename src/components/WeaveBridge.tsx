@@ -17,7 +17,7 @@ type SourceKind = "card" | "sticky";
 type BridgeGeometry = {
   focusId: string; sourceKind: SourceKind; signature: string;
   viewportWidth: number; viewportHeight: number;
-  sourceLineX: number; sourceX: number; sourceTopY: number; sourceBottomY: number;
+  sourceX: number; sourceTopY: number; sourceBottomY: number;
   targetX: number; targetTopY: number; targetBottomY: number;
   upperPath: string; lowerPath: string; ribbonPath: string;
 };
@@ -46,7 +46,9 @@ const OPEN_MIN_TARGET_EXPANSION = 84, OPEN_MAX_TARGET_EXPANSION = 252;
 const CLASSIC_TARGET_EXPANSION_RATIO = 0.52;
 const CLASSIC_MIN_TARGET_EXPANSION = 72, CLASSIC_MAX_TARGET_EXPANSION = 220;
 const BRIDGE_MORPH_MS = 220;
-const RETARGET_DELAY_MS = BRIDGE_MORPH_MS;
+// Start the incoming aperture shortly after the outgoing one begins closing.
+// A full-duration delay made the handoff feel like two unrelated animations.
+const RETARGET_DELAY_MS = 70;
 const ENTER_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const EXIT_EASE: [number, number, number, number] = [0.4, 0, 1, 1];
 
@@ -180,7 +182,6 @@ function syncRenderedGeometry(svg: SVGSVGElement | null, geometry: BridgeGeometr
 
   svg.setAttribute("viewBox", `0 0 ${geometry.viewportWidth} ${geometry.viewportHeight}`);
   svg.setAttribute("data-source-kind", geometry.sourceKind);
-  svg.setAttribute("data-source-line-x", String(geometry.sourceLineX));
   svg.setAttribute("data-source-x", String(geometry.sourceX));
   svg.setAttribute("data-source-top-y", String(geometry.sourceTopY));
   svg.setAttribute("data-source-bottom-y", String(geometry.sourceBottomY));
@@ -429,12 +430,6 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
       // above this overlay, so the small overlap is invisible but prevents a
       // subpixel gap from flashing while the document scrolls.
       const sourceX = round(sourceRect.right) - (sourceKind === "card" ? SOURCE_OVERLAP_PX : 0);
-      // Draw the visible card border and the bridge curve as one SVG path. The
-      // line begins just after the rounded left corner and overlays the card's
-      // existing horizontal rule before continuing through the open right edge.
-      const sourceLineX = sourceKind === "card"
-        ? round(sourceRect.left + SOURCE_CORNER_INSET)
-        : sourceX;
       const targetX = dividerRect
         ? round(dividerRect.left + dividerRect.width / 2)
         : round((sourceRect.right + asideRect.left) / 2);
@@ -500,30 +495,23 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
         `M ${sourceX} ${local(sourceBottomY)}`,
         `C ${sourceControlX} ${local(sourceBottomY)}, ${terminalControlX} ${local(lowerTerminalControlY)}, ${targetX} ${local(targetBottomY)}`,
       ].join(" ");
-      const upperPath = [
-        `M ${sourceLineX} ${local(sourceTopY)}`,
-        `L ${sourceX} ${local(sourceTopY)}`,
-        `C ${sourceControlX} ${local(sourceTopY)}, ${terminalControlX} ${local(upperTerminalControlY)}, ${targetX} ${local(targetTopY)}`,
-      ].join(" ");
-      const lowerPath = [
-        `M ${sourceLineX} ${local(sourceBottomY)}`,
-        `L ${sourceX} ${local(sourceBottomY)}`,
-        `C ${sourceControlX} ${local(sourceBottomY)}, ${terminalControlX} ${local(lowerTerminalControlY)}, ${targetX} ${local(targetBottomY)}`,
-      ].join(" ");
+      // The card keeps its own top and bottom border. SVG strokes begin only
+      // at the open right edge, avoiding a second line painted over the post.
+      const upperPath = upperCurvePath;
+      const lowerPath = lowerCurvePath;
       const ribbonPath = [
         upperCurvePath,
         `L ${targetX} ${local(targetBottomY)}`,
         `C ${terminalControlX} ${local(lowerTerminalControlY)}, ${sourceControlX} ${local(sourceBottomY)}, ${sourceX} ${local(sourceBottomY)}`,
         "Z",
       ].join(" ");
-      const coordinates = [sourceLineX, sourceX, sourceTopY, sourceBottomY, targetX, targetTopY, targetBottomY];
+      const coordinates = [sourceX, sourceTopY, sourceBottomY, targetX, targetTopY, targetBottomY];
       const next: BridgeGeometry = {
         focusId: activePostId,
         sourceKind,
         signature: `${variant}|${activePostId}|${sourceKind}|${window.innerWidth}|${window.innerHeight}|${coordinates.join("|")}`,
         viewportWidth: round(window.innerWidth),
         viewportHeight: round(window.innerHeight - TOP_NAV_HEIGHT),
-        sourceLineX,
         sourceX,
         sourceTopY,
         sourceBottomY,
@@ -848,7 +836,6 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
       data-weave-variant={variant}
       data-weave-revision={bridgeMotion.revision}
       data-source-kind={displayGeometry.sourceKind}
-      data-source-line-x={displayGeometry.sourceLineX}
       data-source-x={displayGeometry.sourceX}
       data-source-top-y={displayGeometry.sourceTopY}
       data-source-bottom-y={displayGeometry.sourceBottomY}
