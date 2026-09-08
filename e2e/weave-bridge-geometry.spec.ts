@@ -97,6 +97,8 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
       const style = getComputedStyle(post);
       return {
         rightBorder: style.borderRightColor,
+        topBorderWidth: Number.parseFloat(style.borderTopWidth),
+        bottomBorderWidth: Number.parseFloat(style.borderBottomWidth),
         topRightRadius: style.borderTopRightRadius,
         bottomRightRadius: style.borderBottomRightRadius,
         clipPath: style.clipPath,
@@ -143,9 +145,13 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
     { fill: 'none', stroke: 'rgb(69, 169, 158)' },
   ]);
   expect(panelStyles).toEqual(['rgb(255, 255, 255)', 'rgb(255, 255, 255)']);
-  expectNear(g.sourceTopY, card!.y, 3);
-  expectNear(g.sourceBottomY, card!.y + card!.height, 3);
-  expect(g.sourceBottomY - g.sourceTopY).toBeGreaterThan(card!.height - 4);
+  expectNear(g.sourceTopY, card!.y + frameStyle.topBorderWidth / 2, 0.6);
+  expectNear(
+    g.sourceBottomY,
+    card!.y + card!.height - frameStyle.bottomBorderWidth / 2,
+    0.6,
+  );
+  expect(g.sourceBottomY - g.sourceTopY).toBeGreaterThan(card!.height - 5);
   expect(g.targetTopY).toBeLessThanOrEqual(g.sourceTopY - 68);
   expect(g.targetBottomY).toBeGreaterThanOrEqual(g.sourceBottomY + 68);
   expect(g.targetBottomY - g.targetTopY).toBeGreaterThan(
@@ -207,9 +213,12 @@ test('keeps the bridge joined during every scroll event', async ({ page }) => {
       const svg = document.querySelector<SVGSVGElement>('[data-testid="weave-bridge"]');
       if (!active || !svg || svg.getAttribute('data-focus-id') !== active.dataset.postId) return;
       const rect = active.getBoundingClientRect();
+      const style = getComputedStyle(active);
+      const topBorderCenter = rect.top + Number.parseFloat(style.borderTopWidth) / 2;
+      const bottomBorderCenter = rect.bottom - Number.parseFloat(style.borderBottomWidth) / 2;
       readings.push({
-        topGap: Math.abs(Number(svg.getAttribute('data-source-top-y')) - Math.round(rect.top)),
-        bottomGap: Math.abs(Number(svg.getAttribute('data-source-bottom-y')) - Math.round(rect.bottom)),
+        topGap: Math.abs(Number(svg.getAttribute('data-source-top-y')) - topBorderCenter),
+        bottomGap: Math.abs(Number(svg.getAttribute('data-source-bottom-y')) - bottomBorderCenter),
         sourceOverlap: rect.right - Number(svg.getAttribute('data-source-x')),
       });
     };
@@ -223,8 +232,8 @@ test('keeps the bridge joined during every scroll event', async ({ page }) => {
   });
   expect(samples.length).toBeGreaterThanOrEqual(4);
   samples.forEach(({ topGap, bottomGap, sourceOverlap }) => {
-    expect(topGap).toBeLessThanOrEqual(1);
-    expect(bottomGap).toBeLessThanOrEqual(1);
+    expect(topGap).toBeLessThanOrEqual(0.6);
+    expect(bottomGap).toBeLessThanOrEqual(0.6);
     expect(sourceOverlap).toBeGreaterThanOrEqual(2);
     expect(sourceOverlap).toBeLessThanOrEqual(4);
   });
