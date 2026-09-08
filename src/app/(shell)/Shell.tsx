@@ -16,10 +16,11 @@ import WeaveBridge, { type WeaveBridgeVariant } from "../../components/WeaveBrid
  */
 const MAX_CONTENT_WIDTH = 1280;
 const SLIDER_W = 8;
-const OPEN_WEAVE_RUNWAY = 48;
-const OPEN_PANE_GUTTER = 8;
-const CLASSIC_WEAVE_RUNWAY = 64;
-const CLASSIC_PANE_GUTTER = 10;
+// Both bridge treatments share the tighter spacing introduced by the open
+// design; the toggle changes the connector treatment, not pane layout.
+const WEAVE_RUNWAY = 48;
+const PANE_GUTTER = 8;
+const FEED_WEAVE_INSET = WEAVE_RUNWAY - PANE_GUTTER - (SLIDER_W / 2);
 const BRIDGE_EXIT_GRACE_MS = 240;
 const BRIDGE_VARIANT_STORAGE_KEY = "stacky:weave-bridge-variant";
 
@@ -34,9 +35,6 @@ export default function Shell({
     const isNarrowViewport = useMediaQuery("(max-width: 48rem)", false);
     const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)", false);
     const [bridgeVariant, setBridgeVariant] = useState<WeaveBridgeVariant>("open");
-    const paneGutter = bridgeVariant === "classic" ? CLASSIC_PANE_GUTTER : OPEN_PANE_GUTTER;
-    const weaveRunway = bridgeVariant === "classic" ? CLASSIC_WEAVE_RUNWAY : OPEN_WEAVE_RUNWAY;
-    const feedWeaveInset = weaveRunway - paneGutter - (SLIDER_W / 2);
 
     const groupRef = useRef<HTMLDivElement | null>(null);
     const feedRef = useRef<HTMLDivElement | null>(null);
@@ -103,13 +101,13 @@ export default function Shell({
         const el = groupRef.current;
         if (!el) return;
         const measure = () => {
-            groupInnerRef.current = Math.max(1, el.clientWidth - SLIDER_W - (paneGutter * 2));
+            groupInnerRef.current = Math.max(1, el.clientWidth - SLIDER_W - (PANE_GUTTER * 2));
         };
         measure();
         const ro = new ResizeObserver(measure);
         ro.observe(el);
         return () => ro.disconnect();
-    }, [paneGutter]);
+    }, []);
 
     // Detect whether the aside slot actually renders content. The parallel
     // route returns null when no post is focused (home/search/etc.); in that
@@ -204,7 +202,7 @@ export default function Shell({
                     <div
                         data-testid="feed-content"
                         style={{
-                            width: showAside ? `calc(100% - ${feedWeaveInset}px)` : "100%",
+                            width: showAside ? `calc(100% - ${FEED_WEAVE_INSET}px)` : "100%",
                             // The inset reserves a real drawing runway without
                             // moving the divider or stealing width from the
                             // related panel. It is also the nearest container-query
@@ -230,8 +228,8 @@ export default function Shell({
                             position: "relative",
                             top: "auto",
                             bottom: "auto",
-                            marginLeft: paneGutter,
-                            marginRight: paneGutter,
+                            marginLeft: PANE_GUTTER,
+                            marginRight: PANE_GUTTER,
                             alignSelf: "stretch",
                             flex: `0 0 ${SLIDER_W}px`,
                         }}

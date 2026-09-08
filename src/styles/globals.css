@@ -24,22 +24,9 @@
     border-right-color: transparent !important;
     border-top-right-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
-}
-
-[data-testid="content-group"][data-weave-variant="open"]
-    [data-testid="post"][data-active="true"],
-[data-testid="content-group"][data-weave-variant="open"]
-    [data-testid="post"][data-weave-source-open="true"] {
-    /* Keep the generous top/bottom/left shadow, but cut the right-hand shadow
-       exactly at the open edge so it cannot darken the white bridge seam. */
+    /* Both bridge variants keep the generous top/bottom/left shadow but cut
+       the right-hand shadow exactly at the open edge. */
     clip-path: inset(-24px 0 -24px -24px);
-}
-
-[data-testid="content-group"][data-weave-variant="classic"]
-    [data-testid="post"][data-active="true"],
-[data-testid="content-group"][data-weave-variant="classic"]
-    [data-testid="post"][data-weave-source-open="true"] {
-    clip-path: inset(-24px -4px -24px -24px);
 }
 
 [data-testid="post"][data-weave-source-open="true"] {
