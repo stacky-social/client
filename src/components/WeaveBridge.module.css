@@ -1,8 +1,14 @@
 .bridge {
   position: fixed;
-  z-index: 4; top: 56px; right: 0; bottom: 0; left: 0;
+  /* Paint the unified edge above the focus card (z-index 5). The SVG is
+     pointer-transparent and contains no filled geometry over card content;
+     only its final overlap masks the old shadow seam. */
+  z-index: 6; top: 56px; right: 0; bottom: 0; left: 0;
   width: 100vw; height: calc(100vh - 56px);
-  overflow: visible; pointer-events: none;
+  /* Paths keep their real off-screen endpoints while this viewport cleanly
+     conceals the excess. Clamping the path itself caused visible joins to jump
+     as a focused card crossed the top or bottom edge. */
+  overflow: hidden; pointer-events: none;
 }
 
 .ribbon {

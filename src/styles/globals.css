@@ -19,7 +19,9 @@
     border-right-color: transparent !important;
     border-top-right-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
-    clip-path: inset(-24px -4px -24px -24px);
+    /* Keep the generous top/bottom/left shadow, but cut the right-hand shadow
+       exactly at the open edge so it cannot darken the white bridge seam. */
+    clip-path: inset(-24px 0 -24px -24px);
 }
 
 [data-testid="post"][data-weave-source-open="true"] {
