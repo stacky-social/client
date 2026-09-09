@@ -227,15 +227,32 @@ test.describe('Home timeline', () => {
     await page.getByRole('button', { name: 'Post', exact: true }).click();
     const ordinaryPost = page.locator('[data-store-feed-post^="local-"]').first();
     await ordinaryPost.evaluate((element) => element.scrollIntoView({ block: 'center' }));
-    await expect(ordinaryPost.getByTestId('post')).toHaveAttribute('data-active', 'true');
+    const ordinaryPostCard = ordinaryPost.getByTestId('post');
+    await expect(ordinaryPostCard).toHaveAttribute('data-active', 'true');
     await expect(page.locator('[data-related-card]')).toHaveCount(0);
     const relatedEmpty = page.getByTestId('home-related-empty');
     await expect(relatedEmpty.getByText('Related posts', { exact: true })).toBeVisible();
     await expect(relatedEmpty.getByText('No related posts yet.', { exact: true })).toBeVisible();
+    await expect(page.getByTestId('weave-bridge')).toHaveCount(0);
+    await expect(ordinaryPostCard).toHaveAttribute('data-weave-no-related', 'true');
+    await expect(ordinaryPostCard).toHaveCSS('border-right-color', 'rgb(69, 169, 158)');
+    await expect(ordinaryPostCard).toHaveCSS('border-top-right-radius', '10px');
+    await expect(ordinaryPostCard).toHaveCSS('border-bottom-right-radius', '10px');
+    await expect(ordinaryPostCard).toHaveCSS('clip-path', 'none');
 
     const feedWidthWithoutRelations = (await page.getByTestId('feed').boundingBox())?.width;
     expect(feedWidthWithRelations).toBeDefined();
     expect(feedWidthWithoutRelations).toBeCloseTo(feedWidthWithRelations!, 2);
+
+    // Returning to a post with related content removes the empty marker and
+    // lets the normal open-edge bridge animate back in.
+    await focus.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+    const relatedFocusCard = focus.getByTestId('post');
+    await expect(relatedFocusCard).toHaveAttribute('data-active', 'true');
+    await expect(page.locator('[data-related-card]').first()).toBeVisible();
+    await expect(relatedFocusCard).not.toHaveAttribute('data-weave-no-related', 'true');
+    await expect(page.getByTestId('weave-bridge')).toHaveAttribute('data-weave-state', 'connected');
+    await expect(relatedFocusCard).toHaveCSS('border-right-color', 'rgba(0, 0, 0, 0)');
   });
 
   test('clears retained related cards when an empty feed is entered', async ({ page }) => {

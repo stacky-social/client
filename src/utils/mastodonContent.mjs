@@ -94,8 +94,15 @@ export function extractMastodonLinks(input) {
     links.push(url);
   };
 
+  for (const match of source.matchAll(
+    /&lt;a\b[\s\S]*?href\s*=\s*(?:["']|&quot;)(https?:\/\/[\s\S]*?)(?:["']|&quot;)[\s\S]*?&gt;[\s\S]*?&lt;\/a&gt;/gi,
+  )) add(match[1]);
   for (const match of source.matchAll(/href\s*=\s*["']([^"']+)["']/gi)) add(match[1]);
   const residual = resolveMastodonRevision(source)
+    .replace(
+      /&lt;a\b[\s\S]*?href\s*=\s*(?:["']|&quot;)(https?:\/\/[\s\S]*?)(?:["']|&quot;)[\s\S]*?&gt;[\s\S]*?&lt;\/a&gt;/gi,
+      ' ',
+    )
     .replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, ' ');
   for (const match of residual.matchAll(/\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/gi)) add(match[1]);
   for (const match of residual.matchAll(/https?:\/\/[^\s<>"']+/gi)) add(match[0]);
@@ -126,39 +133,38 @@ export function resolveMastodonRevision(input) {
 }
 
 function anchorToLabel(_match, attributes, innerHtml) {
-  // Mastodon splits displayed URLs across invisible/ellipsis spans. Keeping the
-  // span text after stripping tags produces strings such as
-  // "https://www. foxnews.com/us /story". The URL is exposed separately by
-  // extractMastodonLinks(), so remove these transport-only anchors from prose.
-  if (/class\s*=\s*["'][^"']*(?:invisible|ellipsis)/i.test(innerHtml)) return ' ';
-
   const label = decodeHtmlEntities(innerHtml.replace(/<[^>]*>/g, ' '))
     .replace(/\s+/g, ' ')
     .trim();
   const href = attributes.match(/href\s*=\s*["']([^"']+)["']/i)?.[1] ?? '';
   const hrefUrl = cleanUrl(href);
-  if (!label || /^https?:\/\//i.test(label)) return ' ';
-  if (hrefUrl) {
-    try {
-      if (label.replace(/^www\./i, '').startsWith(new URL(hrefUrl).hostname.replace(/^www\./i, ''))) return ' ';
-    } catch { /* cleanUrl already validated it */ }
-  }
+  // Always retain the destination itself. Mastodon may split the visual label
+  // across invisible/ellipsis spans, and imported Markdown may call any URL an
+  // "article" even when it is actually a video, dataset, or discussion.
+  if (hrefUrl) return ` ${hrefUrl} `;
+  if (!label) return ' ';
   return ` ${label} `;
 }
 
 /**
  * Convert Mastodon HTML or imported article text into clean card prose.
- * Transport URLs and duplicated Published metadata are intentionally removed;
- * callers can render extractMastodonLinks() as real links beside the prose.
+ * URLs remain in their authored position so callers can render every one as an
+ * inline link. Imported Published metadata is still removed from the prose.
  */
 export function normalizeMastodonText(input) {
   let text = resolveMastodonRevision(input);
 
+  text = text.replace(
+    /&lt;a\b[\s\S]*?href\s*=\s*(?:["']|&quot;)(https?:\/\/[\s\S]*?)(?:["']|&quot;)[\s\S]*?&gt;[\s\S]*?&lt;\/a&gt;/gi,
+    (_match, destination) => {
+      const hrefUrl = cleanUrl(destination);
+      return hrefUrl ? ` ${hrefUrl} ` : ' ';
+    },
+  );
   text = text.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, anchorToLabel);
-  text = text.replace(/\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/gi, (_match, label) => {
-    return /^\s*(?:link|read|open)(?:\s+to)?(?:\s+article)?\s*:?\s*$/i.test(label) ? ' ' : ` ${label} `;
+  text = text.replace(/\[([^\]]*)\]\((https?:\/\/(?:\\.|[^\s)])+)\)/gi, (_match, _label, destination) => {
+    return ` ${unescapeMarkdown(decodeHtmlEntities(destination))} `;
   });
-  text = text.replace(/https?:\/\/[^\s<>"'\[\]]+/gi, ' ');
   text = text.replace(/Published:\s*\d{4}-\d{2}-\d{2}T[\d:.+-]+Z?/gi, ' ');
   text = text.replace(/Published:\s*[A-Z][a-z]{2,8}\s+\d{1,2},\s+\d{4}/g, ' ');
 

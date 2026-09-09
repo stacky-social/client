@@ -221,7 +221,8 @@ function syncRenderedGeometry(svg: SVGSVGElement | null, geometry: BridgeGeometr
  * remain untouched.
  */
 export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: WeaveBridgeProps) {
-  const { activePostId } = useRelatedStacks();
+  const { activePostId, relatedStacks } = useRelatedStacks();
+  const hasRelatedPosts = relatedStacks.length > 0;
   const reduceMotion = !!useReducedMotion();
   const classic = variant === "classic";
   const [measuredGeometry, setMeasuredGeometry] = useState<BridgeGeometry | null>(null);
@@ -236,6 +237,42 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
   const sourceFrameTimersRef = useRef<Map<HTMLElement, ReturnType<typeof setTimeout>>>(new Map());
   const openedLayerKeysRef = useRef<Set<number>>(new Set());
   const sourceOpenTimersRef = useRef<Map<number, number>>(new Map());
+
+  // A focus card should only open when there is somewhere for its bridge to
+  // go. Mark an empty source directly on the semantic card so every aside
+  // route gets the same complete-border fallback without duplicating state in
+  // each empty-panel component. Observe the feed because virtualized cards can
+  // mount after the related context has already settled.
+  useLayoutEffect(() => {
+    const feed = feedRef.current;
+    if (!feed) return;
+
+    const syncEmptySource = () => {
+      feed.querySelectorAll<HTMLElement>('[data-weave-no-related="true"]')
+        .forEach((card) => card.removeAttribute("data-weave-no-related"));
+      if (!enabled || !activePostId || hasRelatedPosts) return;
+      elementWithValue(
+        feed,
+        '[data-testid="post"][data-active="true"][data-post-id]',
+        "data-post-id",
+        activePostId,
+      )?.setAttribute("data-weave-no-related", "true");
+    };
+
+    syncEmptySource();
+    const observer = new MutationObserver(syncEmptySource);
+    observer.observe(feed, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-active", "data-post-id"],
+    });
+    return () => {
+      observer.disconnect();
+      feed.querySelectorAll<HTMLElement>('[data-weave-no-related="true"]')
+        .forEach((card) => card.removeAttribute("data-weave-no-related"));
+    };
+  }, [activePostId, enabled, feedRef, hasRelatedPosts]);
 
   const syncOpenSourceCards = useCallback((layers: Array<BridgeLayer | null>, clearImmediately = false) => {
     const next = new Map<HTMLElement, SourceFramePhase>();
@@ -362,7 +399,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
   }, [commitMotion]);
 
   useEffect(() => {
-    if (!enabled || !activePostId) {
+    if (!enabled || !activePostId || !hasRelatedPosts) {
       setMeasuredGeometry(null);
       return;
     }
@@ -591,7 +628,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
       layoutObserver?.disconnect();
       contentObserver?.disconnect();
     };
-  }, [activePostId, asideRef, classic, commitMotion, enabled, feedRef, variant]);
+  }, [activePostId, asideRef, classic, commitMotion, enabled, feedRef, hasRelatedPosts, variant]);
 
   useEffect(() => {
     const previous = motionRef.current;

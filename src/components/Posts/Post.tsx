@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallba
 import { useRouter } from 'next/navigation';
 import { Text, Group, Paper, UnstyledButton, Divider, Anchor, Button, Menu, Modal } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconShare, IconDots, IconTrash, IconExternalLink, IconQuote } from '@tabler/icons-react';
+import { IconHeart, IconBookmark, IconNote, IconMessageCircle, IconHeartFilled, IconBookmarkFilled, IconShare, IconDots, IconTrash, IconQuote } from '@tabler/icons-react';
 import { copyLink } from '../../utils/share';
 import { format } from 'date-fns';
 import { formatPostDate } from '../../utils/formatPostDate';
@@ -23,7 +23,8 @@ import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 import type { Relation } from '../../types/PostType';
 import { showTooltip, hideTooltip } from '../HoverTooltip';
 import { showUndoableAction } from '../../utils/actionNotifications';
-import { maskDuplicateArticleReferences, mastodonLinkHost } from '../../utils/mastodonContent.mjs';
+import { extractMastodonLinks } from '../../utils/mastodonContent.mjs';
+import { linkifyHtmlUrls, preserveInlineLinkOffsets } from '../../utils/inlineLinks.mjs';
 import { pointBridgesInlineRects } from '../../utils/inlineHighlightGeometry.mjs';
 import { saveFeedScrollSnapshot } from '../../utils/feedScrollRestoration';
 import { postRouteFor } from '../../utils/postRoute';
@@ -219,7 +220,7 @@ const POST_IMAGES_ENABLED = false;
 interface CleanedPost {
   html: string;
   publishedDate: string | null;
-  articleUrl: string | null;
+  supplementalUrl: string | null;
 }
 
 function isSameArticleUrl(candidate: string, articleUrl: string): boolean {
@@ -234,29 +235,15 @@ function isSameArticleUrl(candidate: string, articleUrl: string): boolean {
   }
 }
 
-/** Replace the preview card's duplicated URL with a compact source action while
- *  preserving mentions, hashtags, and any other authored links in the prose. */
+/** Keep authored URLs in place and expose a preview-card destination only when
+ *  that URL was not already present in the post body. */
 function cleanPostHtml(html: string, card: PreviewCard | null | undefined): CleanedPost {
   let cleaned = html;
   let publishedDate: string | null = null;
-
-  if (card?.url) {
-    cleaned = cleaned.replace(/<a\b([^>]*)>[\s\S]*?<\/a>/gi, (anchor, attributes) => {
-      const href = String(attributes).match(/href\s*=\s*["']([^"']+)["']/i)?.[1];
-      return href && isSameArticleUrl(href, card.url) ? '' : anchor;
-    });
-
-    // Markdown and plain-text duplicates need the same treatment as anchors.
-    // Masking preserves offset geometry for annotated content while collapsing
-    // to nothing visually under normal HTML whitespace rules.
-    cleaned = maskDuplicateArticleReferences(cleaned, card.url);
-
-    // Imported posts sometimes contain the same source as plain text rather
-    // than an anchor. Match only that preview URL so unrelated links survive.
-    cleaned = cleaned.replace(/https?:\/\/[^\s<]+/gi, (candidate) =>
-      isSameArticleUrl(candidate, card.url) ? '' : candidate,
-    );
-  }
+  const supplementalUrl = card?.url && !extractMastodonLinks(html)
+    .some((candidate) => isSameArticleUrl(candidate, card.url))
+    ? card.url
+    : null;
 
   // Extract "Published: DATE" and remove from text
   cleaned = cleaned.replace(/Published:\s*(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)/g, (_match, iso) => {
@@ -277,8 +264,9 @@ function cleanPostHtml(html: string, card: PreviewCard | null | undefined): Clea
 
   // Collapse leftover empty <p></p> tags
   cleaned = cleaned.replace(/<p>\s*<\/p>/g, '');
+  cleaned = linkifyHtmlUrls(cleaned);
 
-  return { html: cleaned, publishedDate, articleUrl: card?.url ?? null };
+  return { html: cleaned, publishedDate, supplementalUrl };
 }
 
 
@@ -948,6 +936,9 @@ const ActiveHighlightedContent = React.forwardRef<HTMLDivElement, {
     };
     const onClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
+      // An authored URL remains a normal link even when a relationship mark
+      // overlaps it. Do not turn the link click into a passage-filter action.
+      if (target.closest('a')) return;
       if (target.closest('.focus-window-prefix')) {
         showBeginning(e);
         return;
@@ -1360,14 +1351,13 @@ function Post({
   isTextExpandedRef.current = isTextExpanded;
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>(initialCard ? [initialCard] : []);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
-  const { html: displayText, publishedDate, articleUrl } = useMemo(
+  const { html: displayText, publishedDate, supplementalUrl } = useMemo(
     () => cleanPostHtml(text, previewCards[0]),
     [text, previewCards],
   );
-  const articleHost = articleUrl ? mastodonLinkHost(articleUrl) : '';
   const contentPlainText = useMemo(
-    () => maskDuplicateArticleReferences(stripHtml(text), articleUrl),
-    [text, articleUrl],
+    () => preserveInlineLinkOffsets(stripHtml(text)),
+    [text],
   );
 
   const [isOverflowing, setIsOverflowing] = useState(false);
@@ -1808,14 +1798,14 @@ function Post({
   const handleSingleClick = (e: React.MouseEvent) => {
     // If the click originated from a highlighted mark, let the mark's own
     // capture-phase handler deal with it — do not navigate.
-    if ((e.target as HTMLElement).closest('mark')) return;
+    if ((e.target as HTMLElement).closest('mark, a, button')) return;
     e.stopPropagation();
     handleNavigate();
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
     // If the mouseup came from a highlighted mark, do not navigate.
-    if ((e.target as HTMLElement).closest('mark')) return;
+    if ((e.target as HTMLElement).closest('mark, a, button')) return;
     const selection = window.getSelection();
     if (selection && selection.toString().length === 0) {
       handleNavigate();
@@ -1982,6 +1972,7 @@ function Post({
         )}
 
         <div
+          className="post-body-content"
           // X-style: the body + media indent to align under the USERNAME, past the
           // avatar (avatar 38px + the header row's 10px gap = 48px) — matching the
           // aside's related cards. The action row below uses the same indent.
@@ -2102,29 +2093,24 @@ function Post({
         >…</button>
       )}
       </div>
-      {articleUrl && !quotedPost && (
+      {supplementalUrl && !quotedPost && (
         <Anchor
-          href={articleUrl}
+          href={supplementalUrl}
           target="_blank"
           rel="noopener noreferrer"
           data-focus-article-link
+          className="inline-content-link supplemental-content-link"
           size="xs"
-          underline="hover"
           onClick={(event: React.MouseEvent) => event.stopPropagation()}
           onMouseDown={(event: React.MouseEvent) => event.stopPropagation()}
           onMouseUp={(event: React.MouseEvent) => event.stopPropagation()}
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
+            display: 'inline',
             marginTop: '0.3rem',
             marginBottom: '0.35rem',
-            color: '#2f6f68',
-            fontWeight: 650,
           }}
         >
-          <IconExternalLink size={13} aria-hidden />
-          Read article{articleHost ? ` · ${articleHost}` : ''}
+          {supplementalUrl}
         </Anchor>
       )}
       {(isOverflowing || isTextExpanded) && (
@@ -2136,7 +2122,7 @@ function Post({
           styles={(theme) => ({
             root: {
               padding: 0,
-              marginLeft: articleUrl && !quotedPost ? '0.5rem' : 0,
+              marginLeft: supplementalUrl && !quotedPost ? '0.5rem' : 0,
               background: 'none',
               color: '#1c2b4a',
               fontWeight: 600,
@@ -2157,9 +2143,9 @@ function Post({
           {quotedPost && (
             <button
               type="button"
-              className="quoted-post-link"
+              className="quoted-post-card"
               data-testid="quoted-post"
-              aria-label={`Open quoted article by ${quotedPost.account.display_name}`}
+              aria-label={`Open quoted post by ${quotedPost.account.display_name}`}
               title={quotedPost.title || `Quoted post by ${quotedPost.account.display_name}`}
               onClick={(event) => {
                 event.stopPropagation();
@@ -2169,10 +2155,17 @@ function Post({
               onMouseDown={(event) => event.stopPropagation()}
               onMouseUp={(event) => event.stopPropagation()}
             >
-              <IconQuote size={13} stroke={2} aria-hidden />
-              <span>Quoted article</span>
-              <span aria-hidden>·</span>
-              <span>{quotedPost.account.display_name}</span>
+              <span className="quoted-post-label">
+                <IconQuote size={13} stroke={2} aria-hidden />
+                Quoted source
+              </span>
+              <span className="quoted-post-meta">
+                <strong>{quotedPost.account.display_name}</strong>
+                <span aria-hidden>·</span>
+                <span>{formatPostDate(quotedPost.created_at)}</span>
+              </span>
+              {quotedPost.title && <span className="quoted-post-title">{quotedPost.title}</span>}
+              <span className="quoted-post-copy">{quotedPost.content}</span>
             </button>
           )}
           {POST_IMAGES_ENABLED && mediaAttachments.length > 0 && (

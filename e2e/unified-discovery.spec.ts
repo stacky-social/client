@@ -375,7 +375,8 @@ test.describe('unified discovery and interactions', () => {
     await expect(firstCard.locator('[data-ai-edited-default]')).not.toContainText('Published:');
     await expect(firstCard.locator('[data-ai-edited-default]')).not.toContainText('https://');
     await expect(firstCard.locator('[data-related-card-content]')).not.toContainText(/[⌊⌋⌈⌉\[\]]/);
-    await expect(firstCard.getByRole('link', { name: 'Read article · example.com' })).toHaveAttribute('href', 'https://example.com/report');
+    await expect(firstCard.getByRole('link', { name: 'https://example.com/report' })).toHaveAttribute('href', 'https://example.com/report');
+    await expect(firstCard.getByText(/Read article/i)).toHaveCount(0);
 
     const aiBadge = firstCard.getByRole('button', { name: 'Modified by AI' });
     const cardBeforeDiff = await firstCard.boundingBox();

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import mockData from '../src/app/FakeData/listy-injection.json';
+import scaleDemo from '../src/app/FakeData/scale-demo.json';
 
 const timeline = (mockData as any[]).filter((entry) => entry.timelineRoot !== false);
 const shortQuote = timeline[0];
@@ -11,9 +12,13 @@ const linkedReplyId = 'cw-AKIXHkh6YtvzbL3D';
 const linkedReplyEntry = (mockData as any[]).find(
   (entry) => entry.relatedPosts?.some((post: any) => post.id === linkedReplyId),
 );
+const multiLinkReplyId = 'cw-TGODIhKeqWxSgADI';
+const multiLinkEntry = (scaleDemo as any[]).find(
+  (entry) => entry.relatedPosts?.[0]?.id === multiLinkReplyId,
+);
 
 test.describe('post-card feedback', () => {
-  test('shows truncation only when content is actually clamped and keeps quotes compact', async ({ page }) => {
+  test('shows truncation only when content is actually clamped and embeds quoted sources', async ({ page }) => {
     await page.goto('/AIWorkforce');
 
     const shortCard = page.locator(`[data-post-id="${shortQuote.focusPost.id}"]`).first();
@@ -61,9 +66,11 @@ test.describe('post-card feedback', () => {
     await expect(longCard.getByRole('button', { name: 'Read less' })).toBeVisible();
 
     const quoteAction = shortCard.getByTestId('quoted-post');
-    await expect(quoteAction).toContainText('Quoted article');
+    await expect(quoteAction).toContainText('Quoted source');
     await expect(quoteAction).toContainText(shortQuote.focusPost.quotedPost.account.display_name);
-    expect((await quoteAction.boundingBox())?.height).toBeLessThan(32);
+    await expect(quoteAction).toContainText(shortQuote.focusPost.quotedPost.title);
+    await expect(quoteAction).toContainText(shortQuote.focusPost.quotedPost.content);
+    expect((await quoteAction.boundingBox())?.height).toBeGreaterThan(70);
   });
 
   test('keeps newly imported authors local when an older store is already persisted', async ({ page }) => {
@@ -95,7 +102,7 @@ test.describe('post-card feedback', () => {
     await expect(page.getByText('@anna@nytimes.com', { exact: true })).toBeVisible();
   });
 
-  test('shows an extracted article URL only in the source action', async ({ page }) => {
+  test('keeps source URLs visible and clickable without assuming their content type', async ({ page }) => {
     expect(linkedReplyEntry).toBeTruthy();
     await page.goto(`/AIWorkforce/posts/${linkedReplyEntry.focusPost.id}`);
 
@@ -103,11 +110,37 @@ test.describe('post-card feedback', () => {
       has: page.locator(`[data-post-id="${linkedReplyId}"]`),
     }).first();
     await expect(card).toBeVisible({ timeout: 15_000 });
-    await expect(card.locator('[data-related-card-content]')).not.toContainText('en.wikipedia.org');
+    await expect(card.locator('[data-related-card-content]')).toContainText('https://en.wikipedia.org/wiki/Jevons_paradox');
     await expect(card.locator('mark').first()).toBeVisible();
-    await expect(card.getByRole('link', { name: 'Read article · en.wikipedia.org' })).toHaveAttribute(
+    await expect(card.getByRole('link', { name: 'https://en.wikipedia.org/wiki/Jevons_paradox' })).toHaveAttribute(
       'href',
       'https://en.wikipedia.org/wiki/Jevons_paradox',
+    );
+    await expect(card.getByText(/Read article/i)).toHaveCount(0);
+  });
+
+  test('renders multiple authored URLs as separate inline links', async ({ page }) => {
+    expect(multiLinkEntry).toBeTruthy();
+    await page.goto(`/EnergyTech/posts/${multiLinkEntry.focusPost.id}`);
+
+    const card = page.locator(`[data-post-id="${multiLinkReplyId}"]`).first();
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    const readMore = card.getByRole('button', { name: 'Read more' });
+    if (await readMore.isVisible()) await readMore.click();
+
+    await expect(card.getByRole('link', { name: 'https://ember-energy.org/countries-and-regions/china' }))
+      .toHaveAttribute('href', 'https://ember-energy.org/countries-and-regions/china');
+    await expect(card.getByRole('link', {
+      name: 'https://www.carbonbrief.org/analysis-clean-energy-just-put-chinas-co2-emissions-into-reverse-for-first-time',
+    })).toHaveAttribute(
+      'href',
+      'https://www.carbonbrief.org/analysis-clean-energy-just-put-chinas-co2-emissions-into-reverse-for-first-time',
+    );
+    await expect(card.getByRole('link', {
+      name: 'https://www.nytimes.com/interactive/2025/06/30/climate/china-clean-energy-power.html',
+    })).toHaveAttribute(
+      'href',
+      'https://www.nytimes.com/interactive/2025/06/30/climate/china-clean-energy-power.html',
     );
   });
 });

@@ -9,6 +9,7 @@ import {
 } from "../../utils/highlightStore";
 import { showTooltip, hideTooltip } from "../HoverTooltip";
 import { pointBridgesInlineRects } from "../../utils/inlineHighlightGeometry.mjs";
+import InlineLinkedContent from "../InlineLinkedContent";
 
 interface ReplyHighlightedContentProps {
   /** The reply's plain text — relation content offsets index into this string. */
@@ -118,7 +119,7 @@ export default function ReplyHighlightedContent({
     sorted.push(entry);
   }
   if (sorted.length === 0) {
-    return <span>{plainText}</span>;
+    return <span><InlineLinkedContent>{plainText}</InlineLinkedContent></span>;
   }
 
   const nodes: React.ReactNode[] = [];
@@ -208,7 +209,7 @@ export default function ReplyHighlightedContent({
 
   return (
     <span onMouseEnter={publishHover} onMouseLeave={clearHover}>
-      {nodes}
+      <InlineLinkedContent>{nodes}</InlineLinkedContent>
     </span>
   );
 }

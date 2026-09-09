@@ -20,7 +20,7 @@ test('masks a duplicated Markdown article URL without shifting annotation offset
   assert.equal(masked.includes('https://example.com/context'), true);
 });
 
-test('normalizes Mastodon split-link HTML and removes imported publication metadata', () => {
+test('normalizes Mastodon split-link HTML while retaining its URL', () => {
   const html = `<p><strong>Florida teens' dangerous social media challenge</strong> Authorities warned parents
     <a href="https://www.foxnews.com/us/florida-teens" target="_blank">
       <span class="invisible">https://www.</span>
@@ -31,7 +31,7 @@ test('normalizes Mastodon split-link HTML and removes imported publication metad
 
   assert.equal(
     normalizeMastodonText(html),
-    "Florida teens' dangerous social media challenge Authorities warned parents",
+    "Florida teens' dangerous social media challenge Authorities warned parents\nhttps://www.foxnews.com/us/florida-teens",
   );
   assert.deepEqual(extractMastodonLinks(html), ['https://www.foxnews.com/us/florida-teens']);
 });
@@ -39,7 +39,7 @@ test('normalizes Mastodon split-link HTML and removes imported publication metad
 test('resolves backend track-change brackets to clean edited prose', () => {
   const rewrite = 'After floods, new laws protect kids⌈.⌉ ⌊[Link to article:⌋ ⌈https://www.cnn.com/story]⌉';
   assert.equal(resolveMastodonRevision(rewrite), 'After floods, new laws protect kids.  https://www.cnn.com/story]');
-  assert.equal(normalizeMastodonText(rewrite), 'After floods, new laws protect kids.');
+  assert.equal(normalizeMastodonText(rewrite), 'After floods, new laws protect kids. https://www.cnn.com/story]');
   assert.deepEqual(extractMastodonLinks(rewrite), ['https://www.cnn.com/story']);
 });
 
@@ -58,8 +58,15 @@ test('preserves ordinary square brackets outside track-change insertions', () =>
   );
 });
 
-test('keeps human link labels while exposing the destination separately', () => {
+test('keeps link destinations visible even when the authored label is generic', () => {
   const html = '<p>See <a href="https://example.com/report">the full report</a> for details.</p>';
-  assert.equal(normalizeMastodonText(html), 'See the full report for details.');
+  assert.equal(normalizeMastodonText(html), 'See https://example.com/report for details.');
   assert.equal(mastodonLinkHost(extractMastodonLinks(html)[0]), 'example.com');
+});
+
+test('normalizes an HTML-encoded anchor to one literal URL', () => {
+  const html = '&lt;a href=&quot;https://example.com/data&quot;&gt;Read article&lt;/a&gt;';
+
+  assert.equal(normalizeMastodonText(html), 'https://example.com/data');
+  assert.deepEqual(extractMastodonLinks(html), ['https://example.com/data']);
 });

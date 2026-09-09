@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import { Paper, UnstyledButton, Group, Text, Divider, Anchor } from '@mantine/core';
-import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare, IconExternalLink } from '@tabler/icons-react';
+import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare } from '@tabler/icons-react';
 import { CATEGORY_COLORS, CATEGORY_LABELS, iconMapping, getCategoryColors, type CategoryStyle } from '../utils/categoryStyles';
 import { formatPostDate } from '../utils/formatPostDate';
 import RelatedStackCount from './RelatedStackCount';
@@ -28,11 +28,13 @@ import {
 import { pointBridgesInlineRects } from '../utils/inlineHighlightGeometry.mjs';
 import { useHydrated, useLocalStore } from '../utils/localStore';
 import { RELATED_POSTS_API_URL } from '../utils/mastodonApi';
-import { extractMastodonLinks, maskDuplicateArticleReferences, mastodonLinkHost, normalizeMastodonText, resolveMastodonRevision } from '../utils/mastodonContent.mjs';
+import { extractMastodonLinks, normalizeMastodonText, resolveMastodonRevision } from '../utils/mastodonContent.mjs';
 import { saveFeedScrollSnapshot } from '../utils/feedScrollRestoration';
 import { postRouteFor } from '../utils/postRoute';
 import AuthorHoverInfo from './AuthorHoverInfo';
 import ProfileAvatar from './ProfileAvatar';
+import InlineLinkedContent from './InlineLinkedContent';
+import { preserveInlineLinkOffsets } from '../utils/inlineLinks.mjs';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -114,17 +116,35 @@ function relatedArticleUrl(post: PostType): string | null {
     || null;
 }
 
-function relatedCardText(post: PostType, value: string, articleUrl: string | null = null): string {
+function relatedCardText(post: PostType, value: string): string {
   // Revision notation is never part of the authored text. Resolve it even on
   // offset-annotated cards; contextual rewrites remap those relation offsets
   // immediately after this conversion. Applying only the full normalizer to
   // unannotated cards left legacy annotated AI rewrites displaying ⌈[,]⌉ and
   // ⌈[an]⌉ as literal brackets in the default edited view.
   if ((post.relations?.length ?? 0) > 0) {
-    const resolved = resolveMastodonRevision(value).replace(/<[^>]*>/g, '');
-    return maskDuplicateArticleReferences(resolved, articleUrl);
+    // Demo adapters wrap the raw related-post body in one structural <p>.
+    // Remove only that wrapper, then blank transport markup without changing
+    // string length so every relationship offset remains valid.
+    const resolved = resolveMastodonRevision(value).replace(/^<p>([\s\S]*)<\/p>$/i, '$1');
+    return preserveInlineLinkOffsets(resolved).replace(
+      /<[^>]*>/g,
+      (tag) => tag.replace(/[^\r\n]/g, ' '),
+    );
   }
   return normalizeMastodonText(value);
+}
+
+function sameHttpUrl(first: string, second: string): boolean {
+  try {
+    const a = new URL(first.replace(/&amp;/gi, '&'));
+    const b = new URL(second.replace(/&amp;/gi, '&'));
+    a.hash = '';
+    b.hash = '';
+    return a.toString() === b.toString();
+  } catch {
+    return first === second;
+  }
 }
 
 interface RelatedStacksProps {
@@ -1305,14 +1325,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     for (const stack of relatedStacks) {
       const rewrite = stack.topPost.rewrite;
       if (!rewrite?.significant || !rewrite.content) continue;
-      const articleUrl = relatedArticleUrl(stack.topPost);
       const offsetsAlreadyTargetRewrite = stack.topPost.rewrite.originalContent !== undefined;
       const original = relatedCardText(
         stack.topPost,
         stack.topPost.rewrite.originalContent ?? stack.topPost.content ?? '',
-        articleUrl,
       );
-      const revised = relatedCardText(stack.topPost, rewrite.content, articleUrl);
+      const revised = relatedCardText(stack.topPost, rewrite.content);
       const chunks = createWordDiff(original, revised);
       diffs.set(stack.topPost.id, {
         originalContent: original,
@@ -2618,13 +2636,16 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           // split URL spans, Published metadata, rewrite brackets, and entities
           // are presentation transport details and must not leak into prose.
           const articleUrl = relatedArticleUrl(stack.topPost);
-          const plainContent = relatedCardText(stack.topPost, stack.topPost.content || '', articleUrl);
+          const plainContent = relatedCardText(stack.topPost, stack.topPost.content || '');
           const rels = stack.topPost.relations;
           // Contextual rewrites are the published/default card text. The
           // original survives only inside the hover/focus track-changes layer.
           const visibleContent = aiDiffSet?.revisedContent ?? plainContent;
           const visibleRelations = aiDiffSet?.revisedRelations ?? rels;
-          const articleHost = articleUrl ? mastodonLinkHost(articleUrl) : '';
+          const supplementalUrl = articleUrl && !extractMastodonLinks(visibleContent)
+            .some((candidate) => sameHttpUrl(candidate, articleUrl))
+            ? articleUrl
+            : null;
           // Mastodon's status timestamp is the canonical feed date. Preview-card
           // published_at frequently lands near midnight UTC and can shift to the
           // previous calendar day in the user's timezone, contradicting the
@@ -3488,7 +3509,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       aria-hidden={isAiEditActive}
                     >
                       {hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
-                      {contentNodes}
+                      <InlineLinkedContent>{contentNodes}</InlineLinkedContent>
                       {hasSuffix && !isExpanded && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
                     </Text>
                     {hasVisibleAiEdit && aiDiff && (
@@ -3503,35 +3524,30 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                         aria-label={stack.topPost.rewrite.editSummary || 'AI changes shown in this post'}
                       >
                         {aiDiff.hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
-                        {trackedContentNodes}
+                        <InlineLinkedContent>{trackedContentNodes}</InlineLinkedContent>
                         {aiDiff.hasSuffix && !isExpanded && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
                       </Text>
                     )}
                   </div>
 
-                  {articleUrl && (
+                  {supplementalUrl && (
                     <Anchor
-                      href={articleUrl}
+                      href={supplementalUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       data-related-article-link
+                      className="inline-content-link supplemental-content-link"
                       size="xs"
-                      underline="hover"
                       onClick={(event: React.MouseEvent) => event.stopPropagation()}
                       onMouseDown={(event: React.MouseEvent) => event.stopPropagation()}
                       onMouseUp={(event: React.MouseEvent) => event.stopPropagation()}
                       style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
+                        display: 'inline',
                         marginTop: '0.3rem',
                         marginBottom: '0.35rem',
-                        color: '#2f6f68',
-                        fontWeight: 650,
                       }}
                     >
-                      <IconExternalLink size={13} aria-hidden />
-                      Read article{articleHost ? ` · ${articleHost}` : ''}
+                      {supplementalUrl}
                     </Anchor>
                   )}
 
