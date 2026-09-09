@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import {
   activateAsideTopic,
+  activateFocusTopic,
   activateReplyTopic,
   clearAll,
   consumePanelHistoryWriteMode,
@@ -207,8 +208,10 @@ export function useUrlSync({
       suppressNextWriteRef.current = true;
       if (parsed.interaction.origin === "aside") {
         activateAsideTopic(parsed.interaction);
-      } else {
+      } else if (parsed.interaction.origin === "replies") {
         activateReplyTopic(parsed.interaction);
+      } else {
+        activateFocusTopic(parsed.interaction);
       }
     } else if (restoringHistoryRef.current || hasManagedFilterParam) {
       suppressNextWriteRef.current = true;

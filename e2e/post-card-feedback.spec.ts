@@ -18,7 +18,7 @@ const multiLinkEntry = (scaleDemo as any[]).find(
 );
 
 test.describe('post-card feedback', () => {
-  test('shows truncation only when content is actually clamped and embeds quoted sources', async ({ page }) => {
+  test('shows truncation only when content is actually clamped and embeds regular posts', async ({ page }) => {
     await page.goto('/AIWorkforce');
 
     const shortCard = page.locator(`[data-post-id="${shortQuote.focusPost.id}"]`).first();
@@ -66,7 +66,12 @@ test.describe('post-card feedback', () => {
     await expect(longCard.getByRole('button', { name: 'Read less' })).toBeVisible();
 
     const quoteAction = shortCard.getByTestId('quoted-post');
-    await expect(quoteAction).toContainText('Quoted source');
+    await expect(quoteAction).not.toContainText('Quoted source');
+    await expect(quoteAction).toHaveAttribute(
+      'aria-label',
+      `Open post by ${shortQuote.focusPost.quotedPost.account.display_name}`,
+    );
+    await expect(quoteAction.locator('[data-default-profile-avatar]')).toBeVisible();
     await expect(quoteAction).toContainText(shortQuote.focusPost.quotedPost.account.display_name);
     await expect(quoteAction).toContainText(shortQuote.focusPost.quotedPost.title);
     await expect(quoteAction).toContainText(shortQuote.focusPost.quotedPost.content);

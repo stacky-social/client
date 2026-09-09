@@ -84,7 +84,7 @@ export function parseFilterInteraction(search, plainPostText = null) {
     const rangeIndex = rangeIndexText == null ? NaN : Number(rangeIndexText);
     if (
       !topicKey ||
-      (origin !== 'aside' && origin !== 'replies') ||
+      (origin !== 'aside' && origin !== 'replies' && origin !== 'focus') ||
       !postId ||
       !Number.isInteger(rangeIndex) ||
       rangeIndex < 0

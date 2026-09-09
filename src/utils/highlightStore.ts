@@ -27,12 +27,12 @@ export {
  * The single atomic panel-interaction primitive (replaces the anchor-derived
  * `reRankAnchorIds`/`anchoredRangeByPost`/`replyAnchor` model as the *UI
  * interaction* source of truth once T4 migrates the components). Exactly one is
- * active at a time. `origin` is the pane the user clicked; that pane GROUPS by
- * `topicKey` and the other pane is FILTERED by it. `anchor` is the clicked span
- * on the ORIGIN pane.
+ * active at a time. Aside/reply origins GROUP their own pane and FILTER the
+ * other; a focus origin FILTERS both response panes. `anchor` is the clicked
+ * semantic span on the origin surface.
  */
 export interface TopicInteraction {
-  origin: "aside" | "replies";
+  origin: "aside" | "replies" | "focus";
   topicKey: string;
   anchor: { postId: string; rangeIndex: number };
 }
@@ -371,6 +371,14 @@ export function activateReplyTopic(payload: {
   applyInteraction({ type: "replyTopic", topicKey: payload.topicKey, anchor: payload.anchor });
 }
 
+/** Filter both response panes from a clicked semantic phrase in the focus post. */
+export function activateFocusTopic(payload: {
+  topicKey: string;
+  anchor: { postId: string; rangeIndex: number };
+}): void {
+  applyInteraction({ type: "focusTopic", topicKey: payload.topicKey, anchor: payload.anchor });
+}
+
 /** Set the category filter across both panes; clears any topic/passage interaction. */
 export function setCategoryFilter(cats: Set<string> | string[]): void {
   applyInteraction({ type: "category", cats: Array.from(cats) });
@@ -393,6 +401,8 @@ export function clearAll(): void {
 
 export function resetHighlightStore(): void {
   state = { ...INITIAL, filterCategories: new Set(), responseFilter: null };
+  pendingResponseFilter = null;
+  pendingFocusTopic = null;
   notify();
 }
 
@@ -539,7 +549,7 @@ export function setPanelFocus(
   focusId: string | null,
   resolveTopicKey?: (
     anchor: { postId: string; rangeIndex: number },
-    origin?: "aside" | "replies",
+    origin?: "aside" | "replies" | "focus",
   ) => string | null | undefined,
 ): void {
   if (focusId === currentPanelFocusId) return;
@@ -570,10 +580,17 @@ export function setPanelFocus(
     ? state.topicInteraction
     : saved
     ? resolveTopicKey
-      ? validateTopicInteraction(saved.topicInteraction, resolveTopicKey)
+      ? saved.topicInteraction?.origin === "focus"
+        && resolveTopicKey(saved.topicInteraction.anchor, "focus") == null
+        // The main route registers focus prose independently of the @aside
+        // route. Preserve it across that brief mount-order gap; the post
+        // validates authoritatively as soon as its relations are registered.
+        ? saved.topicInteraction
+        : validateTopicInteraction(saved.topicInteraction, resolveTopicKey)
       : saved.topicInteraction
     : null;
   const appliesPendingPassage = !!pendingResponseFilter && pendingResponseFilter.postId === focusId;
+  const appliesPendingFocusTopic = !!pendingFocusTopic && pendingFocusTopic.postId === focusId;
   if (appliesPendingPassage && pendingResponseFilter) {
     incomingResponseFilter = pendingResponseFilter.span;
     pendingResponseFilter = null;
@@ -581,9 +598,19 @@ export function setPanelFocus(
     // it supersedes any topic interaction that would otherwise be restored.
     incomingTopicInteraction = null;
   }
+  if (appliesPendingFocusTopic && pendingFocusTopic) {
+    incomingResponseFilter = null;
+    incomingTopicInteraction = {
+      origin: "focus",
+      topicKey: pendingFocusTopic.topicKey,
+      anchor: { postId: pendingFocusTopic.postId, rangeIndex: pendingFocusTopic.rangeIndex },
+    };
+    pendingFocusTopic = null;
+    pendingResponseFilter = null;
+  }
   state = {
     ...state,
-    filterCategories: appliesPendingPassage
+    filterCategories: appliesPendingPassage || appliesPendingFocusTopic
       ? new Set()
       : urlOwnsInteraction
       ? new Set(state.filterCategories)
@@ -631,6 +658,43 @@ let pendingResponseFilter: { postId: string; span: { start: number; end: number;
 
 export function setPendingResponseFilter(postId: string, span: { start: number; end: number; text: string }): void {
   pendingResponseFilter = { postId, span };
+}
+
+// Topic clicked on a NON-focused post: focus it first, then apply this topic
+// after setPanelFocus has restored that post's saved panel state.
+let pendingFocusTopic: { postId: string; topicKey: string; rangeIndex: number } | null = null;
+
+export function setPendingFocusTopic(postId: string, topicKey: string, rangeIndex: number): void {
+  pendingFocusTopic = { postId, topicKey, rangeIndex };
+  pendingResponseFilter = null;
+}
+
+// ─── Focus-topic resolver (focus prose → restore validation) ────────────────
+// Post is rendered outside the @aside route that owns setPanelFocus. Registering
+// its relations here lets the shared restore validator verify focus-origin URLs
+// and saved interactions without coupling the two route trees.
+const focusRelationsByPost = new Map<string, Map<symbol, Relation[]>>();
+
+export function registerFocusTopicRelations(postId: string, relations: Relation[]): () => void {
+  const registration = Symbol(postId);
+  const registrations = focusRelationsByPost.get(postId) ?? new Map<symbol, Relation[]>();
+  registrations.set(registration, relations);
+  focusRelationsByPost.set(postId, registrations);
+  return () => {
+    const current = focusRelationsByPost.get(postId);
+    current?.delete(registration);
+    if (current?.size === 0) focusRelationsByPost.delete(postId);
+  };
+}
+
+export function resolveFocusTopicKey(anchor: { postId: string; rangeIndex: number }): string | null {
+  const registrations = focusRelationsByPost.get(anchor.postId);
+  if (!registrations) return null;
+  for (const relations of Array.from(registrations.values()).reverse()) {
+    const topic = relations[anchor.rangeIndex]?.topic;
+    if (topic) return topic;
+  }
+  return null;
 }
 
 // ─── Reply-topic resolver (detail page → aside restore validation) ──────────

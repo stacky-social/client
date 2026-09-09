@@ -135,6 +135,11 @@ When `fo=aside`, a cold/shared load scrolls the related pane to the beginning of
 that grouped block once. A viewport saved by Back/Forward navigation takes
 precedence, so an existing reader is returned to their own prior position.
 
+Clicking a bold semantic phrase in the focus post writes the same tuple with
+`fo=focus`. Its `fa` is the focus-post id and `fi` is the contributing relation
+index. A focus-origin topic filters both response panes and does not group or
+navigate into either one.
+
 ## Compatibility with the future production route
 
 The live `/posts/[id]` route already uses the same schema and URL-sync hook.

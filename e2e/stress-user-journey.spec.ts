@@ -190,7 +190,7 @@ test.describe('Stress: full user journey', () => {
       const readMore = page.getByText('Read more').first();
       if (await readMore.count()) { await readMore.click().catch(() => {}); await page.waitForTimeout(130); }
 
-      // Click a random focus span (filter), then clear by clicking again.
+      // Click a random semantic phrase twice (apply, then cycle/clear its topic).
       const spans = page.locator('[data-testid="focus-reveal"] mark[data-fs]');
       const sn = await spans.count();
       if (sn > 0) {

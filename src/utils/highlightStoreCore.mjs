@@ -16,14 +16,14 @@ export function topicKeyOf(relation) {
 }
 
 // ─── Derived selectors ───────────────────────────────────────────────────────
-// A topic interaction GROUPS the pane it originated in and FILTERS the other
-// pane. Split by origin so each pane reads exactly the slice it should act on.
+// Aside/reply topic interactions GROUP their origin pane and FILTER the other.
+// A focus-prose interaction has no response-pane origin, so it FILTERS both.
 
 /** True when any of `relations` carries the explicit topic `topicKey`. Keys
  *  IDENTICALLY to topicKeyOf / the reply topic filter (explicit `r.topic`, no
  *  category/similarity fallback) so the pane that groups by a key and the pane
  *  filtered by it agree on membership. Used by the aside filter-by-topic branch
- *  (origin === 'replies') and unit-tested in isolation. */
+ *  (origin === 'replies' or 'focus') and unit-tested in isolation. */
 export function relationsMatchTopic(relations, topicKey) {
   if (!topicKey) return false;
   return (relations ?? []).some((r) => r && r.topic === topicKey);
@@ -33,17 +33,22 @@ export function relationsMatchTopic(relations, topicKey) {
 export function asideGrouping(topicInteraction) {
   return topicInteraction && topicInteraction.origin === "aside" ? topicInteraction : null;
 }
-/** Aside pane is filtered when the interaction started on the replies. */
+/** Aside pane is filtered when the interaction started on the replies or the
+ *  focus prose. A focus phrase is a source-side filter, not an aside grouping. */
 export function asideTopicFilter(topicInteraction) {
-  return topicInteraction && topicInteraction.origin === "replies" ? topicInteraction : null;
+  return topicInteraction && (topicInteraction.origin === "replies" || topicInteraction.origin === "focus")
+    ? topicInteraction
+    : null;
 }
 /** Reply list clusters when the interaction started on the replies. */
 export function replyGrouping(topicInteraction) {
   return topicInteraction && topicInteraction.origin === "replies" ? topicInteraction : null;
 }
-/** Reply list is filtered when the interaction started on the aside. */
+/** Reply list is filtered when the interaction started on the aside or focus prose. */
 export function replyTopicFilter(topicInteraction) {
-  return topicInteraction && topicInteraction.origin === "aside" ? topicInteraction : null;
+  return topicInteraction && (topicInteraction.origin === "aside" || topicInteraction.origin === "focus")
+    ? topicInteraction
+    : null;
 }
 
 // ─── Interaction reducer (replace-not-stack) ─────────────────────────────────
@@ -67,6 +72,11 @@ export function reduceInteraction(dims, action) {
       return {
         ...clearedDims(),
         topicInteraction: { origin: "replies", topicKey: action.topicKey, anchor: action.anchor },
+      };
+    case "focusTopic":
+      return {
+        ...clearedDims(),
+        topicInteraction: { origin: "focus", topicKey: action.topicKey, anchor: action.anchor },
       };
     case "category":
       return { ...clearedDims(), filterCategories: new Set(action.cats) };

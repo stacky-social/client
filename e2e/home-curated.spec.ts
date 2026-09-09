@@ -105,7 +105,7 @@ test.describe('Curated Home', () => {
     await expect(nav.getByRole('button', { name: 'Experiment settings' })).toHaveCount(0);
   });
 
-  test('uses the original focus copy, embeds its quoted source, and parses NYT dates', async ({ page }) => {
+  test('uses the original focus copy, embeds the referenced post, and parses NYT dates', async ({ page }) => {
     // Reproduce the intermittent path: older builds persisted the response-role
     // copy for this id. The current seed must refresh immutable corpus fields
     // without discarding participant-owned state.
@@ -128,7 +128,7 @@ test.describe('Curated Home', () => {
     await expect(card).toContainText(rgQuote.focusPost.plainText);
     await expect(card).not.toContainText('Universal basic income (UBI)');
     await expect(card.getByTestId('reply-context')).toHaveCount(0);
-    await expect(card.getByTestId('quoted-post')).toContainText('Quoted source');
+    await expect(card.getByTestId('quoted-post')).not.toContainText('Quoted source');
     await expect(card.getByTestId('quoted-post')).toContainText('New York Times');
     await expect(card.getByTestId('quoted-post')).toContainText(rgQuote.focusPost.quotedPost.title);
     await expect(card).not.toContainText('Date unavailable');
@@ -194,7 +194,7 @@ test.describe('Curated Home', () => {
     expect(panelBlanked).toBe(false);
   });
 
-  test('clicking a span on a non-focused post focuses, filters, and keeps the bridge connected', async ({ page }) => {
+  test('clicking a topic phrase on a non-focused post focuses, filters, and keeps the bridge connected', async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1000 });
     await page.goto('/home');
     await expect(page.locator('[data-store-feed-post]')).toHaveCount(timelineIds.length);
@@ -225,15 +225,14 @@ test.describe('Curated Home', () => {
     const targetPost = page.locator(`[data-store-feed-post="${clicked.postId}"] [data-testid="post"]`);
     await expect(targetPost).toHaveAttribute('data-active', 'true');
     await expect(page.locator(`[data-related-focus-post-id="${clicked.postId}"]`).first()).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Remove passage filter' })).toBeVisible();
+    await expect(page.getByTestId('aside-topic-filter')).toBeVisible();
     await expect(page.getByTestId('weave-bridge')).toHaveAttribute('data-focus-id', clicked.postId!);
     await expect(page.getByTestId('weave-bridge')).toBeVisible();
 
-    // The selected passage remains painted even when it is a union of several
-    // overlapping relation ranges (the old exact-offset lookup lost it).
-    await expect.poll(async () => targetPost.locator('mark[data-fs]').evaluateAll((marks) =>
-      marks.filter((mark) => getComputedStyle(mark).backgroundColor === 'rgb(193, 199, 209)').length,
-    )).toBeGreaterThan(0);
+    // The selected semantic phrase keeps its teal underline without introducing
+    // the old broad passage fill.
+    await expect(targetPost.locator('mark.fp-selected').first()).toBeVisible();
+    await expect(targetPost.locator('mark.fp-selected').first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 
     // A related contribution hover emphasizes the exact data-authored crux on
     // both sides. Both use non-reflowing faux-bold, so neither pane changes line
@@ -245,10 +244,10 @@ test.describe('Curated Home', () => {
     await page.waitForTimeout(140);
     await relatedMark.hover();
     await page.waitForTimeout(350);
-    await expect(targetPost.locator('span[data-fc]').first()).toBeVisible();
+    await expect(targetPost.locator('mark.fp-hot').first()).toBeVisible();
     await expect(relatedCard.locator('span[data-content-comment]').first()).toBeVisible();
     const emphasis = await Promise.all([
-      targetPost.locator('span[data-fc]').first().evaluate((node) => ({
+      targetPost.locator('mark.fp-hot').first().evaluate((node) => ({
         weight: getComputedStyle(node).fontWeight,
         shadow: getComputedStyle(node).textShadow,
       })),
@@ -257,6 +256,9 @@ test.describe('Curated Home', () => {
         shadow: getComputedStyle(node).textShadow,
       })),
     ]);
-    expect(emphasis.every(({ weight, shadow }) => weight === '400' && shadow.includes('0.7px'))).toBe(true);
+    expect(['700', 'bold']).toContain(emphasis[0].weight);
+    expect(emphasis[0].shadow).toBe('none');
+    expect(emphasis[1].weight).toBe('400');
+    expect(emphasis[1].shadow).toContain('0.7px');
   });
 });

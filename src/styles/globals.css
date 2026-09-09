@@ -312,26 +312,62 @@ body {
     border-radius: 2px;
 }
 
-/* ── Focus-post highlight marks ──────────────────────────────────────────────
-   Neutral-grey, hover-revealed spans (rendered by ActiveHighlightedContent).
-   Global and keyed on the stable data-testid rather than a per-instance injected
-   <style> whose random container id can mismatch the rendered div — which left
-   the browser's default <mark> yellow showing through. The per-mark filter rule
-   (the persistent dark clicked span) is still injected per active post. */
+/* ── Focus-post semantic topic phrases ───────────────────────────────────────
+   Authored focus-comment ranges are always bold. Interaction changes only
+   colour/decoration, never weight, so hovering cannot reflow the post. */
 [data-testid="focus-reveal"] mark {
-    background: rgba(100, 116, 139, 0);
+    color: #011445;
+    background: transparent !important;
+    font-weight: 700;
+    text-decoration-line: underline;
+    text-decoration-color: transparent;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
     cursor: pointer;
-    border-radius: 3px;
-    transition: background 150ms ease;
+    border-radius: 2px;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 120ms ease, text-decoration-color 120ms ease;
 }
-[data-testid="focus-reveal"].fp-hovering mark {
-    /* Direct focus-post hover temporarily owns the presentation even when the
-       related pane retains an inline category-colour reading anchor. */
-    background: rgb(236, 238, 241) !important;
+
+[data-testid="focus-reveal"] mark.fp-muted {
+    color: #7b8799;
 }
-[data-testid="focus-reveal"].fp-hovering mark.fp-dark,
-[data-testid="focus-reveal"] mark.fp-dark {
-    background: rgb(193, 199, 209) !important;
+
+[data-testid="focus-reveal"] mark.fp-static {
+    cursor: text;
+}
+
+[data-testid="focus-reveal"] mark.fp-hot,
+[data-testid="focus-reveal"] mark.fp-selected {
+    color: #006f73;
+    text-decoration-color: #14958f;
+}
+
+[data-testid="focus-reveal"] mark.fp-muted.fp-selected {
+    color: #7b8799;
+    text-decoration-color: rgba(20, 149, 143, 0.38);
+}
+
+/* A related-card/span hover still paints the complete linked focus passage.
+   This layer sits beneath the persistent bold topic treatment. */
+[data-testid="focus-reveal"] [data-focus-passage-ids].fp-aside-passage {
+    background-color: var(--fp-passage-bg) !important;
+    /* A passage is composed of adjacent semantic fragments (plain spans and
+       bold marks). Paint every fragment with the same vertical extent and
+       square joins so the browser presents them as one continuous band. */
+    padding-block: 0.24em !important;
+    border-radius: 0;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    transition: background-color 150ms ease;
+}
+
+[data-testid="focus-reveal"] mark:focus-visible {
+    outline: 2px solid #14958f;
+    outline-offset: 2px;
 }
 
 /* Extend a wrapped inline highlight's hit area through the line-height leading.
@@ -341,6 +377,12 @@ body {
     padding-block: 0.24em !important;
     -webkit-box-decoration-break: clone;
     box-decoration-break: clone;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-testid="focus-reveal"] mark {
+    transition: none;
+  }
 }
 .inline-content-link,
 .post-body-content a {
@@ -379,24 +421,23 @@ body {
 .quoted-post-card {
   width: 100%;
   margin-top: 0.75rem;
-  padding: 0.72rem 0.82rem 0.78rem;
-  border: 1px solid #ccd7dd;
-  border-left: 3px solid #45a99e;
-  border-radius: 8px;
-  background: #f8fbfb;
+  padding: 0.78rem 0.85rem 0.82rem;
+  border: 1px solid #dfe4ea;
+  border-radius: 10px;
+  background: #fff;
   color: #011445;
   text-align: left;
   cursor: pointer;
   display: grid;
-  gap: 0.22rem;
-  transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
+  gap: 0.42rem;
+  box-shadow: 0 1px 4px rgba(28, 43, 74, 0.04);
+  transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
 }
 
 .quoted-post-card:hover {
-  border-color: #76bdb6;
-  border-left-color: #238f85;
-  background: #f1f8f7;
-  transform: translateY(-1px);
+  border-color: #c8d0db;
+  background: #fbfcfe;
+  box-shadow: 0 2px 7px rgba(28, 43, 74, 0.07);
 }
 
 .quoted-post-card:focus-visible {
@@ -404,33 +445,40 @@ body {
   outline-offset: 2px;
 }
 
-.quoted-post-label {
-  display: inline-flex;
+.quoted-post-header {
+  display: flex;
   align-items: center;
-  gap: 0.3rem;
-  color: #237a72;
-  font-size: 0.68rem;
-  font-weight: 750;
-  letter-spacing: 0.035em;
-  text-transform: uppercase;
+  gap: 0.55rem;
+  min-width: 0;
 }
 
 .quoted-post-meta {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.35rem;
   color: #6b7280;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
+  min-width: 0;
 }
 
 .quoted-post-meta strong {
-  color: #324058;
+  overflow: hidden;
+  color: #011445;
   font-weight: 700;
+  font-size: 0.84rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quoted-post-body {
+  display: grid;
+  gap: 0.2rem;
+  padding-left: 2.55rem;
 }
 
 .quoted-post-title {
   font-size: 0.84rem;
-  font-weight: 750;
+  font-weight: 700;
   line-height: 1.35;
 }
 
@@ -446,5 +494,4 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .quoted-post-card { transition: none; }
-  .quoted-post-card:hover { transform: none; }
 }

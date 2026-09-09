@@ -56,6 +56,10 @@ test('parses category, deferred passage, bounded passage, and topic states', () 
     kind: 'topic',
     interaction: { origin: 'replies', topicKey: 'Battery', anchor: { postId: '77', rangeIndex: 2 } },
   });
+  assert.deepEqual(parseFilterInteraction('ft=Battery&fo=focus&fa=77&fi=2'), {
+    kind: 'topic',
+    interaction: { origin: 'focus', topicKey: 'Battery', anchor: { postId: '77', rangeIndex: 2 } },
+  });
 });
 
 test('rejects malformed shared interaction params without constructing partial state', () => {

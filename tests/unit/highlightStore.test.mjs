@@ -86,6 +86,14 @@ test('replies-origin interaction clusters the replies and filters the aside', ()
   assert.equal(asideGrouping(ti), null);
 });
 
+test('focus-origin interaction filters both panes without grouping either', () => {
+  const ti = { origin: 'focus', topicKey: 'T', anchor };
+  assert.equal(asideTopicFilter(ti), ti);
+  assert.equal(replyTopicFilter(ti), ti);
+  assert.equal(asideGrouping(ti), null);
+  assert.equal(replyGrouping(ti), null);
+});
+
 test('every selector is null when no interaction is active', () => {
   for (const sel of [asideGrouping, asideTopicFilter, replyGrouping, replyTopicFilter]) {
     assert.equal(sel(null), null);
@@ -104,6 +112,13 @@ test('activating an aside topic sets it and clears category + passage', () => {
 test('activating a reply topic sets it and clears category + passage', () => {
   const next = reduceInteraction(seeded(), { type: 'replyTopic', topicKey: 'T', anchor: anchorB });
   assert.deepEqual(next.topicInteraction, { origin: 'replies', topicKey: 'T', anchor: anchorB });
+  assert.equal(next.filterCategories.size, 0);
+  assert.equal(next.responseFilter, null);
+});
+
+test('activating a focus topic sets it and clears category + passage', () => {
+  const next = reduceInteraction(seeded(), { type: 'focusTopic', topicKey: 'T', anchor });
+  assert.deepEqual(next.topicInteraction, { origin: 'focus', topicKey: 'T', anchor });
   assert.equal(next.filterCategories.size, 0);
   assert.equal(next.responseFilter, null);
 });
@@ -149,6 +164,7 @@ test('exactly one dimension is ever active after any activating action', () => {
   const active = (d) => [d.topicInteraction, d.filterCategories.size > 0 ? d.filterCategories : null, d.responseFilter].filter(Boolean).length;
   assert.equal(active(reduceInteraction(seeded(), { type: 'asideTopic', topicKey: 'T', anchor })), 1);
   assert.equal(active(reduceInteraction(seeded(), { type: 'replyTopic', topicKey: 'T', anchor })), 1);
+  assert.equal(active(reduceInteraction(seeded(), { type: 'focusTopic', topicKey: 'T', anchor })), 1);
   assert.equal(active(reduceInteraction(seeded(), { type: 'category', cats: ['evidence'] })), 1);
   assert.equal(active(reduceInteraction(seeded(), { type: 'passage', span: { start: 0, end: 1, text: 'z' } })), 1);
 });

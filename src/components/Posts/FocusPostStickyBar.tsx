@@ -1,56 +1,18 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Text } from "@mantine/core";
 import { IconArrowUp } from "@tabler/icons-react";
 import type { Relation } from "../../types/PostType";
-import { getCategoryColors, blendHex } from "../../utils/categoryStyles";
-import {
-  useHighlightStore,
-  setPassageFilter,
-  clearResponseFilter,
-  setFilterCategories,
-  beginUndoablePanelInteractionIfDetail,
-} from "../../utils/highlightStore";
+import { useHighlightStore } from "../../utils/highlightStore";
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { TOP_NAV_HEIGHT } from "../NavBar/TopNav";
 import ProfileAvatar from "../ProfileAvatar";
+import FocusTopicHighlightedContent from "./FocusTopicHighlightedContent";
 
 // The 3-line text window: fontSize 12.5 × lineHeight 1.5 ≈ 19px per line.
 const LINE_HEIGHT_PX = 19;
 const VISIBLE_LINES = 3;
-
-interface TextSegment {
-  start: number;
-  end: number;
-  /** Indices into focusRelations covering this segment (empty = plain text). */
-  contributors: number[];
-}
-
-/** Split the full text into non-overlapping segments at relation boundaries.
- *  Focus relations overlap freely; flat segments let us render the whole post
- *  as a single sequence of text and <mark> runs with no nesting. */
-function buildSegments(relations: Relation[], textLength: number): TextSegment[] {
-  if (textLength <= 0) return [];
-  const points = new Set<number>([0, textLength]);
-  for (const r of relations) {
-    points.add(Math.max(0, Math.min(textLength, r.focusStart)));
-    points.add(Math.max(0, Math.min(textLength, r.focusEnd)));
-  }
-  const sorted = Array.from(points).sort((a, b) => a - b);
-  const segments: TextSegment[] = [];
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const s = sorted[i];
-    const e = sorted[i + 1];
-    if (e <= s) continue;
-    const contributors: number[] = [];
-    relations.forEach((r, ri) => {
-      if (r.focusStart < e && s < r.focusEnd) contributors.push(ri);
-    });
-    segments.push({ start: s, end: e, contributors });
-  }
-  return segments;
-}
 
 interface FocusPostStickyBarProps {
   postId: string;
@@ -91,7 +53,7 @@ export default function FocusPostStickyBar({
   const [visible, setVisible] = useState(false);
   const [bounds, setBounds] = useState<{ left: number; width: number } | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const { hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, responseFilter, filterCategories } =
+  const { hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, responseFilter, topicInteraction } =
     useHighlightStore();
   const { relatedStacks: ctxRelatedStacks } = useRelatedStacks();
   const textBoxRef = useRef<HTMLDivElement | null>(null);
@@ -188,11 +150,6 @@ export default function FocusPostStickyBar({
   // Drop the composer's anchor if the bar unmounts entirely (route change).
   useEffect(() => () => onStickyChange?.(null), [onStickyChange]);
 
-  const segments = useMemo(
-    () => buildSegments(focusRelations, plainText.length),
-    [focusRelations, plainText.length]
-  );
-
   // ── Auto-scroll the text window to the active cross-highlight ─────────────
   // Target precedence mirrors the highlight levels: the specific hovered span
   // (level 2) wins, then the hovered category's first region, then the hovered
@@ -209,6 +166,11 @@ export default function FocusPostStickyBar({
       const catRel = !l2 && hoveredCategory ? hoveredRelations.find((r) => r.category === hoveredCategory) : null;
       const first = l2 ?? catRel ?? hoveredRelations[0];
       if (first) target = { start: first.focusStart, end: first.focusEnd };
+    } else if (topicInteraction?.origin === "focus" && topicInteraction.anchor.postId === postId) {
+      const relation = focusRelations[topicInteraction.anchor.rangeIndex];
+      if (relation) {
+        target = { start: relation.focusCommentStart, end: relation.focusCommentEnd };
+      }
     } else if (responseFilter) {
       target = { start: responseFilter.start, end: responseFilter.end };
     }
@@ -220,7 +182,7 @@ export default function FocusPostStickyBar({
         animateScrollTo(box, 0);
         return;
       }
-      const mark = (Array.from(box.querySelectorAll("mark[data-fs]")) as HTMLElement[]).find((m) => {
+      const mark = (Array.from(box.querySelectorAll("[data-focus-passage-ids][data-fs]")) as HTMLElement[]).find((m) => {
         const a = parseInt(m.getAttribute("data-fs") || "NaN", 10);
         const b = parseInt(m.getAttribute("data-fe") || "NaN", 10);
         return a < target!.end && target!.start < b;
@@ -245,86 +207,10 @@ export default function FocusPostStickyBar({
     return () => {
       if (scrollTimer.current) clearTimeout(scrollTimer.current);
     };
-  }, [visible, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, responseFilter]);
+  }, [visible, hoveredRelations, hoveredHighlightRangeIndex, hoveredCategory, responseFilter, topicInteraction, postId, focusRelations]);
 
   if (!visible || !bounds) return null;
 
-  const oneLine = plainText.replace(/\s+/g, " ").trim();
-
-  // Level-2 bold: when a SPECIFIC span is hovered, only the data's optional
-  // focusComment sub-range goes bold — never the whole region. Relations on
-  // the same focus region carry different focusComments, so this is looked up
-  // from the hovered relation at render time (mirrors the full post).
-  const l2Relation =
-    hoveredRelations && hoveredHighlightRangeIndex != null
-      ? hoveredRelations[hoveredHighlightRangeIndex]
-      : null;
-  const boldRange =
-    l2Relation && l2Relation.focusCommentEnd > l2Relation.focusCommentStart
-      ? { start: l2Relation.focusCommentStart, end: l2Relation.focusCommentEnd }
-      : null;
-
-  // Visual state per segment — same precedence as the full post's cross-highlight.
-  const segmentTint = (seg: TextSegment): string | undefined => {
-    if (seg.contributors.length === 0) return undefined;
-    const overlap = (r: { focusStart: number; focusEnd: number }) =>
-      r.focusStart < seg.end && seg.start < r.focusEnd;
-    const catFor = (ri: number) => focusRelations[ri]?.category ?? "uncategorized";
-    if (responseFilter && responseFilter.start < seg.end && seg.start < responseFilter.end) {
-      const c = getCategoryColors(catFor(seg.contributors[0]));
-      return blendHex(c.bg, c.border, 0.15);
-    }
-    if (hoveredRelations) {
-      const l2 = hoveredHighlightRangeIndex != null ? hoveredRelations[hoveredHighlightRangeIndex] : null;
-      if (l2 && overlap(l2)) {
-        const c = getCategoryColors(l2.category);
-        return blendHex(c.bg, c.border, 0.15);
-      }
-      if (hoveredCategory) {
-        const catMatch = hoveredRelations.find((r) => r.category === hoveredCategory && overlap(r));
-        if (catMatch) {
-          const c = getCategoryColors(hoveredCategory);
-          return blendHex(c.bg, c.border, 0.15);
-        }
-      }
-      const l1 = hoveredRelations.find(overlap);
-      if (l1) {
-        const c = getCategoryColors(l1.category);
-        return blendHex(c.bg, "#ffffff", 0.35);
-      }
-    }
-    return undefined; // idle: marks are invisible, exactly like the full post
-  };
-
-  const handleMarkClick = (e: React.MouseEvent, seg: TextSegment) => {
-    if (seg.contributors.length === 0) return;
-    e.stopPropagation(); // a highlight click filters; it must not trigger return-to-post
-    const rel = focusRelations[seg.contributors[0]];
-    const span = { start: rel.focusStart, end: rel.focusEnd, text: plainText.slice(rel.focusStart, rel.focusEnd) };
-    // WS6: the sticky bar is always the current focus post on the detail route, so
-    // its passage clicks (apply or toggle-off clear) are undoable — record the
-    // pre-interaction snapshot before mutating.
-    beginUndoablePanelInteractionIfDetail();
-    if (responseFilter && responseFilter.start === span.start && responseFilter.end === span.end) {
-      clearResponseFilter();
-      return;
-    }
-    // Dead-end guard (same as the full post's span click): category chips that
-    // cannot coexist with this passage are dropped instead of composing to zero.
-    if (filterCategories.size > 0) {
-      const compatible = (ctxRelatedStacks ?? []).some((s: any) => {
-        const rels: Relation[] = ((s?.topPost?.relations ?? []) as Relation[]);
-        const responds = rels.some((r) => r.focusStart < span.end && span.start < r.focusEnd);
-        if (!responds) return false;
-        const own = new Set<string>(rels.map((r) => r.category));
-        return Array.from(filterCategories).every((c) => own.has(c));
-      });
-      if (!compatible) setFilterCategories(new Set());
-    }
-    // Atomic setter → replace-not-stack: a passage click clears any topic
-    // grouping (+ category) in one transition.
-    setPassageFilter(span);
-  };
 
   // Return-to-post must land BELOW the sticky top nav — scrollIntoView aligns
   // to y=0, which the nav covers. scroll-margin-top on the anchor fixes it at
@@ -384,7 +270,6 @@ export default function FocusPostStickyBar({
           region is cross-highlighted, so hovering a span in either pane always
           reveals what it connects to. */}
       <div
-        ref={textBoxRef}
         data-testid="pinned-post-text"
         style={{
           marginTop: 6,
@@ -395,53 +280,23 @@ export default function FocusPostStickyBar({
           color: "#334155",
         }}
       >
-        {segments.length === 0
-          ? oneLine
-          : segments.map((seg, i) => {
-              const text = plainText.slice(seg.start, seg.end);
-              if (seg.contributors.length === 0) {
-                return <React.Fragment key={i}>{text}</React.Fragment>;
-              }
-              const tint = segmentTint(seg);
-              // Intersect the hovered relation's focusComment with this segment.
-              // The text-shadow faux-bold matches the full post: real font-weight
-              // would reflow the 3-line window and shift the auto-scroll target.
-              const bs = boldRange ? Math.max(seg.start, boldRange.start) : 0;
-              const be = boldRange ? Math.min(seg.end, boldRange.end) : 0;
-              const content =
-                boldRange && be > bs ? (
-                  <>
-                    {plainText.slice(seg.start, bs)}
-                    <span
-                      data-pinned-bold
-                      style={{ textShadow: "0 0 0.7px currentColor, 0 0 0.7px currentColor" }}
-                    >
-                      {plainText.slice(bs, be)}
-                    </span>
-                    {plainText.slice(be, seg.end)}
-                  </>
-                ) : (
-                  text
-                );
-              return (
-                <mark
-                  key={i}
-                  data-fs={seg.start}
-                  data-fe={seg.end}
-                  onClick={(e) => handleMarkClick(e, seg)}
-                  style={{
-                    background: tint ?? "transparent",
-                    color: "inherit",
-                    borderRadius: 2,
-                    padding: "1px 0",
-                    transition: "background 150ms ease",
-                    cursor: "pointer",
-                  }}
-                >
-                  {content}
-                </mark>
-              );
-            })}
+        <FocusTopicHighlightedContent
+          ref={textBoxRef}
+          postId={postId}
+          displayText={plainText}
+          rawText={plainText}
+          isTextExpanded
+          focusRelations={focusRelations}
+          active
+          postRelatedStacks={ctxRelatedStacks}
+          style={{
+            height: LINE_HEIGHT_PX * VISIBLE_LINES,
+            overflow: "hidden",
+            fontSize: "12.5px",
+            lineHeight: `${LINE_HEIGHT_PX}px`,
+            color: "#334155",
+          }}
+        />
       </div>
     </div>
   );

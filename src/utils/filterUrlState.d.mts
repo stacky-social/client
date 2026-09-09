@@ -1,7 +1,7 @@
 export declare const FILTER_HISTORY_CAP: number;
 
 export interface TopicUrlInteraction {
-  origin: 'aside' | 'replies';
+  origin: 'aside' | 'replies' | 'focus';
   topicKey: string;
   anchor: { postId: string; rangeIndex: number };
 }

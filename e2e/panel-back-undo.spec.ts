@@ -151,7 +151,7 @@ test.describe('Shareable related-post filter history', () => {
     await expect(chip(page).first()).toHaveAttribute('aria-pressed', 'false');
   });
 
-  test('tab, category, passage, and topic states serialize and Back restores each prior state', async ({ page }) => {
+  test('tab, category, focus-topic, and aside-topic states serialize and Back restores each prior state', async ({ page }) => {
     await page.goto(DETAIL_URL);
 
     const likedTab = page.getByRole('tab', { name: 'Most liked' });
@@ -167,7 +167,8 @@ test.describe('Shareable related-post filter history', () => {
 
     const mark = focusMark(page);
     await mark.click();
-    await page.waitForURL(/[?&]fs=/);
+    await page.waitForURL(/[?&]ft=/);
+    await expect(page).toHaveURL(/[?&]fo=focus(?:&|$)/);
     await expect(page).not.toHaveURL(/[?&]fc=/);
 
     const relationTag = page.locator('[data-related-card] [data-related-tag]').first();
@@ -181,8 +182,8 @@ test.describe('Shareable related-post filter history', () => {
     await expect(page.getByTestId('active-group-anchor').first()).toBeVisible();
 
     await page.goBack();
-    await expect(page).toHaveURL(/[?&]fs=/);
-    await expect(page).not.toHaveURL(/[?&]ft=/);
+    await expect(page).toHaveURL(/[?&]ft=/);
+    await expect(page).toHaveURL(/[?&]fo=focus(?:&|$)/);
 
     await page.goBack();
     await expect(page).toHaveURL(new RegExp(`[?&]fc=${encodeURIComponent(categoryValue!)}`));
@@ -235,19 +236,20 @@ test.describe('Shareable related-post filter history', () => {
     for (const key of ['ft', 'fo', 'fa', 'fi']) expect(healedReply.searchParams.has(key)).toBe(false);
   });
 
-  test('passage filter (focus-post span) is undoable: apply → wait → Back undoes it', async ({ page }) => {
+  test('focus-post topic filter is undoable: apply → wait → Back undoes it', async ({ page }) => {
     await page.goto(DETAIL_URL);
     const mark = focusMark(page);
     await expect(mark).toBeVisible();
 
-    // Click a focus-post contribution span → passage filter → ?fs in the URL.
+    // Click a semantic focus phrase → topic filter with a focus origin.
     await mark.click();
-    await page.waitForURL(/[?&]fs=/, { timeout: 2000 });
+    await page.waitForURL(/[?&]ft=/, { timeout: 2000 });
+    await expect(page).toHaveURL(/[?&]fo=focus(?:&|$)/);
 
-    // Back undoes the passage filter and stays on the detail route (the Post.tsx
+    // Back undoes the topic filter and stays on the detail route (the post
     // boundary recorded a pre-interaction snapshot for this gesture).
     await page.goBack();
-    await expect(page).not.toHaveURL(/[?&]fs=/);
+    await expect(page).not.toHaveURL(/[?&]ft=/);
     await expect(page).toHaveURL(new RegExp(`/AIWorkforce/posts/${FOCUS_ID}`));
   });
 

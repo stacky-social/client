@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildFocusSegments, renderMultiHighlightHtml } from '../../src/utils/focusHighlightHtml.mjs';
+import {
+  buildFocusCommentSegments,
+  buildFocusCompositeSegments,
+  buildFocusSegments,
+  renderFocusCommentHtml,
+  renderFocusCompositeHtml,
+  renderMultiHighlightHtml,
+} from '../../src/utils/focusHighlightHtml.mjs';
 
 // Max <mark> nesting depth in an HTML string. Flat rendering must never exceed 1.
 function maxMarkDepth(html) {
@@ -118,4 +125,56 @@ test('uncategorized relations are dropped', () => {
     (c) => c !== 'uncategorized',
   );
   assert.equal(segs.length, 0);
+});
+
+test('semantic renderer uses focus-comment offsets and unions overlapping cruxes', () => {
+  const plain = '0123456789abcdef';
+  const relations = [
+    { ...A, focusCommentStart: 2, focusCommentEnd: 8, topic: 'Alpha' },
+    { ...B, focusCommentStart: 5, focusCommentEnd: 11, topic: 'Beta' },
+  ];
+  assert.deepEqual(
+    buildFocusCommentSegments(relations, plain.length).map((segment) => [
+      segment.start,
+      segment.end,
+      segment.rangeIds,
+    ]),
+    [
+      [2, 5, [0]],
+      [5, 8, [0, 1]],
+      [8, 11, [1]],
+    ],
+  );
+  const html = renderFocusCommentHtml(`<p>${plain}</p>`, plain, relations);
+  assert.equal(maxMarkDepth(html), 1);
+  assert.equal(coverage(html)[1], null);
+  assert.equal(coverage(html)[6].ids, '0 1');
+  assert.equal(coverage(html)[12], null);
+});
+
+test('composite renderer keeps broad passages around flat semantic marks', () => {
+  const relation = {
+    ...A,
+    focusStart: 0,
+    focusEnd: 12,
+    focusCommentStart: 3,
+    focusCommentEnd: 6,
+  };
+  assert.deepEqual(
+    buildFocusCompositeSegments([relation], 16).map((segment) => [
+      segment.start,
+      segment.end,
+      segment.rangeIds,
+      segment.passageRangeIds,
+    ]),
+    [
+      [0, 3, [], [0]],
+      [3, 6, [0], [0]],
+      [6, 12, [], [0]],
+    ],
+  );
+  const html = renderFocusCompositeHtml('0123456789abcdef', '0123456789abcdef', [relation]);
+  assert.equal(maxMarkDepth(html), 1);
+  assert.match(html, /<span[^>]*data-focus-passage-ids="0"[^>]*>012<\/span>/);
+  assert.match(html, /<mark[^>]*data-range-ids="0"[^>]*data-focus-passage-ids="0"[^>]*>345<\/mark>/);
 });

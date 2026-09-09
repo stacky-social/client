@@ -323,6 +323,8 @@ export default function MockPostView() {
   // filter branch in T4); reply-origin clustering stays gated by the reply
   // flags only, so it degrades to in-pane clustering when cross-pane is off.
   const crossFilterActive = flags.crossPaneFiltering && flags.replySortTabs;
+  const focusTopicFilterActive = topicInteraction?.origin === "focus";
+  const replyFilteringActive = crossFilterActive || focusTopicFilterActive;
 
   const replyGroupingInteraction = useMemo(
     () => replyGrouping(topicInteraction),
@@ -337,9 +339,9 @@ export default function MockPostView() {
   // Aside-origin topic that would filter this reply list. Gated on the cross-pane
   // flag so it never acts when cross-pane filtering is off.
   const replyFilterKey = useMemo(() => {
-    if (!crossFilterActive) return null;
+    if (!replyFilteringActive) return null;
     return replyTopicFilter(topicInteraction)?.topicKey ?? null;
-  }, [crossFilterActive, topicInteraction]);
+  }, [replyFilteringActive, topicInteraction]);
 
   // Precompute matches before applying the topic filter: if NO displayed branch
   // carries the topic, leave the list unfiltered and show no chip — an empty
@@ -356,14 +358,14 @@ export default function MockPostView() {
   }, [replyFilterKey, filteredReplies, branchRelationsById, replyRelationsById]);
 
   const displayedTopLevel = useMemo(() => {
-    if (!crossFilterActive) return filteredReplies;
+    if (!replyFilteringActive) return filteredReplies;
     return filterReplies(
       filteredReplies,
       (r: MockPostType) => replyRelationsById.get(r.id) ?? [],
       { filterCategories, responseFilter, topicFilter: activeReplyTopicFilter },
       (r: MockPostType) => branchRelationsById.get(r.id) ?? []
     );
-  }, [crossFilterActive, filteredReplies, replyRelationsById, branchRelationsById, filterCategories, responseFilter, activeReplyTopicFilter]);
+  }, [replyFilteringActive, filteredReplies, replyRelationsById, branchRelationsById, filterCategories, responseFilter, activeReplyTopicFilter]);
 
   // T8 filter auto-reveal: grandchildren (depth >= 2) are collapsed by default,
   // but a nested reply that MATCHES the active reply-list filter must not stay
@@ -372,7 +374,7 @@ export default function MockPostView() {
   // and force-reveal its ancestor chain so the match surfaces (root as context).
   const forceRevealParentIds = useMemo(() => {
     const anyFilter =
-      crossFilterActive && (filterCategories.size > 0 || !!responseFilter || !!activeReplyTopicFilter);
+      replyFilteringActive && (filterCategories.size > 0 || !!responseFilter || !!activeReplyTopicFilter);
     if (!anyFilter) return undefined;
     const cats = Array.from(filterCategories);
     const matches = (rid: string) => {
@@ -401,7 +403,7 @@ export default function MockPostView() {
       }
     }
     return reveal.size > 0 ? reveal : undefined;
-  }, [crossFilterActive, filterCategories, responseFilter, activeReplyTopicFilter, mergedReplies, id, replyRelationsById]);
+  }, [replyFilteringActive, filterCategories, responseFilter, activeReplyTopicFilter, mergedReplies, id, replyRelationsById]);
 
   // Reply-origin cluster (rail + growth). Gated on the reply flags AND
   // origin==='replies' (replyGrouping is null otherwise), so an aside-origin
@@ -1048,7 +1050,7 @@ export default function MockPostView() {
 
         {/* Visible filter state for the replies list — cross-pane filters only
             act when they are worn by the list they hide posts from. */}
-        {showThread && crossFilterActive && (
+        {showThread && replyFilteringActive && (
           <ReplyFilterBar
             filterCategories={filterCategories}
             responseFilter={responseFilter}

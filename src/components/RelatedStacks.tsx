@@ -11,7 +11,7 @@ import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import { notifications } from '@mantine/notifications';
 import { copyLink } from '../utils/share';
 import { useRelatedStacks } from '../app/(shell)/related-stacks-context';
-import { setHoveredSidebarPost, setSidebarHoverActive, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, setCategoryFilter, activateAsideTopic, clearTopicInteraction, clearResponseFilter, setPanelFocus, savePanelViewport, getPanelViewport, useHighlightStore, topicKeyOf, asideGrouping, asideTopicFilter, relationsMatchTopic, resolveReplyTopicKey, beginPanelInteraction, setPanelBaseOrder, currentPanelScope, beginUndoablePanelInteractionIfDetail, type PanelViewportSnapshot } from '../utils/highlightStore';
+import { setHoveredSidebarPost, setSidebarHoverActive, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, setCategoryFilter, activateAsideTopic, clearTopicInteraction, clearResponseFilter, setPanelFocus, savePanelViewport, getPanelViewport, useHighlightStore, topicKeyOf, asideGrouping, asideTopicFilter, relationsMatchTopic, resolveReplyTopicKey, resolveFocusTopicKey, beginPanelInteraction, setPanelBaseOrder, currentPanelScope, beginUndoablePanelInteractionIfDetail, type PanelViewportSnapshot } from '../utils/highlightStore';
 import FilterByChip from './FilterByChip';
 import { useExperimentFlags } from '../utils/experimentFlags';
 import { reorderForAnchor } from '../utils/reorderForAnchor';
@@ -1209,7 +1209,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   const grouping = useMemo(() => asideGrouping(topicInteraction), [topicInteraction]);
   const asideFilterInteraction = useMemo(
     () =>
-      mode === 'detail-cross-pane' && flags.crossPaneFiltering
+      topicInteraction?.origin === 'focus'
+        ? asideTopicFilter(topicInteraction)
+        : mode === 'detail-cross-pane' && flags.crossPaneFiltering
         ? asideTopicFilter(topicInteraction)
         : null,
     [mode, flags.crossPaneFiltering, topicInteraction],
@@ -1235,8 +1237,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // aside cannot see reply relations itself, so without this a restored
   // reply-origin interaction would always fail to resolve and be dropped.
   const resolveTopicKey = React.useCallback(
-    (anchor: { postId: string; rangeIndex: number }, origin?: 'aside' | 'replies'): string | null => {
+    (anchor: { postId: string; rangeIndex: number }, origin?: 'aside' | 'replies' | 'focus'): string | null => {
       if (origin === 'replies') return resolveReplyTopicKey(anchor);
+      if (origin === 'focus') return resolveFocusTopicKey(anchor);
       const stack = relatedStacks.find((s) => s.topPost.id === anchor.postId);
       const rel = stack?.topPost.relations?.[anchor.rangeIndex];
       return rel ? topicKeyOf(rel) : null;
@@ -1254,9 +1257,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       mode !== 'detail-cross-pane' ||
       relatedStacks.length === 0 ||
       !topicInteraction ||
-      topicInteraction.origin !== 'aside'
+      (topicInteraction.origin !== 'aside' && topicInteraction.origin !== 'focus')
     ) return;
     const currentTopic = resolveTopicKey(topicInteraction.anchor, topicInteraction.origin);
+    // Focus prose lives in the parallel main route and can register one effect
+    // after this aside. Let that component perform the authoritative check once
+    // its relation data is ready instead of clearing a valid cold-link early.
+    if (topicInteraction.origin === 'focus' && currentTopic === null) return;
     if (currentTopic !== topicInteraction.topicKey) clearTopicInteraction();
   }, [mode, relatedStacks, resolveTopicKey, topicInteraction]);
   // C2: hover preview state for filter chips

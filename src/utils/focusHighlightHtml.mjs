@@ -25,20 +25,24 @@
  * @param {(category:string)=>boolean} [isValidCategory]
  * @returns {Array<{start:number, end:number, rangeIds:number[]}>}
  */
-export function buildFocusSegments(relations, textLength, isValidCategory) {
+function buildSegments(relations, textLength, startKey, endKey, isValidCategory) {
   if (!(textLength > 0) || !relations || relations.length === 0) return [];
   const ok = isValidCategory || (() => true);
   const clamp = (n) => Math.max(0, Math.min(textLength, n));
   const valid = [];
   relations.forEach((r, i) => {
-    if (r.focusStart < r.focusEnd && ok(r.category)) valid.push({ r, i });
+    const start = Number(r[startKey]);
+    const end = Number(r[endKey]);
+    if (Number.isFinite(start) && Number.isFinite(end) && start < end && ok(r.category)) {
+      valid.push({ start, end, i });
+    }
   });
   if (valid.length === 0) return [];
 
   const points = new Set([0, textLength]);
-  for (const { r } of valid) {
-    points.add(clamp(r.focusStart));
-    points.add(clamp(r.focusEnd));
+  for (const range of valid) {
+    points.add(clamp(range.start));
+    points.add(clamp(range.end));
   }
   const sorted = Array.from(points).sort((a, b) => a - b);
 
@@ -48,12 +52,63 @@ export function buildFocusSegments(relations, textLength, isValidCategory) {
     const end = sorted[k + 1];
     if (end <= start) continue;
     const rangeIds = [];
-    for (const { r, i } of valid) {
-      if (r.focusStart < end && start < r.focusEnd) rangeIds.push(i);
+    for (const range of valid) {
+      if (range.start < end && start < range.end) rangeIds.push(range.i);
     }
     if (rangeIds.length > 0) segments.push({ start, end, rangeIds });
   }
   return segments;
+}
+
+export function buildFocusSegments(relations, textLength, isValidCategory) {
+  return buildSegments(relations, textLength, 'focusStart', 'focusEnd', isValidCategory);
+}
+
+/**
+ * Build the semantic topic hotspots shown in focus-post prose. Unlike the broad
+ * focus ranges used to connect a related card to a passage, these boundaries are
+ * the concise author-defined ranges that should read as bold inline phrases.
+ */
+export function buildFocusCommentSegments(relations, textLength, isValidCategory) {
+  return buildSegments(
+    relations,
+    textLength,
+    'focusCommentStart',
+    'focusCommentEnd',
+    isValidCategory,
+  );
+}
+
+/**
+ * Split on both broad passage and concise comment boundaries. A segment may be
+ * an interactive bold topic phrase, an inert piece of a related-card passage,
+ * or both. Keeping the two id sets on one flat element restores the original
+ * aside-to-focus passage paint without nesting marks.
+ */
+export function buildFocusCompositeSegments(relations, textLength, isValidCategory) {
+  const passages = buildFocusSegments(relations, textLength, isValidCategory);
+  const comments = buildFocusCommentSegments(relations, textLength, isValidCategory);
+  if (passages.length === 0 && comments.length === 0) return [];
+
+  const points = new Set([0, textLength]);
+  [...passages, ...comments].forEach((segment) => {
+    points.add(segment.start);
+    points.add(segment.end);
+  });
+  const sorted = Array.from(points).sort((a, b) => a - b);
+  return sorted.slice(0, -1).flatMap((start, index) => {
+    const end = sorted[index + 1];
+    if (end <= start) return [];
+    const passageRangeIds = passages.find(
+      (segment) => segment.start < end && start < segment.end,
+    )?.rangeIds ?? [];
+    const rangeIds = comments.find(
+      (segment) => segment.start < end && start < segment.end,
+    )?.rangeIds ?? [];
+    return passageRangeIds.length > 0 || rangeIds.length > 0
+      ? [{ start, end, rangeIds, passageRangeIds }]
+      : [];
+  });
 }
 
 // The six entities stripHtml() (in Post.tsx) decodes to a single character. Every
@@ -77,8 +132,7 @@ const ENTITY_RE = /^(?:&amp;|&lt;|&gt;|&quot;|&#39;|&nbsp;)/;
  *        changing offsets; optional close HTML can wrap a following source slice
  * @returns {string} HTML with flat <mark data-fs data-fe data-range-ids> runs
  */
-export function renderMultiHighlightHtml(displayHtml, focusPlainText, relations, isValidCategory, insertion = null) {
-  const segments = buildFocusSegments(relations, focusPlainText.length, isValidCategory);
+function renderHighlightHtml(displayHtml, focusPlainText, segments, insertion = null) {
   if (segments.length === 0 && !insertion) return displayHtml;
 
   let out = '';
@@ -90,7 +144,11 @@ export function renderMultiHighlightHtml(displayHtml, focusPlainText, relations,
   let insertionClosed = false;
 
   const close = () => {
-    if (open) { out += '</mark>'; open = null; }
+    if (!open) return;
+    out += Array.isArray(open.passageRangeIds) && open.rangeIds.length === 0
+      ? '</span>'
+      : '</mark>';
+    open = null;
   };
   const segAt = (pos) => {
     while (segIdx < segments.length && segments[segIdx].end <= pos) segIdx++;
@@ -137,7 +195,12 @@ export function renderMultiHighlightHtml(displayHtml, focusPlainText, relations,
     if (seg !== open) {
       close();
       if (seg) {
-        out += `<mark data-fs="${seg.start}" data-fe="${seg.end}" data-range-ids="${seg.rangeIds.join(' ')}" data-continuous-inline-highlight style="padding:1px 0;color:inherit">`;
+        const passageAttr = Array.isArray(seg.passageRangeIds)
+          ? ` data-focus-passage-ids="${seg.passageRangeIds.join(' ')}"`
+          : '';
+        out += Array.isArray(seg.passageRangeIds) && seg.rangeIds.length === 0
+          ? `<span data-fs="${seg.start}" data-fe="${seg.end}"${passageAttr}>`
+          : `<mark data-fs="${seg.start}" data-fe="${seg.end}" data-range-ids="${seg.rangeIds.join(' ')}"${passageAttr} data-continuous-inline-highlight>`;
         open = seg;
       }
     }
@@ -148,4 +211,21 @@ export function renderMultiHighlightHtml(displayHtml, focusPlainText, relations,
   close();
   if (inserted && !insertionClosed) out += insertion?.closeHtml ?? '';
   return out;
+}
+
+export function renderMultiHighlightHtml(displayHtml, focusPlainText, relations, isValidCategory, insertion = null) {
+  const segments = buildFocusSegments(relations, focusPlainText.length, isValidCategory);
+  return renderHighlightHtml(displayHtml, focusPlainText, segments, insertion);
+}
+
+/** Render persistent semantic focus phrases, unioning identical/overlapping ranges. */
+export function renderFocusCommentHtml(displayHtml, focusPlainText, relations, isValidCategory, insertion = null) {
+  const segments = buildFocusCommentSegments(relations, focusPlainText.length, isValidCategory);
+  return renderHighlightHtml(displayHtml, focusPlainText, segments, insertion);
+}
+
+/** Render bold topic phrases plus transparent broad passage hooks in one flat tree. */
+export function renderFocusCompositeHtml(displayHtml, focusPlainText, relations, isValidCategory, insertion = null) {
+  const segments = buildFocusCompositeSegments(relations, focusPlainText.length, isValidCategory);
+  return renderHighlightHtml(displayHtml, focusPlainText, segments, insertion);
 }

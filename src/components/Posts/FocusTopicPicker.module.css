@@ -1,0 +1,61 @@
+.picker {
+  position: fixed;
+  z-index: 10020;
+  width: min(290px, calc(100vw - 24px));
+  padding: 8px;
+  color: #011445;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  box-shadow: 0 14px 34px rgba(1, 20, 69, 0.16);
+}
+
+.eyebrow {
+  margin: 1px 8px 6px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 9px;
+  color: #102654;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.option:hover,
+.option:focus-visible {
+  background: #eef8f7;
+  outline: none;
+}
+
+.selected {
+  color: #006f73;
+  background: #e4f4f2;
+}
+
+.topic {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.count {
+  color: #64748b;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
