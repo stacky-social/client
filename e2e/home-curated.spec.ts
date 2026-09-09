@@ -35,6 +35,63 @@ test.describe('Curated Home', () => {
     expect(restoredOrder).toEqual(initialOrder);
   });
 
+  test('never loads backend-followed posts while the demo session is active', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('crossweave:studySession:v1', JSON.stringify({
+        id: 'study-session',
+        startedAt: '2026-09-09T12:00:00.000Z',
+        participant: { id: 'study-session' },
+      }));
+      // Simulate contaminated cross-tab state: Study Mode must win over an
+      // authenticated account whose follows would populate the home timeline.
+      localStorage.setItem('accessToken', 'stale-backend-token');
+      localStorage.setItem('currentUser', JSON.stringify({ id: 'backend-user' }));
+      localStorage.setItem('stacky:localStore:v1', JSON.stringify({
+        posts: {},
+        accounts: {},
+        liked: [],
+        bookmarked: [],
+        following: ['backend'],
+        followingTags: ['AIWorkforce'],
+        comments: {},
+      }));
+    });
+
+    let backendTimelineRequests = 0;
+    await page.route('https://beta.stacky.social/api/v1/timelines/**', (route) => {
+      backendTimelineRequests += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{
+          id: 'backend-followed-post',
+          content: '<p>A backend post from a followed account or tag.</p>',
+          created_at: '2026-09-09T12:00:00.000Z',
+          account: {
+            id: 'backend-account',
+            username: 'backend',
+            acct: 'backend',
+            display_name: 'Backend account',
+            avatar: '/icon.svg',
+          },
+          replies_count: 0,
+          favourites_count: 0,
+          favourited: false,
+          bookmarked: false,
+          media_attachments: [],
+          card: null,
+        }]),
+      });
+    });
+
+    await page.goto('/home');
+
+    await expect(page.locator('[data-feed-mode="curated-demo"]')).toBeVisible();
+    await expect(page.locator('[data-store-feed-post]')).toHaveCount(timelineIds.length);
+    await expect(page.getByText('A backend post from a followed account or tag.')).toHaveCount(0);
+    expect(backendTimelineRequests).toBe(0);
+  });
+
   test('keeps only production navigation actions in the top bar', async ({ page }) => {
     await page.goto('/home');
     const nav = page.getByTestId('top-nav');
