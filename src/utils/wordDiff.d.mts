@@ -42,3 +42,5 @@ export function annotateDiffHighlightRelations(
   chunks: WordDiffChunk[],
   relations?: Array<{ contentStart: number; contentEnd: number }>,
 ): HighlightAnnotatedWordDiffChunk[];
+
+export function groupWordDiffReplacements(chunks: WordDiffChunk[]): WordDiffChunk[];

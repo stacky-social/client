@@ -22,6 +22,7 @@ import { showUndoableAction } from '../utils/actionNotifications';
 import AiModifiedDisclosure from './AiModifiedDisclosure';
 import {
   annotateDiffHighlightRelations,
+  groupWordDiffReplacements,
   createWordDiff,
   createWordDiffForRevisedRange,
   isSubstantiveWordDiff,
@@ -2781,7 +2782,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           // text is sliced through the normal relationship renderer so every
           // cross-highlight remains interactive while the edit is visible.
           const annotatedDiffChunks = aiDiff
-            ? annotateDiffHighlightRelations(aiDiff.chunks, adjustedRelations)
+            ? annotateDiffHighlightRelations(groupWordDiffReplacements(aiDiff.chunks), adjustedRelations)
             : [];
           const trackedContentNodes = annotatedDiffChunks.map((chunk, chunkIndex) => {
             if (chunk.kind === 'delete') {
@@ -2834,7 +2835,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               highlightOptions,
             );
             return chunk.kind === 'insert'
-              ? <ins key={`insert-${chunkIndex}`}>{highlightedChunk}</ins>
+              ? <React.Fragment key={`insert-${chunkIndex}`}>
+                  {annotatedDiffChunks[chunkIndex - 1]?.kind === 'delete' && <span data-ai-edit-separator aria-hidden="true"> </span>}
+                  <ins>{highlightedChunk}</ins>
+                </React.Fragment>
               : <React.Fragment key={`equal-${chunkIndex}`}>{highlightedChunk}</React.Fragment>;
           });
 

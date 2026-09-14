@@ -4,6 +4,7 @@ import {
   annotateDiffHighlightRelations,
   createAlignedWordDiffWindow,
   createWordDiff,
+  groupWordDiffReplacements,
   createWordDiffExcerpt,
   createWordDiffForRevisedRange,
   isSubstantiveWordDiff,
@@ -146,4 +147,25 @@ test("the reveal grows to include a complete deleted passage", () => {
   assert.ok(range.chunks.some((chunk) => (
     chunk.kind === "delete" && chunk.text.includes("removed entirely")
   )));
+});
+
+
+test("consecutive replacements form complete old and new phrases", () => {
+  const original = "for our nation's power grid, they possess the blueprints.";
+  const revised = "for the United States' power grid, China possesses the blueprints.";
+  const grouped = groupWordDiffReplacements(createWordDiff(original, revised));
+  assert.deepEqual(grouped.filter((c) => c.kind === "delete").map((c) => c.text), ["our nation's", "they possess"]);
+  assert.deepEqual(grouped.filter((c) => c.kind === "insert").map((c) => c.text), ["the United States'", "China possesses"]);
+  assert.equal(grouped.filter((c) => c.kind !== "insert").map((c) => c.text).join(""), original);
+  assert.equal(grouped.filter((c) => c.kind !== "delete").map((c) => c.text).join(""), revised);
+  const start = revised.indexOf("China");
+  const annotated = annotateDiffHighlightRelations(grouped, [{ contentStart: start, contentEnd: start + 15 }]);
+  assert.deepEqual(annotated.find((c) => c.text === "they possess").relationIndices, [0]);
+});
+
+test("phrase grouping preserves unchanged words and paragraph boundaries", () => {
+  for (const [original, revised] of [["old shared bad", "new shared good"], ["old\nbad", "new\ngood"], ["keep removed text", "keep text"], ["keep text", "keep added text"]]) {
+    const raw = createWordDiff(original, revised);
+    assert.deepEqual(groupWordDiffReplacements(raw), raw);
+  }
 });

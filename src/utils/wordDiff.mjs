@@ -69,6 +69,46 @@ export function createWordDiff(original, revised) {
   return compact(parts);
 }
 
+/** Group adjacent edits separated only by inline spaces for readable redlines.
+ * Keep the raw LCS diff for source-offset mapping; this display pass preserves
+ * both texts and all revised offsets without interleaving old/new words.
+ */
+export function groupWordDiffReplacements(chunks) {
+  const grouped = [];
+  for (let start = 0; start < chunks.length;) {
+    if (chunks[start].kind === "equal") {
+      grouped.push(chunks[start++]);
+      continue;
+    }
+    let end = start + 1;
+    while (end < chunks.length) {
+      if (chunks[end].kind !== "equal") { end++; continue; }
+      if (/^[ \t]+$/.test(chunks[end].text)
+        && end + 1 < chunks.length && chunks[end + 1].kind !== "equal") {
+        end++;
+        continue;
+      }
+      break;
+    }
+    const run = chunks.slice(start, end);
+    if (run.some((chunk) => chunk.kind === "delete")
+      && run.some((chunk) => chunk.kind === "insert")) {
+      let removed = run.filter((chunk) => chunk.kind !== "insert").map((chunk) => chunk.text).join("");
+      let added = run.filter((chunk) => chunk.kind !== "delete").map((chunk) => chunk.text).join("");
+      let trailing = "";
+      while (removed.length && added.length && /[ \t]/.test(removed.at(-1)) && removed.at(-1) === added.at(-1)) {
+        trailing = removed.at(-1) + trailing;
+        removed = removed.slice(0, -1);
+        added = added.slice(0, -1);
+      }
+      grouped.push({ kind: "delete", text: removed }, { kind: "insert", text: added });
+      if (trailing) grouped.push({ kind: "equal", text: trailing });
+    } else grouped.push(...run);
+    start = end;
+  }
+  return compact(grouped);
+}
+
 /** Word-level LCS diff with surrounding context, suitable for a track-changes preview. */
 export function createWordDiffExcerpt(original, revised, maxTokens = 100) {
   const parts = createWordDiff(original, revised);
