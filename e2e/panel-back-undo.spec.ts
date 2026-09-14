@@ -171,7 +171,7 @@ test.describe('Shareable related-post filter history', () => {
     await expect(page).toHaveURL(/[?&]fo=focus(?:&|$)/);
     await expect(page).not.toHaveURL(/[?&]fc=/);
 
-    const relationTag = page.locator('[data-related-card] [data-related-tag]').first();
+    const relationTag = page.locator('[data-related-card] mark[data-range-id]').first();
     await expect(relationTag).toBeVisible();
     await relationTag.click();
     await page.waitForURL(/[?&]ft=/);
@@ -201,7 +201,7 @@ test.describe('Shareable related-post filter history', () => {
 
   test('a copied topic-filter URL hydrates the grouping after a cold reload', async ({ page }) => {
     await page.goto(DETAIL_URL);
-    const relationTag = page.locator('[data-related-card] [data-related-tag]').first();
+    const relationTag = page.locator('[data-related-card] mark[data-range-id]').first();
     await relationTag.click();
     await page.waitForURL(/[?&]ft=/);
     const sharedUrl = page.url();
@@ -283,8 +283,8 @@ test.describe('Shareable related-post filter history', () => {
     await expect(page).toHaveURL(new RegExp(`/AIWorkforce/posts/${FOCUS_ID}`));
   });
 
-  test('the in-app Back control remains route navigation; browser Back owns filter history', async ({ page }) => {
-    // ?from seeds BackButton's previousPath so the visible control renders.
+  test('the in-app Back control uses browser history instead of a recorded route', async ({ page }) => {
+    // A shared-link hint must not override the real previous history entry.
     await page.goto(`${DETAIL_URL}?from=999999999`);
     const backBtn = page.getByRole('button', { name: /Back/ });
     await expect(backBtn).toBeVisible();
@@ -295,10 +295,9 @@ test.describe('Shareable related-post filter history', () => {
     await expect(firstChip).toHaveAttribute('aria-pressed', 'true');
     await page.waitForTimeout(50);
 
-    // The visible control means "Back to the prior post" and intentionally
-    // follows its recorded route. Filter-by-filter undo belongs to the browser
-    // Back stack, whose URLs are shareable.
+    // Back must undo this filter, even with a different ?from hint.
     await backBtn.click();
-    await expect(page).toHaveURL(/\/AIWorkforce\/posts\/999999999/);
+    await expect(page).toHaveURL(`${DETAIL_URL}?from=999999999`);
+    await expect(firstChip).toHaveAttribute("aria-pressed", "false");
   });
 });

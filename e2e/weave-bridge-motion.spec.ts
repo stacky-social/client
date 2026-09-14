@@ -230,35 +230,20 @@ test('never skips the open-source lifecycle across repeated focus handoffs', asy
   }
 });
 
-test('animates the same focus when its source changes between card and sticky bar', async ({ page }) => {
+test('keeps the same focus source without replaying the bridge when replies scroll', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await installRecorder(page);
   await page.goto(`/AIWorkforce/posts/${stickyFocusId}`);
-  await expect(page.locator('[data-testid="feed"] [data-testid="post"][data-active="true"]')).toBeVisible();
   await expect(root(page)).toHaveAttribute('data-weave-state', 'connected');
   await expect(root(page)).toHaveAttribute('data-source-kind', 'card');
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight))
-    .toBeGreaterThan(1200);
-
+  const revision = await root(page).getAttribute('data-weave-revision');
   await clearEvents(page);
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-  await expect(root(page)).toHaveAttribute('data-source-kind', 'sticky');
+  await page.getByTestId('reply-scroll-region').evaluate((element) => { element.scrollTop = 350; });
   await expect(root(page)).toHaveAttribute('data-weave-state', 'connected');
-  let history = await events(page);
-  expect(history.some((event) => event.layers.some((layer) =>
-    layer.id === stickyFocusId && layer.phase === 'entering' && layer.sourceKind === 'sticky'))).toBe(true);
-
-  await clearEvents(page);
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await expect(root(page)).toHaveAttribute('data-source-kind', 'card');
-  await expect(root(page)).toHaveAttribute('data-weave-state', 'connected');
-  await expect(page.locator(`[data-post-id="${stickyFocusId}"][data-testid="post"]`))
-    .toHaveAttribute('data-weave-source-phase', 'open');
-  history = await events(page);
-  expect(history.some((event) => event.layers.some((layer) =>
-    layer.id === stickyFocusId && layer.phase === 'entering' && layer.sourceKind === 'card'))).toBe(true);
-  expect(history.some((event) => event.sourceFrames.some((frame) =>
-    frame.id === stickyFocusId && frame.phase === 'opening'))).toBe(true);
+  await expect(root(page)).toHaveAttribute('data-weave-revision', revision!);
+  const history = await events(page);
+  expect(history.some((event) => event.layers.some((layer) => layer.phase === 'entering'))).toBe(false);
+  await expect(page.getByTestId('focus-sticky-bar')).toHaveCount(0);
 });
 
 test('rapid retarget keeps only the latest focus and removes stale layers', async ({ page }) => {

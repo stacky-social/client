@@ -1,4 +1,4 @@
-import type { Relation, RelatedPostMock } from '../types/PostType';
+import type { Relation } from '../types/PostType';
 
 export interface FocusTopicCandidate {
   topicKey: string;
@@ -9,7 +9,7 @@ export interface FocusTopicCandidate {
 export function focusTopicCandidates(
   relations: Relation[],
   rangeIds: number[],
-  relatedPosts?: RelatedPostMock[],
+  relatedPosts?: Array<{ id?: string; relations?: Relation[]; topPost?: { id: string; relations?: Relation[] } }>,
 ): FocusTopicCandidate[];
 
 export function nextFocusTopic(

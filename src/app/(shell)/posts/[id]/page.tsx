@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
@@ -113,6 +113,10 @@ export default function PostView() {
 
   /** Number of top-level reply branches visible in the Time tab. */
   const [visibleTopLevelReplies, setVisibleTopLevelReplies] = useState(5);
+  useLayoutEffect(() => {
+    const saved = Number(sessionStorage.getItem(`reply-visible:${id}`));
+    setVisibleTopLevelReplies(Number.isFinite(saved) && saved >= 5 ? saved : 5);
+  }, [id]);
   const [recommendedLoading, setRecommendedLoading] = useState(false);
   const [recommendedPosts, setRecommendedPosts] = useState<PostType[]>([]);
   const [loadingRepliesStack, setLoadingRepliesStack] = useState(false);
@@ -121,6 +125,19 @@ export default function PostView() {
 
   // Layout/positioning
   const currentPostRef = useRef<HTMLDivElement>(null);
+  const replyScrollRef = useRef<HTMLDivElement>(null);
+  const [focusHeight, setFocusHeight] = useState(300);
+  useLayoutEffect(() => {
+    const focus = currentPostRef.current;
+    if (!focus) return;
+    const observer = new ResizeObserver(() => setFocusHeight(focus.getBoundingClientRect().height));
+    observer.observe(focus);
+    return () => observer.disconnect();
+  }, [post?.id]);
+  useLayoutEffect(() => {
+    if (replyScrollRef.current) replyScrollRef.current.scrollTop = Number(sessionStorage.getItem(`reply-scroll:${id}`) ?? 0);
+  }, [id, post?.id]);
+
   const mainRef = useRef<HTMLDivElement>(null);
   const [showFocusRelatedStacks, setShowFocusRelatedStacks] = useState(true);
   const [activePostId, setActivePostId] = useState<string | null>(null);
@@ -648,6 +665,15 @@ export default function PostView() {
           </div>
         </div>
 
+        <div
+          ref={replyScrollRef}
+          data-testid="reply-scroll-region"
+          onScroll={(event) => {
+            sessionStorage.setItem(`reply-scroll:${id}`, String(event.currentTarget.scrollTop));
+            sessionStorage.setItem(`reply-visible:${id}`, String(visibleTopLevelReplies));
+          }}
+          style={{ overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${focusHeight + 124}px)`, minHeight: 160 }}
+        >
         <Divider my="md" />
 
         <ReplySection postId={id} currentUser={currentUser} fetchPostAndReplies={() => fetchContext(id, initReqIdRef.current)} />
@@ -720,7 +746,7 @@ export default function PostView() {
           </Paper>
         )}
 
-        <div style={{ height: "100vh" }} />
+        </div>
       </div>
 
       {/* Related stacks are rendered in AppShell.Aside via context */}

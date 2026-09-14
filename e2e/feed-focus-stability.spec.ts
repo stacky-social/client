@@ -205,6 +205,17 @@ test.describe('stable feed focus', () => {
   });
 
   test('keeps the active demo card visible and synchronized on every scroll frame', async ({ page }) => {
+    // Keep the four-post dataset fixed while checking frame-level focus.
+    // Otherwise infinite pagination can append a fifth visible card between
+    // the scroll and sample, after the viewport has ceased to be at the bottom.
+    let timelineRequests = 0;
+    await page.route('**/api/demo/timelines/ai-workforce?**', async (route) => {
+      timelineRequests += 1;
+      const response = await route.fetch();
+      if (timelineRequests < 2) return route.fulfill({ response });
+      const body = await response.json();
+      await route.fulfill({ response, json: { ...body, hasMore: false, nextCursor: null } });
+    });
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/AIWorkforce');
     await expect(page.locator('[data-demo-feed-post]')).toHaveCount(4);

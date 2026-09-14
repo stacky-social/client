@@ -687,6 +687,11 @@ export function registerFocusTopicRelations(postId: string, relations: Relation[
   };
 }
 
+export function getFocusTopicRelations(postId: string): Relation[] {
+  const registrations = focusRelationsByPost.get(postId);
+  return registrations ? Array.from(registrations.values()).at(-1) ?? [] : [];
+}
+
 export function resolveFocusTopicKey(anchor: { postId: string; rangeIndex: number }): string | null {
   const registrations = focusRelationsByPost.get(anchor.postId);
   if (!registrations) return null;

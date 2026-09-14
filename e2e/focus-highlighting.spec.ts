@@ -38,7 +38,7 @@ test.describe('focus phrase integration', () => {
 
   test('a focus phrase replaces aside grouping with a focus-origin topic filter', async ({ page }) => {
     await page.goto(DETAIL_URL);
-    const relationTag = page.locator('[data-related-card] [data-related-tag]').first();
+    const relationTag = page.locator('[data-related-card] mark[data-range-id]').first();
     await expect(relationTag).toBeVisible();
     await relationTag.click();
     await expect(page.getByTestId('active-group-anchor').first()).toBeVisible();
@@ -50,22 +50,15 @@ test.describe('focus phrase integration', () => {
     await expect(page.locator('[data-testid="focus-reveal"] mark.fp-selected').first()).toBeVisible();
   });
 
-  test('the sticky focus excerpt uses the same bold phrases and picker', async ({ page }) => {
-    await page.addInitScript(() => {
-      localStorage.setItem('stacky:experimentFlags:v1', JSON.stringify({ stickyFocusBar: true }));
-    });
+  test('the in-flow focus post retains its phrases and picker while children scroll', async ({ page }) => {
     await page.goto(DETAIL_URL);
-    await expect(page.locator('[data-testid="focus-reveal"]').first()).toBeVisible();
-    const sticky = page.getByTestId('focus-sticky-bar');
-    await expect.poll(async () => {
-      // A cold detail load can finish its saved-position restore after the
-      // focus post paints. Keep the user's scroll intent authoritative.
-      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-      return sticky.isVisible();
-    }).toBe(true);
-    const mark = sticky.locator(
-      '[data-testid="focus-reveal"] mark[aria-label^="Choose among"]:visible',
-    ).first();
+    const focus = page.locator('[data-testid="focus-reveal"]').first();
+    await expect(focus).toBeVisible();
+    const before = await focus.boundingBox();
+    await page.getByTestId('reply-scroll-region').evaluate((element) => { element.scrollTop = 250; });
+    expect((await focus.boundingBox())!.y).toBeCloseTo(before!.y, 0);
+    await expect(page.getByTestId('focus-sticky-bar')).toHaveCount(0);
+    const mark = focus.locator('mark[aria-label^="Choose among"]:visible').first();
     await expect(mark).toHaveCSS('font-weight', /^(700|bold)$/);
     await mark.click({ modifiers: ['Shift'] });
     await expect(page.getByTestId('focus-topic-picker')).toBeVisible();

@@ -58,7 +58,7 @@ function rangeIdsFor(mark: HTMLElement): number[] {
 
 type PickerState = {
   anchor: FocusTopicPickerAnchor;
-  anchorElement: HTMLElement;
+  anchorElement: HTMLElement | null;
   topics: FocusTopicCandidate[];
   focusOnOpen: boolean;
   dismissOnPointerLeave: boolean;
@@ -117,6 +117,7 @@ const FocusTopicHighlightedContent = React.forwardRef<
   const topicInteractionRef = useRef(topicInteraction);
   const focusRequestRef = useRef(onTopicFocusRequest);
   const directHoverIdsRef = useRef<number[]>([]);
+  const latestPointerRef = useRef<{ x: number; y: number } | null>(null);
   const latestMarkRef = useRef<HTMLElement | null>(null);
   const lastPointerTypeRef = useRef("");
   const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -198,6 +199,8 @@ const FocusTopicHighlightedContent = React.forwardRef<
   }, [postId]);
 
   const closePicker = useCallback(() => {
+    pickerOpenRef.current = false;
+    pickerSourceBucketRef.current = "";
     directHoverIdsRef.current = [];
     latestMarkRef.current = null;
     setPicker(null);
@@ -208,9 +211,10 @@ const FocusTopicHighlightedContent = React.forwardRef<
     topics: FocusTopicCandidate[],
     focusOnOpen: boolean,
     dismissOnPointerLeave = false,
+    pointer?: { x: number; y: number },
   ) => {
     if (topics.length <= 1) return;
-    const rect = mark.getBoundingClientRect();
+    const rect = pointer ? { left: pointer.x, right: pointer.x, top: pointer.y, bottom: pointer.y } : mark.getBoundingClientRect();
     hideTooltip();
     tooltipShownRef.current = false;
     setPicker({
@@ -220,7 +224,7 @@ const FocusTopicHighlightedContent = React.forwardRef<
         top: rect.top,
         bottom: rect.bottom,
       },
-      anchorElement: mark,
+      anchorElement: pointer ? null : mark,
       topics,
       focusOnOpen,
       dismissOnPointerLeave,
@@ -296,6 +300,8 @@ const FocusTopicHighlightedContent = React.forwardRef<
       passage.style.removeProperty("--fp-passage-bg");
       passage.removeAttribute("data-aside-highlight");
     });
+    const marks = Array.from(element.querySelectorAll<HTMLElement>('mark[data-range-ids]'));
+    marks.forEach((mark) => mark.classList.remove("fp-aside-muted"));
     if (!active || !sidebarHoverActive || !hoveredRelations?.length) return;
 
     const level2 = hoveredHighlightRangeIndex != null
@@ -313,6 +319,19 @@ const FocusTopicHighlightedContent = React.forwardRef<
         && relation.focusStart < end;
     };
 
+    const directed = level2 ? [level2] : categoryLevel2;
+    if (directed.length > 0) {
+      marks.forEach((mark) => {
+        const matches = rangeIdsFor(mark).some((id) => {
+          const own = relationsRef.current[id];
+          return own && directed.some((relation) =>
+            own.focusStart === relation.focusStart && own.focusEnd === relation.focusEnd
+            && own.focusCommentStart === relation.focusCommentStart
+            && own.focusCommentEnd === relation.focusCommentEnd);
+        });
+        mark.classList.toggle("fp-aside-muted", !matches);
+      });
+    }
     passages.forEach((passage) => {
       const strong = level2 && intersects(passage, level2)
         ? level2
@@ -382,7 +401,7 @@ const FocusTopicHighlightedContent = React.forwardRef<
       if (topics.length > 1) {
         pickerTimerRef.current = setTimeout(() => {
           pickerTimerRef.current = null;
-          openPicker(mark, topics, false, true);
+          openPicker(mark, topics, false, true, latestPointerRef.current ?? { x, y });
         }, PICKER_DELAY_MS);
       }
     };
@@ -402,6 +421,7 @@ const FocusTopicHighlightedContent = React.forwardRef<
     };
 
     const onMouseMove = (event: MouseEvent) => {
+      latestPointerRef.current = { x: event.clientX, y: event.clientY };
       let mark = (event.target as HTMLElement).closest(
         'mark[data-range-ids]',
       ) as HTMLElement | null;
@@ -452,7 +472,7 @@ const FocusTopicHighlightedContent = React.forwardRef<
         cancelHoverFeedback();
         if (bucket !== activeBucket || !pickerOpenRef.current) {
           paintHover(ids);
-          openPicker(mark, topics, false, true);
+          openPicker(mark, topics, false, true, { x: event.clientX, y: event.clientY });
         }
         activeBucket = bucket;
         return;
@@ -647,7 +667,10 @@ const FocusTopicHighlightedContent = React.forwardRef<
     const fullyVisible = markRect.top >= elementRect.top
       && markRect.bottom <= elementRect.bottom;
     if (scrollWindowHeight === null) {
-      if (!fullyVisible) setScrollWindowHeight(Math.max(1, elementRect.height));
+      // Keyboard focus and browser scrollIntoView can scroll overflow:hidden
+      // text before the topic click arrives. WebKit's clamped paragraphs still
+      // have truncated layout boxes there, so reveal them in normal block flow.
+      if (!fullyVisible || element.scrollTop > 0) setScrollWindowHeight(Math.max(1, elementRect.height));
       return;
     }
     const computed = window.getComputedStyle(element);

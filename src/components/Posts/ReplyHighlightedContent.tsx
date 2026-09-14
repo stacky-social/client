@@ -164,12 +164,11 @@ export default function ReplyHighlightedContent({
           setHoveredHighlightRangeIndex(origIdx);
           if (r.topic && otherCountByTopic) {
             // R-REORDER-9 parity: already-grouped topic reads "(shown)".
-            const isShown = activeClusterTopic !== null && r.topic === activeClusterTopic;
+            const isShown = activeClusterTopic !== null;
             showTooltip({
               content: (
                 <>
-                  {otherCountByTopic(r.topic)} more <strong style={{ color: colors.text }}>{r.topic}</strong>
-                  {isShown ? ' (shown)' : null}
+                  {!isShown && `${otherCountByTopic(r.topic)} more `}<strong style={{ color: colors.text }}>{r.topic}</strong>
                 </>
               ),
               colors: { text: colors.text, border: colors.border },

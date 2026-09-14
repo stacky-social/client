@@ -102,6 +102,7 @@ export default function FocusTopicPicker({
         target
         && (
           rootRef.current?.contains(target)
+          || anchorElement?.contains(target)
           || target.closest('[data-testid="focus-reveal"] mark[data-range-ids]')
         )
       );
@@ -120,7 +121,7 @@ export default function FocusTopicPicker({
       window.removeEventListener("keydown", onKeyDown);
       cancelDismiss();
     };
-  }, [dismissOnPointerLeave, onClose]);
+  }, [anchorElement, dismissOnPointerLeave, onClose]);
 
   useEffect(() => {
     if (!focusOnOpen) return;

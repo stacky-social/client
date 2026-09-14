@@ -76,7 +76,7 @@ test.describe('Related-panel viewport continuity', () => {
 
   test('revealing more members of a group does not reset its panel scroll', async ({ page }) => {
     await page.goto(DETAIL_URL);
-    const firstTag = page.locator('[data-related-card] [data-related-tag]').first();
+    const firstTag = page.locator('[data-related-card] mark[data-range-id]').first();
     await firstTag.click();
     await expect(page.getByTestId('active-group-anchor').first()).toBeVisible();
 
@@ -112,7 +112,7 @@ test.describe('Related-panel viewport continuity', () => {
     await paper.click({ position: { x: box!.width - 24, y: 8 } });
     await expect(page).toHaveURL(new RegExp(`/ChineseEVs/posts/${targetId}(?:\\?|$)`));
 
-    await page.goBack();
+    await page.getByRole("button", { name: "Back", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`${DETAIL_URL}(?:\\?|$)`));
     await expect(page.locator(`[data-related-card] [data-post-id="${targetId}"]`)).toBeVisible();
     const after = await measureViewport(page);

@@ -16,7 +16,7 @@ test.describe('Curated Home', () => {
     const cards = page.locator('[data-store-feed-post]');
     await expect(cards).toHaveCount(timelineIds.length);
 
-    for (const postId of topicIds.values()) {
+    for (const postId of Array.from(topicIds.values())) {
       await expect(page.locator(`[data-store-feed-post="${postId}"]`)).toHaveCount(1);
     }
     await expect(page.locator('[data-store-feed-post="143195604"]')).toHaveCount(0);

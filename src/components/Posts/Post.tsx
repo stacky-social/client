@@ -22,7 +22,6 @@ import ReplyHighlightedContent from './ReplyHighlightedContent';
 import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 import type { Relation } from '../../types/PostType';
 import { showUndoableAction } from '../../utils/actionNotifications';
-import { extractMastodonLinks } from '../../utils/mastodonContent.mjs';
 import { linkifyHtmlUrls, preserveInlineLinkOffsets } from '../../utils/inlineLinks.mjs';
 import { saveFeedScrollSnapshot } from '../../utils/feedScrollRestoration';
 import { postRouteFor } from '../../utils/postRoute';
@@ -57,30 +56,13 @@ const POST_IMAGES_ENABLED = false;
 interface CleanedPost {
   html: string;
   publishedDate: string | null;
-  supplementalUrl: string | null;
 }
 
-function isSameArticleUrl(candidate: string, articleUrl: string): boolean {
-  try {
-    const candidateUrl = new URL(candidate.replace(/&amp;/gi, '&'));
-    const targetUrl = new URL(articleUrl);
-    candidateUrl.hash = '';
-    targetUrl.hash = '';
-    return candidateUrl.toString() === targetUrl.toString();
-  } catch {
-    return candidate === articleUrl;
-  }
-}
-
-/** Keep authored URLs in place and expose a preview-card destination only when
- *  that URL was not already present in the post body. */
-function cleanPostHtml(html: string, card: PreviewCard | null | undefined): CleanedPost {
+/** Keep authored URLs inline without adding preview metadata to the prose. */
+function cleanPostHtml(html: string): CleanedPost {
   let cleaned = html;
   let publishedDate: string | null = null;
-  const supplementalUrl = card?.url && !extractMastodonLinks(html)
-    .some((candidate) => isSameArticleUrl(candidate, card.url))
-    ? card.url
-    : null;
+
 
   // Extract "Published: DATE" and remove from text
   cleaned = cleaned.replace(/Published:\s*(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)/g, (_match, iso) => {
@@ -103,7 +85,7 @@ function cleanPostHtml(html: string, card: PreviewCard | null | undefined): Clea
   cleaned = cleaned.replace(/<p>\s*<\/p>/g, '');
   cleaned = linkifyHtmlUrls(cleaned);
 
-  return { html: cleaned, publishedDate, supplementalUrl };
+  return { html: cleaned, publishedDate };
 }
 
 
@@ -342,9 +324,9 @@ function Post({
   isTextExpandedRef.current = isTextExpanded;
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>(initialCard ? [initialCard] : []);
   const [tempRelatedStacks, setTempRelatedStacks] = useState<any[]>(relatedStacks);
-  const { html: displayText, publishedDate, supplementalUrl } = useMemo(
-    () => cleanPostHtml(text, previewCards[0]),
-    [text, previewCards],
+  const { html: displayText, publishedDate } = useMemo(
+    () => cleanPostHtml(text),
+    [text],
   );
   const contentPlainText = useMemo(
     () => preserveInlineLinkOffsets(stripHtml(text)),
@@ -1083,26 +1065,6 @@ function Post({
         >…</button>
       )}
       </div>
-      {supplementalUrl && !quotedPost && (
-        <Anchor
-          href={supplementalUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          data-focus-article-link
-          className="inline-content-link supplemental-content-link"
-          size="xs"
-          onClick={(event: React.MouseEvent) => event.stopPropagation()}
-          onMouseDown={(event: React.MouseEvent) => event.stopPropagation()}
-          onMouseUp={(event: React.MouseEvent) => event.stopPropagation()}
-          style={{
-            display: 'inline',
-            marginTop: '0.3rem',
-            marginBottom: '0.35rem',
-          }}
-        >
-          {supplementalUrl}
-        </Anchor>
-      )}
       {(isOverflowing || isTextExpanded) && (
         <Anchor
           component="button"
@@ -1112,7 +1074,7 @@ function Post({
           styles={(theme) => ({
             root: {
               padding: 0,
-              marginLeft: supplementalUrl && !quotedPost ? '0.5rem' : 0,
+              marginLeft: 0,
               background: 'none',
               color: '#1c2b4a',
               fontWeight: 600,

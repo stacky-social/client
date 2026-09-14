@@ -50,7 +50,7 @@ function visibleFeedAnchor(): {
   // of one of the feed wrappers above. Scope the fallback to the main column so
   // a duplicate post in the related-panel does not become the saved anchor.
   const mainPosts = Array.from(document.querySelectorAll<HTMLElement>(
-    '[data-testid="feed"] [data-testid="post"][data-post-id]',
+    '[data-testid="feed"] [data-testid="post"][data-post-id]:not([data-testid="reply-scroll-region"] *)',
   ));
   const visible = mainPosts.find((element) => {
     const rect = element.getBoundingClientRect();

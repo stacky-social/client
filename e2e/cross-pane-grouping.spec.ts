@@ -73,7 +73,7 @@ const REPLY_ANCHOR = (() => {
 // Aside grouping topic: one that matches SOME but not ALL top-level reply
 // branches, so filtering the reply list demonstrably hides a reply.
 const ASIDE_TOPIC = (() => {
-  for (const t of relatedTopics) {
+  for (const t of Array.from(relatedTopics)) {
     const n = topLevel.filter((r) => branchTopics(r).has(t)).length;
     if (n > 0 && n < topLevel.length) return t;
   }

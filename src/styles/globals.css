@@ -313,8 +313,8 @@ body {
 }
 
 /* ── Focus-post semantic topic phrases ───────────────────────────────────────
-   Authored focus-comment ranges are always bold. Interaction changes only
-   colour/decoration, never weight, so hovering cannot reflow the post. */
+   Authored focus-comment ranges are bold at rest. A directed related-span
+   hover temporarily returns unrelated phrases to ordinary text. */
 [data-testid="focus-reveal"] mark {
     color: #011445;
     background: transparent !important;
@@ -388,7 +388,12 @@ body {
 .post-body-content a {
   color: #237a72;
   font-weight: 600;
-  overflow-wrap: anywhere;
+  display: inline-block;
+  max-width: min(28ch, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
   text-decoration: underline;
   text-decoration-color: rgba(35, 122, 114, 0.42);
   text-decoration-thickness: 1px;
@@ -494,4 +499,10 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .quoted-post-card { transition: none; }
+}
+
+[data-testid="focus-reveal"] mark.fp-aside-muted {
+  font-weight: inherit;
+  color: inherit;
+  text-decoration: none;
 }

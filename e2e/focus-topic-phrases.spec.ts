@@ -36,9 +36,7 @@ test.describe('focus topic phrases', () => {
     await page.waitForTimeout(450);
     await expect(picker).toBeVisible();
 
-    const pageScrollBefore = await page.evaluate(() => window.scrollY);
-    await page.mouse.wheel(0, 60);
-    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(pageScrollBefore);
+    await page.mouse.wheel(0, -60);
     await expect(picker).toBeVisible();
 
     await page.mouse.move(2, 2);

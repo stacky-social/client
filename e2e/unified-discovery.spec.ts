@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import mockData from '../src/app/FakeData/listy-injection.json';
+import { demoRouteForPost } from '../src/data/demoCorpora';
 
 const timelineEntries = (mockData as any[]).filter((entry) => entry.timelineRoot !== false);
 const shortNoReplyEntry = timelineEntries
@@ -547,7 +548,10 @@ test.describe('unified discovery and interactions', () => {
     await localCard.getByRole('button', { name: 'Like', exact: true }).click();
     await localCard.getByRole('button', { name: 'Bookmark', exact: true }).click();
     await localCard.getByRole('button', { name: 'Share post' }).click();
-    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('copied-link'))).toContain(`/AIWorkforce/posts/${localId}`);
+    // Curated Home shuffles multiple topics; the first demo card may be EnergyTech.
+    const localRoute = demoRouteForPost(localId!);
+    expect(localRoute).toBeTruthy();
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('copied-link'))).toContain(localRoute!);
     expect(backendActions).toEqual(['favourite', 'bookmark']);
 
     await page.goto('/liked');

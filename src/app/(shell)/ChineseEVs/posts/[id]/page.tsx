@@ -34,7 +34,6 @@ import { allowedTabsFor, coerceTab, defaultTabFor } from "../../../../../utils/r
 import { filterReplies, clusterTopLevel, applyBaseOrder } from "../../../../../utils/threadFilter.mjs";
 import { getMockReplyRank } from "../../../../../utils/mockPostResolver";
 import ReplyFilterBar from "../../../../../components/ReplyFilterBar";
-import FocusPostStickyBar from "../../../../../components/Posts/FocusPostStickyBar";
 import { TOP_NAV_HEIGHT } from "../../../../../components/NavBar/TopNav";
 import { getCategoryColors } from "../../../../../utils/categoryStyles";
 import {
@@ -161,6 +160,10 @@ export default function MockPostView() {
   // Default tab: "top" under the reply-sort-tabs flag (its default), "time" legacy.
   const [activeTab, setActiveTab] = useState<string>("top");
   const [visibleTopLevelReplies, setVisibleTopLevelReplies] = useState(5);
+  useLayoutEffect(() => {
+    const saved = Number(sessionStorage.getItem(`reply-visible:${id}`));
+    setVisibleTopLevelReplies(Number.isFinite(saved) && saved >= 5 ? saved : 5);
+  }, [id]);
   const [activePostId, setActivePostId] = useState<string | null>(() => mockHasPost(id) ? id : null);
   const [currentUser, setCurrentUser] = useState<any | null>(null);
   // Defer the (potentially large) reply thread one task so the focus post +
@@ -169,6 +172,16 @@ export default function MockPostView() {
   const [showThread, setShowThread] = useState(false);
   const [postedReplyId, setPostedReplyId] = useState<string | null>(null);
   const restoredRouteRef = useRef<string | null>(null);
+
+  const [focusHeight, setFocusHeight] = useState(300);
+  const replyScrollRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const focus = focusWrapRef.current;
+    if (!focus) return;
+    const observer = new ResizeObserver(() => setFocusHeight(focus.getBoundingClientRect().height));
+    observer.observe(focus);
+    return () => observer.disconnect();
+  }, [post?.id]);
 
   const plainPostText = post ? stripHtmlToPlain(post.content) : null;
 
@@ -193,6 +206,12 @@ export default function MockPostView() {
     restoredRouteRef.current = route;
     return restoreFeedScrollSnapshot(route);
   }, [id, post]);
+
+  useLayoutEffect(() => {
+    if (replyScrollRef.current && showThread) {
+      replyScrollRef.current.scrollTop = Number(sessionStorage.getItem(`reply-scroll:${id}`) ?? 0);
+    }
+  }, [id, showThread]);
 
   // Merge seeded mock replies with the user's store comments so both appear in
   // the thread. De-dupe by id defensively (a store comment should never collide
@@ -592,17 +611,9 @@ export default function MockPostView() {
   // Reply span click: rerank in place. The clicked card is scroll-pinned so the
   // user never loses their place (same contract as the related panel's anchors).
   const replyPinRef = useRef<{ id: string; top: number } | null>(null);
-  // Sticky focus bar anchors: the focus post wrapper + the center column.
+  // Focus geometry for arrival positioning and the bounded reply viewport.
   const focusWrapRef = useRef<HTMLDivElement | null>(null);
   const columnRef = useRef<HTMLDivElement | null>(null);
-  // Bottom viewport-Y of the pinned focus-post bar while shown (null otherwise).
-  // Drives the reply composer to stick right beneath the collapsed post so the
-  // comment bar stays visible for the whole scroll, mirroring the post itself.
-  const [composerStickyTop, setComposerStickyTop] = useState<number | null>(null);
-  // Whether the reply box holds a draft (reported by ReplySection). The composer
-  // only earns its sticky pinning while the user is actually writing — an empty
-  // composer scrolls away with the page like any other element.
-  const [composerDraftActive, setComposerDraftActive] = useState(false);
   const handleReplySpanClick = useCallback(
     (replyId: string, rangeIndex: number) => {
       if (!flags.replyReranking) return;
@@ -654,7 +665,7 @@ export default function MockPostView() {
     const el = document.querySelector(`[data-post-id="${pin.id}"]`) as HTMLElement | null;
     if (!el) return;
     const delta = el.getBoundingClientRect().top - pin.top;
-    if (Math.abs(delta) > 0.5) window.scrollTo(0, Math.max(0, window.scrollY + delta));
+    if (Math.abs(delta) > 0.5 && replyScrollRef.current) replyScrollRef.current.scrollTop += delta;
   }, [topicInteraction]);
 
   // ── X-style click-to-focus: arrival pin + fade (WS3/T2) ──────────────────
@@ -868,9 +879,9 @@ export default function MockPostView() {
       replyTopicCount={
         showReplyContributions && flags.crossPaneFiltering ? replyTopicCountFn : undefined
       }
-      activeClusterTopic={showReplyContributions ? replyCluster?.topic ?? null : undefined}
+      activeClusterTopic={showReplyContributions ? activeReplyTopicFilter ?? replyCluster?.topic ?? null : undefined}
       replyCountForSpans={isFocusPost ? replyCountForSpans : undefined}
-      clampLines={10}
+      clampLines={isFocusPost ? 5 : 10}
       // Keep every post/reply on the mock-backed detail route. Without this the
       // Post component falls back to the real /posts/[id] route, which requires a
       // Mastodon access token and renders a blank "Access token is missing" screen.
@@ -938,18 +949,6 @@ export default function MockPostView() {
       ref={columnRef}
     >
       <BackButton />
-      {flags.stickyFocusBar && post && plainPostText && (
-        <FocusPostStickyBar
-          postId={id}
-          author={post.account.username}
-          avatar={post.account.avatar}
-          plainText={plainPostText}
-          focusRelations={focusRelationsAll}
-          anchorRef={focusWrapRef}
-          containerRef={columnRef}
-          onStickyChange={setComposerStickyTop}
-        />
-      )}
       <div>
         <div style={{ position: "relative" }}>
           {/* Ancestors — thread connector line runs at the avatar column,
@@ -1011,39 +1010,24 @@ export default function MockPostView() {
           </div>
         </div>
 
+        <div
+          ref={replyScrollRef}
+          data-testid="reply-scroll-region"
+          onScroll={(event) => {
+            sessionStorage.setItem(`reply-scroll:${id}`, String(event.currentTarget.scrollTop));
+            sessionStorage.setItem(`reply-visible:${id}`, String(visibleTopLevelReplies));
+          }}
+          style={{ overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${TOP_NAV_HEIGHT + focusHeight + 64}px)`, minHeight: 160 }}
+        >
         <Divider my="md" />
 
         {showThread && (
-          // While the focus post is collapsed into the pinned bar AND the user is
-          // mid-draft, keep the reply composer visible by sticking it directly
-          // beneath that bar (top = reported bar-bottom). Sticky keeps the
-          // composer in flow, so the reply list below never jumps; replies just
-          // scroll under the pinned composer. An empty composer never pins —
-          // it renders inline and scrolls away like the rest of the thread.
-          <div
-            style={
-              composerStickyTop != null && composerDraftActive
-                ? {
-                    position: "sticky",
-                    top: composerStickyTop,
-                    zIndex: 140,
-                    background: "#ffffff",
-                    border: "1px solid #dbe2ea",
-                    borderTop: "none",
-                    borderRadius: "0 0 10px 10px",
-                    boxShadow: "0 6px 16px rgba(0,0,0,0.08)",
-                    padding: "10px 14px",
-                  }
-                : undefined
-            }
-          >
+          <div>
             <ReplySection
               postId={id}
               currentUser={currentUser}
               fetchPostAndReplies={() => {}}
               onReplyPosted={handleReplyPosted}
-              onDraftActiveChange={setComposerDraftActive}
-              stickyMode={composerStickyTop != null && composerDraftActive}
             />
           </div>
         )}
@@ -1245,6 +1229,7 @@ export default function MockPostView() {
           </Paper>
         )}
 
+        </div>
       </div>
     </div>
   );

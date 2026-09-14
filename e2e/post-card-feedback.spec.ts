@@ -141,11 +141,9 @@ test.describe('post-card feedback', () => {
       'href',
       'https://www.carbonbrief.org/analysis-clean-energy-just-put-chinas-co2-emissions-into-reverse-for-first-time',
     );
+    // This NYT URL exists only in preview metadata, not the authored reply.
     await expect(card.getByRole('link', {
       name: 'https://www.nytimes.com/interactive/2025/06/30/climate/china-clean-energy-power.html',
-    })).toHaveAttribute(
-      'href',
-      'https://www.nytimes.com/interactive/2025/06/30/climate/china-clean-energy-power.html',
-    );
+    })).toHaveCount(0);
   });
 });

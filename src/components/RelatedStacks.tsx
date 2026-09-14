@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
-import { Paper, UnstyledButton, Group, Text, Divider, Anchor } from '@mantine/core';
+import { Paper, UnstyledButton, Group, Text, Divider, Anchor, Menu } from '@mantine/core';
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare } from '@tabler/icons-react';
 import { CATEGORY_COLORS, CATEGORY_LABELS, iconMapping, getCategoryColors, type CategoryStyle } from '../utils/categoryStyles';
 import { formatPostDate } from '../utils/formatPostDate';
@@ -11,8 +11,9 @@ import { toggleFavourite, toggleBookmark } from '../utils/mastoActions';
 import { notifications } from '@mantine/notifications';
 import { copyLink } from '../utils/share';
 import { useRelatedStacks } from '../app/(shell)/related-stacks-context';
-import { setHoveredSidebarPost, setSidebarHoverActive, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, setCategoryFilter, activateAsideTopic, clearTopicInteraction, clearResponseFilter, setPanelFocus, savePanelViewport, getPanelViewport, useHighlightStore, topicKeyOf, asideGrouping, asideTopicFilter, relationsMatchTopic, resolveReplyTopicKey, resolveFocusTopicKey, beginPanelInteraction, setPanelBaseOrder, currentPanelScope, beginUndoablePanelInteractionIfDetail, type PanelViewportSnapshot } from '../utils/highlightStore';
+import { setHoveredSidebarPost, setSidebarHoverActive, setHoveredHighlightRangeIndex, setHoveredCategory, setTapped, clearTapped, setCategoryFilter, activateAsideTopic, clearTopicInteraction, clearResponseFilter, setPanelFocus, savePanelViewport, getPanelViewport, useHighlightStore, topicKeyOf, asideGrouping, asideTopicFilter, relationsMatchTopic, resolveReplyTopicKey, resolveFocusTopicKey, getFocusTopicRelations, activateFocusTopic, beginPanelInteraction, setPanelBaseOrder, currentPanelScope, beginUndoablePanelInteractionIfDetail, type PanelViewportSnapshot } from '../utils/highlightStore';
 import FilterByChip from './FilterByChip';
+import { focusTopicCandidates } from '../utils/focusTopics.mjs';
 import { useExperimentFlags } from '../utils/experimentFlags';
 import { reorderForAnchor } from '../utils/reorderForAnchor';
 import type { Relation } from '../types/PostType';
@@ -28,7 +29,7 @@ import {
 import { pointBridgesInlineRects } from '../utils/inlineHighlightGeometry.mjs';
 import { useHydrated, useLocalStore } from '../utils/localStore';
 import { RELATED_POSTS_API_URL } from '../utils/mastodonApi';
-import { extractMastodonLinks, normalizeMastodonText, resolveMastodonRevision } from '../utils/mastodonContent.mjs';
+import { normalizeMastodonText, resolveMastodonRevision } from '../utils/mastodonContent.mjs';
 import { saveFeedScrollSnapshot } from '../utils/feedScrollRestoration';
 import { postRouteFor } from '../utils/postRoute';
 import AuthorHoverInfo from './AuthorHoverInfo';
@@ -109,13 +110,6 @@ function stackMatchesCategories(stack: RelatedStackType, filters: Set<string>): 
 /** Offset-annotated study posts must preserve their exact plain-text geometry.
  * Legacy Mastodon cards have no offsets, so they can safely receive the fuller
  * HTML/URL/publication-metadata normalization they need. */
-function relatedArticleUrl(post: PostType): string | null {
-  return post.card?.url
-    || extractMastodonLinks(post.content || '')[0]
-    || extractMastodonLinks(post.rewrite?.content || '')[0]
-    || null;
-}
-
 function relatedCardText(post: PostType, value: string): string {
   // Revision notation is never part of the authored text. Resolve it even on
   // offset-annotated cards; contextual rewrites remap those relation offsets
@@ -133,18 +127,6 @@ function relatedCardText(post: PostType, value: string): string {
     );
   }
   return normalizeMastodonText(value);
-}
-
-function sameHttpUrl(first: string, second: string): boolean {
-  try {
-    const a = new URL(first.replace(/&amp;/gi, '&'));
-    const b = new URL(second.replace(/&amp;/gi, '&'));
-    a.hash = '';
-    b.hash = '';
-    return a.toString() === b.toString();
-  } catch {
-    return first === second;
-  }
 }
 
 interface RelatedStacksProps {
@@ -325,22 +307,19 @@ function getSyntheticCategoryCount(_category: string, realCount: number): number
 }
 
 // ─── Tooltip label renderer ───────────────────────────────────────────────────
-// "N more <Topic>" with the topic bolded in the category color. When `isShown`
-// the wording becomes "N more <Topic> (shown)" — for hovering a span whose
-// topic is already the active anchor's grouping. Returns null when topic is
-// absent, so callers can short-circuit without rendering.
+// Unfiltered spans preview the number of other posts; an active topic filter
+// already supplies that context, so its tooltip contains only the topic name.
 function buildTooltipLabel(
   topic: string | undefined,
   otherCount: number | undefined,
   textColor: string,
-  isShown: boolean = false,
+  topicOnly: boolean = false,
 ): React.ReactNode | null {
   if (!topic) return null;
   const count = otherCount ?? 0;
   return (
     <>
-      {count} more <strong style={{ color: textColor }}>{topic}</strong>
-      {isShown ? ' (shown)' : null}
+      {!topicOnly && `${count} more `}<strong style={{ color: textColor }}>{topic}</strong>
     </>
   );
 }
@@ -729,7 +708,7 @@ function buildMultiHighlightNodes(
         scheduleCardTooltip({
           // R-REORDER-9: hovering a span whose topic is already the active
           // grouping reads "N more <Topic> (shown)" — the click is a no-op.
-          content: buildTooltipLabel(topic, moreCount, band.colors.text, opts.activeTopic !== null && topic === opts.activeTopic),
+          content: buildTooltipLabel(topic, moreCount, band.colors.text, opts.activeTopic !== null),
           colors,
           x: clientX,
           y: clientY,
@@ -792,7 +771,7 @@ function buildMultiHighlightNodes(
       // Resolved topic for this range — used for in-block dimming and the
       // "(shown)" tooltip wording / no-op click for same-topic spans.
       const resolvedTopicForRange = topicOf(c, opts.stackId, c.rangeIndex);
-      const isOnActiveTopic = opts.activeTopic !== null && resolvedTopicForRange === opts.activeTopic;
+      const isOnActiveTopic = opts.activeTopic !== null;
       // In-block dimming: when this card sits inside the active topic block,
       // non-Topic spans dim out (unless this very span is hovered).
       const dimByBlock = opts.inActiveBlock && !isOnActiveTopic && !isThisRangeHovered;
@@ -846,13 +825,14 @@ function buildMultiHighlightNodes(
         <span key={`r${c.rangeIndex}-${seg.start}`} style={{ position: 'relative', display: 'inline' }}>
           <mark
             data-range-id={c.rangeIndex}
+            onMouseMove={() => opts.onRangeHover(c.rangeIndex)}
             data-continuous-inline-highlight
             tabIndex={-1}
             onMouseEnter={(e) => {
               opts.onRangeHover(c.rangeIndex);
               const moreCount = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopicForRange) : 0;
               scheduleCardTooltip({
-                content: buildTooltipLabel(resolvedTopicForRange, moreCount, colors.text, opts.activeTopic !== null && resolvedTopicForRange === opts.activeTopic),
+                content: buildTooltipLabel(resolvedTopicForRange, moreCount, colors.text, opts.activeTopic !== null),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
@@ -868,7 +848,7 @@ function buildMultiHighlightNodes(
               opts.onRangeHover(c.rangeIndex);
               const moreCount = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopicForRange) : 0;
               scheduleCardTooltip({
-                content: buildTooltipLabel(resolvedTopicForRange, moreCount, colors.text, opts.activeTopic !== null && resolvedTopicForRange === opts.activeTopic),
+                content: buildTooltipLabel(resolvedTopicForRange, moreCount, colors.text, opts.activeTopic !== null),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
@@ -2586,6 +2566,29 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
             {responseFilter !== null && (
               <FilterByChip kind="response" label={responseFilter.text} maxChars={35} onClear={() => { beginUndoablePanelInteractionIfDetail(); clearResponseFilter(); }} />
             )}
+            {topicInteraction?.origin === 'focus' && (() => {
+              const relations = getFocusTopicRelations(topicInteraction.anchor.postId);
+              const selected = relations[topicInteraction.anchor.rangeIndex];
+              if (!selected) return null;
+              const start = selected.focusCommentStart ?? selected.focusStart;
+              const end = selected.focusCommentEnd ?? selected.focusEnd;
+              const ids = relations.flatMap((relation, index) =>
+                (relation.focusCommentStart ?? relation.focusStart) < end
+                && start < (relation.focusCommentEnd ?? relation.focusEnd) ? [index] : []);
+              const topics = focusTopicCandidates(relations, ids, relatedStacks);
+              if (topics.length < 2) return null;
+              return (
+                <Menu withinPortal position="bottom-start">
+                  <Menu.Target><UnstyledButton aria-label="Change topic filter" style={{ fontSize: 12 }}>Topics ▾</UnstyledButton></Menu.Target>
+                  <Menu.Dropdown>
+                    {topics.map((topic) => <Menu.Item key={topic.topicKey} onClick={() => {
+                      beginUndoablePanelInteractionIfDetail();
+                      activateFocusTopic({ topicKey: topic.topicKey, anchor: { postId: topicInteraction.anchor.postId, rangeIndex: topic.rangeIndex } });
+                    }}>{topic.topicKey} · {topic.count}</Menu.Item>)}
+                  </Menu.Dropdown>
+                </Menu>
+              );
+            })()}
             {activeTopicFilterKey && (
               <FilterByChip kind="topic" label={activeTopicFilterKey} onClear={() => { beginUndoablePanelInteractionIfDetail(); clearTopicInteraction(); }} testId="aside-topic-filter" />
             )}
@@ -2642,17 +2645,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           // geometry. Unannotated Mastodon cards instead receive full parsing:
           // split URL spans, Published metadata, rewrite brackets, and entities
           // are presentation transport details and must not leak into prose.
-          const articleUrl = relatedArticleUrl(stack.topPost);
           const plainContent = relatedCardText(stack.topPost, stack.topPost.content || '');
           const rels = stack.topPost.relations;
           // Contextual rewrites are the published/default card text. The
           // original survives only inside the hover/focus track-changes layer.
           const visibleContent = aiDiffSet?.revisedContent ?? plainContent;
           const visibleRelations = aiDiffSet?.revisedRelations ?? rels;
-          const supplementalUrl = articleUrl && !extractMastodonLinks(visibleContent)
-            .some((candidate) => sameHttpUrl(candidate, articleUrl))
-            ? articleUrl
-            : null;
           // Mastodon's status timestamp is the canonical feed date. Preview-card
           // published_at frequently lands near midnight UTC and can shift to the
           // previous calendar day in the user's timezone, contradicting the
@@ -2740,7 +2738,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               focusHoverMatchedIdx,
               forceCommentEmphasis: isAiEditActive,
               anchoredRangeIndex: anchoredRangeByPost[stack.topPost.id] ?? null,
-              activeTopic: activeAnchorTopic,
+              activeTopic: activeTopicFilterKey ?? activeAnchorTopic,
               inActiveBlock,
               onRangeHover: debouncedRangeHover,
               // Clicking a span on a related card toggles a TOPIC ANCHOR: it
@@ -3226,17 +3224,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                   cursor: 'pointer',
                 }}
               >
-                {/* Card header row — author/date first, then compact contribution icons.
-                    Text labels live in the tooltip/accessible name so tags never crowd
-                    or obscure authorship metadata in the narrow related column. */}
+                {/* Author/date followed by contribution filters. */}
                 <div
                   onClick={(e) => { e.stopPropagation(); handleNavigate(stack.topPost.id, stack.stackId); }}
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 10px 6px', minWidth: 0 }}>
+                  style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '0 10px 6px', minWidth: 0 }}>
                 {/* Avatar + author · date inline (left). */}
                 <UnstyledButton onClick={(e) => handleNavigateToUser(e, stack.topPost.account)} className="avatarHoverDim" style={{ flexShrink: 0 }}>
                   <ProfileAvatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
                 </UnstyledButton>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                <div style={{ display: 'flex', flex: '1 1 160px', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                   <AuthorHoverInfo
                     displayName={stack.topPost.account.display_name}
                     account={stack.topPost.account.acct || stack.topPost.account.username || stack.topPost.account.display_name}
@@ -3253,12 +3249,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                   </AuthorHoverInfo>
                   <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>· {formatPostDate(displayDate)}</Text>
                 </div>
-                {/* Relationship and provenance tags — compact and pushed right. Kept
-                    on one line so author and date retain the readable portion of the
-                    header while related-post metadata stays in one predictable place. */}
+                {/* Compact contribution icons; labels appear in the tooltip. */}
                 <div
                   data-related-tag-cluster
-                  style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'nowrap', justifyContent: 'flex-end', marginLeft: 'auto', flexShrink: 0 }}
+                  style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', marginLeft: 'auto', flexShrink: 1 }}
                 >
                   {(() => {
                     // Dedupe categories from relations, preserving order
@@ -3286,21 +3280,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       const hasSpecificSpan = indices.length > 0;
                       const anyDirected = hri !== null || hcat !== null;
                       const tagBright = !anyDirected || indices.includes(hri ?? -1) || hcat === cat;
-                      // Tag tooltip should match the highlight-text tooltip: show the
-                      // TOPIC of the first relation of this category (the same relation
-                      // a click would anchor on), and the count for THAT topic. A
-                      // spanless stack-level tag falls back to its category label/count.
                       const tagRangeIdx = indices[0] ?? -1;
-                      const tagTopic = hasSpecificSpan
-                        ? topicOf(rels[tagRangeIdx], stack.stackId, tagRangeIdx)
-                        : (CATEGORY_LABELS[cat] ?? cat);
-                      const tagTotal = hasSpecificSpan
-                        ? topicTotal.get(tagTopic)
-                        : categoryStackCount.get(cat);
-                      const otherCount = Math.max(0, (tagTotal ?? 0) - 1);
                       const tagHover = (clientX: number, clientY: number) => {
                         showTooltip({
-                          content: buildTooltipLabel(tagTopic, otherCount, tc.text),
+                          content: CATEGORY_LABELS[cat] ?? cat,
                           colors: { text: tc.text, border: tc.border },
                           x: clientX,
                           y: clientY,
@@ -3309,6 +3292,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       return (
                         <div
                           key={cat}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); handleFilterChipClick(cat); } }}
                           data-related-tag
                           data-related-span={hasSpecificSpan ? 'true' : 'false'}
                           aria-label={CATEGORY_LABELS[cat] ?? cat}
@@ -3318,29 +3304,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                           onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTooltip(); }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (!hasSpecificSpan) {
-                              setHoveredCategory(null);
-                              hideTooltip();
-                              handleFilterChipClick(cat);
-                              return;
-                            }
-                            if (isTouchRef.current) {
-                              // Touch: tap toggles category highlight; second tap on same category triggers rerank on first matching range
-                              if (hoveredCategory === cat && tappedCardPostId === stack.topPost.id) {
-                                handleToggleAnchor(stack.topPost.id, indices[0]);
-                                setHoveredCategory(null);
-                                clearTapped();
-                              } else {
-                                setTapped(stack.topPost.id, null);
-                                setHoveredSidebarPost(stack.topPost.id, stack.topPost.relations);
-                                setHoveredCategory(cat);
-                              }
-                            } else {
-                              // Desktop: clicking a relation tag anchors this card and clusters
-                              // same-topic posts above/below it — same as a highlight-substring
-                              // click or the F-indicator chip on the top-right.
-                              handleToggleAnchor(stack.topPost.id, indices[0]);
-                            }
+                            setHoveredCategory(null);
+                            hideTooltip();
+                            handleFilterChipClick(cat);
                           }}
                           style={{
                             // Category tags are always color-coded so the highlight↔icon
@@ -3348,7 +3314,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                             background: tc.bg,
                             color: tc.text,
                             borderRadius: '5px',
-                            width: '24px', height: '22px', padding: 0,
+                            width: '24px', height: '22px', padding: 0, flexShrink: 0,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             border: `1px solid ${tc.border}`,
                             opacity: tagBright ? 1 : 0.3,
@@ -3536,27 +3502,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       </Text>
                     )}
                   </div>
-
-                  {supplementalUrl && (
-                    <Anchor
-                      href={supplementalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      data-related-article-link
-                      className="inline-content-link supplemental-content-link"
-                      size="xs"
-                      onClick={(event: React.MouseEvent) => event.stopPropagation()}
-                      onMouseDown={(event: React.MouseEvent) => event.stopPropagation()}
-                      onMouseUp={(event: React.MouseEvent) => event.stopPropagation()}
-                      style={{
-                        display: 'inline',
-                        marginTop: '0.3rem',
-                        marginBottom: '0.35rem',
-                      }}
-                    >
-                      {supplementalUrl}
-                    </Anchor>
-                  )}
 
                   {/* Read more / See less */}
                   {(isTruncated || isExpanded) && (

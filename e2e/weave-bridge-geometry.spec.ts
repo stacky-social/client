@@ -307,6 +307,9 @@ test('updates divider junctions in the same frame as their curves while scrollin
 
 test('keeps partially off-screen focus edges continuous and viewport-clipped', async ({ page }) => {
   await page.goto(`/AIWorkforce/posts/${stickyFocusId}`);
+  // Replies now have their own viewport. Give this geometry-only test enough
+  // document runway to exercise a partially clipped focus card explicitly.
+  await page.evaluate(() => { document.body.style.paddingBottom = '100vh'; });
   await expect(activePost(page)).toBeVisible();
   await expectConnectedBridge(page);
 
@@ -336,7 +339,8 @@ test('keeps partially off-screen focus edges continuous and viewport-clipped', a
   expectNear(g.sourceTopY, cardAfter!.y, 3);
   expect(g.sourceTopY).toBeLessThan(navBottom);
   expect(g.targetTopY).toBeLessThan(g.sourceTopY);
-  expect(connectedClip).toBeNull();
+  await expect.poll(() => bridge(page).getByTestId('weave-strand-upper')
+    .evaluate((path) => path.parentElement?.getAttribute('clip-path'))).toBeNull();
   await expect(bridge(page)).toHaveCSS('overflow', 'hidden');
 });
 
@@ -416,22 +420,16 @@ test('keeps a usable feed column at the minimum resizable split', async ({ page 
   expect(g.targetX - g.sourceX).toBeLessThanOrEqual(56);
 });
 
-test('keeps the sticky focus source narrower than the divider opening', async ({ page }) => {
+test('keeps the focus bridge fixed while children scroll below it', async ({ page }) => {
   await page.goto(`/AIWorkforce/posts/${stickyFocusId}`);
   await expect(activePost(page)).toBeVisible();
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight))
-    .toBeGreaterThan(1200);
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-  await expect(page.getByTestId('focus-sticky-bar')).toBeVisible();
-  await expect(bridge(page)).toHaveAttribute('data-source-kind', 'sticky');
-  const [g, sticky] = await Promise.all([
-    geometry(page), page.getByTestId('focus-sticky-bar').boundingBox(),
-  ]);
-  expect(sticky).toBeTruthy();
-  expect(g.sourceBottomY - g.sourceTopY).toBeGreaterThan(sticky!.height * 0.7);
-  expect(g.targetBottomY - g.targetTopY).toBeGreaterThan(
-    (g.sourceBottomY - g.sourceTopY) * 1.25,
-  );
+  await expect(bridge(page)).toBeVisible();
+  const before = await geometry(page);
+  await page.getByTestId('reply-scroll-region').evaluate((element) => { element.scrollTop = 250; });
+  const after = await geometry(page);
+  expect(after.sourceTopY).toBeCloseTo(before.sourceTopY, 0);
+  expect(after.sourceBottomY).toBeCloseTo(before.sourceBottomY, 0);
+  await expect(page.getByTestId('focus-sticky-bar')).toHaveCount(0);
 });
 
 test('hides below the split-view breakpoint and returns above it', async ({ page }) => {
