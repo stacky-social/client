@@ -319,18 +319,15 @@ body {
     color: #011445;
     background: transparent !important;
     font-weight: inherit;
-    text-shadow: 0 0 0.7px currentColor, 0 0 0.7px currentColor;
-    text-decoration-line: underline;
-    text-decoration-color: transparent;
-    text-decoration-thickness: 2px;
-    text-underline-offset: 2px;
+    text-shadow: 0 0 0.35px currentColor;
+    text-decoration: none;
     cursor: pointer;
     border-radius: 2px;
     touch-action: manipulation;
     user-select: none;
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
-    transition: color 120ms ease, text-decoration-color 120ms ease;
+    transition: color 120ms ease;
 }
 
 [data-testid="focus-reveal"] mark.fp-muted {
@@ -344,12 +341,10 @@ body {
 [data-testid="focus-reveal"] mark.fp-hot,
 [data-testid="focus-reveal"] mark.fp-selected {
     color: #006f73;
-    text-decoration-color: #14958f;
 }
 
 [data-testid="focus-reveal"] mark.fp-muted.fp-selected {
     color: #7b8799;
-    text-decoration-color: rgba(20, 149, 143, 0.38);
 }
 
 /* A related-card/span hover still paints the complete linked focus passage.
