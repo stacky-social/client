@@ -10,6 +10,7 @@ import ReplySection from "../../../../../components/ReplySection";
 import BackButton from "../../../../../components/BackButton";
 import ThreadedReplyList from "../../../../../components/ThreadedReplyList";
 import { useRelatedStacks } from "../../../related-stacks-context";
+import { useCompactFocus } from "../../../../../utils/useCompactFocus";
 import { useUrlSync } from "../../../../../utils/useUrlSync";
 import {
   getMockPost,
@@ -173,16 +174,10 @@ export default function MockPostView() {
   const [postedReplyId, setPostedReplyId] = useState<string | null>(null);
   const restoredRouteRef = useRef<string | null>(null);
 
-  const focusAnchorRef = useRef<HTMLDivElement>(null);
-  const [focusCompact, setFocusCompact] = useState(false);
-  useEffect(() => {
-    const sync = () => setFocusCompact((replyScrollRef.current?.scrollTop ?? 0) > 40
-      || (focusAnchorRef.current?.getBoundingClientRect().top ?? 100) < 64);
-    window.addEventListener("scroll", sync, { passive: true });
-    return () => window.removeEventListener("scroll", sync);
-  }, [id]);
-  const [focusHeight, setFocusHeight] = useState(300);
   const replyScrollRef = useRef<HTMLDivElement>(null);
+  const focusAnchorRef = useRef<HTMLDivElement>(null);
+  const { compact: focusCompact, setCompact: setFocusCompact, onReplyScroll } = useCompactFocus(focusAnchorRef, replyScrollRef);
+  const [focusHeight, setFocusHeight] = useState(300);
   useLayoutEffect(() => {
     const focus = focusWrapRef.current;
     if (!focus) return;
@@ -957,6 +952,7 @@ export default function MockPostView() {
     <div
       style={{
         position: "relative",
+        overflowAnchor: "none",
         // Only animated click-to-focus arrivals need extra scroll runway.
         // Deep links retain their natural short-page height.
         paddingBottom: focusEnter === "idle" ? undefined : "60vh",
@@ -1033,15 +1029,11 @@ export default function MockPostView() {
           ref={replyScrollRef}
           data-testid="reply-scroll-region"
           onScroll={(event) => {
-            if (!focusCompact && event.currentTarget.scrollTop > 40 && focusAnchorRef.current) {
-              const top = focusAnchorRef.current.getBoundingClientRect().top;
-              if (top > 72) window.scrollBy(0, top - 72);
-            }
-            setFocusCompact(event.currentTarget.scrollTop > 40 || (focusAnchorRef.current?.getBoundingClientRect().top ?? 100) < 64);
+            onReplyScroll();
             sessionStorage.setItem(`reply-scroll:${id}`, String(event.currentTarget.scrollTop));
             sessionStorage.setItem(`reply-visible:${id}`, String(visibleTopLevelReplies));
           }}
-          style={{ overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${focusHeight + 72}px)`, minHeight: 160 }}
+          style={{ overflowAnchor: "none", overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${focusHeight + 72}px)`, minHeight: 160 }}
         >
         <Divider my="md" />
 
