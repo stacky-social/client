@@ -313,13 +313,21 @@ body {
 }
 
 /* ── Focus-post semantic topic phrases ───────────────────────────────────────
-   Authored focus-comment ranges are bold at rest. A directed related-span
-   hover temporarily returns unrelated phrases to ordinary text. */
+   Authored focus-comment ranges read as bold at rest. A directed related-span
+   hover temporarily returns unrelated phrases to ordinary text.
+
+   The emphasis is a text-shadow, NOT font-weight, and must stay that way: the
+   hover toggles it on every phrase at once, and a real weight change resizes
+   the glyphs, so the paragraph reflows and the words move under the cursor
+   mid-gesture. A shadow is metric-neutral, so toggling it can never move text.
+   Measured cost of getting this wrong: 7-16px per phrase, enough to shift a
+   line break. If you want a heavier rest state, find a metric-neutral way to
+   get it — do not reach for font-weight here. */
 [data-testid="focus-reveal"] mark {
     color: #011445;
     background: transparent !important;
-    font-weight: 700;
-    text-shadow: none;
+    font-weight: inherit;
+    text-shadow: 0 0 0.35px currentColor;
     text-decoration: none;
     cursor: pointer;
     border-radius: 2px;
@@ -498,11 +506,8 @@ body {
 }
 
 [data-testid="focus-reveal"] mark.fp-aside-muted {
-  /* The phrase must drop back to the surrounding body weight. This carried only
-     `text-shadow: none` while the bold look WAS that shadow; once the weight
-     became real (700), cancelling the shadow stopped un-bolding anything and
-     every phrase stayed bold through a directed hover. */
-  font-weight: inherit;
+  /* Cancelling the shadow is what un-bolds the phrase. This works only while
+     the rest-state emphasis IS the shadow — see the note on the base rule. */
   text-shadow: none;
   color: inherit;
   text-decoration: none;

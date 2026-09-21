@@ -59,7 +59,9 @@ test.describe('focus phrase integration', () => {
     expect((await focus.boundingBox())!.y).toBeCloseTo(before!.y, 0);
     await expect(page.getByTestId('focus-sticky-bar')).toHaveCount(0);
     const mark = focus.locator('mark[aria-label^="Choose among"]:visible').first();
-    await expect(mark).toHaveCSS('font-weight', /^(700|bold)$/);
+    // Emphasis is a metric-neutral text-shadow, not font-weight, so a directed
+    // hover can un-bold a phrase without reflowing the paragraph.
+    await expect(mark).not.toHaveCSS('text-shadow', 'none');
     await mark.click({ modifiers: ['Shift'] });
     await expect(page.getByTestId('focus-topic-picker')).toBeVisible();
   });

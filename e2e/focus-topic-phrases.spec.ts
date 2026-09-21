@@ -13,7 +13,9 @@ test.describe('focus topic phrases', () => {
     ).first();
     await expect(mark).toBeVisible();
 
-    await expect(mark).toHaveCSS('font-weight', /^(700|bold)$/);
+    // Emphasis is a metric-neutral text-shadow, not font-weight, so a directed
+    // hover can un-bold a phrase without reflowing the paragraph.
+    await expect(mark).not.toHaveCSS('text-shadow', 'none');
     await expect(mark).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 
     await mark.hover();
