@@ -330,6 +330,18 @@ function buildTooltipLabel(
 // stays immediate — only the tooltip waits. Any reschedule / leave / click
 // cancels a pending one. Module-level: shared across all card marks.
 let cardTooltipTimer: ReturnType<typeof setTimeout> | null = null;
+/** The <mark> a range index renders as, inside `root`. A range usually owns a
+ *  single `data-range-id` mark, but where highlights overlap the segment carries
+ *  every contributing index in a CSV `data-overlap-range-ids` instead. */
+function findRangeMark(root: HTMLElement | null, rangeIndex: number): HTMLElement | null {
+  if (!root) return null;
+  const direct = root.querySelector(`mark[data-range-id="${rangeIndex}"]`) as HTMLElement | null;
+  if (direct) return direct;
+  return (Array.from(root.querySelectorAll('mark[data-overlap-range-ids]')) as HTMLElement[])
+    .find((m) => (m.getAttribute('data-overlap-range-ids') ?? '').split(',').includes(String(rangeIndex)))
+    ?? null;
+}
+
 function scheduleCardTooltip(payload: Parameters<typeof showTooltip>[0]) {
   if (cardTooltipTimer) clearTimeout(cardTooltipTimer);
   cardTooltipTimer = setTimeout(() => { cardTooltipTimer = null; showTooltip(payload); }, 1500);
@@ -2045,10 +2057,17 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // ── Scroll-pinning state for anchor toggle ─────────────────────────────────
   // When toggling an anchor, we:
   //   1. Disable `layout` on the pinned card (no FLIP transform → it snaps to new DOM position).
-  //   2. Compensate scrollTop in useLayoutEffect BEFORE paint so the card never visually moves.
+  //   2. Compensate scrollTop in useLayoutEffect BEFORE paint so the pinned element never moves.
   //   Other cards keep `layout` and animate smoothly around the pinned one.
   const pinnedPostIdRef = useRef<string | null>(null);
   const pinnedPrevTopRef = useRef<number | null>(null);
+  // WHICH element to hold still. Pinning the card's top edge is not enough for a
+  // span click: activating the group adds the topic chip to that card's own
+  // header, and when the chip wraps onto a second line the header grows ~26px
+  // and pushes the body — including the span under the cursor — down with it.
+  // For a span gesture the span itself is the reading anchor, so we re-measure
+  // that mark and let the card's top edge absorb the header growth instead.
+  const pinnedRangeIndexRef = useRef<number | null>(null);
   // FLIP reorder animation: per-card viewport tops captured at toggle time (the
   // "First" measurement), and the rAF handle for the "Play" step.
   const flipFirstTopsRef = useRef<Map<string, number> | null>(null);
@@ -2059,7 +2078,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
    *  `clearTopicInteraction` so replace-not-stack holds (grouping clears any
    *  category/passage filter). The interacted card stays visually pinned while
    *  the others animate around it. */
-  const handleToggleAnchor = (postId: string, rangeIndex?: number) => {
+  const handleToggleAnchor = (postId: string, rangeIndex?: number, pinTo: 'span' | 'card' = 'card') => {
     const activeAnchorId = grouping?.anchor.postId ?? null;
     const activeAnchorRange = grouping?.anchor.rangeIndex ?? null;
     const activeTopicKey = grouping?.topicKey ?? null;
@@ -2103,14 +2122,19 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     setHoveredCategory(null);
     clearTapped();
 
-    // Capture the anchor's viewport position BEFORE the reorder. Using
+    // Capture the pinned element's viewport position BEFORE the reorder. Using
     // getBoundingClientRect (not offsetTop) is deliberate: it captures both the
     // reorder and any sticky-header growth, so the post-reorder scroll
-    // compensation can keep the clicked card exactly where it was.
+    // compensation can keep it exactly where it was. A span gesture pins the
+    // clicked mark (the words under the cursor); every other entry point — the
+    // topic chip, the header × — pins the card, because the cursor is there.
     const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
     const cardEl = (aside ?? document).querySelector(`[data-post-id="${postId}"]`) as HTMLElement | null;
+    const pinRange = pinTo === 'span' && rangeIndex !== undefined ? rangeIndex : null;
+    const pinEl = (pinRange !== null ? findRangeMark(cardEl, pinRange) : null) ?? cardEl;
     pinnedPostIdRef.current = postId;
-    pinnedPrevTopRef.current = cardEl ? cardEl.getBoundingClientRect().top : null;
+    pinnedRangeIndexRef.current = pinRange;
+    pinnedPrevTopRef.current = pinEl ? pinEl.getBoundingClientRect().top : null;
 
     // FLIP "First": record every card's current viewport top so the layout effect
     // can slide each one from here to its new slot after the reorder.
@@ -2135,6 +2159,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       setPanelBaseOrder(visibleOrderIds);
     }
 
+    // This gesture owns the viewport. URL synchronization must not be
+    // mistaken for opening a shared topic link and scroll the group again.
+    revealedSharedGroupRef.current = action === 'activate'
+      ? `${sourcePostId ?? ctxActivePostId ?? ''}:${postId}:${rangeIndex}`
+      : null;
+
     // Apply the interaction. `activateAsideTopic` sets topicInteraction
     // (origin='aside') and, via the store's reducer, clears the category +
     // passage dimensions. In detail-cross-pane mode this also FILTERS the reply
@@ -2156,15 +2186,22 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   useLayoutEffect(() => {
     const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
 
-    // 1) Scroll compensation — keep the clicked/anchor card visually fixed.
+    // 1) Scroll compensation — keep the pinned element visually fixed. Resolve
+    // the SAME element that was measured before the reorder: the clicked mark
+    // for a span gesture, the card otherwise. Re-measuring the card here for a
+    // span gesture would hold the card's top edge and let the grown header
+    // carry the span out from under the cursor.
     const postId = pinnedPostIdRef.current;
     const prevTop = pinnedPrevTopRef.current;
+    const pinRange = pinnedRangeIndexRef.current;
     pinnedPostIdRef.current = null;
     pinnedPrevTopRef.current = null;
+    pinnedRangeIndexRef.current = null;
     if (aside && postId && prevTop !== null) {
       const cardEl = aside.querySelector(`[data-post-id="${postId}"]`) as HTMLElement | null;
-      if (cardEl) {
-        const delta = cardEl.getBoundingClientRect().top - prevTop;
+      const pinEl = (pinRange !== null ? findRangeMark(cardEl, pinRange) : null) ?? cardEl;
+      if (pinEl) {
+        const delta = pinEl.getBoundingClientRect().top - prevTop;
         if (Math.abs(delta) > 0.5) {
           const max = Math.max(0, aside.scrollHeight - aside.clientHeight);
           aside.scrollTop = Math.min(max, Math.max(0, aside.scrollTop + delta));
@@ -2248,7 +2285,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       // Second tap on the same active range → rerank
       if (tappedCardPostId === postId && tappedRangeIndex === rangeIdx) {
         skipNextClickRef.current = true;
-        handleToggleAnchor(postId, rangeIdx);
+        handleToggleAnchor(postId, rangeIdx, 'span');
         clearTapped();
         return;
       }
@@ -2280,13 +2317,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       tagScrollTimer.current = null;
       const paperEl = paperRefs.current[cardIndex];
       if (!paperEl) return;
-      let markEl = paperEl.querySelector(`mark[data-range-id="${rangeIndex}"]`) as HTMLElement | null;
-      if (!markEl) {
-        // Overlap segments carry the range id in a CSV attribute.
-        markEl = (Array.from(paperEl.querySelectorAll('mark[data-overlap-range-ids]')) as HTMLElement[])
-          .find((m) => (m.getAttribute('data-overlap-range-ids') ?? '').split(',').includes(String(rangeIndex))) ?? null;
-      }
-      (markEl ?? paperEl).scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      (findRangeMark(paperEl, rangeIndex) ?? paperEl).scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }, 150);
   };
   const cancelTagScroll = () => {
@@ -2747,7 +2778,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               // "Grouped by" pill, group header/footer, connector lines and the
               // F-indicator). This is intentionally DISTINCT from the focus-post
               // span click, which applies the overlap filter (responseFilter).
-              onRangeClick: (ri: number) => handleToggleAnchor(stack.topPost.id, ri),
+              onRangeClick: (ri: number) => handleToggleAnchor(stack.topPost.id, ri, 'span'),
               otherCountByTopic: (topic: string) => {
                 const total = topicTotal.get(topic) ?? 0;
                 const hasSelf = postTopics.get(stack.topPost.id)?.has(topic) ? 1 : 0;
