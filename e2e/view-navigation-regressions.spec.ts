@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 const DETAIL = '/ChineseEVs/posts/152053690';
 
-test('Back undoes the last contribution filter just like browser Back', async ({ page }) => {
+test('browser Back undoes a contribution filter, the Back button leaves the page', async ({ page }) => {
   await page.goto(DETAIL);
   const tag = page.locator('[data-related-tag]').first();
   const label = await tag.getAttribute('aria-label');
@@ -14,8 +14,19 @@ test('Back undoes the last contribution filter just like browser Back', async ({
   await tag.click();
   await expect(page).toHaveURL(/[?&]fc=/);
   await expect(page.getByTestId('active-group-anchor')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Back', exact: true }).click();
+
+  // Browser Back is the undo control: it drops the filter and stays put.
+  await page.goBack();
   await expect(page).toHaveURL(new RegExp(`${DETAIL}$`));
+
+  // The visible Back button is the page control. Re-apply the filter to prove
+  // it leaves regardless of what is on the history stack; this is a deep link,
+  // so there is no recorded origin and it falls back to the corpus feed.
+  await tag.click();
+  await expect(page).toHaveURL(/[?&]fc=/);
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await page.waitForURL((url) => url.pathname === '/ChineseEVs', { timeout: 30_000 });
+  expect(new URL(page.url()).pathname).toBe('/ChineseEVs');
 });
 
 test('children scroll beneath a stationary focused post', async ({ page }) => {

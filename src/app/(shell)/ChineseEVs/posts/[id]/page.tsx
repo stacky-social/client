@@ -819,10 +819,13 @@ export default function MockPostView() {
     allowedTabs: allowedTabsFor(flags.replySortTabs),
   });
 
-  // H5: seed BackButton sessionStorage from ?from= when opening a shared link
+  // H5: seed BackButton sessionStorage from ?from= when opening a shared link.
+  // The hint is unvalidated URL input and Back now NAVIGATES to what it finds,
+  // so a bogus or stale id would strand the reader on a missing post. Only
+  // record it when it resolves; otherwise Back falls back to the corpus feed.
   useEffect(() => {
     const fromId = searchParamsObj?.get("from");
-    if (!fromId) return;
+    if (!fromId || !mockHasPost(fromId)) return;
     const key = `previousPath:${window.location.pathname}`;
     if (!sessionStorage.getItem(key)) {
       sessionStorage.setItem(key, `${routeBase}/posts/${fromId}`);
@@ -957,7 +960,7 @@ export default function MockPostView() {
       }}
       ref={columnRef}
     >
-      <BackButton />
+      <BackButton fallbackHref={routeBase} />
       <div>
         <div style={{ display: "contents" }}>
           {/* Ancestors — thread connector line runs at the avatar column,

@@ -283,8 +283,12 @@ test.describe('Shareable related-post filter history', () => {
     await expect(page).toHaveURL(new RegExp(`/AIWorkforce/posts/${FOCUS_ID}`));
   });
 
-  test('the in-app Back control uses browser history instead of a recorded route', async ({ page }) => {
-    // A shared-link hint must not override the real previous history entry.
+  test('the in-app Back control leaves the page, and a bogus ?from cannot strand you', async ({ page }) => {
+    // The visible Back button is a PAGE control: it returns to where the post
+    // was opened from, while browser Back keeps undoing filters (covered by the
+    // tests above). A shared-link ?from hint is unvalidated URL input, so an id
+    // that resolves to nothing must not become the destination — the reader
+    // lands on the corpus feed instead of a missing post.
     await page.goto(`${DETAIL_URL}?from=999999999`);
     const backBtn = page.getByRole('button', { name: /Back/ });
     await expect(backBtn).toBeVisible();
@@ -293,11 +297,9 @@ test.describe('Shareable related-post filter history', () => {
     await expect(firstChip).toBeVisible();
     await firstChip.click();
     await expect(firstChip).toHaveAttribute('aria-pressed', 'true');
-    await page.waitForTimeout(50);
 
-    // Back must undo this filter, even with a different ?from hint.
     await backBtn.click();
-    await expect(page).toHaveURL(`${DETAIL_URL}?from=999999999`);
-    await expect(firstChip).toHaveAttribute("aria-pressed", "false");
+    await page.waitForURL((url) => url.pathname === '/AIWorkforce', { timeout: 30_000 });
+    expect(new URL(page.url()).pathname).toBe('/AIWorkforce');
   });
 });
