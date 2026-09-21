@@ -8,24 +8,14 @@ test.use({ hasTouch: true });
 
 test.describe('hybrid touch + mouse input', () => {
   test('uses the current pointer for related-card and AI-edit interactions', async ({ page }) => {
-    await page.goto('/tag/ChineseEVs');
-    await page.getByRole('button', { name: 'Follow hashtag' }).click();
-    await page.goto('/home');
-    await expect(page.getByRole('heading', { name: 'Home', level: 1 })).toBeVisible();
+    // Use the fixture directly: curated Home no longer includes followed-tag
+    // posts, so following ChineseEVs does not place this old fixture there.
+    await page.goto('/ChineseEVs/posts/152053690');
     expect(await page.evaluate(() => navigator.maxTouchPoints)).toBeGreaterThan(0);
 
-    const focus = page.locator('[data-store-feed-post="152053690"]');
-    await focus.evaluate((element) => element.scrollIntoView({ block: 'center' }));
-    await expect(focus.getByTestId('post')).toHaveAttribute('data-active', 'true');
-
-    const headingBox = await page.getByRole('heading', { name: 'Home', level: 1 }).boundingBox();
-    expect(headingBox).not.toBeNull();
-
-    // Put the UI in touch mode first, as if the user had just used the screen.
-    await page.touchscreen.tap(
-      headingBox!.x + headingBox!.width / 2,
-      headingBox!.y + headingBox!.height / 2,
-    );
+    // The center of the top app bar is blank and does not navigate on tap.
+    const neutralPoint = { x: page.viewportSize()!.width / 2, y: 24 };
+    await page.touchscreen.tap(neutralPoint.x, neutralPoint.y);
 
     // Moving the physical mouse onto a card must immediately restore hover;
     // touch capability must not suppress cross-highlighting.
@@ -49,7 +39,7 @@ test.describe('hybrid touch + mouse input', () => {
 
     // A finger remains a tap interaction: after leaving with the mouse, one
     // touch tap reveals the in-card diff without navigating the post.
-    await page.mouse.move(headingBox!.x + 2, headingBox!.y + 2);
+    await page.mouse.move(neutralPoint.x, neutralPoint.y);
     await expect(diff).toHaveAttribute('aria-hidden', 'true');
     const urlBeforeTouch = page.url();
     const badgeBox = await badge.boundingBox();
