@@ -498,6 +498,11 @@ body {
 }
 
 [data-testid="focus-reveal"] mark.fp-aside-muted {
+  /* The phrase must drop back to the surrounding body weight. This carried only
+     `text-shadow: none` while the bold look WAS that shadow; once the weight
+     became real (700), cancelling the shadow stopped un-bolding anything and
+     every phrase stayed bold through a directed hover. */
+  font-weight: inherit;
   text-shadow: none;
   color: inherit;
   text-decoration: none;
