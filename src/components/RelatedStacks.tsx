@@ -3218,7 +3218,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                   }, 60);
                 }}
                 style={{
-                  position: 'relative', width: '100%', backgroundColor: 'var(--cw-related-post-surface)', zIndex: isHighlighted ? 6 : 5,
+                  position: 'relative', width: '100%', backgroundColor: 'var(--cw-related-post-surface)', zIndex: isAiEditActive ? 7 : isHighlighted ? 6 : 5,
                   borderRadius: '10px', margin: '0 auto', paddingTop: '10px',
                   border: isHighlighted ? `2px solid #1c2b4a` : `2px solid #e2e8f0`,
                   boxShadow: isHighlighted
@@ -3468,11 +3468,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                     data-ai-edit-visible={hasVisibleAiEdit ? 'true' : 'false'}
                     data-ai-edit-presentation="inline-redline"
                     style={{
-                      // Legacy responses often lack relation offsets, so keep
-                      // the ordinary collapsed card bounded. Provenance hover
-                      // deliberately releases that bound: a large removal must
-                      // be readable even when it needs more vertical room.
-                      maxHeight: isExpanded || isAiEditActive ? undefined : '10.85rem',
+                      // Keep the published text in flow. The redline paints above
+                      // it without resizing the card or moving adjacent posts.
+                      maxHeight: isExpanded ? undefined : '10.85rem',
                       overflow: isExpanded || isAiEditActive ? 'visible' : 'hidden',
                     }}
                   >

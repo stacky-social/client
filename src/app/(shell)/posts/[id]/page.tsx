@@ -684,7 +684,7 @@ export default function PostView() {
             sessionStorage.setItem(`reply-scroll:${id}`, String(event.currentTarget.scrollTop));
             sessionStorage.setItem(`reply-visible:${id}`, String(visibleTopLevelReplies));
           }}
-          style={{ overflowAnchor: "none", overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${focusHeight + 72}px)`, minHeight: 160 }}
+          style={{ paddingLeft: 6, marginLeft: -6, overflowAnchor: "none", overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${focusHeight + 72}px)`, minHeight: 160 }}
         >
         <Divider my="md" />
 

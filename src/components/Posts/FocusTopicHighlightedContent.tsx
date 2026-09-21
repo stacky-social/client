@@ -127,6 +127,7 @@ const FocusTopicHighlightedContent = React.forwardRef<
   const pickerOpenRef = useRef(false);
   const pickerSourceBucketRef = useRef("");
   const [picker, setPicker] = useState<PickerState | null>(null);
+  const [textWidth, setTextWidth] = useState(0);
   const [scrollWindowHeight, setScrollWindowHeight] = useState<number | null>(null);
 
   activeRef.current = active;
@@ -676,7 +677,16 @@ const FocusTopicHighlightedContent = React.forwardRef<
   useLayoutEffect(() => {
     const element = innerRef.current;
     if (!element) return;
+    const observer = new ResizeObserver(([entry]) => setTextWidth(entry.contentRect.width));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  useLayoutEffect(() => {
+    const element = innerRef.current;
+    if (!element) return;
     if (!revealKey) {
+      element.style.clipPath = "";
       if (element.scrollTop > 0) element.scrollTop = 0;
       setScrollWindowHeight(null);
       return;
@@ -710,14 +720,32 @@ const FocusTopicHighlightedContent = React.forwardRef<
     const computed = window.getComputedStyle(element);
     const lineHeight = Number.parseFloat(computed.lineHeight)
       || Number.parseFloat(computed.fontSize) * 1.5;
-    const markTop = markRect.top - elementRect.top + element.scrollTop;
-    const maxScroll = Math.max(0, element.scrollHeight - element.clientHeight);
-    // Paragraph gaps need not be multiples of line height. Align the actual
-    // target line instead of rounding the document offset and clipping a line.
-    const leading = Math.max(0, (lineHeight - Number.parseFloat(computed.fontSize)) / 2);
-    const target = Math.min(maxScroll, Math.max(0, markTop - leading));
-    element.scrollTo({ top: target, behavior: "auto" });
-  }, [revealIndices, revealKey, scrollWindowHeight, hoveredRelations, hoveredHighlightRangeIndex, style?.WebkitLineClamp]);
+    // Measure glyphs, not mark boxes: highlight padding must never affect the
+    // reading window. Extra trailing space lets even the final line top-align.
+    const range = document.createRange();
+    range.selectNodeContents(mark);
+    const glyph = Array.from(range.getClientRects()).find((rect) => rect.width > 0);
+    if (!glyph) return;
+    const leading = Math.max(0, (lineHeight - glyph.height) / 2);
+    const target = Math.max(0, glyph.top - elementRect.top + element.scrollTop - leading);
+    element.scrollTo({ top: target, behavior: "instant" as ScrollBehavior });
+
+    // Paragraph spacing is not necessarily a multiple of the line height.
+    // Paint only complete lines at the lower edge, keeping the card's footprint
+    // fixed. This clips decoration too, without modifying any text or offsets.
+    let paintBottom = elementRect.height;
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+      range.selectNodeContents(node);
+      for (const rect of Array.from(range.getClientRects())) {
+        if (rect.width > 0 && rect.top < elementRect.bottom && rect.bottom > elementRect.bottom + 0.5) {
+          paintBottom = Math.min(paintBottom, Math.max(0, rect.top - elementRect.top - leading));
+        }
+      }
+    }
+    element.style.clipPath = `inset(0 0 ${elementRect.height - paintBottom}px 0)`;
+  }, [revealIndices, revealKey, scrollWindowHeight, hoveredRelations, hoveredHighlightRangeIndex, style?.WebkitLineClamp, textWidth]);
 
   const mergedStyle: React.CSSProperties = scrollWindowHeight !== null
     ? {
@@ -728,7 +756,8 @@ const FocusTopicHighlightedContent = React.forwardRef<
         overflow: "hidden",
         height: scrollWindowHeight,
         maxHeight: scrollWindowHeight,
-      }
+        "--reveal-window-height": `${scrollWindowHeight}px`,
+      } as React.CSSProperties
     : style;
 
   return (
@@ -737,6 +766,7 @@ const FocusTopicHighlightedContent = React.forwardRef<
         <div
           ref={setRefs}
           data-testid="focus-reveal"
+          data-reveal-window={scrollWindowHeight !== null ? "" : undefined}
           className={className}
           style={mergedStyle}
           dangerouslySetInnerHTML={{ __html: html }}

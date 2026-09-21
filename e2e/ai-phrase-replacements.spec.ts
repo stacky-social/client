@@ -7,9 +7,11 @@ test('AI redlines group consecutive replacements and separate old/new phrases', 
   await page.getByRole('button', { name: 'Show Connections filter' }).click();
   const card = page.locator('[data-related-card] [data-post-id="cw-BUGfufR__CqO1aQ-"]');
   const badge = card.getByRole('button', { name: 'Modified by AI' });
+  const before = await card.boundingBox();
   await badge.hover();
   const diff = card.locator('[data-ai-inline-diff]');
   await expect(diff).toHaveAttribute('aria-hidden', 'false');
+  expect(await card.boundingBox()).toEqual(before);
   await expect(diff.locator('del')).toContainText(["our nation's", 'they possess']);
   await expect(diff.locator('ins')).toContainText(["the United States'", 'China possesses']);
   await expect(diff).toContainText("our nation's the United States'");

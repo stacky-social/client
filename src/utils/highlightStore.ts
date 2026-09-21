@@ -153,12 +153,18 @@ function notify() {
 
 // ─── Actions ────────────────────────────────────────────────────────────────
 
+// Only the publishing pane may end its transient hover presentation.
+let hoverOwner: "aside" | "reply" = "aside";
+
 export function setHoveredSidebarPost(
   postId: string | null,
   relations?: Relation[] | null,
+  owner: "aside" | "reply" = "aside",
 ): void {
+  const sameOwner = hoverOwner === owner;
+  hoverOwner = owner;
   const nextActive = postId !== null;
-  if (state.hoveredPostId === postId && state.sidebarHoverActive === nextActive) return;
+  if (sameOwner && state.hoveredPostId === postId && state.sidebarHoverActive === nextActive) return;
   state = {
     ...state,
     hoveredPostId: postId,
@@ -169,14 +175,18 @@ export function setHoveredSidebarPost(
   notify();
 }
 
-/** A delayed leave from one card must not clear a newer card's hover. */
+/** End reply paint without moving the focus reading window. A delayed leave
+ * must not clear a newer card's hover. */
 export function clearHoveredSidebarPost(postId: string): void {
-  if (state.hoveredPostId === postId) setHoveredSidebarPost(null);
+  if (hoverOwner !== "reply" || state.hoveredPostId !== postId || !state.sidebarHoverActive) return;
+  state = { ...state, sidebarHoverActive: false };
+  notify();
 }
 
 /** End only the transient aside→focus paint. The last relation/range/category
  * stays retained so the focus post keeps its exact reading position. */
 export function setSidebarHoverActive(active: boolean): void {
+  if (hoverOwner !== "aside") return;
   if (state.sidebarHoverActive === active) return;
   state = { ...state, sidebarHoverActive: active };
   notify();

@@ -318,7 +318,8 @@ body {
 [data-testid="focus-reveal"] mark {
     color: #011445;
     background: transparent !important;
-    font-weight: 700;
+    font-weight: inherit;
+    text-shadow: 0 0 0.7px currentColor, 0 0 0.7px currentColor;
     text-decoration-line: underline;
     text-decoration-color: transparent;
     text-decoration-thickness: 2px;
@@ -502,7 +503,14 @@ body {
 }
 
 [data-testid="focus-reveal"] mark.fp-aside-muted {
-  font-weight: inherit;
+  text-shadow: none;
   color: inherit;
   text-decoration: none;
+}
+
+/* Allow the final passage to start on a whole line without bottom clamping. */
+[data-testid="focus-reveal"][data-reveal-window]::after {
+  content: "";
+  display: block;
+  height: var(--reveal-window-height);
 }

@@ -72,7 +72,7 @@ const THREAD_LINE_LEFT = 36;
 // load (deep link / browser Back never carry it).
 const ANIMATE_INTENT_KEY = "stacky:focusAnimateIntent";
 // Where the pinned focus post lands: just under the fixed top nav (matches
-// FocusPostStickyBar.returnToPost's TOP_NAV_HEIGHT + 8 convention).
+// the pinned focus post's TOP_NAV_HEIGHT + 8 offset).
 const FOCUS_PIN_OFFSET = TOP_NAV_HEIGHT + 8;
 // The arrival fade: rise from 6px below its resting spot, fading in.
 const FOCUS_ENTER_TRANSLATE = 6;
@@ -1033,7 +1033,7 @@ export default function MockPostView() {
             sessionStorage.setItem(`reply-scroll:${id}`, String(event.currentTarget.scrollTop));
             sessionStorage.setItem(`reply-visible:${id}`, String(visibleTopLevelReplies));
           }}
-          style={{ overflowAnchor: "none", overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${focusHeight + 72}px)`, minHeight: 160 }}
+          style={{ paddingLeft: 6, marginLeft: -6, overflowAnchor: "none", overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${focusHeight + 72}px)`, minHeight: 160 }}
         >
         <Divider my="md" />
 

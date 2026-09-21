@@ -65,8 +65,8 @@ export default function ReplyHighlightedContent({
     }
   };
 
-  // Clear any pending publish + our store entry on unmount so a hovered reply
-  // that gets filtered/reordered away doesn't leave a stale cross-highlight.
+  // End our pending publish and transient paint on unmount. Retain the focus
+  // reading position, just as leaving a related card does.
   useEffect(() => {
     return () => {
       if (enterTimer.current) clearTimeout(enterTimer.current);
@@ -85,15 +85,16 @@ export default function ReplyHighlightedContent({
     // reply list must not fire a cross-highlight per card boundary.
     enterTimer.current = setTimeout(() => {
       setHoveredCategory(null);
-      setHoveredSidebarPost(replyId, relations);
+      setHoveredSidebarPost(replyId, relations, "reply");
       publishedRef.current = true;
-      if (hoveredIdxRef.current != null) setHoveredHighlightRangeIndex(hoveredIdxRef.current);
+      setHoveredHighlightRangeIndex(hoveredIdxRef.current);
     }, 90);
   };
 
   const clearHover = () => {
     setHovered(false);
     setHoveredIdx(null);
+    hoveredIdxRef.current = null;
     if (enterTimer.current) clearTimeout(enterTimer.current);
     enterTimer.current = setTimeout(() => {
       if (publishedRef.current) {
@@ -140,10 +141,10 @@ export default function ReplyHighlightedContent({
     const cs = r.contentCommentStart - r.contentStart;
     const ce = r.contentCommentEnd - r.contentStart;
     const hasComment = r.contentCommentEnd > r.contentCommentStart && cs >= 0 && ce <= segText.length;
-    const content = isSpanHovered && hasComment ? (
+    const content = hasComment ? (
       <>
         {segText.slice(0, cs)}
-        <span style={{ textShadow: "0 0 0.7px currentColor, 0 0 0.7px currentColor" }}>
+        <span style={{ textShadow: isSpanHovered ? "0 0 0.7px currentColor, 0 0 0.7px currentColor" : "none" }}>
           {segText.slice(cs, ce)}
         </span>
         {segText.slice(ce)}
@@ -166,7 +167,7 @@ export default function ReplyHighlightedContent({
         }}
         onMouseEnter={(e) => {
           setHoveredCategory(null);
-          setHoveredSidebarPost(replyId, relations);
+          setHoveredSidebarPost(replyId, relations, "reply");
           publishedRef.current = true;
           setHoveredIdx(origIdx);
           hoveredIdxRef.current = origIdx;
@@ -189,7 +190,7 @@ export default function ReplyHighlightedContent({
         }}
         onMouseMove={() => {
           setHoveredCategory(null);
-          setHoveredSidebarPost(replyId, relations);
+          setHoveredSidebarPost(replyId, relations, "reply");
           publishedRef.current = true;
           hoveredIdxRef.current = origIdx;
           setHoveredHighlightRangeIndex(origIdx);
@@ -204,7 +205,7 @@ export default function ReplyHighlightedContent({
           )) return;
           setHoveredIdx(null);
           hoveredIdxRef.current = null;
-          setHoveredHighlightRangeIndex(null);
+          // Keep the exact reading anchor after leaving; only its paint ends.
           hideOwnTooltip();
         }}
         onClick={(e) => {
