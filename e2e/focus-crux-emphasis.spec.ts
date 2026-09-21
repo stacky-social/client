@@ -8,8 +8,10 @@ import { expect, test } from '@playwright/test';
 // The emphasis is a text-shadow rather than a font-weight, and this suite is the
 // reason. The gesture toggles emphasis on every phrase at once, so anything that
 // changes glyph metrics reflows the paragraph and moves the words out from under
-// the cursor mid-hover. The width assertion below is the real contract; the
-// shadow assertions only describe how it is currently achieved.
+// the cursor mid-hover. The width assertion below is the real contract.
+//
+// The focus post and the related cards render the SAME artificial bold so the
+// two panes read as one system — see the note beside the value in globals.css.
 
 const DETAIL_URL = '/EnergyTech/posts/cw-S1VeKWSitwk9wRrq';
 const MARKS = '[data-testid="focus-reveal"] mark';
@@ -28,7 +30,13 @@ test('a directed related-span hover un-bolds unrelated phrases without moving te
   // Every phrase carries the emphasis before any hover.
   const shadowsAtRest = await focusMarks.evaluateAll((nodes) =>
     nodes.map((node) => getComputedStyle(node).textShadow));
-  expect(shadowsAtRest.every((shadow) => shadow !== 'none'), 'all phrases emphasised at rest').toBe(true);
+  expect(shadowsAtRest.every((v) => v !== 'none'), 'all phrases emphasised at rest').toBe(true);
+
+  // The value is deliberately the same doubled shadow the related cards use for
+  // their own crux (`data-content-comment` in RelatedStacks.tsx), so both panes
+  // read as one system. It is not asserted against the card here: those spans
+  // only exist once a card is showing a crux, so the check would be conditional
+  // on panel state and would time out at rest.
 
   // Emphasis must never be carried by font-weight, at rest or muted: that is
   // what makes it toggleable without moving text. Compare against the prose the
@@ -62,13 +70,13 @@ test('a directed related-span hover un-bolds unrelated phrases without moving te
   // Muted phrases read as ordinary text.
   const mutedShadows = await muted.evaluateAll((nodes) =>
     nodes.map((node) => getComputedStyle(node).textShadow));
-  expect(mutedShadows.every((shadow) => shadow === 'none'), 'muted phrases drop their emphasis').toBe(true);
+  expect(mutedShadows.every((v) => v === 'none'), 'muted phrases drop their emphasis').toBe(true);
 
   // The linked phrase keeps it.
   const linkedShadows = await page.locator(`${MARKS}:not(.fp-aside-muted)`)
     .evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).textShadow));
   expect(linkedShadows.length).toBeGreaterThan(0);
-  expect(linkedShadows.every((shadow) => shadow !== 'none'), 'the linked phrase stays emphasised').toBe(true);
+  expect(linkedShadows.every((v) => v !== 'none'), 'the linked phrase stays emphasised').toBe(true);
 
   // THE CONTRACT: nothing moved. A font-weight-based emphasis fails here by
   // 7-16px per phrase, which is enough to shift a line break under the cursor.

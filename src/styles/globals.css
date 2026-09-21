@@ -316,18 +316,21 @@ body {
    Authored focus-comment ranges read as bold at rest. A directed related-span
    hover temporarily returns unrelated phrases to ordinary text.
 
-   The emphasis is a text-shadow, NOT font-weight, and must stay that way: the
-   hover toggles it on every phrase at once, and a real weight change resizes
-   the glyphs, so the paragraph reflows and the words move under the cursor
-   mid-gesture. A shadow is metric-neutral, so toggling it can never move text.
-   Measured cost of getting this wrong: 7-16px per phrase, enough to shift a
-   line break. If you want a heavier rest state, find a metric-neutral way to
-   get it — do not reach for font-weight here. */
+   The emphasis is a doubled text-shadow, NOT font-weight, and must stay that
+   way: the hover toggles it on every phrase at once, and a real weight change
+   resizes the glyphs, so the paragraph reflows and the words move under the
+   cursor mid-gesture. A shadow leaves advance widths untouched, so toggling it
+   can never move text. Measured cost of getting this wrong: 7-16px per phrase,
+   enough to shift a line break.
+
+   The value is copied from the related cards' own crux emphasis
+   (`data-content-comment` in RelatedStacks.tsx) so both panes render the same
+   artificial bold. Keep them in step — an e2e test compares the two. */
 [data-testid="focus-reveal"] mark {
     color: #011445;
     background: transparent !important;
     font-weight: inherit;
-    text-shadow: 0 0 0.35px currentColor;
+    text-shadow: 0 0 0.7px currentColor, 0 0 0.7px currentColor;
     text-decoration: none;
     cursor: pointer;
     border-radius: 2px;
@@ -506,8 +509,8 @@ body {
 }
 
 [data-testid="focus-reveal"] mark.fp-aside-muted {
-  /* Cancelling the shadow is what un-bolds the phrase. This works only while
-     the rest-state emphasis IS the shadow — see the note on the base rule. */
+  /* Dropping the shadow is what un-bolds the phrase, and it is why the rest
+     state must not use font-weight — see the note on the base rule. */
   text-shadow: none;
   color: inherit;
   text-decoration: none;
