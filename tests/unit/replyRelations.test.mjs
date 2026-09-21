@@ -29,11 +29,28 @@ test('fixture is a non-empty array of entries', () => {
   assert.ok(Array.isArray(data) && data.length > 0, 'entries present');
 });
 
+// Per topic, so importing a new corpus is an explicit edit here rather than a
+// silent drift in a single total. Roots = article/OP roots + lifted quote roots.
+const EXPECTED_ROOTS = {
+  'ai-workforce': { roots: 21, quotes: 15 },
+  'energy-tech': { roots: 20, quotes: 14 },
+  tariffs: { roots: 20, quotes: 14 },
+};
+
 test('live-demo timeline roots and quote tweets retain their corpus semantics', () => {
   const timeline = data.filter((entry) => entry.timelineRoot !== false);
   const quotes = timeline.filter((entry) => entry.focusPost.quotedPost);
-  assert.equal(timeline.length, 41, 'twelve article/OP roots plus twenty-nine lifted quote roots');
-  assert.equal(quotes.length, 29, 'all lifted quote-tweet roots are represented');
+  const topics = [...new Set(data.map((entry) => entry.topicId))].sort();
+  assert.deepEqual(topics, Object.keys(EXPECTED_ROOTS).sort(), 'every imported topic is accounted for');
+  for (const [topicId, expected] of Object.entries(EXPECTED_ROOTS)) {
+    const roots = timeline.filter((entry) => entry.topicId === topicId);
+    assert.equal(roots.length, expected.roots, `${topicId} timeline roots`);
+    assert.equal(
+      roots.filter((entry) => entry.focusPost.quotedPost).length,
+      expected.quotes,
+      `${topicId} lifted quote-tweet roots`,
+    );
+  }
   for (const entry of quotes) {
     assert.ok(entry.focusPost.quotedPost.id, `quote ${entry.focusPost.id} has an embedded id`);
     assert.ok(entry.focusPost.quotedPost.title, `quote ${entry.focusPost.id} has an embedded title`);
@@ -117,6 +134,43 @@ test('every related post has >=1 relation with in-range, category-valid offsets'
       }
     }
   }
+});
+
+test('related posts are emitted in merged-MMR order', () => {
+  // `merged_rank` ranks side posts and descendants on ONE scale (1 = top), so
+  // the panel's default order is the importer's sort, not a FE sort. Ordering
+  // is non-strict only because two ids could tie; the importer breaks ties on
+  // id, so the sequence is reproducible either way.
+  for (const e of data) {
+    let previous = 0;
+    for (const [position, rp] of e.relatedPosts.entries()) {
+      assert.ok(Number.isInteger(rp.mergedRank) && rp.mergedRank > 0, `related ${rp.id} mergedRank`);
+      assert.ok(rp.mergedRank >= previous, `related ${rp.id} breaks merged order`);
+      previous = rp.mergedRank;
+      assert.equal(rp.globalRank, position + 1, `related ${rp.id} globalRank tracks merged position`);
+    }
+  }
+});
+
+test('annotated replies carry both their descendant rank and the merged rank', () => {
+  let ranked = 0;
+  for (const e of data) {
+    for (const reply of e.replies ?? []) {
+      // Closure replies (unannotated intermediate parents added to keep the
+      // thread a closed tree) have no source row, so neither rank applies.
+      const hasRank = reply.rank !== undefined;
+      assert.equal(
+        reply.mergedRank !== undefined,
+        hasRank,
+        `reply ${reply.id} must carry both ranks or neither`,
+      );
+      if (!hasRank) continue;
+      ranked++;
+      assert.ok(Number.isInteger(reply.rank) && reply.rank > 0, `reply ${reply.id} rank`);
+      assert.ok(Number.isInteger(reply.mergedRank) && reply.mergedRank > 0, `reply ${reply.id} mergedRank`);
+    }
+  }
+  assert.ok(ranked > 0, 'at least one annotated reply is present');
 });
 
 test('the pointers category is wired through the fixture', () => {

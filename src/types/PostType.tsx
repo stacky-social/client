@@ -140,6 +140,12 @@ export interface RelatedPostMock {
   rank: number;
   /** Global rank across all categories (1 = highest relevance) */
   globalRank: number;
+  /**
+   * Source MMR rank over side posts AND replies on one scale (1 = top). The
+   * importer emits relatedPosts in this order, so the panel renders the array
+   * as-is; globalRank is this post's position in that order.
+   */
+  mergedRank: number;
   /** Plain text of the related post */
   content: string;
   /** Relations: explicit offset-based substring pairs between focus and related post */
@@ -176,8 +182,13 @@ export interface ReplyMock extends FocusPostMock {
    * (e.g. "me too"), which renders plain.
    */
   relations?: Relation[];
-  /** Quality/diversity rank for the Top reply tab (1 = best). Optional. */
+  /** Quality/diversity rank among replies only (1 = best). Optional. */
   rank?: number;
+  /**
+   * Source MMR rank over side posts AND replies on one scale (1 = top), which
+   * is what the Top tab sorts on. Absent on unannotated intermediate replies.
+   */
+  mergedRank?: number;
 }
 
 export interface ListyInjectionEntry {

@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import RelatedStacks from "../../../../components/RelatedStacks";
 import { useRelatedStacks } from "../../related-stacks-context";
 import { triggerNavigate } from "../../../../utils/highlightStore";
+import { getDemoCorpusByPath } from "../../../../data/demoCorpora";
 
 export default function ListyInjectionAside() {
   const pathname = usePathname();
@@ -15,16 +16,7 @@ export default function ListyInjectionAside() {
   // the live pathname so the aside only renders on listy routes and never leaks a
   // previous post's related responses onto another page. The shared context is
   // left intact (the post-detail route renders related inline from it).
-  if (
-    !pathname
-    || (
-      !pathname.startsWith("/ChineseEVs")
-      && !pathname.startsWith("/AIWorkforce")
-      && !pathname.startsWith("/EnergyTech")
-      && !pathname.startsWith("/tag/AIWorkforce")
-      && !pathname.startsWith("/tag/EnergyTech")
-    )
-  ) return null;
+  if (!getDemoCorpusByPath(pathname)) return null;
 
   // No focus post selected — aside has nothing to anchor against.
   if (!activePostId) return null;

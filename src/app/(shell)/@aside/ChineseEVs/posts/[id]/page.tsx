@@ -5,6 +5,7 @@ import RelatedStacks from "../../../../../../components/RelatedStacks";
 import { useRelatedStacks } from "../../../../related-stacks-context";
 import { navigateFromPanelScope } from "../../../../../../utils/highlightStore";
 import { saveFeedScrollSnapshot } from "../../../../../../utils/feedScrollRestoration";
+import { DEMO_CORPORA, getDemoCorpusByPath } from "../../../../../../data/demoCorpora";
 
 export default function MockPostAside() {
   const { relatedStacks, showUpdate, highlightPostId } = useRelatedStacks();
@@ -12,9 +13,7 @@ export default function MockPostAside() {
   const pathname = usePathname();
   const router = useRouter();
   const focusPostId = typeof params?.id === "string" ? params.id : undefined;
-  const routeBase = pathname?.startsWith("/EnergyTech")
-    ? "/EnergyTech"
-    : pathname?.startsWith("/AIWorkforce") ? "/AIWorkforce" : "/ChineseEVs";
+  const { routeBase } = getDemoCorpusByPath(pathname) ?? DEMO_CORPORA["chinese-evs"];
 
   if (!relatedStacks || relatedStacks.length === 0) {
     return (

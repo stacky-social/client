@@ -10,6 +10,7 @@ const chinese = JSON.parse(readFileSync(join(root, "src/app/FakeData/chinese-evs
 const scaleDemo = JSON.parse(readFileSync(join(root, "src/app/FakeData/scale-demo.json"), "utf8"));
 const aiWorkforce = scaleDemo.filter((entry) => entry.topicId === "ai-workforce");
 const energyTech = scaleDemo.filter((entry) => entry.topicId === "energy-tech");
+const tariffs = scaleDemo.filter((entry) => entry.topicId === "tariffs");
 
 function everyPostId(entries) {
   return new Set(entries.flatMap((entry) => [
@@ -36,6 +37,32 @@ test("legacy Chinese EVs and corrected scale-demo topics stay distinct", () => {
   assert.equal(energyTech.filter((entry) => entry.timelineRoot !== false).length, 20);
   assert.ok(energyTech.every((entry) => entry.topicId === "energy-tech"));
   assert.ok(energyTech.some((entry) => entry.focusPost.quotedPost));
+
+  assert.equal(tariffs.length, 124);
+  assert.equal(tariffs.filter((entry) => entry.timelineRoot !== false).length, 20);
+  assert.ok(tariffs.every((entry) => entry.topicId === "tariffs"));
+  assert.ok(tariffs.some((entry) => entry.focusPost.quotedPost));
+
+  assert.equal(aiWorkforce.length + energyTech.length + tariffs.length, scaleDemo.length,
+    "every scale-demo entry belongs to a known topic");
+});
+
+test("like counts stay inside the Mastodon contract", () => {
+  // Reddit scores can go negative; the importer floors them so the UI never
+  // renders a negative favourite count beside a heart.
+  for (const entry of scaleDemo) {
+    for (const post of [
+      entry.focusPost,
+      ...(entry.ancestors ?? []),
+      ...(entry.replies ?? []),
+      ...(entry.relatedPosts ?? []),
+    ]) {
+      assert.ok(
+        Number.isInteger(post.favourites_count) && post.favourites_count >= 0,
+        `${post.id} favourites_count ${post.favourites_count}`,
+      );
+    }
+  }
 });
 
 test("post identities never cross corpus boundaries", () => {

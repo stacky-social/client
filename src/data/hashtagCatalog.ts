@@ -31,6 +31,11 @@ export const HASHTAG_CATALOG: readonly HashtagDefinition[] = [
     local: true,
   },
   {
+    name: "Tariffs",
+    description: "Tariffs, trade retaliation, supply chains, and industrial protection",
+    local: true,
+  },
+  {
     name: "StackyInjection",
     description: "Earlier New York Times, Fox News, and community conversations",
     local: false,

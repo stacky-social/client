@@ -21,6 +21,12 @@
 //   focused post       -> body
 //   side/descendant    -> decontextualized_text (fallback body)
 //   quote-tweet root   -> embedded_key is rendered as an embedded quote
+//
+// Ordering: `merged_rank` is the source's MMR rank over sides UNION descendants
+// (1 = top), so it places a reply and a side card on ONE scale. Side cards are
+// emitted in that order — the related panel renders the array as-is — and every
+// reply carries it alongside its descendant-only `rank`, which the reply list's
+// Top tab sorts on. Both ranks are kept so either scale stays available.
 
 // Related-post `content` is the rewritten display/offset base. The authored body
 // is retained as `rewrite.originalContent`, allowing the FE to show its existing
@@ -290,7 +296,11 @@ function basePost(index, item, mode = 'focused') {
     plainText,
     account: accountFor(item.node.author, item.sourceFile),
     created_at: item.node.create_date,
-    favourites_count: Number(item.node.num_upvotes ?? 0),
+    // Reddit scores go negative on downvoted comments, but `favourites_count`
+    // is a Mastodon favourite count: the UI renders it beside a heart and
+    // increments it on like. Floor it at zero, the same normalization already
+    // applied to sources that carry no score at all.
+    favourites_count: Math.max(0, Number(item.node.num_upvotes ?? 0)),
     replies_count: index.children.get(item.key)?.length ?? 0,
     favourited: false,
     bookmarked: false,
@@ -501,6 +511,7 @@ function relatedPost(index, row, focusItem, context) {
       category: built.relations[0].category,
       rank: 0,
       globalRank: Number(row.rank),
+      mergedRank: mergedRankOf(row, context),
       content: rewritten.text,
       relations: built.relations,
       account: base.account,
@@ -523,6 +534,15 @@ function relatedPost(index, row, focusItem, context) {
   };
 }
 
+// Every prepared side and descendant row carries `merged_rank`; a missing one
+// means the source changed shape, which must fail loudly rather than silently
+// fall back to the per-list rank and scramble the order.
+function mergedRankOf(row, context) {
+  const merged = Number(row.merged_rank);
+  assert(Number.isInteger(merged) && merged > 0, `${context}: merged_rank is missing or not a positive integer`);
+  return merged;
+}
+
 function descendantReply(index, row, focusItem, context) {
   const item = index.byKey.get(row.descendant_post?.key);
   assert(item, `${context}: descendant_post key does not resolve: ${row.descendant_post?.key}`);
@@ -541,6 +561,7 @@ function descendantReply(index, row, focusItem, context) {
     ...base,
     inReplyToId: stableId(index.topic, item.parentKey),
     rank: Number(row.rank),
+    mergedRank: mergedRankOf(row, context),
     relations: hasNoMarkup ? [] : built.relations,
     unmarked: hasNoMarkup,
   };
@@ -699,12 +720,19 @@ function convertTopic(topic) {
       relatedById.set(built.post.id, built.post);
     }
 
+    // The panel renders this array as given, so the merged scale is applied
+    // here rather than in the FE. Ties break on id: merged_rank is unique
+    // within one annotation file, but a retargeted candidate can carry a rank
+    // from another file, and a study order must stay reproducible regardless.
+    relatedPosts.sort((left, right) => left.mergedRank - right.mergedRank
+      || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+
     const perCategory = new Map();
-    for (const [index, post] of relatedPosts.entries()) {
+    for (const [position, post] of relatedPosts.entries()) {
       const rank = (perCategory.get(post.category) ?? 0) + 1;
       perCategory.set(post.category, rank);
       post.rank = rank;
-      post.globalRank = index + 1;
+      post.globalRank = position + 1;
     }
 
     const annotatedReplies = [...(record.descendant_posts ?? [])]
@@ -782,11 +810,17 @@ const missingUpvotes = results.reduce(
     .filter((item) => item.node.num_upvotes == null).length,
   0,
 );
+const negativeUpvotes = results.reduce(
+  (sum, result) => sum + [...result.index.byKey.values()]
+    .filter((item) => Number(item.node.num_upvotes ?? 0) < 0).length,
+  0,
+);
 
 console.log(`✓ wrote ${OUT_PATH}`);
 console.log(`  topics: ${topics.join(', ')}`);
 console.log(`  ${entries.length} focus posts, ${totalRelated} related posts, ${totalReplies} descendant replies`);
 console.log(`  ${totalQuotes} quote-tweet roots, ${rewritten} related cards with backend AI rewrites`);
+console.log('  side cards ordered by merged_rank (MMR over sides + descendants); replies keep both ranks');
 if (retargetedCandidates) {
   console.log(
     `  retained ${retargetedCandidates} full-thread candidate connections on their owning ancestors`
@@ -801,6 +835,9 @@ if (unmarkedDescendants) {
 }
 if (missingUpvotes) {
   console.log(`  defaulted ${missingUpvotes} source roots without num_upvotes to zero`);
+}
+if (negativeUpvotes) {
+  console.log(`  floored ${negativeUpvotes} downvoted source posts (negative num_upvotes) to zero likes`);
 }
 if (diagnostics.length) {
   console.warn(`  omitted ${diagnostics.length} malformed candidate connections:`);

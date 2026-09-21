@@ -15,6 +15,7 @@ import ReplySection from "../../../components/ReplySection";
 import { useLocalStore, useHydrated, isFollowingTag, toggleTagFollow } from "../../../utils/localStore";
 import { DEMO_TIMELINE_PAGE_SIZE, getDemoTimelinePage, type TimelineStats } from "../../../services/demoApiClient";
 import { getMockReplyCount } from "../../../utils/mockPostResolver";
+import { DEMO_CORPORA, getDemoCorpusByPath } from "../../../data/demoCorpora";
 import {
   onFeedFocusScroll,
   selectStableFeedFocus,
@@ -227,14 +228,11 @@ function replyToPostData(reply: FocusPostMock) {
 export default function ListyInjectionPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const normalizedPath = pathname?.toLowerCase() ?? "";
-  const isEnergyTech = normalizedPath.includes("energytech");
-  const isAiWorkforce = normalizedPath.includes("aiworkforce");
-  const topicId = isEnergyTech ? "energy-tech" : isAiWorkforce ? "ai-workforce" : "chinese-evs";
-  const hashtag = isEnergyTech ? "EnergyTech" : isAiWorkforce ? "AIWorkforce" : "ChineseEVs";
-  // Hashtag discovery may enter through /tag/AIWorkforce, but all detail URLs
-  // use one canonical base so Back/share/session keys remain deterministic.
-  const routeBase = isEnergyTech ? "/EnergyTech" : isAiWorkforce ? "/AIWorkforce" : "/ChineseEVs";
+  // One feed component serves every bundled corpus. Hashtag discovery may enter
+  // through /tag/AIWorkforce, but all detail URLs use the corpus's canonical
+  // base so Back/share/session keys remain deterministic.
+  const { id: topicId, hashtag, routeBase } = getDemoCorpusByPath(pathname)
+    ?? DEMO_CORPORA["chinese-evs"];
   const { setFromPost, activePostId: ctxActivePostId } = useRelatedStacks();
   const [entries, setEntries] = useState<ListyInjectionEntry[]>([]);
   const [timelineStats, setTimelineStats] = useState<TimelineStats | null>(null);

@@ -7,6 +7,7 @@ import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { FeedbackBlock } from './SubmitPost/ComposerFeedback';
 import { addComment } from '../utils/localStore';
+import { getDemoCorpusByPath } from '../data/demoCorpora';
 import ProfileAvatar from './ProfileAvatar';
 
 interface ReplySectionProps {
@@ -140,8 +141,7 @@ const ReplySection: React.FC<ReplySectionProps> = ({ postId, currentUser, fetchP
         // makes the backend 500. Send null there (generic draft feedback derived
         // from the draft text, same as the /home composer) so simulated replies
         // still generate; live surfaces keep postId for real thread context.
-        const onDemo = ['/ChineseEVs', '/AIWorkforce', '/EnergyTech', '/tag/ChineseEVs', '/tag/AIWorkforce', '/tag/EnergyTech']
-            .some((prefix) => window.location.pathname.startsWith(prefix));
+        const onDemo = !!getDemoCorpusByPath(window.location.pathname);
 
         const myReqId = ++reqIdRef.current;
         setLoading(true);

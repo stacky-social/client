@@ -323,7 +323,10 @@ export function getMockReplyRelations(id: string, focusId?: string): Relation[] 
  *  reply rank; dual-role related posts' `rank` field is a within-category rank
  *  with different semantics, so it is deliberately NOT consulted here. */
 export function getMockReplyRank(id: string): number | undefined {
-  return replyById.get(id)?.[0]?.reply.rank;
+  // Prefer the merged scale so the Top tab and the related panel order on the
+  // same ranking; fall back to the reply-only rank for fixtures that predate it.
+  const reply = replyById.get(id)?.[0]?.reply;
+  return reply?.mergedRank ?? reply?.rank;
 }
 
 /** True if the id exists anywhere in the mock data. */

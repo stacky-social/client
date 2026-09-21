@@ -2,7 +2,7 @@ import chineseEvsFixture from "../app/FakeData/chinese-evs.json";
 import scaleDemoFixture from "../app/FakeData/scale-demo.json";
 import type { ListyInjectionEntry } from "../types/PostType";
 
-export const SCALE_DEMO_TOPIC_IDS = ["ai-workforce", "energy-tech"] as const;
+export const SCALE_DEMO_TOPIC_IDS = ["ai-workforce", "energy-tech", "tariffs"] as const;
 export type ScaleDemoTopicId = (typeof SCALE_DEMO_TOPIC_IDS)[number];
 export const DEMO_TOPIC_IDS = ["chinese-evs", ...SCALE_DEMO_TOPIC_IDS] as const;
 export type DemoTopicId = (typeof DEMO_TOPIC_IDS)[number];
@@ -12,10 +12,10 @@ export type DemoCorpusEntry = Omit<ListyInjectionEntry, "topicId"> & {
 
 export interface DemoCorpus {
   id: DemoTopicId;
-  hashtag: "ChineseEVs" | "AIWorkforce" | "EnergyTech";
+  hashtag: "ChineseEVs" | "AIWorkforce" | "EnergyTech" | "Tariffs";
   label: string;
   description: string;
-  routeBase: "/ChineseEVs" | "/AIWorkforce" | "/EnergyTech";
+  routeBase: "/ChineseEVs" | "/AIWorkforce" | "/EnergyTech" | "/Tariffs";
   entries: DemoCorpusEntry[];
 }
 
@@ -87,6 +87,14 @@ export const DEMO_CORPORA: Readonly<Record<DemoTopicId, DemoCorpus>> = {
     routeBase: "/EnergyTech",
     entries: scaleEntriesByTopic.get("energy-tech") ?? [],
   },
+  tariffs: {
+    id: "tariffs",
+    hashtag: "Tariffs",
+    label: "Tariffs and trade",
+    description: "Tariffs, trade retaliation, supply chains, and industrial protection",
+    routeBase: "/Tariffs",
+    entries: scaleEntriesByTopic.get("tariffs") ?? [],
+  },
 };
 
 export const allDemoEntries: DemoCorpusEntry[] = [
@@ -132,6 +140,28 @@ export function getDemoCorpus(topicId: string): DemoCorpus | undefined {
 
 export function getDemoCorpusByHashtag(hashtag: string): DemoCorpus | undefined {
   return corpusByHashtag.get(hashtag.trim().replace(/^#/, "").toLowerCase());
+}
+
+function matchesPrefix(path: string, prefix: string): boolean {
+  return path === prefix || path.startsWith(`${prefix}/`);
+}
+
+/**
+ * Corpus that owns a pathname, entered either through its canonical route base
+ * (/EnergyTech/...) or through hashtag discovery (/tag/EnergyTech), which
+ * renders the same feed. Undefined for routes outside the bundled corpora.
+ */
+export function getDemoCorpusByPath(pathname: string | null | undefined): DemoCorpus | undefined {
+  if (!pathname) return undefined;
+  const path = pathname.toLowerCase();
+  for (const topicId of DEMO_TOPIC_IDS) {
+    const corpus = DEMO_CORPORA[topicId];
+    if (
+      matchesPrefix(path, corpus.routeBase.toLowerCase())
+      || matchesPrefix(path, `/tag/${corpus.hashtag.toLowerCase()}`)
+    ) return corpus;
+  }
+  return undefined;
 }
 
 export function demoTopicForPost(postId: string): DemoTopicId | undefined {

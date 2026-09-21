@@ -921,9 +921,13 @@ export function beginUndoablePanelInteractionIfDetail(focusId?: string): boolean
   const scope = currentPanelScope();
   if (
     !scope ||
+    // Listed literally rather than read from data/demoCorpora: this module is
+    // bundled by the live /posts/[id] route, which must not pull the demo
+    // fixtures in. Add new corpus route bases here too.
     (!scope.pathname.startsWith("/ChineseEVs/posts/")
       && !scope.pathname.startsWith("/AIWorkforce/posts/")
       && !scope.pathname.startsWith("/EnergyTech/posts/")
+      && !scope.pathname.startsWith("/Tariffs/posts/")
       && !scope.pathname.startsWith("/posts/"))
   ) return false;
   if (focusId !== undefined && scope.focusId !== focusId) return false;
