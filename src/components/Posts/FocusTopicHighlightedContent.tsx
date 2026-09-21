@@ -727,7 +727,16 @@ const FocusTopicHighlightedContent = React.forwardRef<
     const glyph = Array.from(range.getClientRects()).find((rect) => rect.width > 0);
     if (!glyph) return;
     const leading = Math.max(0, (lineHeight - glyph.height) / 2);
-    const target = Math.max(0, glyph.top - elementRect.top + element.scrollTop - leading);
+    // The ::after spacer is exactly one window tall, so the real content height
+    // is scrollHeight minus it. A post that already fits its window has nothing
+    // worth scrolling to: top-aligning a late passage would push the opening
+    // lines out of view and leave the spacer showing as empty space, while the
+    // whole post was on screen to begin with.
+    const contentHeight = element.scrollHeight - elementRect.height;
+    const fitsWindow = contentHeight <= elementRect.height + 1;
+    const target = fitsWindow
+      ? 0
+      : Math.max(0, glyph.top - elementRect.top + element.scrollTop - leading);
     element.scrollTo({ top: target, behavior: "instant" as ScrollBehavior });
 
     // Paragraph spacing is not necessarily a multiple of the line height.
