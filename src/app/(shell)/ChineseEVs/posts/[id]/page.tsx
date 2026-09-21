@@ -173,6 +173,14 @@ export default function MockPostView() {
   const [postedReplyId, setPostedReplyId] = useState<string | null>(null);
   const restoredRouteRef = useRef<string | null>(null);
 
+  const focusAnchorRef = useRef<HTMLDivElement>(null);
+  const [focusCompact, setFocusCompact] = useState(false);
+  useEffect(() => {
+    const sync = () => setFocusCompact((replyScrollRef.current?.scrollTop ?? 0) > 40
+      || (focusAnchorRef.current?.getBoundingClientRect().top ?? 100) < 64);
+    window.addEventListener("scroll", sync, { passive: true });
+    return () => window.removeEventListener("scroll", sync);
+  }, [id]);
   const [focusHeight, setFocusHeight] = useState(300);
   const replyScrollRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -210,6 +218,7 @@ export default function MockPostView() {
   useLayoutEffect(() => {
     if (replyScrollRef.current && showThread) {
       replyScrollRef.current.scrollTop = Number(sessionStorage.getItem(`reply-scroll:${id}`) ?? 0);
+      setFocusCompact(Number(sessionStorage.getItem(`reply-scroll:${id}`) ?? 0) > 40);
     }
   }, [id, showThread]);
 
@@ -882,6 +891,12 @@ export default function MockPostView() {
       activeClusterTopic={showReplyContributions ? activeReplyTopicFilter ?? replyCluster?.topic ?? null : undefined}
       replyCountForSpans={isFocusPost ? replyCountForSpans : undefined}
       clampLines={isFocusPost ? 5 : 10}
+      compact={isFocusPost && focusCompact}
+      onExpandCompact={() => {
+        if (replyScrollRef.current) replyScrollRef.current.scrollTop = 0;
+        if (focusAnchorRef.current) window.scrollTo(0, Math.max(0, window.scrollY + focusAnchorRef.current.getBoundingClientRect().top - 72));
+        setFocusCompact(false);
+      }}
       // Keep every post/reply on the mock-backed detail route. Without this the
       // Post component falls back to the real /posts/[id] route, which requires a
       // Mastodon access token and renders a blank "Access token is missing" screen.
@@ -950,7 +965,7 @@ export default function MockPostView() {
     >
       <BackButton />
       <div>
-        <div style={{ position: "relative" }}>
+        <div style={{ display: "contents" }}>
           {/* Ancestors — thread connector line runs at the avatar column,
               BEHIND the Post's Paper (zIndex 0 < Paper's zIndex 5). The line
               is hidden inside each card and visible only in the gap between
@@ -989,13 +1004,17 @@ export default function MockPostView() {
             </div>
           )}
 
+          <div ref={focusAnchorRef} />
           {/* Focus post — WS3/T2 arrival fade: on a click-to-focus nav the
               wrapper rises from FOCUS_ENTER_TRANSLATE px + FOCUS_ENTER_OPACITY
               to its resting spot. "from"/"to" are only set when the animate
               intent fired; "idle" leaves it untouched for normal loads. */}
           <div
             style={{
-              position: "relative",
+              position: "sticky",
+              top: TOP_NAV_HEIGHT + 8,
+              zIndex: 20,
+              background: "white",
               transform:
                 focusEnter === "from"
                   ? `translateY(${FOCUS_ENTER_TRANSLATE}px)`
@@ -1004,7 +1023,7 @@ export default function MockPostView() {
               transition: focusEnter === "to" ? FOCUS_ENTER_TRANSITION : undefined,
               willChange: focusEnter === "idle" ? undefined : "transform, opacity",
             }}
-            ref={focusWrapRef}
+            ref={focusWrapRef} data-focus-compact={focusCompact ? "true" : "false"}
           >
             {renderPost(post, /* isFocusPost */ true)}
           </div>
@@ -1014,10 +1033,15 @@ export default function MockPostView() {
           ref={replyScrollRef}
           data-testid="reply-scroll-region"
           onScroll={(event) => {
+            if (!focusCompact && event.currentTarget.scrollTop > 40 && focusAnchorRef.current) {
+              const top = focusAnchorRef.current.getBoundingClientRect().top;
+              if (top > 72) window.scrollBy(0, top - 72);
+            }
+            setFocusCompact(event.currentTarget.scrollTop > 40 || (focusAnchorRef.current?.getBoundingClientRect().top ?? 100) < 64);
             sessionStorage.setItem(`reply-scroll:${id}`, String(event.currentTarget.scrollTop));
             sessionStorage.setItem(`reply-visible:${id}`, String(visibleTopLevelReplies));
           }}
-          style={{ overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${TOP_NAV_HEIGHT + focusHeight + 64}px)`, minHeight: 160 }}
+          style={{ overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${focusHeight + 72}px)`, minHeight: 160 }}
         >
         <Divider my="md" />
 

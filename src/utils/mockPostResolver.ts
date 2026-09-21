@@ -199,7 +199,9 @@ export function getMockReplies(id: string): MockPostType[] {
     // Descendant display text is backend-decontextualized and its relation
     // offsets are scoped to this focus entry. Prefer that scoped copy over the
     // same post's canonical focused-body copy.
-    const post = replyByFocusAndId.get(`${id}:${cid}`)?.reply ?? allPostsById.get(cid);
+    const post = replyByFocusAndId.get(`${id}:${cid}`)?.reply
+      ?? entryByFocusId.get(id)?.relatedPosts.find((related) => related.id === cid)
+      ?? allPostsById.get(cid);
     // A post can occur twice in the fixture: once as a related response and
     // once as a reply. The related copy may omit its parent, so pass the
     // canonical graph edge instead of whichever copy happened to be stored.
@@ -307,12 +309,13 @@ export function getMockReplyRelations(id: string, focusId?: string): Relation[] 
     ? replyByFocusAndId.get(`${focusId}:${id}`)
     : replyById.get(id)?.[0];
   if (fromReply && (!focusId || fromReply.parent.focusPost.id === focusId)) {
-    return firstTypeRelations(fromReply.reply.relations);
+    const relations = firstTypeRelations(fromReply.reply.relations);
+    if (relations.length > 0) return relations;
   }
-  const fromRelated = relatedById.get(id);
-  if (fromRelated && (!focusId || fromRelated.parent.focusPost.id === focusId)) {
-    return firstTypeRelations(fromRelated.rp.relations);
-  }
+  const related = focusId
+    ? entryByFocusId.get(focusId)?.relatedPosts.find((post) => post.id === id)
+    : relatedById.get(id)?.rp;
+  if (related) return firstTypeRelations(related.relations);
   return [];
 }
 

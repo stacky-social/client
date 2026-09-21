@@ -237,6 +237,8 @@ interface PostProps {
   focusRelations?: Relation[];
   /** Collapsed line-clamp before "Read more" (feed uses 5; the full-post view passes more, e.g. 10). */
   clampLines?: number;
+  compact?: boolean;
+  onExpandCompact?: () => void;
   /** Related-card-style relations whose content offsets index THIS post's own
    *  text (replies in the thread view). Renders colored category spans. */
   contentRelations?: Relation[];
@@ -283,6 +285,8 @@ function Post({
   onNavigate,
   focusRelations = [],
   clampLines = 5,
+  compact = false,
+  onExpandCompact,
   contentRelations,
   categoryBadges,
   onContentSpanClick,
@@ -317,7 +321,8 @@ function Post({
   const [mediaAttachments, setMediaAttachments] = useState<string[]>(initialMedia);
   const isActive = activePostId === id;
   const [isExpanded, setIsExpanded] = useState(isActive);
-  const [isTextExpanded, setIsTextExpanded] = useState(false);
+  const [textExpanded, setIsTextExpanded] = useState(false);
+  const isTextExpanded = textExpanded && !compact;
   // NB: the highlight layer's scroll-to-span is fully self-contained inside
   // ActiveHighlightedContent (fixed-window mode) — no reveal state lives here.
   const isTextExpandedRef = useRef(isTextExpanded);
@@ -433,7 +438,7 @@ function Post({
       element.removeEventListener('scroll', measureOverflow);
       resizeObserver.disconnect();
     };
-  }, [displayText, text, isTextExpanded, clampLines, contentRelations, focusRelations]);
+  }, [displayText, text, isTextExpanded, compact, clampLines, contentRelations, focusRelations]);
   useEffect(() => {
     setTempRelatedStacks(relatedStacks);
   }, [relatedStacks]);
@@ -756,6 +761,7 @@ function Post({
   const handleExpandText = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     event.preventDefault();
+    if (compact) onExpandCompact?.();
     setIsTextExpanded(true);
     setIsOverflowing(false);
   };
@@ -963,7 +969,7 @@ function Post({
           style={{
             display: isTextExpanded ? 'block' : '-webkit-box',
             WebkitBoxOrient: 'vertical',
-            WebkitLineClamp: isTextExpanded ? undefined : clampLines,
+            WebkitLineClamp: isTextExpanded ? undefined : compact ? 3 : clampLines,
             overflow: isTextExpanded ? 'visible' : 'hidden',
             textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
             // No maxHeight: the line-clamp owns the collapsed height. A static
@@ -1016,9 +1022,10 @@ function Post({
                   // highlight layer switches this box to an internally-scrolled
                   // window at the MEASURED clamp height while a cross-highlight
                   // is active (fixed window — never grows).
-                  display: '-webkit-box',
+                  display: compact ? 'block' : '-webkit-box',
+                  height: compact ? '4.5em' : undefined,
                   WebkitBoxOrient: 'vertical',
-                  WebkitLineClamp: clampLines,
+                  WebkitLineClamp: compact ? 3 : clampLines,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   marginTop: '0px',
@@ -1034,7 +1041,7 @@ function Post({
           style={{
             display: isTextExpanded ? 'block' : '-webkit-box',
             WebkitBoxOrient: 'vertical',
-            WebkitLineClamp: isTextExpanded ? undefined : clampLines,
+            WebkitLineClamp: isTextExpanded ? undefined : compact ? 3 : clampLines,
             overflow: isTextExpanded ? 'visible' : 'hidden',
             textOverflow: isTextExpanded ? 'unset' : 'ellipsis',
             // No maxHeight — see the clamp comment above (half-line crop).
@@ -1092,7 +1099,7 @@ function Post({
         </Anchor>
       )}
     </div>
-          {quotedPost && (
+          {!compact && quotedPost && (
             <button
               type="button"
               className="quoted-post-card"
@@ -1128,7 +1135,7 @@ function Post({
               </span>
             </button>
           )}
-          {POST_IMAGES_ENABLED && mediaAttachments.length > 0 && (
+          {!compact && POST_IMAGES_ENABLED && mediaAttachments.length > 0 && (
             <div style={{ paddingLeft: '0', paddingRight: '0', paddingTop: '1rem' }}>
               {mediaAttachments.map((url, index) => (
                 <img key={index} src={url} alt={`Attachment ${index + 1}`} loading="lazy" decoding="async" style={{ width: '100%', marginBottom: '10px' }} />
@@ -1136,7 +1143,7 @@ function Post({
             </div>
           )}
 
-          {POST_IMAGES_ENABLED && previewCards.slice(0, 1).map((card, index) =>
+          {!compact && POST_IMAGES_ENABLED && previewCards.slice(0, 1).map((card, index) =>
             card.image ? (
               <a
                 key={index}
@@ -1164,8 +1171,8 @@ function Post({
           )}
         </div>
 
-        <Divider style={{ marginTop:'1rem', marginLeft: BODY_INDENT_PX }}/>
-        <div style={{ paddingLeft: `${BODY_INDENT_PX}px`, paddingRight: '0' }}>
+        {!compact && <Divider style={{ marginTop:'1rem', marginLeft: BODY_INDENT_PX }}/>}
+        <div style={{ display: compact ? 'none' : undefined, paddingLeft: `${BODY_INDENT_PX}px`, paddingRight: '0' }}>
           <Group style={{ display: 'flex', justifyContent: 'space-between', paddingTop:'0.1rem', paddingBottom:'0.1rem', marginBottom: stackCount !== null && stackCount > 1 ? '0px' : '0px' }}>
             <InteractionControl
               icon={<IconMessageCircle size={20} />}

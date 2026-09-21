@@ -5,6 +5,9 @@ import type { Relation } from "../../types/PostType";
 import { getCategoryColors, hexToRgba } from "../../utils/categoryStyles";
 import {
   setHoveredSidebarPost,
+  clearHoveredSidebarPost,
+  setHoveredCategory,
+  useHighlightStore,
   setHoveredHighlightRangeIndex,
 } from "../../utils/highlightStore";
 import { showTooltip, hideTooltip } from "../HoverTooltip";
@@ -42,6 +45,7 @@ export default function ReplyHighlightedContent({
   otherCountByTopic,
   activeClusterTopic = null,
 }: ReplyHighlightedContentProps) {
+  const { focusHoverRanges } = useHighlightStore();
   const [hovered, setHovered] = useState(false);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   // Mirror of hoveredIdx for the debounced publish below: setHoveredSidebarPost
@@ -67,12 +71,12 @@ export default function ReplyHighlightedContent({
     return () => {
       if (enterTimer.current) clearTimeout(enterTimer.current);
       if (publishedRef.current) {
-        setHoveredSidebarPost(null);
+        clearHoveredSidebarPost(replyId);
         publishedRef.current = false;
       }
       if (tooltipShownByMeRef.current) hideTooltip();
     };
-  }, []);
+  }, [replyId]);
 
   const publishHover = () => {
     setHovered(true);
@@ -80,6 +84,7 @@ export default function ReplyHighlightedContent({
     // Same 90ms coalescing as the related cards: sweeping the cursor across the
     // reply list must not fire a cross-highlight per card boundary.
     enterTimer.current = setTimeout(() => {
+      setHoveredCategory(null);
       setHoveredSidebarPost(replyId, relations);
       publishedRef.current = true;
       if (hoveredIdxRef.current != null) setHoveredHighlightRangeIndex(hoveredIdxRef.current);
@@ -92,10 +97,9 @@ export default function ReplyHighlightedContent({
     if (enterTimer.current) clearTimeout(enterTimer.current);
     enterTimer.current = setTimeout(() => {
       if (publishedRef.current) {
-        setHoveredSidebarPost(null);
+        clearHoveredSidebarPost(replyId);
         publishedRef.current = false;
       }
-      setHoveredHighlightRangeIndex(null);
     }, 60);
     hideOwnTooltip();
   };
@@ -128,8 +132,9 @@ export default function ReplyHighlightedContent({
     if (r.contentStart > cursor) nodes.push(plainText.slice(cursor, r.contentStart));
     const colors = getCategoryColors(r.category);
     const segText = plainText.slice(r.contentStart, r.contentEnd);
-    const isSpanHovered = hoveredIdx === origIdx;
-    const alpha = isSpanHovered || hovered ? 1 : 0.7;
+    const reverseMatched = focusHoverRanges?.some((range) => r.focusStart < range.end && range.start < r.focusEnd) ?? false;
+    const isSpanHovered = hoveredIdx === origIdx || reverseMatched;
+    const alpha = isSpanHovered || hovered ? 1 : focusHoverRanges?.length ? 0.25 : 0.7;
     // Bold sub-phrase (contentComment) shown while the span is hovered — matches
     // the related cards' non-reflowing text-shadow emphasis.
     const cs = r.contentCommentStart - r.contentStart;
@@ -148,6 +153,7 @@ export default function ReplyHighlightedContent({
       <mark
         key={origIdx}
         data-reply-range-id={origIdx}
+        data-focus-cross-highlight={reverseMatched ? "true" : undefined}
         data-continuous-inline-highlight
         style={{
           background: alpha < 1 ? hexToRgba(colors.bg, alpha) : colors.bg,
@@ -159,6 +165,9 @@ export default function ReplyHighlightedContent({
           WebkitTapHighlightColor: "transparent",
         }}
         onMouseEnter={(e) => {
+          setHoveredCategory(null);
+          setHoveredSidebarPost(replyId, relations);
+          publishedRef.current = true;
           setHoveredIdx(origIdx);
           hoveredIdxRef.current = origIdx;
           setHoveredHighlightRangeIndex(origIdx);
@@ -177,6 +186,13 @@ export default function ReplyHighlightedContent({
             });
             tooltipShownByMeRef.current = true;
           }
+        }}
+        onMouseMove={() => {
+          setHoveredCategory(null);
+          setHoveredSidebarPost(replyId, relations);
+          publishedRef.current = true;
+          hoveredIdxRef.current = origIdx;
+          setHoveredHighlightRangeIndex(origIdx);
         }}
         onMouseLeave={(event) => {
           // Wrapped inline marks have a small line-height gap between their DOM

@@ -15,6 +15,7 @@ import {
   clearTopicInteraction,
   registerFocusTopicRelations,
   useHighlightStore,
+  setFocusHoverRanges,
 } from "../../utils/highlightStore";
 import { renderFocusCompositeHtml } from "../../utils/focusHighlightHtml.mjs";
 import {
@@ -358,7 +359,16 @@ const FocusTopicHighlightedContent = React.forwardRef<
     const topicsFor = (mark: HTMLElement, ids = rangeIdsFor(mark)) =>
       focusTopicCandidates(relationsRef.current, ids, stacksRef.current);
 
+    let publishedFocusHover = false;
     const paintHover = (ids: number[]) => {
+      if (activeRef.current) {
+        setFocusHoverRanges(ids.length ? ids.flatMap((id) => {
+          const relation = relationsRef.current[id];
+          return relation ? [{ start: relation.focusCommentEnd > relation.focusCommentStart ? relation.focusCommentStart : relation.focusStart,
+            end: relation.focusCommentEnd > relation.focusCommentStart ? relation.focusCommentEnd : relation.focusEnd }] : [];
+        }) : null);
+        publishedFocusHover = ids.length > 0;
+      }
       directHoverIdsRef.current = ids;
       reconcileMarks();
     };
@@ -449,8 +459,10 @@ const FocusTopicHighlightedContent = React.forwardRef<
       const ids = rangeIdsFor(mark);
       const topics = topicsFor(mark, ids);
       if (topics.length === 0) {
-        activeBucket = "";
-        paintHover([]);
+        // Reply-only passages still cross-highlight even without an aside
+        // topic to offer in the picker.
+        activeBucket = ids.join(",");
+        paintHover(ids);
         cancelHoverFeedback();
         return;
       }
@@ -576,6 +588,15 @@ const FocusTopicHighlightedContent = React.forwardRef<
       }
     };
 
+    const onOutsidePointerMove = (event: PointerEvent) => {
+      if (directHoverIdsRef.current.length > 0 && !pickerOpenRef.current
+        && event.target instanceof Node && !element.contains(event.target)) {
+        activeBucket = "";
+        paintHover([]);
+        cancelHoverFeedback();
+      }
+    };
+    document.addEventListener("pointermove", onOutsidePointerMove);
     element.addEventListener("mousemove", onMouseMove);
     element.addEventListener("mouseover", onMouseMove);
     element.addEventListener("mouseleave", onMouseLeave);
@@ -584,6 +605,8 @@ const FocusTopicHighlightedContent = React.forwardRef<
     element.addEventListener("click", onClick, true);
     element.addEventListener("keydown", onKeyDown, true);
     return () => {
+      document.removeEventListener("pointermove", onOutsidePointerMove);
+      if (publishedFocusHover) setFocusHoverRanges(null);
       element.removeEventListener("mousemove", onMouseMove);
       element.removeEventListener("mouseover", onMouseMove);
       element.removeEventListener("mouseleave", onMouseLeave);
@@ -619,10 +642,13 @@ const FocusTopicHighlightedContent = React.forwardRef<
         if (matches.length > 0) source = matches;
       }
       return focusRelations.flatMap((relation, index) =>
-        source.some((candidate) =>
-          candidate.focusStart < relation.focusEnd
-          && relation.focusStart < candidate.focusEnd,
-        ) ? [index] : [],
+        source.some((candidate) => {
+          const sourceStart = candidate.focusCommentEnd > candidate.focusCommentStart ? candidate.focusCommentStart : candidate.focusStart;
+          const sourceEnd = candidate.focusCommentEnd > candidate.focusCommentStart ? candidate.focusCommentEnd : candidate.focusEnd;
+          const start = relation.focusCommentEnd > relation.focusCommentStart ? relation.focusCommentStart : relation.focusStart;
+          const end = relation.focusCommentEnd > relation.focusCommentStart ? relation.focusCommentEnd : relation.focusEnd;
+          return sourceStart < end && start < sourceEnd;
+        }) ? [index] : [],
       );
     }
     if (selectedIndex !== null) return [selectedIndex];
@@ -645,6 +671,8 @@ const FocusTopicHighlightedContent = React.forwardRef<
   ]);
   const revealKey = revealIndices.join(",");
 
+  useLayoutEffect(() => { setScrollWindowHeight(null); }, [style?.WebkitLineClamp]);
+
   useLayoutEffect(() => {
     const element = innerRef.current;
     if (!element) return;
@@ -654,9 +682,15 @@ const FocusTopicHighlightedContent = React.forwardRef<
       return;
     }
     const ids = new Set(revealIndices.map(String));
-    const mark = (Array.from(
-      element.querySelectorAll<HTMLElement>('mark[data-range-ids]'),
-    )).find((candidate) =>
+    const candidates = Array.from(element.querySelectorAll<HTMLElement>('mark[data-range-ids]'));
+    const targetRelation = hoveredRelations?.[hoveredHighlightRangeIndex ?? 0];
+    const hasComment = targetRelation && targetRelation.focusCommentEnd > targetRelation.focusCommentStart;
+    const targetStart = hasComment ? targetRelation.focusCommentStart : targetRelation?.focusStart;
+    const targetEnd = hasComment ? targetRelation.focusCommentEnd : targetRelation?.focusEnd;
+    const mark = candidates.find((candidate) =>
+      targetStart != null && targetEnd != null
+      && Number(candidate.dataset.fs) < targetEnd && targetStart < Number(candidate.dataset.fe),
+    ) ?? candidates.find((candidate) =>
       (candidate.getAttribute("data-range-ids") || "")
         .split(/\s+/)
         .some((id) => ids.has(id)),
@@ -678,9 +712,12 @@ const FocusTopicHighlightedContent = React.forwardRef<
       || Number.parseFloat(computed.fontSize) * 1.5;
     const markTop = markRect.top - elementRect.top + element.scrollTop;
     const maxScroll = Math.max(0, element.scrollHeight - element.clientHeight);
-    const target = Math.min(maxScroll, Math.max(0, Math.floor(markTop / lineHeight) * lineHeight));
+    // Paragraph gaps need not be multiples of line height. Align the actual
+    // target line instead of rounding the document offset and clipping a line.
+    const leading = Math.max(0, (lineHeight - Number.parseFloat(computed.fontSize)) / 2);
+    const target = Math.min(maxScroll, Math.max(0, markTop - leading));
     element.scrollTo({ top: target, behavior: "auto" });
-  }, [revealIndices, revealKey, scrollWindowHeight]);
+  }, [revealIndices, revealKey, scrollWindowHeight, hoveredRelations, hoveredHighlightRangeIndex, style?.WebkitLineClamp]);
 
   const mergedStyle: React.CSSProperties = scrollWindowHeight !== null
     ? {

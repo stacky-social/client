@@ -169,6 +169,11 @@ export function setHoveredSidebarPost(
   notify();
 }
 
+/** A delayed leave from one card must not clear a newer card's hover. */
+export function clearHoveredSidebarPost(postId: string): void {
+  if (state.hoveredPostId === postId) setHoveredSidebarPost(null);
+}
+
 /** End only the transient aside→focus paint. The last relation/range/category
  * stays retained so the focus post keeps its exact reading position. */
 export function setSidebarHoverActive(active: boolean): void {

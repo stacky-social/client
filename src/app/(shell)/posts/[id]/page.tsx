@@ -126,6 +126,14 @@ export default function PostView() {
   // Layout/positioning
   const currentPostRef = useRef<HTMLDivElement>(null);
   const replyScrollRef = useRef<HTMLDivElement>(null);
+  const focusAnchorRef = useRef<HTMLDivElement>(null);
+  const [focusCompact, setFocusCompact] = useState(false);
+  useEffect(() => {
+    const sync = () => setFocusCompact((replyScrollRef.current?.scrollTop ?? 0) > 40
+      || (focusAnchorRef.current?.getBoundingClientRect().top ?? 100) < 64);
+    window.addEventListener("scroll", sync, { passive: true });
+    return () => window.removeEventListener("scroll", sync);
+  }, [id]);
   const [focusHeight, setFocusHeight] = useState(300);
   useLayoutEffect(() => {
     const focus = currentPostRef.current;
@@ -136,6 +144,7 @@ export default function PostView() {
   }, [post?.id]);
   useLayoutEffect(() => {
     if (replyScrollRef.current) replyScrollRef.current.scrollTop = Number(sessionStorage.getItem(`reply-scroll:${id}`) ?? 0);
+    setFocusCompact(Number(sessionStorage.getItem(`reply-scroll:${id}`) ?? 0) > 40);
   }, [id, post?.id]);
 
   const mainRef = useRef<HTMLDivElement>(null);
@@ -592,6 +601,12 @@ export default function PostView() {
       relatedStacks={[]}
       setActivePostId={setActivePostId}
       activePostId={highlightId}
+      compact={p.id === id && focusCompact}
+      onExpandCompact={() => {
+        if (replyScrollRef.current) replyScrollRef.current.scrollTop = 0;
+        if (focusAnchorRef.current) window.scrollTo(0, Math.max(0, window.scrollY + focusAnchorRef.current.getBoundingClientRect().top - 72));
+        setFocusCompact(false);
+      }}
     />
   );
 
@@ -626,7 +641,7 @@ export default function PostView() {
     <div ref={mainRef} style={{ position: "relative" }}>
       <BackButton />
       <div>
-        <div style={{ position: "relative" }}>
+        <div style={{ display: "contents" }}>
           {/* Ancestors — thread connector line runs at the avatar column,
               BEHIND the Post's Paper (zIndex 0 < Paper's zIndex 5). Visible
               only in the gap between cards, matching the Twitter-style thread
@@ -659,8 +674,9 @@ export default function PostView() {
             </div>
           )}
 
+          <div ref={focusAnchorRef} />
           {/* Current Post */}
-          <div ref={currentPostRef} style={{ position: "relative" }}>
+          <div ref={currentPostRef} data-focus-compact={focusCompact ? "true" : "false"} style={{ position: "sticky", top: 64, zIndex: 20, background: "white" }}>
             {post && renderPost(post)}
           </div>
         </div>
@@ -669,10 +685,15 @@ export default function PostView() {
           ref={replyScrollRef}
           data-testid="reply-scroll-region"
           onScroll={(event) => {
+            if (!focusCompact && event.currentTarget.scrollTop > 40 && focusAnchorRef.current) {
+              const top = focusAnchorRef.current.getBoundingClientRect().top;
+              if (top > 72) window.scrollBy(0, top - 72);
+            }
+            setFocusCompact(event.currentTarget.scrollTop > 40 || (focusAnchorRef.current?.getBoundingClientRect().top ?? 100) < 64);
             sessionStorage.setItem(`reply-scroll:${id}`, String(event.currentTarget.scrollTop));
             sessionStorage.setItem(`reply-visible:${id}`, String(visibleTopLevelReplies));
           }}
-          style={{ overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${focusHeight + 124}px)`, minHeight: 160 }}
+          style={{ overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${focusHeight + 72}px)`, minHeight: 160 }}
         >
         <Divider my="md" />
 

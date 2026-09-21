@@ -23,6 +23,8 @@ test('children scroll beneath a stationary focused post', async ({ page }) => {
   const region = page.getByTestId('reply-scroll-region');
   await expect(region.locator('[data-testid="post"]').first()).toBeVisible();
   const focus = page.locator('[data-testid="feed"] [data-post-id="152053690"]');
+  await region.evaluate((el) => { el.scrollTop = 100; });
+  await expect(page.locator('[data-focus-compact]')).toHaveAttribute('data-focus-compact', 'true');
   const before = await focus.boundingBox();
   const windowY = await page.evaluate(() => window.scrollY);
   await region.evaluate((el) => { el.scrollTop = 200; });
