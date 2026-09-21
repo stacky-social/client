@@ -3413,8 +3413,21 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                   // showed "(8)" over a visible 5-card cluster — confusing.)
                   let clusterCount = 0;
                   postTopics.forEach((topics) => { if (topics.has(indicatorTopic)) clusterCount++; });
-                  const baseOpacity = isCurrentAnchor ? 1 : 0.75;
+                  // Every chip in a group reads the same. The anchor used to carry a
+                  // filled pill at full opacity, which made the card you clicked look
+                  // like a different control from the members it grouped; `aria-pressed`
+                  // and the `active-group-anchor` hook still identify it.
+                  const baseOpacity = 0.75;
                   return (
+                    // Its own row. Sharing the header row left placement depending on
+                    // whether the card happened to carry a "Modified" badge, so
+                    // neighbouring cards in one group sat the chip at different heights.
+                    <div style={{
+                      flexBasis: '100%',
+                      display: 'flex',
+                      justifyContent: 'flex-end',
+                      minWidth: 0,
+                    }}>
                     <button
                       type="button"
                       // Stable hook for "aside grouping is active": present on the
@@ -3429,13 +3442,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       aria-label={`Show more posts about ${indicatorTopic}`}
                       aria-pressed={isCurrentAnchor}
                       style={{
-                        marginLeft: 'auto',
                         alignSelf: 'flex-start',
                         flexShrink: 0,
-                        background: isCurrentAnchor ? indicatorColors.bg : 'transparent',
-                        border: isCurrentAnchor ? `1px solid ${indicatorColors.border}55` : 'none',
+                        background: 'transparent',
+                        border: 'none',
                         borderRadius: '4px',
-                        padding: isCurrentAnchor ? '1px 5px' : '1px 4px',
+                        padding: '1px 4px',
                         cursor: 'pointer',
                         color: indicatorColor,
                         fontSize: '11px',
@@ -3466,6 +3478,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       <span style={{ flexShrink: 0 }}>({clusterCount})</span>
                       <span aria-hidden style={{ flexShrink: 0, fontSize: '10px', marginLeft: '1px' }}>&#x203A;</span>
                     </button>
+                    </div>
                   );
                 })()}
                 </div>
