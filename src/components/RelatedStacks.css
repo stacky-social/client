@@ -104,6 +104,17 @@
     to { transform: rotate(360deg); }
   }
 
+  /* Frozen copy of the active group's header (see measureGroupSticky). Hidden
+     by default; RelatedStacks flips data-visible on scroll without a render.
+     visibility (not display) keeps its height measurable while hidden. */
+  .related-group-sticky-bar {
+    visibility: hidden;
+  }
+
+  .related-group-sticky-bar[data-visible="true"] {
+    visibility: visible;
+  }
+
   /* Contextual AI edits borrow the visual grammar of document track changes:
      red strike-through for removed language, green underline for additions. */
   /* The "Modified" pill is the second row of a related card's name block, not

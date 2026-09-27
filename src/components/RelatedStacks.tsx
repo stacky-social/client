@@ -1078,6 +1078,37 @@ function restingViewportTop(element: HTMLElement): number {
   }
 }
 
+// ─── Frozen group header geometry ───────────────────────────────────────────
+// A group block is a run of sibling rows (header, cards), so its header cannot
+// simply be `position: sticky` — it would stick over the cards after it. A
+// zero-height sticky overlay right under the panel's sticky header carries a
+// copy instead, shown only while the real header has scrolled above that line
+// and the group's last card still reaches below it.
+
+/** The reading line (bottom of the panel's sticky header), the frozen copy's
+ *  height, and whether the copy is showing for the current scroll position. */
+function measureGroupSticky(aside: HTMLElement): { line: number; height: number; visible: boolean } {
+  const header = aside.querySelector('[data-testid="related-sticky-header"]');
+  const line = header?.getBoundingClientRect().bottom ?? aside.getBoundingClientRect().top;
+  const bar = aside.querySelector('[data-related-group-sticky-bar]') as HTMLElement | null;
+  const height = bar?.offsetHeight ?? 0;
+  const groupHeader = aside.querySelector('[data-related-group-header]');
+  const lastCard = aside.querySelector('[data-related-group-end="true"]');
+  const visible = !!bar && !!groupHeader && !!lastCard
+    && groupHeader.getBoundingClientRect().top < line - 0.5
+    && lastCard.getBoundingClientRect().bottom > line + height;
+  return { line, height, visible };
+}
+
+/** Extra top inset for a card whose top edge is being placed at the reading
+ *  line: a member of the active group sits under the frozen group header
+ *  there, so viewport anchoring must measure from below that copy. */
+function groupStickyInset(aside: HTMLElement, card: Element | null): number {
+  if (!card || !card.hasAttribute('data-related-group-member')) return 0;
+  const bar = aside.querySelector('[data-related-group-sticky-bar]') as HTMLElement | null;
+  return bar?.offsetHeight ?? 0;
+}
+
 // ─── "More like this" word overlap scoring ──────────────────────────────────
 
 const STOP_WORDS = new Set(["the","a","an","is","are","was","were","be","been","being","have","has","had","do","does","did","will","would","could","should","may","might","shall","can","need","to","of","in","for","on","with","at","by","from","as","into","through","during","before","after","above","below","between","out","off","over","under","again","further","then","once","that","this","these","those","it","its","and","but","or","nor","not","so","very","just","about","also","than","too","only","same","both","each","all","any","few","more","most","other","some","such","no","up","if","we","they","i","you","he","she","who","which","what","when","where","how","why"]);
@@ -1872,7 +1903,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     const snapshot: PanelViewportSnapshot = {
       scrollTop: aside.scrollTop,
       anchorPostId: anchor?.querySelector('[data-post-id]')?.getAttribute('data-post-id') ?? null,
-      anchorOffset: anchor ? restingViewportTop(anchor) - contentTop : 0,
+      // Measured (and restored) from below the frozen group header for a group
+      // member, so an explicit small offset never parks a card under it.
+      anchorOffset: anchor ? restingViewportTop(anchor) - contentTop - groupStickyInset(aside, anchor) : 0,
       visibleCardCount: visibleCardCountRef.current,
     };
     savePanelViewport(focusId, snapshot);
@@ -1949,7 +1982,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       pendingViewportFallbackTimerRef.current = null;
     }
     if (anchor) {
-      aside.scrollTop += restingViewportTop(anchor) - contentTop - pending.anchorOffset;
+      aside.scrollTop += restingViewportTop(anchor) - contentTop - groupStickyInset(aside, anchor) - pending.anchorOffset;
     } else {
       aside.scrollTop = pending.scrollTop;
     }
@@ -1985,7 +2018,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       if (!aside || !card) return;
       revealedSharedGroupRef.current = revealKey;
       const contentTop = header?.getBoundingClientRect().bottom ?? aside.getBoundingClientRect().top;
-      aside.scrollTop += card.getBoundingClientRect().top - contentTop - 8;
+      // Reveal the group's own header row (it directly precedes the first
+      // card): landing the first card at the top would scroll that header away
+      // and park the card under its frozen copy.
+      const groupHeader = aside.querySelector('[data-related-group-header]') as HTMLElement | null;
+      aside.scrollTop += (groupHeader ?? card).getBoundingClientRect().top - contentTop - 8;
       capturePanelViewport();
     }, 80);
     return () => clearTimeout(timer);
@@ -2303,6 +2340,18 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           const max = Math.max(0, aside.scrollHeight - aside.clientHeight);
           aside.scrollTop = Math.min(max, Math.max(0, aside.scrollTop + delta));
         }
+        // The one exception to holding still: never leave what was just
+        // clicked under the frozen group header that this grouping shows —
+        // the span itself, or for a card pin the type icons (a type icon is
+        // the only card-pinned gesture that can activate a group).
+        const clicked = pinRange !== null
+          ? pinEl
+          : (cardEl?.querySelector('[data-related-tag-cluster]') as HTMLElement | null) ?? pinEl;
+        const sticky = measureGroupSticky(aside);
+        const covered = sticky.visible
+          ? sticky.line + sticky.height - clicked.getBoundingClientRect().top
+          : 0;
+        if (covered > 0) aside.scrollTop = Math.max(0, aside.scrollTop - covered);
       }
     }
 
@@ -2341,6 +2390,43 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     });
     return () => { if (flipRafRef.current) cancelAnimationFrame(flipRafRef.current); };
   }, [reRankAnchorIds, anchoredRangeByPost, shownByAnchor, expandedCards]);
+
+  // ── Frozen group header ────────────────────────────────────────────────────
+  // The copy sits `top: <sticky header height>` below the panel header, which
+  // changes with the chip rows and the "Filtered by" row — track it.
+  const stickyHeaderRef = useRef<HTMLDivElement | null>(null);
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0);
+  useLayoutEffect(() => {
+    const header = stickyHeaderRef.current;
+    if (!header) return;
+    const update = () => setStickyHeaderHeight(header.offsetHeight);
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(update);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+
+  // Visibility is toggled imperatively (a data attribute, styled in CSS), so a
+  // scroll never re-renders the panel. Declared after the pin compensation so
+  // it measures the settled post-toggle scroll position.
+  const groupStickyBarRef = useRef<HTMLDivElement | null>(null);
+  const syncGroupSticky = React.useCallback(() => {
+    const bar = groupStickyBarRef.current;
+    const aside = bar?.closest('[data-testid="col-aside"]') as HTMLElement | null;
+    if (!bar || !aside) return;
+    const next = measureGroupSticky(aside).visible ? 'true' : 'false';
+    if (bar.dataset.visible !== next) bar.dataset.visible = next;
+  }, []);
+  useLayoutEffect(() => {
+    syncGroupSticky();
+  }, [syncGroupSticky, activeGroupHeader, visibleDisplayStacks, expandedCards, stickyHeaderHeight]);
+  useEffect(() => {
+    const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+    if (!aside) return;
+    aside.addEventListener('scroll', syncGroupSticky, { passive: true });
+    return () => aside.removeEventListener('scroll', syncGroupSticky);
+  }, [syncGroupSticky]);
 
   /** Ref-based guard: set when a touch tap just "activated" a card/range so the
    *  synthetic click that follows doesn't also navigate. */
@@ -2638,7 +2724,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       style={{ display: 'flex', flexDirection: 'column' }}
     >
       {/* Sticky header: title + filter chips + count — stays visible while scrolling */}
-      <div data-testid="related-sticky-header" style={{
+      <div ref={stickyHeaderRef} data-testid="related-sticky-header" style={{
         position: 'sticky', top: 0, zIndex: 10,
         // Breathing room so the first row of filter chips doesn't touch the top
         // bar. The padding is part of the sticky white header, so scrolled cards
@@ -2721,6 +2807,70 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
             {activeTopicFilterKey && (
               <FilterByChip kind="topic" label={activeTopicFilterKey} onClear={() => { beginUndoablePanelInteractionIfDetail(); clearTopicInteraction(); }} testId="aside-topic-filter" />
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Frozen group header: a zero-height sticky row right under the panel
+          header, above the card rails (7) and below the panel header (10). Its
+          copy of "Topic (N) ×" shows only while the group's real header has
+          scrolled away and the group is still on screen (syncGroupSticky).
+          Square corners + side rails continue the group's border; the "N
+          more" pagination stays in the footer. A visual duplicate: hidden
+          from assistive tech — the real header × stays the accessible one. */}
+      <div
+        data-testid="related-group-sticky"
+        aria-hidden="true"
+        style={{ position: 'sticky', top: stickyHeaderHeight, height: 0, zIndex: 9 }}
+      >
+        {activeGroupHeader && (
+          <div
+            ref={groupStickyBarRef}
+            className="related-group-sticky-bar"
+            data-related-group-sticky-bar
+            style={{
+              position: 'absolute', top: 0, left: 0, right: 0,
+              display: 'flex', alignItems: 'center', gap: '6px',
+              boxSizing: 'border-box',
+              background: '#ffffff',
+              borderTop: `${GROUP_LINE_WIDTH}px solid ${activeGroupHeader.colors.border}`,
+              borderLeft: `${GROUP_LINE_WIDTH}px solid ${activeGroupHeader.colors.border}`,
+              borderRight: `${GROUP_LINE_WIDTH}px solid ${activeGroupHeader.colors.border}`,
+              padding: '6px 8px 6px 10px',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '11px', fontWeight: 600, color: activeGroupHeader.colors.text,
+                background: activeGroupHeader.colors.bg, border: `1px solid ${activeGroupHeader.colors.border}55`,
+                borderRadius: '4px', padding: '1px 6px',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                maxWidth: '220px',
+              }}
+            >
+              {activeGroupHeader.label} ({activeGroupHeader.count})
+            </span>
+            <button
+              type="button"
+              tabIndex={-1}
+              data-testid="related-group-sticky-dismiss"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleAnchor(activeGroupHeader.anchorId);
+              }}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: '#94a3b8', fontSize: '16px', lineHeight: 1,
+                padding: '6px 8px',
+                minWidth: 24, minHeight: 24,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                borderRadius: 4,
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#475569'; (e.currentTarget as HTMLElement).style.background = '#e2e8f0'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#94a3b8'; (e.currentTarget as HTMLElement).style.background = 'none'; }}
+            >
+              ×
+            </button>
           </div>
         )}
       </div>
@@ -3119,6 +3269,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           const headerEl = renderHeader && anchorForThisCard ? (
             <div
               key={`header-${anchorForThisCard}`}
+              data-related-group-header
               style={{
                 position: 'relative',
                 display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap',
@@ -3221,6 +3372,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               data-related-card
               data-related-group-member={anchorForThisCard ? 'true' : undefined}
               data-related-group-start={isFirstInBlock ? 'true' : undefined}
+              data-related-group-end={isLastInBlock ? 'true' : undefined}
               // Stable hook for "aside grouping is active": the card that
               // anchors the active topic or type group, whatever its size. (It
               // used to live on a per-card "topic (N) ›" row that grew the
