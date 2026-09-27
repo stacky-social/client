@@ -7,9 +7,30 @@ test('scrolling comments pins a compact focus and reveals its connected passage'
   const focus = wrapper.getByTestId('post');
   await expect(region.locator('[data-reply-range-id]').first()).toBeVisible();
   const before = (await focus.boundingBox())!;
+  const text = wrapper.getByTestId('focus-reveal');
+  const fontSize = () => text.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+  const fullFontSize = await fontSize();
+  await page.evaluate(() => {
+    const focusWrap = document.querySelector('[data-focus-compact]')!;
+    (window as any).compactChanges = [];
+    new MutationObserver(() => (window as any).compactChanges.push(focusWrap.getAttribute('data-focus-compact')))
+      .observe(focusWrap, { attributes: true, attributeFilter: ['data-focus-compact'] });
+  });
   await region.evaluate((el) => { el.scrollTop = 180; });
   await expect(wrapper).toHaveAttribute('data-focus-compact', 'true');
   await expect.poll(async () => (await focus.boundingBox())!.height).toBeLessThan(before.height);
+  // Compact focus sets its clamped lines in smaller type — instantly, with no
+  // font-size transition — and the window still holds exactly three lines.
+  expect(await fontSize()).toBeCloseTo(fullFontSize * 0.875, 1);
+  expect(await text.evaluate((el) => {
+    const style = getComputedStyle(el);
+    const durations = style.transitionDuration.split(',').map((value) => Number.parseFloat(value));
+    return style.transitionProperty.split(',').some((property, index) =>
+      /^(all|font-size|font)$/.test(property.trim()) && durations[index % durations.length] > 0);
+  }), 'no animated font-size').toBe(false);
+  const lines = await text.evaluate((el) =>
+    el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight));
+  expect(lines).toBeCloseTo(3, 0);
   await expect.poll(async () => (await focus.boundingBox())!.y).toBeLessThanOrEqual(73);
   await expect(focus).toHaveAttribute('data-active', 'true');
   const mark = region.locator('[data-reply-range-id]').first();
@@ -30,6 +51,10 @@ test('scrolling comments pins a compact focus and reveals its connected passage'
   await page.mouse.wheel(0, -80);
   await expect(wrapper).toHaveAttribute('data-focus-compact', 'false');
   await expect.poll(async () => (await focus.boundingBox())!.height).toBeCloseTo(before.height, 0);
+  expect(await fontSize()).toBeCloseTo(fullFontSize, 1);
+  // One collapse, one expand: the smaller type never re-triggers either.
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => (window as any).compactChanges)).toEqual(['true', 'false']);
 });
 
 test('a reused related reply keeps relations for the current focus post', async ({ page }) => {

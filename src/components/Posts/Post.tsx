@@ -100,6 +100,11 @@ function cleanPostHtml(html: string): CleanedPost {
 // more" still fully expands; that's the only way to grow the post.
 const POST_LINE_HEIGHT_EM = 1.5;
 
+/** Compact focus (detail page, reading the comments) sets its three clamped
+ * lines in smaller type. Relative, so the em-based compact window height
+ * scales with it; never transitioned, so the collapse stays a single step. */
+const COMPACT_TEXT_FONT_SIZE = '0.875em';
+
 type ClampEllipsisPosition = { left: number; top: number; lineHeight: number };
 
 /**
@@ -967,6 +972,7 @@ function Post({
             // cropped the last visible line in half.
             marginTop: '0px',
             lineHeight: '1.5',
+            fontSize: compact ? COMPACT_TEXT_FONT_SIZE : undefined,
             color: '#011445',
           }}
         >
@@ -1020,6 +1026,7 @@ function Post({
                   textOverflow: 'ellipsis',
                   marginTop: '0px',
                   lineHeight: '1.5',
+                  fontSize: compact ? COMPACT_TEXT_FONT_SIZE : undefined,
                   color: '#011445',
                 }
           }
@@ -1037,6 +1044,7 @@ function Post({
             // No maxHeight — see the clamp comment above (half-line crop).
             marginTop: '0px',
             lineHeight: '1.5',
+            fontSize: compact ? COMPACT_TEXT_FONT_SIZE : undefined,
             color: '#011445'
           }}
           dangerouslySetInnerHTML={{ __html: displayText }}
@@ -1053,12 +1061,16 @@ function Post({
           onClick={handleExpandText}
           onMouseDown={(event) => event.stopPropagation()}
           onMouseUp={(event) => event.stopPropagation()}
-          style={clampEllipsisPosition ? {
-            left: `${clampEllipsisPosition.left}px`,
-            top: `${clampEllipsisPosition.top}px`,
-            height: `${clampEllipsisPosition.lineHeight}px`,
-            lineHeight: `${clampEllipsisPosition.lineHeight}px`,
-          } : undefined}
+          style={{
+            ...(clampEllipsisPosition ? {
+              left: `${clampEllipsisPosition.left}px`,
+              top: `${clampEllipsisPosition.top}px`,
+              height: `${clampEllipsisPosition.lineHeight}px`,
+              lineHeight: `${clampEllipsisPosition.lineHeight}px`,
+            } : {}),
+            // Match the compact text's glyph size (the marker inherits the shell's).
+            ...(compact ? { fontSize: COMPACT_TEXT_FONT_SIZE } : {}),
+          }}
         >…</button>
       )}
       </div>

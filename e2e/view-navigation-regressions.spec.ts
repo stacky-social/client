@@ -138,10 +138,19 @@ test('revealing an off-screen topic keeps paragraphs from overlapping', async ({
   const overlaps = await reveal.evaluate((element) => {
     const paragraphs = Array.from(element.querySelectorAll('p'));
     return paragraphs.some((paragraph) => {
+      // Measure glyphs (text nodes), not inline highlight boxes: a highlight's
+      // decorative padding-block deliberately reaches into the line leading,
+      // which is not paragraph overlap. (It exceeded the 1px tolerance once
+      // the clicked topic compacted the focus into its smaller type.)
+      const bottom = paragraph.getBoundingClientRect().bottom;
+      const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
       const range = document.createRange();
-      range.selectNodeContents(paragraph);
-      return Array.from(range.getClientRects()).some((rect) =>
-        rect.bottom > paragraph.getBoundingClientRect().bottom + 1);
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        range.selectNodeContents(node);
+        if (Array.from(range.getClientRects()).some((rect) => rect.bottom > bottom + 1)) return true;
+      }
+      return false;
     });
   });
   expect(overlaps).toBe(false);

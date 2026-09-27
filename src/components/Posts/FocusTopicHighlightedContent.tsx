@@ -672,7 +672,7 @@ const FocusTopicHighlightedContent = React.forwardRef<
   ]);
   const revealKey = revealIndices.join(",");
 
-  useLayoutEffect(() => { setScrollWindowHeight(null); }, [style?.WebkitLineClamp]);
+  useLayoutEffect(() => { setScrollWindowHeight(null); }, [style?.WebkitLineClamp, style?.fontSize]);
 
   useLayoutEffect(() => {
     const element = innerRef.current;
@@ -754,7 +754,7 @@ const FocusTopicHighlightedContent = React.forwardRef<
       }
     }
     element.style.clipPath = `inset(0 0 ${elementRect.height - paintBottom}px 0)`;
-  }, [revealIndices, revealKey, scrollWindowHeight, hoveredRelations, hoveredHighlightRangeIndex, style?.WebkitLineClamp, textWidth]);
+  }, [revealIndices, revealKey, scrollWindowHeight, hoveredRelations, hoveredHighlightRangeIndex, style?.WebkitLineClamp, style?.fontSize, textWidth]);
 
   const mergedStyle: React.CSSProperties = scrollWindowHeight !== null
     ? {
