@@ -4,6 +4,8 @@ export interface TopicUrlInteraction {
   origin: 'aside' | 'replies' | 'focus';
   topicKey: string;
   anchor: { postId: string; rangeIndex: number };
+  /** Present (and only ever 'category') for a contribution-type aside group. */
+  groupBy?: 'category';
 }
 
 export function serializeFilterSearch(options: {

@@ -35,6 +35,13 @@ export interface TopicInteraction {
   origin: "aside" | "replies" | "focus";
   topicKey: string;
   anchor: { postId: string; rangeIndex: number };
+  /**
+   * Only set (to 'category') for a contribution-type aside group: a card's type
+   * icon groups "more like this" by relation category instead of topic. Then
+   * `topicKey` is the category key and `anchor.rangeIndex` the card's first
+   * relation of that category. Absent = an ordinary topic interaction.
+   */
+  groupBy?: "category";
 }
 
 interface HighlightState {
@@ -373,8 +380,14 @@ function applyInteraction(action: Parameters<typeof reduceInteraction>[1]): void
 export function activateAsideTopic(payload: {
   topicKey: string;
   anchor: { postId: string; rangeIndex: number };
+  groupBy?: "category";
 }): void {
-  applyInteraction({ type: "asideTopic", topicKey: payload.topicKey, anchor: payload.anchor });
+  applyInteraction({
+    type: "asideTopic",
+    topicKey: payload.topicKey,
+    anchor: payload.anchor,
+    groupBy: payload.groupBy,
+  });
 }
 
 /** Cluster the reply list by a clicked reply span; filters the aside by the same
@@ -565,6 +578,7 @@ export function setPanelFocus(
   resolveTopicKey?: (
     anchor: { postId: string; rangeIndex: number },
     origin?: "aside" | "replies" | "focus",
+    groupBy?: "category",
   ) => string | null | undefined,
 ): void {
   if (focusId === currentPanelFocusId) return;
@@ -579,7 +593,7 @@ export function setPanelFocus(
   // an interaction, useUrlSync will finish (or has finished) hydrating it.
   const urlOwnsInteraction =
     typeof window !== "undefined" &&
-    ["fc", "fs", "ft", "fo", "fa", "fi"].some((key) =>
+    ["fc", "fs", "ft", "fo", "fa", "fi", "fg"].some((key) =>
       new URLSearchParams(window.location.search).has(key),
     );
   // A span click on a non-focused post focuses it AND filters by that span. The

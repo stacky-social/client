@@ -76,3 +76,33 @@ test('history grows through 24 transitions and the 25th replaces the top entry',
   assert.equal(historyWriteMode(FILTER_HISTORY_CAP), 'replace');
   assert.equal(historyWriteMode(FILTER_HISTORY_CAP + 20), 'replace');
 });
+
+// A contribution-type ("more like this") group is an aside grouping keyed by a
+// category instead of a topic. It shares the topic tuple and adds `fg` so a
+// category key can never be read back as a same-named topic.
+test('round-trips a contribution-type group with its grouping dimension', () => {
+  const interaction = {
+    origin: 'aside',
+    topicKey: 'disagree',
+    anchor: { postId: '9001', rangeIndex: 1 },
+    groupBy: 'category',
+  };
+  const search = serializeFilterSearch({ ...base, topicInteraction: interaction });
+  assert.equal(
+    search,
+    'ft=disagree&fo=aside&fa=9001&fi=1&fg=category&from=42&related=84&flags=replySortTabs%3A0%2CsummaryCard%3A1',
+  );
+  assert.deepEqual(parseFilterInteraction(search), { kind: 'topic', interaction });
+});
+
+test('topic groups never carry fg, and a malformed fg is rejected whole', () => {
+  const topic = serializeFilterSearch({
+    ...base,
+    topicInteraction: { origin: 'aside', topicKey: 'Disagree', anchor: { postId: '1', rangeIndex: 0 } },
+  });
+  assert.equal(new URLSearchParams(topic).has('fg'), false);
+  assert.deepEqual(parseFilterInteraction('ft=disagree&fo=aside&fa=77&fi=0&fg=bogus'), { kind: 'none' });
+  // Only the aside groups by contribution type.
+  assert.deepEqual(parseFilterInteraction('ft=disagree&fo=replies&fa=77&fi=0&fg=category'), { kind: 'none' });
+  assert.deepEqual(parseFilterInteraction('fg=category'), { kind: 'none' });
+});
