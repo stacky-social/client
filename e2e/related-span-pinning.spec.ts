@@ -4,12 +4,12 @@ import { expect, test } from '@playwright/test';
 // reading anchor is the span itself — the words under the cursor — so the span
 // must not move while every other card animates into its new slot.
 //
-// The anchor card's own top edge MAY shift a little: activating the group adds
-// the topic chip to that card's header, which can wrap onto a second line and
-// grow the header. Keeping the span still is what matters; the card is only
-// held to a loose bound that still catches a runaway scroll.
+// Grouping no longer adds anything to the anchor card's header (#224: the
+// per-card topic chip that grew it 44→70px is gone), so the card's top edge
+// holds exactly as still as its span — a moving card top now means the header
+// grew again.
 const SPAN_TOLERANCE = 1;
-const CARD_TOLERANCE = 48;
+const CARD_TOLERANCE = 1;
 
 for (const index of [0, 2, 7]) {
   test(`topic clicks keep related card ${index + 1}'s clicked span under the cursor`, async ({ page }) => {

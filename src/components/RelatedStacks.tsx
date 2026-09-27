@@ -3131,6 +3131,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               data-related-card
               data-related-group-member={anchorForThisCard ? 'true' : undefined}
               data-related-group-start={isFirstInBlock ? 'true' : undefined}
+              // Stable hook for "aside grouping is active": the card that
+              // anchors the active topic or type group, whatever its size. (It
+              // used to live on a per-card "topic (N) ›" row that grew the
+              // anchor's header 44→70px and slid the clicked span.)
+              data-testid={grouping?.anchor.postId === stack.topPost.id ? 'active-group-anchor' : undefined}
               data-related-category={categoryKey(stack.rel) || 'uncategorized'}
               style={{
                 position: 'relative',
@@ -3385,114 +3390,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                   })()}
                 </div>
 
-                {/* F: Relation indicator — top-right. Shows the active grouping topic
-                    (driven by activeAnchorTopic) so the label always matches the
-                    "Grouped by:" pill at the top of the panel. Only visible when:
-                    (a) this card is the active see-more anchor, or
-                    (b) this card is part of the active anchor's topic cluster. */}
-                {(() => {
-                  const rels = stack.topPost.relations ?? [];
-                  if (rels.length === 0) return null;
-                  const isCurrentAnchor =
-                    reRankAnchorIds.length > 0 &&
-                    reRankAnchorIds[reRankAnchorIds.length - 1] === stack.topPost.id;
-                  // Gate: only show when active anchor or in the active anchor's cluster
-                  const isInActiveCluster = activeAnchorTopic !== null &&
-                    rels.some((r, ri) => topicOf(r, stack.stackId, ri) === activeAnchorTopic);
-                  const showRelationIndicator = isCurrentAnchor || isInActiveCluster;
-                  if (!showRelationIndicator) return null;
-                  // Pick the relation on THIS card that matches activeAnchorTopic — that's
-                  // the topic driving this card's place in the cluster. Fall back to rels[0]
-                  // only if no match (shouldn't happen when the gate above passes, but defensive).
-                  const matchIdx = activeAnchorTopic
-                    ? rels.findIndex((r, ri) => topicOf(r, stack.stackId, ri) === activeAnchorTopic)
-                    : -1;
-                  const indicatorRel = matchIdx >= 0 ? rels[matchIdx] : rels[0];
-                  const indicatorRangeIdx = matchIdx >= 0 ? matchIdx : 0;
-                  const indicatorTopic = activeAnchorTopic ?? topicOf(rels[0], stack.stackId, 0);
-                  // Color-match the bracket: the group rail + header use the ANCHOR's
-                  // category color (anchorColors). A member card that expresses the SAME
-                  // topic through a different category (e.g. Evidence-Personal/purple vs
-                  // the anchor's green) would otherwise show a mismatched indicator. Use
-                  // the anchor color whenever this card sits in a bracket block; fall back
-                  // to its own category only for a lone anchor (no block — colors equal).
-                  const indicatorColors = anchorForThisCard ? anchorColors : getCategoryColors(indicatorRel.category);
-                  // Always show the category color so the chip is recognizable
-                  // as the topic-anchor for that highlight color.
-                  const indicatorColor = indicatorColors.text;
-                  // PANE-LOCAL count: how many cards in THIS panel share the topic.
-                  // (topicTotal folds in reply counts for tooltips; using it here
-                  // showed "(8)" over a visible 5-card cluster — confusing.)
-                  let clusterCount = 0;
-                  postTopics.forEach((topics) => { if (topics.has(indicatorTopic)) clusterCount++; });
-                  // Every chip in a group reads the same. The anchor used to carry a
-                  // filled pill at full opacity, which made the card you clicked look
-                  // like a different control from the members it grouped; `aria-pressed`
-                  // and the `active-group-anchor` hook still identify it.
-                  const baseOpacity = 0.75;
-                  return (
-                    // Its own row. Sharing the header row left placement depending on
-                    // whether the card happened to carry a "Modified" badge, so
-                    // neighbouring cards in one group sat the chip at different heights.
-                    <div style={{
-                      flexBasis: '100%',
-                      display: 'flex',
-                      justifyContent: 'flex-end',
-                      minWidth: 0,
-                    }}>
-                    <button
-                      type="button"
-                      // Stable hook for "aside grouping is active": present on the
-                      // active anchor card whenever a topic interaction groups this
-                      // pane (independent of cluster size). Replaces the removed
-                      // top-of-panel "Grouped by:" pill as the e2e grouping signal.
-                      data-testid={isCurrentAnchor ? 'active-group-anchor' : undefined}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleAnchor(stack.topPost.id, indicatorRangeIdx);
-                      }}
-                      aria-label={`Show more posts about ${indicatorTopic}`}
-                      aria-pressed={isCurrentAnchor}
-                      style={{
-                        alignSelf: 'flex-start',
-                        flexShrink: 0,
-                        background: 'transparent',
-                        border: 'none',
-                        borderRadius: '4px',
-                        padding: '1px 4px',
-                        cursor: 'pointer',
-                        color: indicatorColor,
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        lineHeight: 1.3,
-                        maxWidth: '124px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        opacity: baseOpacity,
-                        transition: 'opacity 200ms ease, background 200ms ease, color 200ms ease',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '2px',
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.opacity = '1';
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.opacity = String(baseOpacity);
-                      }}
-                    >
-                      {/* Truncate ONLY the topic; keep the (count) and chevron always
-                          visible so a narrower pill never hides the group size. */}
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-                        {indicatorTopic}
-                      </span>
-                      <span style={{ flexShrink: 0 }}>({clusterCount})</span>
-                      <span aria-hidden style={{ flexShrink: 0, fontSize: '10px', marginLeft: '1px' }}>&#x203A;</span>
-                    </button>
-                    </div>
-                  );
-                })()}
                 </div>
 
                 {/* Content with smart windowing + highlight marks on hover */}
