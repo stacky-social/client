@@ -23,6 +23,7 @@ import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
 import type { Relation } from '../../types/PostType';
 import { showUndoableAction } from '../../utils/actionNotifications';
 import { linkifyHtmlUrls, preserveInlineLinkOffsets } from '../../utils/inlineLinks.mjs';
+import { extractMastodonLinks } from '../../utils/mastodonContent.mjs';
 import { saveFeedScrollSnapshot } from '../../utils/feedScrollRestoration';
 import { postRouteFor } from '../../utils/postRoute';
 import AuthorHoverInfo from '../AuthorHoverInfo';
@@ -89,6 +90,76 @@ function cleanPostHtml(html: string): CleanedPost {
 }
 
 
+// ─── Article source links ───────────────────────────────────────────────────
+// Every demo post carries its thread root's link card, so a card alone is not
+// a reason to link out (that was noise on every reply). A post IS its article
+// when its text opens with its own card's headline — the outlet's share of the
+// story — and it embeds no other post. Only that post gets a source row; a
+// quoted article card gets its link beside (never inside) the card button.
+
+/** Hostname shown for an article link: "foxnews.com", without a leading www. */
+function articleHost(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const { protocol, hostname } = new URL(url);
+    if (protocol !== 'http:' && protocol !== 'https:') return null;
+    return hostname.replace(/^www\./i, '') || null;
+  } catch {
+    return null;
+  }
+}
+
+function isSameArticleUrl(candidate: string, articleUrl: string): boolean {
+  try {
+    const candidateUrl = new URL(candidate.replace(/&amp;/gi, '&'));
+    const targetUrl = new URL(articleUrl);
+    candidateUrl.hash = '';
+    targetUrl.hash = '';
+    return candidateUrl.toString() === targetUrl.toString();
+  } catch {
+    return candidate === articleUrl;
+  }
+}
+
+const headlineKey = (value: string) => value.replace(/\s+/g, ' ').trim().toLowerCase();
+
+/** The source URL for a post that IS its card's article, else null. Skipped
+ *  when the post already shows that URL inline. */
+function articleSourceUrl(
+  html: string,
+  card: PreviewCard | null | undefined,
+  quotedPost: QuotedPostMock | null | undefined,
+): string | null {
+  if (quotedPost || !card?.url || !card.title || !articleHost(card.url)) return null;
+  const headline = headlineKey(card.title);
+  if (!headline || !headlineKey(stripHtml(html)).startsWith(headline)) return null;
+  if (extractMastodonLinks(html).some((candidate) => isSameArticleUrl(candidate, card.url))) return null;
+  return card.url;
+}
+
+/** Small, muted external-link row ("foxnews.com ↗"). Stops propagation so it
+ *  never triggers the card's own navigation. */
+function ArticleSourceLink({ url, host, kind }: { url: string; host: string; kind: 'source' | 'quoted' }) {
+  const stop = (event: React.SyntheticEvent) => event.stopPropagation();
+  return (
+    <Anchor
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      data-focus-article-link={kind}
+      size="xs"
+      underline="hover"
+      aria-label={`Open the article on ${host} (opens in a new tab)`}
+      onClick={stop}
+      onMouseDown={stop}
+      onMouseUp={stop}
+      onKeyDown={stop}
+      style={{ color: '#6b7280', fontWeight: 500 }}
+    >
+      {host} ↗
+    </Anchor>
+  );
+}
 
 // Fixed-window focus post (decision 2026-07-06; supersedes the bounded-GROW
 // reveal, which read as layout instability): the box NEVER changes height or
@@ -342,6 +413,12 @@ function Post({
     () => preserveInlineLinkOffsets(stripHtml(text)),
     [text],
   );
+  const articleSource = useMemo(() => {
+    const url = articleSourceUrl(text, previewCards[0], quotedPost);
+    const host = articleHost(url);
+    return url && host ? { url, host } : null;
+  }, [previewCards, quotedPost, text]);
+  const quotedArticleHost = articleHost(quotedPost?.url);
 
   const [isOverflowing, setIsOverflowing] = useState(false);
   const [clampEllipsisPosition, setClampEllipsisPosition] = useState<ClampEllipsisPosition | null>(null);
@@ -1100,6 +1177,12 @@ function Post({
           {isTextExpanded ? 'Read less' : 'Read more'}
         </Anchor>
       )}
+      {!compact && articleSource && (
+        // Outside the highlight container: the text (and its offsets) is untouched.
+        <div style={{ marginTop: '0.35rem' }}>
+          <ArticleSourceLink url={articleSource.url} host={articleSource.host} kind="source" />
+        </div>
+      )}
     </div>
           {!compact && quotedPost && (
             <button
@@ -1136,6 +1219,12 @@ function Post({
                 <span className="quoted-post-copy">{quotedPost.content}</span>
               </span>
             </button>
+          )}
+          {!compact && quotedPost?.url && quotedArticleHost && (
+            // A sibling of the card button (never an <a> inside a <button>).
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.3rem' }}>
+              <ArticleSourceLink url={quotedPost.url} host={quotedArticleHost} kind="quoted" />
+            </div>
           )}
           {!compact && POST_IMAGES_ENABLED && mediaAttachments.length > 0 && (
             <div style={{ paddingLeft: '0', paddingRight: '0', paddingTop: '1rem' }}>

@@ -88,7 +88,10 @@ test('Jason’s related span only emphasizes its authored focus phrase', async (
   const emphasized = await focus.locator('mark:not(.fp-aside-muted)').allTextContents();
   expect(emphasized.join('')).toContain('Who will');
   expect(emphasized.join('')).not.toContain('paid an income');
-  await expect(page.locator('[data-focus-article-link], [data-related-article-link]')).toHaveCount(0);
+  // Source rows belong only to an outlet's own article post (this is a
+  // commenter's post); a quoted card's sibling link is allowed, never the aside.
+  await expect(page.locator('[data-focus-article-link="source"], [data-related-article-link]')).toHaveCount(0);
+  await expect(page.getByTestId('col-aside').locator('[data-focus-article-link]')).toHaveCount(0);
 });
 
 test('filtered related-span tooltips contain only the topic name', async ({ page }) => {
@@ -113,7 +116,10 @@ test('authored URLs remain inline and truncate without losing their destination'
   await expect(link).toHaveCSS('text-overflow', 'ellipsis');
   await expect(link).toHaveCSS('display', 'inline-block');
   expect(await link.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
-  await expect(page.locator('[data-focus-article-link], [data-related-article-link]')).toHaveCount(0);
+  // Source rows belong only to an outlet's own article post (this is a
+  // commenter's post); a quoted card's sibling link is allowed, never the aside.
+  await expect(page.locator('[data-focus-article-link="source"], [data-related-article-link]')).toHaveCount(0);
+  await expect(page.getByTestId('col-aside').locator('[data-focus-article-link]')).toHaveCount(0);
 });
 
 test('Back restores the reply box after opening a child', async ({ page }) => {
