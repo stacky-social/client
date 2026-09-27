@@ -730,9 +730,10 @@ function Post({
     onStackIconClick(newRelatedStacks, id, adjustedPosition);
   };
 
-  // Topic clicked on a NON-focused feed post: stash it across the focus switch,
-  // publish this post through the shared context, then align it to the feed's
-  // active line. The click never navigates into the detail route.
+  // Topic clicked on a NON-focused feed post: stash it across the focus switch
+  // and publish this post through the shared context. The click never navigates
+  // into the detail route and never scrolls the window: the feed focuses the
+  // post where it sits and pins it (clicked-focus protocol, stableFeedFocus).
   const handleTopicFocusRequest = useCallback((topic: FocusTopicCandidate) => {
     setPendingFocusTopic(id, topic.topicKey, topic.rangeIndex);
     // Publish the post and its related payload through the same shared-context
@@ -745,17 +746,6 @@ function Post({
       top: position ? position.top + window.scrollY : 0,
       height: position?.height ?? 0,
     });
-    // Scroll this post's top to the feed's "active line" (30% of the viewport, the
-    // same line the feed uses to pick the focused post) so it settles focused —
-    // centring it would leave a higher post on the line. Instant (not animated):
-    // a smooth animation fires a scroll event per frame, and the feed re-evaluates
-    // the active post on every one, which — now that every feed post renders the
-    // highlight layer — is a re-render storm. One jump = one active switch.
-    const el = paperRef.current;
-    if (el) {
-      const targetY = window.scrollY + (el.getBoundingClientRect().top - window.innerHeight * 0.3) + 4;
-      window.scrollTo(0, Math.max(0, targetY));
-    }
   }, [id, onStackIconClick, tempRelatedStacks]);
 
   const handleExpandText = (event: React.MouseEvent<HTMLButtonElement>) => {
