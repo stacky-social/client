@@ -2814,7 +2814,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           header, above the card rails (7) and below the panel header (10). Its
           copy of "Topic (N) ×" shows only while the group's real header has
           scrolled away and the group is still on screen (syncGroupSticky).
-          Square corners + side rails continue the group's border; the "N
+          Rounded top corners + side rails continue the group's border; the "N
           more" pagination stays in the footer. A visual duplicate: hidden
           from assistive tech — the real header × stays the accessible one. */}
       <div
@@ -2827,14 +2827,25 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
             ref={groupStickyBarRef}
             className="related-group-sticky-bar"
             data-related-group-sticky-bar
+            // Square white backing: cards scroll UNDER the copy, and without it
+            // they would show through the rounded corners' cut-outs.
             style={{
               position: 'absolute', top: 0, left: 0, right: 0,
+              background: '#ffffff',
+            }}
+          >
+          <div
+            style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               boxSizing: 'border-box',
               background: '#ffffff',
               borderTop: `${GROUP_LINE_WIDTH}px solid ${activeGroupHeader.colors.border}`,
               borderLeft: `${GROUP_LINE_WIDTH}px solid ${activeGroupHeader.colors.border}`,
               borderRight: `${GROUP_LINE_WIDTH}px solid ${activeGroupHeader.colors.border}`,
+              // Same rounded top corners as the real group header, so freezing
+              // it doesn't change the box's shape.
+              borderTopLeftRadius: GROUP_CORNER_R,
+              borderTopRightRadius: GROUP_CORNER_R,
               padding: '6px 8px 6px 10px',
             }}
           >
@@ -2870,6 +2881,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
             >
               ×
             </button>
+          </div>
           </div>
         )}
       </div>

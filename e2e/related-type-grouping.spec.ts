@@ -194,6 +194,13 @@ test.describe('frozen group header (#224)', () => {
     // Its side rails continue the group's border.
     expect(Math.abs(geometry.left - geometry.railLeft)).toBeLessThanOrEqual(1);
     expect(Math.abs(geometry.right - geometry.railRight)).toBeLessThanOrEqual(1);
+    // Freezing must not change the box's shape: the copy keeps the real
+    // header's rounded top corners (researcher feedback, #224).
+    const frame = bar.locator('> div').first();
+    const realRadius = await header.evaluate((element) => getComputedStyle(element).borderTopLeftRadius);
+    await expect(frame).toHaveCSS('border-top-left-radius', realRadius);
+    await expect(frame).toHaveCSS('border-top-right-radius', realRadius);
+    expect(parseFloat(realRadius)).toBeGreaterThan(0);
 
     // Back above the group's start → the copy hides again.
     await scrollGroupBy(-40);
