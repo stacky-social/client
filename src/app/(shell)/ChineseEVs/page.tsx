@@ -17,9 +17,11 @@ import { DEMO_TIMELINE_PAGE_SIZE, getDemoTimelinePage, type TimelineStats } from
 import { getMockReplyCount } from "../../../utils/mockPostResolver";
 import { DEMO_CORPORA, getDemoCorpusByPath } from "../../../data/demoCorpora";
 import {
+  createFeedFocusPin,
   onFeedFocusScroll,
-  selectStableFeedFocus,
+  selectPinnedFeedFocus,
   type FeedFocusCandidate,
+  type FeedFocusPin,
 } from "../../../utils/stableFeedFocus";
 import { TOP_NAV_HEIGHT } from "../../../components/NavBar/TopNav";
 import {
@@ -30,6 +32,27 @@ import {
 // ── Thread line constants ────────────────────────────────────────────────────
 const THREAD_LINE_COLOR = "#ccd1dc";
 const THREAD_LINE_LEFT = 32;
+
+/** The feed's focus geometry: a reading line 30% down the content viewport. */
+function feedFocusGeometry() {
+  return {
+    viewportTop: TOP_NAV_HEIGHT,
+    viewportHeight: window.innerHeight,
+    mode: "top-line" as const,
+    anchorRatio: 0.3,
+  };
+}
+
+function readFeedFocusPin(key: string): FeedFocusPin | null {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(key) ?? "null") as Partial<FeedFocusPin> | null;
+    return value && typeof value.id === "string" && Number.isFinite(value.best)
+      ? { id: value.id, best: Number(value.best) }
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 // ── Data helpers ─────────────────────────────────────────────────────────────
 
@@ -247,6 +270,10 @@ export default function ListyInjectionPage() {
   const setFromPostRef = useRef(setFromPost);
   setFromPostRef.current = setFromPost;
   const postRefs = useRef<Array<HTMLDivElement | null>>([]);
+  // Clicked-focus pin: an explicit click focuses a post where it sits (no
+  // scroll) and holds it until the reader scrolls it onto the reading line or
+  // away from it (see selectPinnedFeedFocus). null = ordinary scroll focus.
+  const focusPinRef = useRef<FeedFocusPin | null>(null);
 
   const loadTimelinePage = useCallback(async (
     cursor: string | null,
@@ -527,6 +554,14 @@ export default function ListyInjectionPage() {
     // coming back should land you back on your grouped/filtered panel. Falls back
     // to the opened post if nothing is focused yet.
     sessionStorage.setItem(`activeFeedPost:${routeBase}`, activePostIdRef.current ?? postId);
+    // A clicked focus travels with it, so Back restores the same held focus
+    // instead of letting the next scroll hand it to the post on the line.
+    const pin = focusPinRef.current;
+    if (pin && pin.id === activePostIdRef.current) {
+      sessionStorage.setItem(`activeFeedPin:${routeBase}`, JSON.stringify(pin));
+    } else {
+      sessionStorage.removeItem(`activeFeedPin:${routeBase}`);
+    }
     // Seed BackButton's previousPath so the post-detail route shows "Back".
     sessionStorage.setItem(
       `previousPath:${routeBase}/posts/${postId}`,
@@ -652,6 +687,9 @@ export default function ListyInjectionPage() {
     const savedActiveId = typeof window !== "undefined"
       ? sessionStorage.getItem(`activeFeedPost:${routeBase}`)
       : null;
+    const savedPin = typeof window !== "undefined"
+      ? readFeedFocusPin(`activeFeedPin:${routeBase}`)
+      : null;
 
     // Pick the post to focus, in priority order. Falls back to first feed post.
     const candidateId = savedActiveId ?? ctxActivePostId ?? posts[0].postId;
@@ -661,6 +699,7 @@ export default function ListyInjectionPage() {
     // before the user sees the page paint.
     setActivePostId(target.postId);
     activePostIdRef.current = target.postId;
+    focusPinRef.current = savedPin?.id === target.postId ? savedPin : null;
     setFromPost(target.relatedStacks, target.postId, { force: true });
 
     // Schedule scroll restoration if we have a saved position.
@@ -675,11 +714,13 @@ export default function ListyInjectionPage() {
             onSettled: () => { isRestoringRef.current = false; },
           });
           sessionStorage.removeItem(`activeFeedPost:${routeBase}`);
+          sessionStorage.removeItem(`activeFeedPin:${routeBase}`);
         });
       });
     } else {
       sessionStorage.removeItem(`scrollY:${routeBase}`);
       sessionStorage.removeItem(`activeFeedPost:${routeBase}`);
+      sessionStorage.removeItem(`activeFeedPin:${routeBase}`);
     }
   }, [posts, activePostId, ctxActivePostId, routeBase, setFromPost]);
 
@@ -688,10 +729,14 @@ export default function ListyInjectionPage() {
 
   // Scroll-based focus detection (feed mode only). Focus follows the visible
   // feed on animation frames, while a Schmitt-trigger band around the 30% line
-  // prevents A -> B -> A flashes during small direction corrections.
+  // prevents A -> B -> A flashes during small direction corrections. A clicked
+  // post stays focused under the clicked-focus pin protocol.
   useEffect(() => {
     if (inThreadMode) return;
     const evaluate = () => {
+      // A restored pin was measured at the saved scroll position. Let the
+      // restorer land there before the protocol measures it again.
+      if (isRestoringRef.current && focusPinRef.current) return;
       const candidates: Array<FeedFocusCandidate<(typeof posts)[number]>> = [];
       for (let index = 0; index < postRefs.current.length; index += 1) {
         const element = postRefs.current[index];
@@ -700,17 +745,16 @@ export default function ListyInjectionPage() {
         candidates.push({ id: post.postId, value: post, rect: element.getBoundingClientRect() });
       }
 
-      const selected = selectStableFeedFocus({
+      const { selected, pin } = selectPinnedFeedFocus({
+        ...feedFocusGeometry(),
         candidates,
         currentId: activePostIdRef.current,
-        viewportTop: TOP_NAV_HEIGHT,
-        viewportHeight: window.innerHeight,
-        mode: "top-line",
-        anchorRatio: 0.3,
+        pin: focusPinRef.current,
         atTop: window.scrollY <= 2,
         atBottom:
           window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2,
       });
+      focusPinRef.current = pin;
       if (selected && selected.id !== activePostIdRef.current) {
         activePostIdRef.current = selected.id;
         setActivePostId(selected.id);
@@ -729,10 +773,22 @@ export default function ListyInjectionPage() {
     };
   }, [posts, inThreadMode]);
 
+  // Explicit focus (a topic phrase clicked on a non-focused post). The post is
+  // focused where it sits — the window never scrolls — and pinned so the next
+  // scroll frame cannot hand focus back to the post on the reading line.
+  // Always forced: an explicit focus must never toggle the aside off.
   const handleStackIconClick = useCallback(
     (_agg: any[], postId: string, _pos: { top: number; height: number }) => {
-      const post = posts.find((p) => p.postId === postId);
-      if (post) { setActivePostId(postId); setFromPost(post.relatedStacks, postId); }
+      const index = posts.findIndex((p) => p.postId === postId);
+      const post = posts[index];
+      if (!post) return;
+      const element = postRefs.current[index];
+      focusPinRef.current = element
+        ? createFeedFocusPin({ ...feedFocusGeometry(), id: postId, rect: element.getBoundingClientRect() })
+        : null;
+      activePostIdRef.current = postId;
+      setActivePostId(postId);
+      setFromPost(post.relatedStacks, postId, { force: true });
     },
     [posts, setFromPost]
   );

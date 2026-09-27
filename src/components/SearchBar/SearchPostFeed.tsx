@@ -6,9 +6,11 @@ import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import type { PostType } from "../../types/PostType";
 import {
+  createFeedFocusPin,
   onFeedFocusScroll,
-  selectStableFeedFocus,
+  selectPinnedFeedFocus,
   type FeedFocusCandidate,
+  type FeedFocusPin,
 } from "../../utils/stableFeedFocus";
 import {
   restoreFeedScrollSnapshot,
@@ -54,8 +56,10 @@ export default function SearchPostFeed({
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const postsRef = useRef(posts);
   const activePostIdRef = useRef(activePostId);
-  const manualPostIdRef = useRef<string | null>(null);
-  const manualLockRef = useRef(false);
+  // Clicked-focus pin (see selectPinnedFeedFocus), shared with the timelines:
+  // an explicit choice holds until the reader scrolls it onto the centre line
+  // or away from it.
+  const focusPinRef = useRef<FeedFocusPin | null>(null);
   const restoredScrollRef = useRef(false);
   const feedRef = useRef<HTMLDivElement | null>(null);
   const highlightName = `curated-search-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
@@ -80,8 +84,7 @@ export default function SearchPostFeed({
   useEffect(() => {
     enterFeedSurface(surfaceKey);
     restoredScrollRef.current = false;
-    manualPostIdRef.current = null;
-    manualLockRef.current = false;
+    focusPinRef.current = null;
     setActivePostId(null);
     return () => leaveFeedSurface(surfaceKey);
   }, [enterFeedSurface, leaveFeedSurface, surfaceKey]);
@@ -168,17 +171,6 @@ export default function SearchPostFeed({
     if (posts.length === 0) return;
 
     const evaluate = () => {
-      if (manualLockRef.current && manualPostIdRef.current) {
-        const selected = document.querySelector<HTMLElement>(
-          `[data-search-feed-post="${CSS.escape(manualPostIdRef.current)}"]`,
-        );
-        if (selected) {
-          const rect = selected.getBoundingClientRect();
-          if (rect.bottom > TOP_NAV_HEIGHT && rect.top < window.innerHeight) return;
-        }
-        manualLockRef.current = false;
-      }
-
       const byId = new Map(postsRef.current.map((post) => [post.postId, post]));
       const candidates: Array<FeedFocusCandidate<SearchFeedPost>> = [];
       document.querySelectorAll<HTMLElement>("[data-search-feed-post]").forEach((element) => {
@@ -189,9 +181,10 @@ export default function SearchPostFeed({
         if (id && post) candidates.push({ id, value: post, rect });
       });
 
-      const selected = selectStableFeedFocus({
+      const { selected, pin } = selectPinnedFeedFocus({
         candidates,
         currentId: activePostIdRef.current,
+        pin: focusPinRef.current,
         viewportTop: TOP_NAV_HEIGHT,
         viewportHeight: window.innerHeight,
         mode: "center",
@@ -199,6 +192,7 @@ export default function SearchPostFeed({
         atBottom:
           window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2,
       });
+      focusPinRef.current = pin;
       if (selected && selected.id !== activePostIdRef.current) publish(selected.value);
     };
 
@@ -224,14 +218,27 @@ export default function SearchPostFeed({
     }
   }, [activePostId, posts, setFromPost, surfaceKey]);
 
+  const pinPost = useCallback((id: string) => {
+    const element = document.querySelector<HTMLElement>(`[data-search-feed-post="${CSS.escape(id)}"]`);
+    focusPinRef.current = element
+      ? createFeedFocusPin({
+          id,
+          rect: element.getBoundingClientRect(),
+          viewportTop: TOP_NAV_HEIGHT,
+          viewportHeight: window.innerHeight,
+          mode: "center",
+        })
+      : null;
+  }, []);
+
   const activateManually = useCallback((id: string | null) => {
-    manualPostIdRef.current = id;
-    manualLockRef.current = Boolean(id);
+    if (id) pinPost(id);
+    else focusPinRef.current = null;
     setActivePostId(id);
     if (!id) return;
     const post = postsRef.current.find((candidate) => candidate.postId === id);
     if (post) publish(post);
-  }, [publish]);
+  }, [pinPost, publish]);
 
   const handleStackIconClick = useCallback((
     _relatedStacks: any[],
@@ -239,8 +246,10 @@ export default function SearchPostFeed({
     _position: { top: number; height: number },
   ) => {
     const post = postsRef.current.find((candidate) => candidate.postId === postId);
-    if (post) publish(post);
-  }, [publish]);
+    if (!post) return;
+    pinPost(postId);
+    publish(post);
+  }, [pinPost, publish]);
 
   return (
     <Box

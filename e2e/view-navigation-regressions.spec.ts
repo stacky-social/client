@@ -88,7 +88,10 @@ test('Jason’s related span only emphasizes its authored focus phrase', async (
   const emphasized = await focus.locator('mark:not(.fp-aside-muted)').allTextContents();
   expect(emphasized.join('')).toContain('Who will');
   expect(emphasized.join('')).not.toContain('paid an income');
-  await expect(page.locator('[data-focus-article-link], [data-related-article-link]')).toHaveCount(0);
+  // Source rows belong only to an outlet's own article post (this is a
+  // commenter's post); a quoted card's sibling link is allowed, never the aside.
+  await expect(page.locator('[data-focus-article-link="source"], [data-related-article-link]')).toHaveCount(0);
+  await expect(page.getByTestId('col-aside').locator('[data-focus-article-link]')).toHaveCount(0);
 });
 
 test('filtered related-span tooltips contain only the topic name', async ({ page }) => {
@@ -113,7 +116,10 @@ test('authored URLs remain inline and truncate without losing their destination'
   await expect(link).toHaveCSS('text-overflow', 'ellipsis');
   await expect(link).toHaveCSS('display', 'inline-block');
   expect(await link.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
-  await expect(page.locator('[data-focus-article-link], [data-related-article-link]')).toHaveCount(0);
+  // Source rows belong only to an outlet's own article post (this is a
+  // commenter's post); a quoted card's sibling link is allowed, never the aside.
+  await expect(page.locator('[data-focus-article-link="source"], [data-related-article-link]')).toHaveCount(0);
+  await expect(page.getByTestId('col-aside').locator('[data-focus-article-link]')).toHaveCount(0);
 });
 
 test('Back restores the reply box after opening a child', async ({ page }) => {
@@ -138,10 +144,19 @@ test('revealing an off-screen topic keeps paragraphs from overlapping', async ({
   const overlaps = await reveal.evaluate((element) => {
     const paragraphs = Array.from(element.querySelectorAll('p'));
     return paragraphs.some((paragraph) => {
+      // Measure glyphs (text nodes), not inline highlight boxes: a highlight's
+      // decorative padding-block deliberately reaches into the line leading,
+      // which is not paragraph overlap. (It exceeded the 1px tolerance once
+      // the clicked topic compacted the focus into its smaller type.)
+      const bottom = paragraph.getBoundingClientRect().bottom;
+      const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
       const range = document.createRange();
-      range.selectNodeContents(paragraph);
-      return Array.from(range.getClientRects()).some((rect) =>
-        rect.bottom > paragraph.getBoundingClientRect().bottom + 1);
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        range.selectNodeContents(node);
+        if (Array.from(range.getClientRects()).some((rect) => rect.bottom > bottom + 1)) return true;
+      }
+      return false;
     });
   });
   expect(overlaps).toBe(false);

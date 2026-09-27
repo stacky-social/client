@@ -29,9 +29,12 @@ import {
     type Post as StorePost,
 } from '../utils/localStore';
 import {
+    createFeedFocusPin,
     onFeedFocusScroll,
-    selectStableFeedFocus,
+    selectPinnedFeedFocus,
     type FeedFocusCandidate,
+    type FeedFocusPin,
+    type FeedFocusRect,
 } from '../utils/stableFeedFocus';
 import { TOP_NAV_HEIGHT } from './NavBar/TopNav';
 import {
@@ -43,6 +46,22 @@ import { stableShuffle } from '../utils/stableShuffle.mjs';
 
 /** Local (no-backend) feed sources backed by the localStore. */
 export type FeedSource = 'home' | 'curated-home' | 'bookmarks' | 'liked';
+
+/** Both timeline feeds measure focus against the content viewport's centre. */
+function feedFocusGeometry() {
+    return {
+        viewportTop: TOP_NAV_HEIGHT,
+        viewportHeight: window.innerHeight,
+        mode: 'center' as const,
+    };
+}
+
+/** Pin an explicitly clicked card where it sits (clicked-focus protocol). */
+function pinFeedFocus(id: string, element: Element | null | undefined): FeedFocusPin | null {
+    if (!element) return null;
+    const rect: FeedFocusRect = element.getBoundingClientRect();
+    return createFeedFocusPin({ ...feedFocusGeometry(), id, rect });
+}
 export type LocalSupplementSource = 'followed' | 'curated' | 'bookmarks' | 'liked';
 const EMPTY_STORE_POSTS: StorePost[] = [];
 const CURATED_HOME_SESSION_SEED_KEY = 'crossweave:curatedHomeSeed:v1';
@@ -435,8 +454,10 @@ const ApiFeedCore: React.FC<PostListProps & {
     const [hasMore, setHasMore] = useState(() => cachedSnapshot.current?.hasMore ?? Boolean(cachedSnapshot.current?.maxId));
     const hasAutoHighlightedFirstPostRef = useRef(false);
     const hasPublishedFirstPostStacksRef = useRef(false);
-    const manualActiveIdRef = useRef<string | null>(null);
-    const manualLockRef = useRef(false);
+    // Clicked-focus pin (see selectPinnedFeedFocus): an explicit click holds
+    // focus on its card until the reader scrolls it onto the centre line or
+    // away from it. null = ordinary scroll-driven focus.
+    const focusPinRef = useRef<FeedFocusPin | null>(null);
     const fetchKeyRef = useRef<string | null>(null);
     const loadMoreInFlightRef = useRef(false);
     const restoredScrollRef = useRef(false);
@@ -462,6 +483,18 @@ const ApiFeedCore: React.FC<PostListProps & {
     const activePostIdRef = useRef(activePostId); activePostIdRef.current = activePostId;
     const handleStackIconClickRef = useRef(handleStackIconClick); handleStackIconClickRef.current = handleStackIconClick;
     const setActivePostIdRef = useRef(setActivePostId); setActivePostIdRef.current = setActivePostId;
+
+    // Explicit focus from a card (a topic phrase on a non-focused post). Pin
+    // it before publishing so the next scroll frame measures from the click.
+    const handleExplicitStackIconClick = useCallback((
+        relatedStacks: any[],
+        postId: string,
+        position: { top: number, height: number },
+    ) => {
+        focusPinRef.current = pinFeedFocus(postId, observedPostElsRef.current.get(postId));
+        activePostIdRef.current = postId;
+        handleStackIconClick(relatedStacks, postId, position);
+    }, [handleStackIconClick]);
 
     // Restore after the first usable page, whether it came from memory cache or
     // a fresh request. The pixel position mounts Virtuoso's prior neighborhood;
@@ -650,16 +683,6 @@ const ApiFeedCore: React.FC<PostListProps & {
         const evaluateActiveByCenter = () => {
             const currentPosts = postsRef.current;
 
-            // Respect manual selection while the selected post is still visible
-            if (manualLockRef.current && manualActiveIdRef.current) {
-                const el = document.querySelector(`[data-post-id="${CSS.escape(manualActiveIdRef.current)}"]`);
-                if (el) {
-                    const rect = el.getBoundingClientRect();
-                    if (rect.bottom > TOP_NAV_HEIGHT && rect.top < window.innerHeight) return; // keep manual selection
-                }
-                manualLockRef.current = false; // no longer visible; allow auto-selection again
-            }
-
             // Virtuoso keeps only a viewport neighborhood mounted, so this
             // remains a small layout read even while focus follows every frame.
             const candidates: Array<FeedFocusCandidate<PostType>> = [];
@@ -670,16 +693,17 @@ const ApiFeedCore: React.FC<PostListProps & {
                 if (post) candidates.push({ id, value: post, rect });
             }
 
-            const selected = selectStableFeedFocus({
+            // A clicked card keeps focus under the clicked-focus protocol.
+            const { selected, pin } = selectPinnedFeedFocus({
+                ...feedFocusGeometry(),
                 candidates,
                 currentId: activePostIdRef.current,
-                viewportTop: TOP_NAV_HEIGHT,
-                viewportHeight: window.innerHeight,
-                mode: 'center',
+                pin: focusPinRef.current,
                 atTop: window.scrollY <= 2,
                 atBottom:
                     window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2,
             });
+            focusPinRef.current = pin;
             if (selected && selected.id !== activePostIdRef.current) {
                 setActivePostIdRef.current(selected.id);
                 const adjustedPosition = {
@@ -704,12 +728,9 @@ const ApiFeedCore: React.FC<PostListProps & {
     }, []); // attach once — reads latest values via refs
 
     // When the parent clears the active post (e.g., toggling a stackcount off),
-    // release the manual lock so scrolling can auto-highlight the next post
+    // release the clicked-focus pin so scrolling can auto-highlight the next post
     useEffect(() => {
-        if (activePostId === null) {
-            manualLockRef.current = false;
-            manualActiveIdRef.current = null;
-        }
+        if (activePostId === null) focusPinRef.current = null;
     }, [activePostId]);
 
     // If the first post is already highlighted before its stacks load,
@@ -811,8 +832,7 @@ const ApiFeedCore: React.FC<PostListProps & {
             setPosts((current) => current.filter((post) => post.postId !== postId));
             removePostFromAllCaches(postId);
             if (activePostId === postId) {
-                manualActiveIdRef.current = null;
-                manualLockRef.current = false;
+                focusPinRef.current = null;
                 setActivePostId(null);
             }
         };
@@ -859,14 +879,13 @@ const ApiFeedCore: React.FC<PostListProps & {
                 favourited={post.favourited}
                 bookmarked={post.bookmarked}
                 mediaAttachments={post.mediaAttachments}
-                onStackIconClick={handleStackIconClick}
+                onStackIconClick={handleExplicitStackIconClick}
                 setIsModalOpen={setIsModalOpen}
                 setIsExpandModalOpen={setIsExpandModalOpen}
                 relatedStacks={post.relatedStacks}
                 activePostId={activePostId}
                 setActivePostId={(id: string | null) => {
-                    manualActiveIdRef.current = id;
-                    manualLockRef.current = !!id;
+                    focusPinRef.current = id ? pinFeedFocus(id, observedPostElsRef.current.get(id)) : null;
                     setActivePostId(id);
                 }}
                 initialCard={post.previewCard || null}
@@ -1073,11 +1092,22 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
         prefetchedPostRoutesRef.current.add(postId);
         router.prefetch(postRouteFor(postId));
     }, [router]);
-    // Manual clicks win until that card leaves the viewport. This mirrors the
-    // API feed and prevents the scroll-settle callback from immediately undoing
-    // an explicit user choice.
-    const manualActiveIdRef = useRef<string | null>(null);
-    const manualLockRef = useRef(false);
+    // Clicked-focus pin, mirroring the API feed: an explicit click holds focus
+    // on its card until the reader scrolls it onto the centre line or away
+    // from it, so the scroll callback cannot immediately undo the choice.
+    const focusPinRef = useRef<FeedFocusPin | null>(null);
+    const storeFeedElement = (postId: string) => document.querySelector<HTMLElement>(
+        `[data-store-feed-post="${CSS.escape(postId)}"]`,
+    );
+    const handleExplicitStackIconClick = useCallback((
+        relatedStacks: any[],
+        postId: string,
+        position: { top: number, height: number },
+    ) => {
+        focusPinRef.current = pinFeedFocus(postId, storeFeedElement(postId));
+        activePostIdRef.current = postId;
+        handleStackIconClick(relatedStacks, postId, position);
+    }, [handleStackIconClick]);
     const publishedRetrievedRef = useRef(new Map<string, { stacks: any[]; count: number }>());
     const restoredScrollRef = useRef(false);
 
@@ -1133,17 +1163,6 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
         if ((source !== 'home' && source !== 'curated-home') || !hydrated || postsRef.current.length === 0) return;
 
         const evaluate = () => {
-            if (manualLockRef.current && manualActiveIdRef.current) {
-                const manualElement = document.querySelector<HTMLElement>(
-                    `[data-store-feed-post="${CSS.escape(manualActiveIdRef.current)}"]`,
-                );
-                if (manualElement) {
-                    const rect = manualElement.getBoundingClientRect();
-                    if (rect.bottom > TOP_NAV_HEIGHT && rect.top < window.innerHeight) return;
-                }
-                manualLockRef.current = false;
-            }
-
             const candidates: Array<FeedFocusCandidate<PostType>> = [];
             const elements = Array.from(
                 document.querySelectorAll<HTMLElement>('[data-store-feed-post]'),
@@ -1157,16 +1176,16 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                 candidates.push({ id: post.postId, value: post, rect });
             }
 
-            const selected = selectStableFeedFocus({
+            const { selected, pin } = selectPinnedFeedFocus({
+                ...feedFocusGeometry(),
                 candidates,
                 currentId: activePostIdRef.current,
-                viewportTop: TOP_NAV_HEIGHT,
-                viewportHeight: window.innerHeight,
-                mode: 'center',
+                pin: focusPinRef.current,
                 atTop: window.scrollY <= 2,
                 atBottom:
                     window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2,
             });
+            focusPinRef.current = pin;
             if (!selected || selected.id === activePostIdRef.current) return;
             activePostIdRef.current = selected.id;
             setActivePostId(selected.id);
@@ -1236,7 +1255,7 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                         favourited={post.favourited}
                         bookmarked={post.bookmarked}
                         mediaAttachments={post.mediaAttachments}
-                        onStackIconClick={handleStackIconClick}
+                        onStackIconClick={handleExplicitStackIconClick}
                         // Store feeds are local study surfaces: publish the same
                         // compatible local detail route (never the auth-gated REST
                         // route). Publish a newly selected card immediately, but
@@ -1258,8 +1277,7 @@ const StoreFeed: React.FC<PostListProps & { source: FeedSource }> = ({
                         relatedStacks={post.relatedStacks}
                         activePostId={activePostId}
                         setActivePostId={(id: string | null) => {
-                            manualActiveIdRef.current = id;
-                            manualLockRef.current = !!id;
+                            focusPinRef.current = id ? pinFeedFocus(id, storeFeedElement(id)) : null;
                             setActivePostId(id);
                         }}
                         initialCard={post.previewCard || null}
