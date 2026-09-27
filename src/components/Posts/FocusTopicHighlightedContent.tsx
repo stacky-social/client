@@ -767,7 +767,16 @@ const FocusTopicHighlightedContent = React.forwardRef<
     const target = fitsWindow
       ? 0
       : Math.max(0, glyph.top - elementRect.top + element.scrollTop - leading);
-    element.scrollTo({ top: target, behavior: "instant" as ScrollBehavior });
+    // A phrase the reader just clicked (or rotated) must not move: when the
+    // selected phrase is already wholly inside the window, leave the window
+    // where it is. Aside hovers still top-align their passage as before.
+    const selectionReveal = !hoveredRelations?.length
+      && selectedIndexRef.current !== null;
+    const selectedInView = selectionReveal
+      && Array.from(range.getClientRects())
+        .filter((rect) => rect.width > 0)
+        .every((rect) => rect.top >= elementRect.top - 0.5 && rect.bottom <= elementRect.bottom + 0.5);
+    if (!selectedInView) element.scrollTo({ top: target, behavior: "instant" as ScrollBehavior });
 
     // Paragraph spacing is not necessarily a multiple of the line height.
     // Paint only complete lines at the lower edge, keeping the card's footprint
