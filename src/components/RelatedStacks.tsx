@@ -2866,9 +2866,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               highlightOptions,
             );
             return chunk.kind === 'insert'
+              // Keyed although static: InlineLinkedContent re-emits a clone's
+              // children as an array, which makes React key-check them.
               ? <React.Fragment key={`insert-${chunkIndex}`}>
-                  {annotatedDiffChunks[chunkIndex - 1]?.kind === 'delete' && <span data-ai-edit-separator aria-hidden="true"> </span>}
-                  <ins>{highlightedChunk}</ins>
+                  {annotatedDiffChunks[chunkIndex - 1]?.kind === 'delete' && <span key="separator" data-ai-edit-separator aria-hidden="true"> </span>}
+                  <ins key="insert">{highlightedChunk}</ins>
                 </React.Fragment>
               : <React.Fragment key={`equal-${chunkIndex}`}>{highlightedChunk}</React.Fragment>;
           });
