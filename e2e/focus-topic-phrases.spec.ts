@@ -137,9 +137,15 @@ test.describe('focus topic phrases', () => {
       await page.keyboard.press('Escape');
     }
 
+    // #224 mobile tap protocol: the first tap on a post's text only engages
+    // it (emphasis on, nothing selected); the second tap takes the touch path.
     await multiTopicMark.dispatchEvent('pointerdown', { pointerType: 'touch', bubbles: true });
     await multiTopicMark.dispatchEvent('click', { bubbles: true, cancelable: true });
     const picker = page.getByTestId('focus-topic-picker');
+    await expect(page.locator('[data-testid="focus-reveal"][data-engaged]').first()).toBeVisible();
+    await expect(picker).toHaveCount(0);
+    await multiTopicMark.dispatchEvent('pointerdown', { pointerType: 'touch', bubbles: true });
+    await multiTopicMark.dispatchEvent('click', { bubbles: true, cancelable: true });
     await expect(picker).toBeVisible();
     const options = picker.locator('[role="menuitemradio"]');
     expect(await options.count()).toBeGreaterThan(1);

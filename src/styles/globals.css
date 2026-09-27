@@ -315,9 +315,9 @@ body {
 /* ── Focus-post semantic topic phrases ───────────────────────────────────────
    Authored focus-comment ranges read as plain text at rest and turn bold only
    while the reader engages the post's text: desktop hover over the text,
-   keyboard focus on a phrase, or a related card cross-highlighting this
-   post. A directed related-span hover temporarily returns unrelated phrases
-   to ordinary text.
+   keyboard focus on a phrase, a related card cross-highlighting this post, or
+   a mobile tap engaging it (data-engaged). A directed related-span hover
+   temporarily returns unrelated phrases to ordinary text.
 
    The emphasis is a doubled text-shadow, NOT font-weight, and must stay that
    way: the hover toggles it on every phrase at once, and a real weight change
@@ -353,7 +353,8 @@ body {
 }
 
 [data-testid="focus-reveal"]:has(:focus-visible) mark,
-[data-testid="focus-reveal"][data-aside-hover] mark {
+[data-testid="focus-reveal"][data-aside-hover] mark,
+[data-testid="focus-reveal"][data-engaged] mark {
     text-shadow: 0 0 0.7px currentColor, 0 0 0.7px currentColor;
 }
 

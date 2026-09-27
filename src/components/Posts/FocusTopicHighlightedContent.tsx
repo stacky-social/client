@@ -84,8 +84,8 @@ interface FocusTopicHighlightedContentProps {
 
 /**
  * Persistent semantic phrases for a focus post. Every authored crux turns bold
- * while the reader engages the text (hover, keyboard focus, or a related-card
- * cross-highlight); hovering one phrase mutes its
+ * while the reader engages the text (hover, keyboard focus, a related-card
+ * cross-highlight, or a mobile engaging tap); hovering one phrase mutes its
  * siblings; topic filtering only begins on click (or an explicit picker
  * choice), so hover never mutates either pane.
  */
@@ -138,6 +138,13 @@ const FocusTopicHighlightedContent = React.forwardRef<
   // A clicked phrase stays quiet (no tooltip, no picker) until the pointer
   // leaves it; the click already said what the reader wanted.
   const suppressedBucketRef = useRef("");
+  // The type of the most recent pointer event over the text. Touch taps also
+  // emit compatibility mouse events, which must not read as a hover.
+  const hoverPointerTypeRef = useRef("");
+  // Mobile: the first tap on a post's text only engages it (emphasis on).
+  const engagedRef = useRef(false);
+  const engageTapRef = useRef(false);
+  const [engaged, setEngaged] = useState(false);
   const [picker, setPicker] = useState<PickerState | null>(null);
   const [textWidth, setTextWidth] = useState(0);
   const [scrollWindowHeight, setScrollWindowHeight] = useState<number | null>(null);
@@ -462,7 +469,15 @@ const FocusTopicHighlightedContent = React.forwardRef<
       else clearTopic();
     };
 
+    const onPointerOver = (event: PointerEvent) => {
+      hoverPointerTypeRef.current = event.pointerType;
+    };
+
     const onMouseMove = (event: MouseEvent) => {
+      // A touch tap's compatibility mouse events are not a hover: they would
+      // mute the siblings, cross-highlight the aside, and open a picker on a
+      // tap that should only engage the post.
+      if (hoverPointerTypeRef.current === "touch") return;
       latestPointerRef.current = { x: event.clientX, y: event.clientY };
       let mark = (event.target as HTMLElement).closest(
         'mark[data-range-ids]',
@@ -539,10 +554,20 @@ const FocusTopicHighlightedContent = React.forwardRef<
     };
 
     const onPointerDown = (event: PointerEvent) => {
+      hoverPointerTypeRef.current = event.pointerType;
+      // Mobile tap protocol: a tap on a post that is not engaged only engages
+      // it. Decided here, before the compatibility mouse events, so mouseup and
+      // click agree on it.
+      engageTapRef.current = event.pointerType === "touch" && !engagedRef.current;
       const mark = (event.target as HTMLElement).closest('mark[data-range-ids]') as HTMLElement | null;
       if (!mark || topicsFor(mark).length === 0) return;
       lastPointerTypeRef.current = event.pointerType;
       window.getSelection()?.removeAllRanges();
+    };
+
+    const onMouseUp = (event: MouseEvent) => {
+      // The post body opens the post on mouseup; an engaging tap must not.
+      if (engageTapRef.current) event.stopPropagation();
     };
 
     const onMouseDown = (event: MouseEvent) => {
@@ -561,6 +586,14 @@ const FocusTopicHighlightedContent = React.forwardRef<
 
     const onClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
+      if (engageTapRef.current) {
+        engageTapRef.current = false;
+        stopAndOwn(event);
+        lastPointerTypeRef.current = "";
+        engagedRef.current = true;
+        setEngaged(true);
+        return;
+      }
       if (target.closest("a")) return;
       const mark = target.closest('mark[data-range-ids]') as HTMLElement | null;
       if (!mark) return;
@@ -630,6 +663,9 @@ const FocusTopicHighlightedContent = React.forwardRef<
       }
     };
     document.addEventListener("pointermove", onOutsidePointerMove);
+    element.addEventListener("pointerover", onPointerOver, true);
+    element.addEventListener("pointermove", onPointerOver, true);
+    element.addEventListener("mouseup", onMouseUp, true);
     element.addEventListener("mousemove", onMouseMove);
     element.addEventListener("mouseover", onMouseMove);
     element.addEventListener("mouseleave", onMouseLeave);
@@ -640,6 +676,9 @@ const FocusTopicHighlightedContent = React.forwardRef<
     return () => {
       document.removeEventListener("pointermove", onOutsidePointerMove);
       if (publishedFocusHover) setFocusHoverRanges(null);
+      element.removeEventListener("pointerover", onPointerOver, true);
+      element.removeEventListener("pointermove", onPointerOver, true);
+      element.removeEventListener("mouseup", onMouseUp, true);
       element.removeEventListener("mousemove", onMouseMove);
       element.removeEventListener("mouseover", onMouseMove);
       element.removeEventListener("mouseleave", onMouseLeave);
@@ -658,6 +697,33 @@ const FocusTopicHighlightedContent = React.forwardRef<
     postId,
     reconcileMarks,
   ]);
+
+  // An engaged post (mobile) disengages on a tap outside its text, or once it
+  // scrolls out of view. The topic picker a phrase tap opened counts as part
+  // of the text, so choosing from it keeps the emphasis on.
+  useEffect(() => {
+    const element = innerRef.current;
+    if (!engaged || !element) return;
+    const disengage = () => {
+      engagedRef.current = false;
+      setEngaged(false);
+    };
+    const onDocumentPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node) || element.contains(target)) return;
+      if (target instanceof Element && target.closest('[data-testid="focus-topic-picker"]')) return;
+      disengage();
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) disengage();
+    });
+    observer.observe(element);
+    document.addEventListener("pointerdown", onDocumentPointerDown, true);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("pointerdown", onDocumentPointerDown, true);
+    };
+  }, [engaged]);
 
   // Preserve the existing fixed-height reveal: when an aside hover, restored
   // focus topic, or legacy passage targets text below the clamp, the prose moves
@@ -820,9 +886,10 @@ const FocusTopicHighlightedContent = React.forwardRef<
           ref={setRefs}
           data-testid="focus-reveal"
           data-reveal-window={scrollWindowHeight !== null ? "" : undefined}
-          // Emphasis is shown only on engagement (see globals.css), which
-          // includes a related card cross-highlighting this post.
+          // Emphasis is shown only on engagement (see globals.css): a related
+          // card cross-highlighting this post, or a mobile tap engaging it.
           data-aside-hover={asideHover ? "" : undefined}
+          data-engaged={engaged ? "" : undefined}
           className={className}
           style={mergedStyle}
           dangerouslySetInnerHTML={innerHtml}
