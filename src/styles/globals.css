@@ -313,8 +313,11 @@ body {
 }
 
 /* ── Focus-post semantic topic phrases ───────────────────────────────────────
-   Authored focus-comment ranges read as bold at rest. A directed related-span
-   hover temporarily returns unrelated phrases to ordinary text.
+   Authored focus-comment ranges read as plain text at rest and turn bold only
+   while the reader engages the post's text: desktop hover over the text,
+   keyboard focus on a phrase, a related card cross-highlighting this post, or
+   a mobile tap engaging it (data-engaged). A directed related-span hover
+   temporarily returns unrelated phrases to ordinary text.
 
    The emphasis is a doubled text-shadow, NOT font-weight, and must stay that
    way: the hover toggles it on every phrase at once, and a real weight change
@@ -330,7 +333,7 @@ body {
     color: #011445;
     background: transparent !important;
     font-weight: inherit;
-    text-shadow: 0 0 0.7px currentColor, 0 0 0.7px currentColor;
+    text-shadow: none;
     text-decoration: none;
     cursor: pointer;
     border-radius: 2px;
@@ -339,6 +342,20 @@ body {
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
     transition: color 120ms ease;
+}
+
+/* The engagement states. They must stay above the .fp-aside-muted rule
+   further down, which wins on source order to un-bold unrelated phrases. */
+@media (hover: hover) {
+    [data-testid="focus-reveal"]:hover mark {
+        text-shadow: 0 0 0.7px currentColor, 0 0 0.7px currentColor;
+    }
+}
+
+[data-testid="focus-reveal"]:has(:focus-visible) mark,
+[data-testid="focus-reveal"][data-aside-hover] mark,
+[data-testid="focus-reveal"][data-engaged] mark {
+    text-shadow: 0 0 0.7px currentColor, 0 0 0.7px currentColor;
 }
 
 [data-testid="focus-reveal"] mark.fp-muted {

@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
 
-// Focus-post topic phrases read as bold at rest. Hovering ONE related-card span
-// is a directed gesture: that span's phrase keeps its emphasis and every
-// unrelated phrase returns to ordinary text, so the reader can see which words
-// the hovered response is answering.
+// Focus-post topic phrases read as plain text at rest and turn bold while the
+// post is engaged, including while a related card cross-highlights it (#224).
+// Hovering ONE related-card span is a directed gesture: that span's phrase
+// keeps its emphasis and every unrelated phrase returns to ordinary text, so
+// the reader can see which words the hovered response is answering.
 //
 // The emphasis is a text-shadow rather than a font-weight, and this suite is the
 // reason. The gesture toggles emphasis on every phrase at once, so anything that
@@ -27,10 +28,11 @@ test('a directed related-span hover un-bolds unrelated phrases without moving te
   const totalMarks = await focusMarks.count();
   expect(totalMarks, 'focus post needs several phrases for muting to mean anything').toBeGreaterThan(1);
 
-  // Every phrase carries the emphasis before any hover.
+  // #224: no phrase carries the emphasis before any hover (it used to be on
+  // at rest; researchers moved it to engagement only).
   const shadowsAtRest = await focusMarks.evaluateAll((nodes) =>
     nodes.map((node) => getComputedStyle(node).textShadow));
-  expect(shadowsAtRest.every((v) => v !== 'none'), 'all phrases emphasised at rest').toBe(true);
+  expect(shadowsAtRest.every((v) => v === 'none'), 'no phrase emphasised at rest').toBe(true);
 
   // The value is deliberately the same doubled shadow the related cards use for
   // their own crux (`data-content-comment` in RelatedStacks.tsx), so both panes

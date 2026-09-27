@@ -6,28 +6,32 @@ const DETAIL_URL = `/ChineseEVs/posts/${focusId}`;
 const visibleMark = '[data-testid="focus-reveal"] mark[data-range-ids]:visible';
 
 test.describe('focus topic phrases', () => {
-  test('phrases are persistently bold, mute their siblings, and open the topic picker', async ({ page }) => {
+  test('phrases bold on hover, mute their siblings, and open the topic picker', async ({ page }) => {
     await page.goto(DETAIL_URL);
     const mark = page.locator(
       '[data-testid="focus-reveal"] mark[aria-label^="Choose among"]:visible',
     ).first();
     await expect(mark).toBeVisible();
 
-    // Emphasis is a metric-neutral text-shadow, not font-weight, so a directed
-    // hover can un-bold a phrase without reflowing the paragraph.
-    await expect(mark).not.toHaveCSS('text-shadow', 'none');
+    // #224: phrases are plain at rest and bold only while the text is engaged
+    // (here: hovered). Emphasis is a metric-neutral text-shadow, not
+    // font-weight, so toggling it never reflows the paragraph.
+    await expect(mark).toHaveCSS('text-shadow', 'none');
     await expect(mark).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 
     await mark.hover();
+    await expect(mark).not.toHaveCSS('text-shadow', 'none');
     await expect(mark).toHaveClass(/fp-hot/);
     await expect(mark).toHaveCSS('color', 'rgb(0, 111, 115)');
     const muted = page.locator('[data-testid="focus-reveal"] mark.fp-muted');
     expect(await muted.count()).toBeGreaterThan(0);
     await expect(muted.first()).toHaveCSS('color', 'rgb(123, 135, 153)');
-    await expect(page.getByTestId('hover-tooltip')).toBeVisible({ timeout: 900 });
 
+    // #224: a multi-topic phrase opens its full list after one short delay
+    // (~500ms) with no small tooltip first.
     const picker = page.getByTestId('focus-topic-picker');
     await expect(picker).toBeVisible({ timeout: 1200 });
+    await expect(page.getByTestId('hover-tooltip')).toHaveCount(0);
     const pickerBox = await picker.boundingBox();
     expect(pickerBox).not.toBeNull();
     await page.mouse.move(
@@ -79,7 +83,12 @@ test.describe('focus topic phrases', () => {
     await expect(mark).toHaveCSS('user-select', 'none');
 
     await mark.hover();
-    await expect(page.getByTestId('hover-tooltip')).toBeVisible({ timeout: 900 });
+    const tooltip = page.getByTestId('hover-tooltip');
+    await expect(tooltip).toBeVisible({ timeout: 900 });
+    // #224: the compact hint names the topic only (no post count).
+    await expect(tooltip).toHaveText(
+      'Filter by: ' + (await mark.getAttribute('aria-label'))!.replace('Filter by topic: ', ''),
+    );
     await page.waitForTimeout(1300);
     await expect(page.getByTestId('focus-topic-picker')).toHaveCount(0);
 
@@ -128,9 +137,15 @@ test.describe('focus topic phrases', () => {
       await page.keyboard.press('Escape');
     }
 
+    // #224 mobile tap protocol: the first tap on a post's text only engages
+    // it (emphasis on, nothing selected); the second tap takes the touch path.
     await multiTopicMark.dispatchEvent('pointerdown', { pointerType: 'touch', bubbles: true });
     await multiTopicMark.dispatchEvent('click', { bubbles: true, cancelable: true });
     const picker = page.getByTestId('focus-topic-picker');
+    await expect(page.locator('[data-testid="focus-reveal"][data-engaged]').first()).toBeVisible();
+    await expect(picker).toHaveCount(0);
+    await multiTopicMark.dispatchEvent('pointerdown', { pointerType: 'touch', bubbles: true });
+    await multiTopicMark.dispatchEvent('click', { bubbles: true, cancelable: true });
     await expect(picker).toBeVisible();
     const options = picker.locator('[role="menuitemradio"]');
     expect(await options.count()).toBeGreaterThan(1);

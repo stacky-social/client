@@ -29,8 +29,11 @@ import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { hideTooltip, showTooltip } from "../HoverTooltip";
 import FocusTopicPicker, { type FocusTopicPickerAnchor } from "./FocusTopicPicker";
 
+// Single-topic phrases show a compact "Filter by" hint; multi-topic phrases
+// skip it and open their full topic list after one delay, so the reader never
+// sees a small tooltip replaced by a large list a moment later.
 const TOOLTIP_DELAY_MS = 350;
-const PICKER_DELAY_MS = 1200;
+const PICKER_DELAY_MS = 500;
 
 function stripHtml(html: string): string {
   return html
@@ -80,9 +83,11 @@ interface FocusTopicHighlightedContentProps {
 }
 
 /**
- * Persistent semantic phrases for a focus post. Every authored crux is bold at
- * rest; hovering one phrase mutes its siblings; topic filtering only begins on
- * click (or an explicit picker choice), so hover never mutates either pane.
+ * Persistent semantic phrases for a focus post. Every authored crux turns bold
+ * while the reader engages the text (hover, keyboard focus, a related-card
+ * cross-highlight, or a mobile engaging tap); hovering one phrase mutes its
+ * siblings; topic filtering only begins on click (or an explicit picker
+ * choice), so hover never mutates either pane.
  */
 const FocusTopicHighlightedContent = React.forwardRef<
   HTMLDivElement,
@@ -126,6 +131,20 @@ const FocusTopicHighlightedContent = React.forwardRef<
   const tooltipShownRef = useRef(false);
   const pickerOpenRef = useRef(false);
   const pickerSourceBucketRef = useRef("");
+  // The phrase under the pointer. A ref, not a listener-local, so it survives
+  // re-renders: resetting it made the next 1px of jitter after a click count
+  // as a fresh hover and re-arm the tooltip and picker.
+  const activeBucketRef = useRef("");
+  // A clicked phrase stays quiet (no tooltip, no picker) until the pointer
+  // leaves it; the click already said what the reader wanted.
+  const suppressedBucketRef = useRef("");
+  // The type of the most recent pointer event over the text. Touch taps also
+  // emit compatibility mouse events, which must not read as a hover.
+  const hoverPointerTypeRef = useRef("");
+  // Mobile: the first tap on a post's text only engages it (emphasis on).
+  const engagedRef = useRef(false);
+  const engageTapRef = useRef(false);
+  const [engaged, setEngaged] = useState(false);
   const [picker, setPicker] = useState<PickerState | null>(null);
   const [textWidth, setTextWidth] = useState(0);
   const [scrollWindowHeight, setScrollWindowHeight] = useState<number | null>(null);
@@ -164,6 +183,12 @@ const FocusTopicHighlightedContent = React.forwardRef<
     ),
     [displayText, focusRelations, rawText],
   );
+  // The App Router's React re-applies dangerouslySetInnerHTML whenever the
+  // prop object's identity changes, even for an identical string. A fresh
+  // object per render therefore replaced every <mark> on every state update;
+  // one between mousedown and mouseup cost the browser its click (a phrase
+  // click that never rotated). Key the object on the string itself.
+  const innerHtml = useMemo(() => ({ __html: html }), [html]);
 
   const setRefs = (element: HTMLDivElement | null) => {
     innerRef.current = element;
@@ -200,13 +225,25 @@ const FocusTopicHighlightedContent = React.forwardRef<
     clearTopicInteraction();
   }, [postId]);
 
-  const closePicker = useCallback(() => {
+  // keepHover: a phrase click closes the picker while the pointer is still on
+  // that phrase, so its hover paint (and the muted siblings) must stay put.
+  const closePicker = useCallback((keepHover = false) => {
     pickerOpenRef.current = false;
     pickerSourceBucketRef.current = "";
-    directHoverIdsRef.current = [];
-    latestMarkRef.current = null;
+    if (!keepHover) {
+      directHoverIdsRef.current = [];
+      latestMarkRef.current = null;
+    }
     setPicker(null);
   }, []);
+
+  const closePickerFromPicker = useCallback(() => closePicker(), [closePicker]);
+
+  const ownsPointerDown = useCallback((target: Node) => Boolean(
+    innerRef.current?.contains(target)
+    && target instanceof Element
+    && target.closest("mark[data-range-ids]"),
+  ), []);
 
   const openPicker = useCallback((
     mark: HTMLElement,
@@ -249,8 +286,13 @@ const FocusTopicHighlightedContent = React.forwardRef<
     && topicInteraction.anchor.postId === postId
     ? topicInteraction.anchor.rangeIndex
     : null;
+  const selectedIndexRef = useRef(selectedIndex);
+  selectedIndexRef.current = selectedIndex;
 
+  // Reads the selection through a ref so this callback, and the listener
+  // effect that depends on it, stay stable across selection changes.
   const reconcileMarks = useCallback(() => {
+    const selectedIndex = selectedIndexRef.current;
     const element = innerRef.current;
     if (!element) return;
     const hoveredIds = directHoverIdsRef.current;
@@ -282,10 +324,10 @@ const FocusTopicHighlightedContent = React.forwardRef<
         mark.classList.add(ids.some((id) => hot.has(id)) ? "fp-hot" : "fp-muted");
       }
     });
-  }, [selectedIndex]);
+  }, []);
 
-  // dangerouslySetInnerHTML can replace mark nodes after any state update, so
-  // semantic attributes and interaction classes are reconciled after each commit.
+  // dangerouslySetInnerHTML replaces the mark nodes whenever the text changes,
+  // so semantic attributes and interaction classes are reconciled after each commit.
   useLayoutEffect(reconcileMarks);
 
   // Related-card hover keeps its original full-passage category wash beneath
@@ -355,7 +397,6 @@ const FocusTopicHighlightedContent = React.forwardRef<
   useEffect(() => {
     const element = innerRef.current;
     if (!element) return;
-    let activeBucket = "";
 
     const topicsFor = (mark: HTMLElement, ids = rangeIdsFor(mark)) =>
       focusTopicCandidates(relationsRef.current, ids, stacksRef.current);
@@ -383,24 +424,19 @@ const FocusTopicHighlightedContent = React.forwardRef<
     ) => {
       cancelHoverFeedback();
       if (topics.length === 0) return;
+      if (topics.length > 1) {
+        pickerTimerRef.current = setTimeout(() => {
+          pickerTimerRef.current = null;
+          openPicker(mark, topics, false, true, latestPointerRef.current ?? { x, y });
+        }, PICKER_DELAY_MS);
+        return;
+      }
       tooltipTimerRef.current = setTimeout(() => {
         tooltipTimerRef.current = null;
-        const interaction = topicInteractionRef.current;
-        const sameHotspot = interaction?.origin === "focus"
-          && interaction.anchor.postId === postId
-          && ids.includes(interaction.anchor.rangeIndex);
-        const foundIndex = sameHotspot
-          ? topics.findIndex((topic) => topic.topicKey === interaction.topicKey)
-          : 0;
-        const topicIndex = Math.max(0, foundIndex);
-        const topic = topics[topicIndex] ?? topics[0];
         showTooltip({
           content: (
             <>
-              <strong>{topic.topicKey}</strong>
-              {" · "}
-              {topic.count} {topic.count === 1 ? "post" : "posts"}
-              {topics.length > 1 ? " · " + (topicIndex + 1) + " of " + topics.length : ""}
+              Filter by: <strong>{topics[0].topicKey}</strong>
             </>
           ),
           colors: { text: "#334155", border: "#8abfbd" },
@@ -409,12 +445,14 @@ const FocusTopicHighlightedContent = React.forwardRef<
         });
         tooltipShownRef.current = true;
       }, TOOLTIP_DELAY_MS);
-      if (topics.length > 1) {
-        pickerTimerRef.current = setTimeout(() => {
-          pickerTimerRef.current = null;
-          openPicker(mark, topics, false, true, latestPointerRef.current ?? { x, y });
-        }, PICKER_DELAY_MS);
-      }
+    };
+
+    const clearHover = () => {
+      latestMarkRef.current = null;
+      activeBucketRef.current = "";
+      suppressedBucketRef.current = "";
+      paintHover([]);
+      cancelHoverFeedback();
     };
 
     const cycle = (mark: HTMLElement) => {
@@ -431,7 +469,15 @@ const FocusTopicHighlightedContent = React.forwardRef<
       else clearTopic();
     };
 
+    const onPointerOver = (event: PointerEvent) => {
+      hoverPointerTypeRef.current = event.pointerType;
+    };
+
     const onMouseMove = (event: MouseEvent) => {
+      // A touch tap's compatibility mouse events are not a hover: they would
+      // mute the siblings, cross-highlight the aside, and open a picker on a
+      // tap that should only engage the post.
+      if (hoverPointerTypeRef.current === "touch") return;
       latestPointerRef.current = { x: event.clientX, y: event.clientY };
       let mark = (event.target as HTMLElement).closest(
         'mark[data-range-ids]',
@@ -448,51 +494,51 @@ const FocusTopicHighlightedContent = React.forwardRef<
         mark = latestMarkRef.current;
       }
       if (!mark) {
-        if (!activeBucket && directHoverIdsRef.current.length === 0) return;
-        latestMarkRef.current = null;
-        activeBucket = "";
-        paintHover([]);
-        cancelHoverFeedback();
+        suppressedBucketRef.current = "";
+        if (!activeBucketRef.current && directHoverIdsRef.current.length === 0) return;
+        clearHover();
         return;
       }
 
       latestMarkRef.current = mark;
       const ids = rangeIdsFor(mark);
       const topics = topicsFor(mark, ids);
+      const bucket = ids.join(",");
+      if (bucket !== suppressedBucketRef.current) suppressedBucketRef.current = "";
       if (topics.length === 0) {
         // Reply-only passages still cross-highlight even without an aside
         // topic to offer in the picker.
-        activeBucket = ids.join(",");
+        activeBucketRef.current = bucket;
         paintHover(ids);
         cancelHoverFeedback();
         return;
       }
-      const bucket = ids.join(",");
       if (pickerOpenRef.current) {
         if (bucket !== pickerSourceBucketRef.current) {
           closePicker();
-          activeBucket = bucket;
+          activeBucketRef.current = bucket;
           paintHover(ids);
           scheduleFeedback(mark, topics, ids, event.clientX, event.clientY);
           return;
         }
         cancelHoverFeedback();
-        if (bucket !== activeBucket) paintHover(ids);
-        activeBucket = bucket;
+        if (bucket !== activeBucketRef.current) paintHover(ids);
+        activeBucketRef.current = bucket;
         return;
       }
       if (event.shiftKey && topics.length > 1) {
         cancelHoverFeedback();
-        if (bucket !== activeBucket || !pickerOpenRef.current) {
+        if (bucket !== activeBucketRef.current || !pickerOpenRef.current) {
           paintHover(ids);
           openPicker(mark, topics, false, true, { x: event.clientX, y: event.clientY });
         }
-        activeBucket = bucket;
+        activeBucketRef.current = bucket;
         return;
       }
-      if (bucket === activeBucket && directHoverIdsRef.current.length > 0) return;
-      activeBucket = bucket;
+      if (bucket === activeBucketRef.current && directHoverIdsRef.current.length > 0) return;
+      activeBucketRef.current = bucket;
       paintHover(ids);
+      if (bucket === suppressedBucketRef.current) return;
       scheduleFeedback(mark, topics, ids, event.clientX, event.clientY);
     };
 
@@ -504,17 +550,24 @@ const FocusTopicHighlightedContent = React.forwardRef<
       ) {
         return;
       }
-      latestMarkRef.current = null;
-      activeBucket = "";
-      paintHover([]);
-      cancelHoverFeedback();
+      clearHover();
     };
 
     const onPointerDown = (event: PointerEvent) => {
+      hoverPointerTypeRef.current = event.pointerType;
+      // Mobile tap protocol: a tap on a post that is not engaged only engages
+      // it. Decided here, before the compatibility mouse events, so mouseup and
+      // click agree on it.
+      engageTapRef.current = event.pointerType === "touch" && !engagedRef.current;
       const mark = (event.target as HTMLElement).closest('mark[data-range-ids]') as HTMLElement | null;
       if (!mark || topicsFor(mark).length === 0) return;
       lastPointerTypeRef.current = event.pointerType;
       window.getSelection()?.removeAllRanges();
+    };
+
+    const onMouseUp = (event: MouseEvent) => {
+      // The post body opens the post on mouseup; an engaging tap must not.
+      if (engageTapRef.current) event.stopPropagation();
     };
 
     const onMouseDown = (event: MouseEvent) => {
@@ -533,6 +586,14 @@ const FocusTopicHighlightedContent = React.forwardRef<
 
     const onClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
+      if (engageTapRef.current) {
+        engageTapRef.current = false;
+        stopAndOwn(event);
+        lastPointerTypeRef.current = "";
+        engagedRef.current = true;
+        setEngaged(true);
+        return;
+      }
       if (target.closest("a")) return;
       const mark = target.closest('mark[data-range-ids]') as HTMLElement | null;
       if (!mark) return;
@@ -541,15 +602,21 @@ const FocusTopicHighlightedContent = React.forwardRef<
       const ids = rangeIdsFor(mark);
       const topics = topicsFor(mark, ids);
       if (topics.length === 0) return;
-      mark.focus({ preventScroll: true });
+      // Only a non-pointer click (detail 0) moves focus. With mousedown's
+      // default prevented, a scripted focus after a pointer press matches
+      // :focus-visible, which would leave a focus ring and the engagement
+      // emphasis stuck on after the pointer has left.
+      if (event.detail === 0) mark.focus({ preventScroll: true });
       window.getSelection()?.removeAllRanges();
       const touch = lastPointerTypeRef.current === "touch"
         || lastPointerTypeRef.current === "pen";
       lastPointerTypeRef.current = "";
+      suppressedBucketRef.current = ids.join(",");
       if (topics.length > 1 && (event.shiftKey || touch)) {
         openPicker(mark, topics, !touch);
         return;
       }
+      if (pickerOpenRef.current) closePicker(true);
       cycle(mark);
     };
 
@@ -592,12 +659,13 @@ const FocusTopicHighlightedContent = React.forwardRef<
     const onOutsidePointerMove = (event: PointerEvent) => {
       if (directHoverIdsRef.current.length > 0 && !pickerOpenRef.current
         && event.target instanceof Node && !element.contains(event.target)) {
-        activeBucket = "";
-        paintHover([]);
-        cancelHoverFeedback();
+        clearHover();
       }
     };
     document.addEventListener("pointermove", onOutsidePointerMove);
+    element.addEventListener("pointerover", onPointerOver, true);
+    element.addEventListener("pointermove", onPointerOver, true);
+    element.addEventListener("mouseup", onMouseUp, true);
     element.addEventListener("mousemove", onMouseMove);
     element.addEventListener("mouseover", onMouseMove);
     element.addEventListener("mouseleave", onMouseLeave);
@@ -608,6 +676,9 @@ const FocusTopicHighlightedContent = React.forwardRef<
     return () => {
       document.removeEventListener("pointermove", onOutsidePointerMove);
       if (publishedFocusHover) setFocusHoverRanges(null);
+      element.removeEventListener("pointerover", onPointerOver, true);
+      element.removeEventListener("pointermove", onPointerOver, true);
+      element.removeEventListener("mouseup", onMouseUp, true);
       element.removeEventListener("mousemove", onMouseMove);
       element.removeEventListener("mouseover", onMouseMove);
       element.removeEventListener("mouseleave", onMouseLeave);
@@ -626,6 +697,33 @@ const FocusTopicHighlightedContent = React.forwardRef<
     postId,
     reconcileMarks,
   ]);
+
+  // An engaged post (mobile) disengages on a tap outside its text, or once it
+  // scrolls out of view. The topic picker a phrase tap opened counts as part
+  // of the text, so choosing from it keeps the emphasis on.
+  useEffect(() => {
+    const element = innerRef.current;
+    if (!engaged || !element) return;
+    const disengage = () => {
+      engagedRef.current = false;
+      setEngaged(false);
+    };
+    const onDocumentPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node) || element.contains(target)) return;
+      if (target instanceof Element && target.closest('[data-testid="focus-topic-picker"]')) return;
+      disengage();
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) disengage();
+    });
+    observer.observe(element);
+    document.addEventListener("pointerdown", onDocumentPointerDown, true);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("pointerdown", onDocumentPointerDown, true);
+    };
+  }, [engaged]);
 
   // Preserve the existing fixed-height reveal: when an aside hover, restored
   // focus topic, or legacy passage targets text below the clamp, the prose moves
@@ -737,7 +835,16 @@ const FocusTopicHighlightedContent = React.forwardRef<
     const target = fitsWindow
       ? 0
       : Math.max(0, glyph.top - elementRect.top + element.scrollTop - leading);
-    element.scrollTo({ top: target, behavior: "instant" as ScrollBehavior });
+    // A phrase the reader just clicked (or rotated) must not move: when the
+    // selected phrase is already wholly inside the window, leave the window
+    // where it is. Aside hovers still top-align their passage as before.
+    const selectionReveal = !hoveredRelations?.length
+      && selectedIndexRef.current !== null;
+    const selectedInView = selectionReveal
+      && Array.from(range.getClientRects())
+        .filter((rect) => rect.width > 0)
+        .every((rect) => rect.top >= elementRect.top - 0.5 && rect.bottom <= elementRect.bottom + 0.5);
+    if (!selectedInView) element.scrollTo({ top: target, behavior: "instant" as ScrollBehavior });
 
     // Paragraph spacing is not necessarily a multiple of the line height.
     // Paint only complete lines at the lower edge, keeping the card's footprint
@@ -769,6 +876,9 @@ const FocusTopicHighlightedContent = React.forwardRef<
       } as React.CSSProperties
     : style;
 
+  // Same condition under which the passage wash below paints this post.
+  const asideHover = active && sidebarHoverActive && Boolean(hoveredRelations?.length);
+
   return (
     <>
       <div className="focus-reveal-shell">
@@ -776,9 +886,13 @@ const FocusTopicHighlightedContent = React.forwardRef<
           ref={setRefs}
           data-testid="focus-reveal"
           data-reveal-window={scrollWindowHeight !== null ? "" : undefined}
+          // Emphasis is shown only on engagement (see globals.css): a related
+          // card cross-highlighting this post, or a mobile tap engaging it.
+          data-aside-hover={asideHover ? "" : undefined}
+          data-engaged={engaged ? "" : undefined}
           className={className}
           style={mergedStyle}
-          dangerouslySetInnerHTML={{ __html: html }}
+          dangerouslySetInnerHTML={innerHtml}
         />
       </div>
       {picker ? (
@@ -792,8 +906,9 @@ const FocusTopicHighlightedContent = React.forwardRef<
             applyTopic(topic);
             closePicker();
           }}
-          onClose={closePicker}
+          onClose={closePickerFromPicker}
           dismissOnPointerLeave={picker.dismissOnPointerLeave}
+          ownsPointerDown={ownsPointerDown}
         />
       ) : null}
     </>
