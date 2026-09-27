@@ -80,7 +80,9 @@ test.describe('AI workforce demo feed', () => {
     await expect(badge).toHaveText('Modified');
     await expect(badge.locator('svg')).toHaveCount(1);
     const card = badge.locator('xpath=ancestor::*[@data-post-id][1]');
-    await expect(card.locator('[data-related-tag-cluster] [data-ai-edit]')).toHaveCount(1);
+    // #224: the pill is the name block's second row, not a contribution type.
+    await expect(card.locator('[data-related-name-block] [data-ai-edit]')).toHaveCount(1);
+    await expect(card.locator('[data-related-tag-cluster] [data-ai-edit]')).toHaveCount(0);
     await expect(card.locator('[data-related-card-content] [data-ai-edit]')).toHaveCount(0);
     const beforeHover = await card.boundingBox();
     const editedText = card.locator('[data-ai-edited-default]');

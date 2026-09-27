@@ -3269,22 +3269,41 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                 <UnstyledButton onClick={(e) => handleNavigateToUser(e, stack.topPost.account)} className="avatarHoverDim" style={{ flexShrink: 0 }}>
                   <ProfileAvatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
                 </UnstyledButton>
-                <div style={{ display: 'flex', flex: '1 1 160px', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                  <AuthorHoverInfo
-                    displayName={stack.topPost.account.display_name}
-                    account={stack.topPost.account.acct || stack.topPost.account.username || stack.topPost.account.display_name}
-                    stats={{
-                      posts: stack.topPost.account.statuses_count,
-                      followers: stack.topPost.account.followers_count,
-                      following: stack.topPost.account.following_count,
-                    }}
-                  >
-                    <Anchor component="button" onClick={(e) => handleNavigateToUser(e, stack.topPost.account)} underline="hover"
-                      style={{ color: '#011445', fontWeight: 700, fontSize: 'var(--mantine-font-size-sm)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {stack.topPost.account.display_name}
-                    </Anchor>
-                  </AuthorHoverInfo>
-                  <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>· {formatPostDate(displayDate)}</Text>
+                {/* Name block: "name · date", plus the AI "Modified" pill as a
+                    second row under it. Name (~22px) + pill (14px) stay inside
+                    the 38px avatar, so a modified card's header is exactly as
+                    tall as any other (the pill once sat among the type icons,
+                    read as a contribution type, and wrapped narrow headers). */}
+                <div
+                  data-related-name-block
+                  style={{ display: 'flex', flex: '1 1 160px', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                    <AuthorHoverInfo
+                      displayName={stack.topPost.account.display_name}
+                      account={stack.topPost.account.acct || stack.topPost.account.username || stack.topPost.account.display_name}
+                      stats={{
+                        posts: stack.topPost.account.statuses_count,
+                        followers: stack.topPost.account.followers_count,
+                        following: stack.topPost.account.following_count,
+                      }}
+                    >
+                      <Anchor component="button" onClick={(e) => handleNavigateToUser(e, stack.topPost.account)} underline="hover"
+                        style={{ color: '#011445', fontWeight: 700, fontSize: 'var(--mantine-font-size-sm)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {stack.topPost.account.display_name}
+                      </Anchor>
+                    </AuthorHoverInfo>
+                    <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>· {formatPostDate(displayDate)}</Text>
+                  </div>
+                  {hasVisibleAiEdit && (
+                    <AiModifiedDisclosure
+                      active={isAiEditActive}
+                      editSummary={stack.topPost.rewrite.editSummary}
+                      onActiveChange={(active) => {
+                        setActiveAiEditPostId(active ? stack.topPost.id : null);
+                      }}
+                    />
+                  )}
                 </div>
                 {/* Compact contribution icons; labels appear in the tooltip. */}
                 <div
@@ -3364,15 +3383,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       );
                     });
                   })()}
-                  {hasVisibleAiEdit && (
-                    <AiModifiedDisclosure
-                      active={isAiEditActive}
-                      editSummary={stack.topPost.rewrite.editSummary}
-                      onActiveChange={(active) => {
-                        setActiveAiEditPostId(active ? stack.topPost.id : null);
-                      }}
-                    />
-                  )}
                 </div>
 
                 {/* F: Relation indicator — top-right. Shows the active grouping topic

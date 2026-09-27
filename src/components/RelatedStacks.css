@@ -106,26 +106,34 @@
 
   /* Contextual AI edits borrow the visual grammar of document track changes:
      red strike-through for removed language, green underline for additions. */
+  /* The "Modified" pill is the second row of a related card's name block, not
+     a contribution type: a small borderless tint pill, 14px tall, that fits
+     under the name inside the avatar's height. Its wrapper hugs the pill so
+     hover (which reveals the redline) starts on the pill, not the row. */
   .ai-edit-disclosure {
     display: inline-flex;
+    align-self: flex-start;
     flex-shrink: 0;
+    max-width: 100%;
     margin: 0;
   }
 
   .ai-edit-badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    height: 22px;
-    padding: 2px 6px;
-    color: #4c3f78;
-    background: #f3f0ff;
-    border: 1px solid #c9c1e8;
-    border-radius: 5px;
+    gap: 3px;
+    height: 14px;
+    padding: 0 6px 0 5px;
+    color: #5b4e8a;
+    background: #f1eefb;
+    border: 0;
+    border-radius: 8px;
     font: inherit;
     font-size: 10px;
-    font-weight: 700;
+    font-weight: 600;
+    line-height: 14px;
     letter-spacing: 0.01em;
+    white-space: nowrap;
     cursor: default;
   }
 
@@ -133,13 +141,12 @@
   .ai-edit-badge:focus-visible,
   .ai-edit-badge[aria-pressed="true"] {
     color: #35265f;
-    background: #e9e3ff;
-    border-color: #9f93cf;
+    background: #e4ddfb;
     outline: none;
   }
 
   .ai-edit-badge:focus-visible {
-    box-shadow: 0 0 0 3px rgba(117, 96, 176, 0.2);
+    box-shadow: 0 0 0 2px rgba(117, 96, 176, 0.35);
   }
 
   /* Provenance redlines replace the published paragraph in the same text flow.
