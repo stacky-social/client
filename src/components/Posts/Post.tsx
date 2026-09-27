@@ -130,7 +130,11 @@ function articleSourceUrl(
   card: PreviewCard | null | undefined,
   quotedPost: QuotedPostMock | null | undefined,
 ): string | null {
-  if (quotedPost || !card?.url || !card.title || !articleHost(card.url)) return null;
+  if (quotedPost || !card?.url || !card.title) return null;
+  const host = articleHost(card.url);
+  // A Reddit thread-starter's card points back at the thread itself, not at a
+  // news article, so it gets no source row (researchers asked for article links).
+  if (!host || host === 'reddit.com' || host.endsWith('.reddit.com')) return null;
   const headline = headlineKey(card.title);
   if (!headline || !headlineKey(stripHtml(html)).startsWith(headline)) return null;
   if (extractMastodonLinks(html).some((candidate) => isSameArticleUrl(candidate, card.url))) return null;
