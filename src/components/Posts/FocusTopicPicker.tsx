@@ -25,6 +25,8 @@ interface FocusTopicPickerProps {
   onSelect: (topic: FocusTopicCandidate) => void;
   onClose: () => void;
   dismissOnPointerLeave?: boolean;
+  /** Pointer-downs the owner handles itself (its own phrases): not "outside". */
+  ownsPointerDown?: (target: Node) => boolean;
 }
 
 export default function FocusTopicPicker({
@@ -36,6 +38,7 @@ export default function FocusTopicPicker({
   onSelect,
   onClose,
   dismissOnPointerLeave = false,
+  ownsPointerDown,
 }: FocusTopicPickerProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -83,7 +86,14 @@ export default function FocusTopicPicker({
 
   useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) onClose();
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target)) return;
+      // A press on the owner's own phrase is not an outside press: closing here
+      // re-rendered the phrase between mousedown and mouseup, so the browser
+      // fired no click and the phrase never rotated. Its click handler closes
+      // the picker itself.
+      if (ownsPointerDown?.(target)) return;
+      onClose();
     };
     const cancelDismiss = () => {
       if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
@@ -121,7 +131,7 @@ export default function FocusTopicPicker({
       window.removeEventListener("keydown", onKeyDown);
       cancelDismiss();
     };
-  }, [anchorElement, dismissOnPointerLeave, onClose]);
+  }, [anchorElement, dismissOnPointerLeave, onClose, ownsPointerDown]);
 
   useEffect(() => {
     if (!focusOnOpen) return;

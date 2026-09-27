@@ -24,10 +24,12 @@ test.describe('focus topic phrases', () => {
     const muted = page.locator('[data-testid="focus-reveal"] mark.fp-muted');
     expect(await muted.count()).toBeGreaterThan(0);
     await expect(muted.first()).toHaveCSS('color', 'rgb(123, 135, 153)');
-    await expect(page.getByTestId('hover-tooltip')).toBeVisible({ timeout: 900 });
 
+    // #224: a multi-topic phrase opens its full list after one short delay
+    // (~500ms) with no small tooltip first.
     const picker = page.getByTestId('focus-topic-picker');
     await expect(picker).toBeVisible({ timeout: 1200 });
+    await expect(page.getByTestId('hover-tooltip')).toHaveCount(0);
     const pickerBox = await picker.boundingBox();
     expect(pickerBox).not.toBeNull();
     await page.mouse.move(
@@ -79,7 +81,12 @@ test.describe('focus topic phrases', () => {
     await expect(mark).toHaveCSS('user-select', 'none');
 
     await mark.hover();
-    await expect(page.getByTestId('hover-tooltip')).toBeVisible({ timeout: 900 });
+    const tooltip = page.getByTestId('hover-tooltip');
+    await expect(tooltip).toBeVisible({ timeout: 900 });
+    // #224: the compact hint names the topic only (no post count).
+    await expect(tooltip).toHaveText(
+      'Filter by: ' + (await mark.getAttribute('aria-label'))!.replace('Filter by topic: ', ''),
+    );
     await page.waitForTimeout(1300);
     await expect(page.getByTestId('focus-topic-picker')).toHaveCount(0);
 
