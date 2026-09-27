@@ -66,7 +66,14 @@ export function reduceInteraction(dims, action) {
     case "asideTopic":
       return {
         ...clearedDims(),
-        topicInteraction: { origin: "aside", topicKey: action.topicKey, anchor: action.anchor },
+        // A contribution-type group ("more like this" from a card's type icon)
+        // is the same aside grouping keyed by a category. The dimension travels
+        // with the key because a topicless relation's topic falls back to its
+        // category label, so a bare key could name either. Topic groups stay
+        // shape-identical to before (no `groupBy` property at all).
+        topicInteraction: action.groupBy === "category"
+          ? { origin: "aside", topicKey: action.topicKey, anchor: action.anchor, groupBy: "category" }
+          : { origin: "aside", topicKey: action.topicKey, anchor: action.anchor },
       };
     case "replyTopic":
       return {
@@ -137,13 +144,15 @@ export function detailFocusIdFromPath(pathname) {
  *  at the interaction's anchor (or null/undefined if that span is gone). The
  *  `origin` is forwarded so the resolver can route an aside-origin anchor
  *  against the related cards and a reply-origin anchor against the thread's
- *  reply relations (the two live in different panes / data sources). The whole
+ *  reply relations (the two live in different panes / data sources), and the
+ *  `groupBy` dimension so a contribution-type group resolves the CATEGORY at its
+ *  anchor rather than a topic (the two can share a label). The whole
  *  interaction is dropped unless the anchor still resolves to the SAME topic
  *  key — never a partial restore. */
 export function validateTopicInteraction(topicInteraction, resolveTopicKey) {
   if (!topicInteraction) return null;
   const current = resolveTopicKey
-    ? resolveTopicKey(topicInteraction.anchor, topicInteraction.origin)
+    ? resolveTopicKey(topicInteraction.anchor, topicInteraction.origin, topicInteraction.groupBy)
     : null;
   return current && current === topicInteraction.topicKey ? topicInteraction : null;
 }

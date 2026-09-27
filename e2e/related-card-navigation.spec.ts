@@ -47,29 +47,33 @@ test.describe('Related-card navigation & interaction guards', () => {
     await expect(page).toHaveURL(new RegExp(`/AIWorkforce/posts/${targetId}(\\?|$)`));
   });
 
-  test('B1: clicking a category tag filters the panel and does NOT navigate', async ({ page }) => {
+  test('B1: clicking a category tag groups the panel and does NOT navigate', async ({ page }) => {
     await page.goto(DETAIL_URL);
 
+    // Compact icon-only tags; the label lives in aria-label + the tooltip.
     const tag = page.locator('[data-related-card] [data-related-tag]').first();
     await expect(tag).toBeVisible();
     await expect(page.locator('[data-related-card] .related-tag-text')).toHaveCount(0);
-    const tagBox = await tag.boundingBox();
-    expect(tagBox?.width).toBeGreaterThan(24);
-    await expect(tag).toHaveText((await tag.getAttribute("aria-label"))!);
+    await expect(tag).toHaveText('');
+    await expect(tag.locator('svg')).toBeVisible();
 
-    // No grouping active yet. (T4 removed the "Grouped by:" pill; grouping is now
-    // signalled by the inline anchor indicator, data-testid "active-group-anchor".)
+    // No grouping active yet. Grouping is signalled by the anchor card's
+    // data-testid "active-group-anchor".
     const groupIndicator = page.getByTestId('active-group-anchor');
     await expect(groupIndicator).toHaveCount(0);
+    const cardCount = await page.locator('[data-related-card]').count();
 
     const pathBefore = new URL(page.url()).pathname;
     await tag.click();
 
-    // The tag's own action fires (panel groups) ...
-    await expect(groupIndicator).toHaveCount(0);
+    // #224: the tag's own action is "more like this" — the panel GROUPS by that
+    // contribution type around this card instead of filtering (fc=) ...
+    await expect(groupIndicator).toHaveCount(1);
+    await expect(page).toHaveURL(/[?&]fg=category/);
+    await expect(page).not.toHaveURL(/[?&]fc=/);
+    expect(await page.locator('[data-related-card]').count()).toBeGreaterThanOrEqual(cardCount);
     // ... and the card-level navigation did NOT (stopPropagation held).
     expect(new URL(page.url()).pathname).toBe(pathBefore);
-    await expect(page).toHaveURL(/[?&]fc=/);
   });
 
   test('B1.1: scrolling clears level-one hover and does not activate cards under a stationary pointer', async ({ page }) => {

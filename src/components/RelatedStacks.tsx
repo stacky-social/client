@@ -37,6 +37,7 @@ import AuthorHoverInfo from './AuthorHoverInfo';
 import ProfileAvatar from './ProfileAvatar';
 import InlineLinkedContent from './InlineLinkedContent';
 import { preserveInlineLinkOffsets } from '../utils/inlineLinks.mjs';
+import { readingWindowBounds, WINDOW_CHARS } from '../utils/relatedWindow.mjs';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -106,6 +107,30 @@ function stackMatchesCategories(stack: RelatedStackType, filters: Set<string>): 
   if (filters.size === 0) return true;
   const categories = categoriesOfStack(stack);
   return Array.from(filters).every((filter) => categories.has(categoryKey(filter)));
+}
+
+/** Top-chip category of a card: the count the filter bar shows per category
+ * (legacy `rel`, with the same 'uncategorized' fallback). A contribution-type
+ * group gathers exactly these cards, so its "(N)" agrees with that chip. */
+function chipCategoryOf(stack: RelatedStackType): string {
+  return categoryKey(stack.rel) || 'uncategorized';
+}
+
+/** The relation a contribution-type group anchors on: the card's first relation
+ * of that category, or 0 for a legacy stack-level classification that carries
+ * no offsets. Only used to give the shared URL tuple a stable, checkable index;
+ * a type group highlights no single span. */
+function categoryAnchorIndex(stack: RelatedStackType, category: string): number {
+  const index = (stack.topPost.relations ?? []).findIndex((relation) => categoryKey(relation.category) === category);
+  return index >= 0 ? index : 0;
+}
+
+/** Inverse of categoryAnchorIndex, used to validate a restored/shared tuple. */
+function categoryAtAnchor(stack: RelatedStackType, rangeIndex: number): string | null {
+  const relations = stack.topPost.relations ?? [];
+  if (relations.length === 0) return rangeIndex === 0 ? categoryKey(stack.rel) || null : null;
+  const relation = relations[rangeIndex];
+  return relation ? categoryKey(relation.category) || null : null;
 }
 
 /** Offset-annotated study posts must preserve their exact plain-text geometry.
@@ -913,7 +938,10 @@ function buildMultiHighlightNodes(
 
 // ─── Smart windowing: show only the highlighted portion if content is long ───
 
-const WINDOW_CHARS = 140;
+/** The "…" that marks a windowed card's cut edges. Same size as the text and
+ * slate-500 (4.8:1 on the card surface) with a thin space to the prose, so the
+ * truncation is legible rather than a pale glyph glued to the first word. */
+const WINDOW_ELLIPSIS_STYLE: React.CSSProperties = { color: '#64748b', userSelect: 'none' };
 
 /** Map an original-text boundary into the revised text. Start boundaries sit
  * after an insertion at that exact point; end boundaries sit before it, so an
@@ -975,15 +1003,20 @@ function remapRelationsToRewrite(
   });
 }
 
-/** Window content around the first relation's emphasized comment (when present),
- * otherwise around its broader content range. AI-diff bounds are only a fallback
- * for cards without relation offsets: the relationship is the reason the card is
- * in this pane and must remain visible in the collapsed view. */
+/** Window content around a relation's emphasized comment (when present),
+ * otherwise around its broader content range: relations[0] by default, or the
+ * `preferredIndex` relation (the card's clicked span, or the one matching the
+ * active filter/group) when the default window would not show it. The
+ * relationship is the reason the card is in this pane and must remain visible
+ * in the collapsed view. `preferredIndex` indexes `relations` as passed — the
+ * original order is never changed, because `__idx` routes hover and click
+ * handling back to the card's original relation indices. */
 function windowContent(
   plain: string,
   relations: Relation[] | undefined,
   expanded: boolean,
-  preferredBounds?: { start: number; end: number },
+  preferredIndex: number | null = null,
+  preferredIsAnchor = false,
 ): {
   text: string;
   adjustedRelations: Relation[] | undefined;
@@ -992,8 +1025,7 @@ function windowContent(
   start: number;
   end: number;
 } {
-  const totalChars = WINDOW_CHARS * 2;
-  if (expanded || plain.length <= totalChars) {
+  if (expanded || plain.length <= WINDOW_CHARS * 2) {
     return {
       text: plain,
       adjustedRelations: relations,
@@ -1003,23 +1035,7 @@ function windowContent(
       end: plain.length,
     };
   }
-  const first = relations?.[0];
-  const hasCommentRange = !!first
-    && first.contentCommentEnd > first.contentCommentStart
-    && first.contentCommentStart >= first.contentStart
-    && first.contentCommentEnd <= first.contentEnd;
-  const relationCenter = first
-    ? Math.floor((
-      (hasCommentRange ? first.contentCommentStart : first.contentStart)
-      + (hasCommentRange ? first.contentCommentEnd : first.contentEnd)
-    ) / 2)
-    : null;
-  const start = relationCenter !== null
-    ? Math.max(0, relationCenter - WINDOW_CHARS)
-    : (preferredBounds?.start ?? 0);
-  const end = relationCenter !== null
-    ? Math.min(plain.length, relationCenter + WINDOW_CHARS)
-    : (preferredBounds?.end ?? Math.min(plain.length, totalChars));
+  const { start, end } = readingWindowBounds(plain, relations, preferredIndex, preferredIsAnchor);
   const text = plain.slice(start, end);
   const adjustedRelations = relations?.map((r, i) => ({
     ...r,
@@ -1052,6 +1068,37 @@ function restingViewportTop(element: HTMLElement): number {
   } catch {
     return top;
   }
+}
+
+// ─── Frozen group header geometry ───────────────────────────────────────────
+// A group block is a run of sibling rows (header, cards), so its header cannot
+// simply be `position: sticky` — it would stick over the cards after it. A
+// zero-height sticky overlay right under the panel's sticky header carries a
+// copy instead, shown only while the real header has scrolled above that line
+// and the group's last card still reaches below it.
+
+/** The reading line (bottom of the panel's sticky header), the frozen copy's
+ *  height, and whether the copy is showing for the current scroll position. */
+function measureGroupSticky(aside: HTMLElement): { line: number; height: number; visible: boolean } {
+  const header = aside.querySelector('[data-testid="related-sticky-header"]');
+  const line = header?.getBoundingClientRect().bottom ?? aside.getBoundingClientRect().top;
+  const bar = aside.querySelector('[data-related-group-sticky-bar]') as HTMLElement | null;
+  const height = bar?.offsetHeight ?? 0;
+  const groupHeader = aside.querySelector('[data-related-group-header]');
+  const lastCard = aside.querySelector('[data-related-group-end="true"]');
+  const visible = !!bar && !!groupHeader && !!lastCard
+    && groupHeader.getBoundingClientRect().top < line - 0.5
+    && lastCard.getBoundingClientRect().bottom > line + height;
+  return { line, height, visible };
+}
+
+/** Extra top inset for a card whose top edge is being placed at the reading
+ *  line: a member of the active group sits under the frozen group header
+ *  there, so viewport anchoring must measure from below that copy. */
+function groupStickyInset(aside: HTMLElement, card: Element | null): number {
+  if (!card || !card.hasAttribute('data-related-group-member')) return 0;
+  const bar = aside.querySelector('[data-related-group-sticky-bar]') as HTMLElement | null;
+  return bar?.offsetHeight ?? 0;
 }
 
 // ─── "More like this" word overlap scoring ──────────────────────────────────
@@ -1200,6 +1247,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // grouping is stable too — keeping the effects that depend on it from firing
   // every render.
   const grouping = useMemo(() => asideGrouping(topicInteraction), [topicInteraction]);
+  // A card's contribution-type icon groups "more like this" by CATEGORY through
+  // the same aside grouping; a span groups by TOPIC. Null for a topic group.
+  const groupCategory = grouping?.groupBy === 'category' ? grouping.topicKey : null;
   const asideFilterInteraction = useMemo(
     () =>
       topicInteraction?.origin === 'focus'
@@ -1217,8 +1267,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     () => (grouping ? [grouping.anchor.postId] : []),
     [grouping],
   );
+  // Only a topic group anchors a SPAN. A type group's anchor index merely keys
+  // the URL tuple, so it must not light (or dim around) any one highlight.
   const anchoredRangeByPost = useMemo<Record<string, number>>(
-    () => (grouping ? { [grouping.anchor.postId]: grouping.anchor.rangeIndex } : {}),
+    () => (grouping && grouping.groupBy !== 'category'
+      ? { [grouping.anchor.postId]: grouping.anchor.rangeIndex }
+      : {}),
     [grouping],
   );
 
@@ -1230,10 +1284,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // aside cannot see reply relations itself, so without this a restored
   // reply-origin interaction would always fail to resolve and be dropped.
   const resolveTopicKey = React.useCallback(
-    (anchor: { postId: string; rangeIndex: number }, origin?: 'aside' | 'replies' | 'focus'): string | null => {
+    (
+      anchor: { postId: string; rangeIndex: number },
+      origin?: 'aside' | 'replies' | 'focus',
+      groupBy?: 'category',
+    ): string | null => {
       if (origin === 'replies') return resolveReplyTopicKey(anchor);
       if (origin === 'focus') return resolveFocusTopicKey(anchor);
       const stack = relatedStacks.find((s) => s.topPost.id === anchor.postId);
+      if (groupBy === 'category') return stack ? categoryAtAnchor(stack, anchor.rangeIndex) : null;
       const rel = stack?.topPost.relations?.[anchor.rangeIndex];
       return rel ? topicKeyOf(rel) : null;
     },
@@ -1252,7 +1311,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       !topicInteraction ||
       (topicInteraction.origin !== 'aside' && topicInteraction.origin !== 'focus')
     ) return;
-    const currentTopic = resolveTopicKey(topicInteraction.anchor, topicInteraction.origin);
+    const currentTopic = resolveTopicKey(topicInteraction.anchor, topicInteraction.origin, topicInteraction.groupBy);
     // Focus prose lives in the parallel main route and can register one effect
     // after this aside. Let that component perform the authoritative check once
     // its relation data is ready instead of clearing a valid cold-link early.
@@ -1649,7 +1708,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     const aboveStacks = workingStacks.slice(0, anchorIdx);
     const belowStacks = workingStacks.slice(anchorIdx + 1);
 
-    const matchesAnchor = anchorTopic
+    // A type group gathers the cards the matching top chip counts; a topic
+    // group the cards sharing the clicked span's topic. Nothing is hidden
+    // either way — non-members keep their places around the block.
+    const matchesAnchor = groupCategory
+      ? (s: RelatedStackType) => chipCategoryOf(s) === groupCategory
+      : anchorTopic
       ? (s: RelatedStackType) =>
           (s.topPost.relations ?? []).some((r, ri) => topicOf(r, s.stackId, ri) === anchorTopic)
       : (s: RelatedStackType) =>
@@ -1733,7 +1797,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     }
 
     return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic, groupMemberIds };
-  }, [relatedStacks, filterCategories, responseFilter, reRankAnchorIds, shownByAnchor, anchoredRangeByPost, baseOrderIds]);
+  }, [relatedStacks, filterCategories, responseFilter, reRankAnchorIds, shownByAnchor, anchoredRangeByPost, baseOrderIds, groupCategory]);
 
   // ── Aside filter-by-topic branch (T4) ──────────────────────────────────────
   // When the active interaction originated on the REPLIES pane, this panel is
@@ -1831,7 +1895,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     const snapshot: PanelViewportSnapshot = {
       scrollTop: aside.scrollTop,
       anchorPostId: anchor?.querySelector('[data-post-id]')?.getAttribute('data-post-id') ?? null,
-      anchorOffset: anchor ? restingViewportTop(anchor) - contentTop : 0,
+      // Measured (and restored) from below the frozen group header for a group
+      // member, so an explicit small offset never parks a card under it.
+      anchorOffset: anchor ? restingViewportTop(anchor) - contentTop - groupStickyInset(aside, anchor) : 0,
       visibleCardCount: visibleCardCountRef.current,
     };
     savePanelViewport(focusId, snapshot);
@@ -1908,7 +1974,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       pendingViewportFallbackTimerRef.current = null;
     }
     if (anchor) {
-      aside.scrollTop += restingViewportTop(anchor) - contentTop - pending.anchorOffset;
+      aside.scrollTop += restingViewportTop(anchor) - contentTop - groupStickyInset(aside, anchor) - pending.anchorOffset;
     } else {
       aside.scrollTop = pending.scrollTop;
     }
@@ -1944,7 +2010,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       if (!aside || !card) return;
       revealedSharedGroupRef.current = revealKey;
       const contentTop = header?.getBoundingClientRect().bottom ?? aside.getBoundingClientRect().top;
-      aside.scrollTop += card.getBoundingClientRect().top - contentTop - 8;
+      // Reveal the group's own header row (it directly precedes the first
+      // card): landing the first card at the top would scroll that header away
+      // and park the card under its frozen copy.
+      const groupHeader = aside.querySelector('[data-related-group-header]') as HTMLElement | null;
+      aside.scrollTop += (groupHeader ?? card).getBoundingClientRect().top - contentTop - 8;
       capturePanelViewport();
     }, 80);
     return () => clearTimeout(timer);
@@ -1983,6 +2053,36 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     claimedBy.forEach((anchorId) => s.add(anchorId));
     return s;
   }, [claimedBy]);
+
+  /** The active group block's label, count and colour — shared by the in-list
+   *  group header, its footer, the rails, and the frozen sticky copy of the
+   *  header. Null when no group block is drawn (no grouping, or no members). A
+   *  topic group is labelled by the anchor span's topic; a type group by the
+   *  contribution type, in that type's colour. */
+  const activeGroupHeader = useMemo(() => {
+    const anchorId = reRankAnchorIds.length > 0 ? reRankAnchorIds[reRankAnchorIds.length - 1] : null;
+    if (!anchorId || !anchorsWithClaims.has(anchorId)) return null;
+    const total = groupTotal.get(anchorId) ?? 0;
+    const anchorStack = relatedStacks.find(s => s.topPost.id === anchorId);
+    if (total <= 0 || !anchorStack) return null;
+    if (groupCategory) {
+      return {
+        anchorId,
+        label: CATEGORY_LABELS[groupCategory] ?? groupCategory,
+        count: 1 + total,
+        colors: getCategoryColors(groupCategory),
+      };
+    }
+    const rangeIdx = anchoredRangeByPost[anchorId] ?? 0;
+    const rel = anchorStack.topPost.relations?.[rangeIdx];
+    return {
+      anchorId,
+      // Always produce a label: real topic first, then the category fallback.
+      label: rel ? topicOf(rel, anchorStack.stackId, rangeIdx) : anchorStack.topPost.account.display_name,
+      count: 1 + total,
+      colors: getCategoryColors(rel?.category ?? anchorStack.rel),
+    };
+  }, [reRankAnchorIds, anchorsWithClaims, groupTotal, relatedStacks, groupCategory, anchoredRangeByPost]);
 
   /**
    * D3: shortest common related text — the narrowest focus-post substring that
@@ -2073,15 +2173,23 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   const flipFirstTopsRef = useRef<Map<string, number> | null>(null);
   const flipRafRef = useRef<number>(0);
 
-  /** Toggle the aside topic grouping for a clicked card span (or dismiss it via
-   *  the header ×). Routes through the atomic `activateAsideTopic` /
+  /** Toggle the aside topic grouping for a clicked card span, the type grouping
+   *  for a clicked contribution-type icon (`category`), or dismiss either via a
+   *  header/footer ×. Routes through the atomic `activateAsideTopic` /
    *  `clearTopicInteraction` so replace-not-stack holds (grouping clears any
    *  category/passage filter). The interacted card stays visually pinned while
    *  the others animate around it. */
-  const handleToggleAnchor = (postId: string, rangeIndex?: number, pinTo: 'span' | 'card' = 'card') => {
+  const handleToggleAnchor = (
+    postId: string,
+    rangeIndex?: number,
+    pinTo: 'span' | 'card' = 'card',
+    /** Set by a card's contribution-type icon: group "more like this" by this
+     *  category instead of by a span's topic. */
+    category?: string,
+  ) => {
     const activeAnchorId = grouping?.anchor.postId ?? null;
     const activeAnchorRange = grouping?.anchor.rangeIndex ?? null;
-    const activeTopicKey = grouping?.topicKey ?? null;
+    const activeTopicKey = grouping && !groupCategory ? grouping.topicKey : null;
 
     // The topic key for THIS click, computed at the click site (the store can't
     // derive it). Topicless spans (no explicit `topic`) cannot seed a topic
@@ -2092,14 +2200,26 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       const clickRel = clickStack?.topPost.relations?.[rangeIndex];
       clickTopicKey = clickRel ? topicKeyOf(clickRel) : null;
     }
+    // A type group's anchor index only keys the shared URL tuple.
+    const clickCategory = category !== undefined ? categoryKey(category) || null : null;
+    let anchorRangeIndex = rangeIndex;
+    if (clickCategory !== null) {
+      const clickStack = relatedStacks.find(s => s.topPost.id === postId);
+      if (!clickStack) return;
+      anchorRangeIndex = categoryAnchorIndex(clickStack, clickCategory);
+    }
 
     // Decide the action BEFORE any DOM capture so a no-op never strands the FLIP
     // capture state (which would otherwise leak until the next real toggle).
     let action: 'clear' | 'activate' | 'noop';
-    if (rangeIndex === undefined) {
+    if (clickCategory !== null) {
+      // Type icon: the active type toggles off from any card that shows it; any
+      // other type (or a topic group) switches to this one.
+      action = groupCategory === clickCategory ? 'clear' : 'activate';
+    } else if (rangeIndex === undefined) {
       // Header × / dismiss button: clear the current grouping (no-op if none).
       action = activeAnchorId !== null ? 'clear' : 'noop';
-    } else if (activeAnchorId === postId && activeAnchorRange === rangeIndex) {
+    } else if (activeTopicKey !== null && activeAnchorId === postId && activeAnchorRange === rangeIndex) {
       // The active anchor span clicked again → toggle the group off.
       action = 'clear';
     } else if (activeTopicKey !== null && clickTopicKey === activeTopicKey) {
@@ -2162,7 +2282,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     // This gesture owns the viewport. URL synchronization must not be
     // mistaken for opening a shared topic link and scroll the group again.
     revealedSharedGroupRef.current = action === 'activate'
-      ? `${sourcePostId ?? ctxActivePostId ?? ''}:${postId}:${rangeIndex}`
+      ? `${sourcePostId ?? ctxActivePostId ?? ''}:${postId}:${anchorRangeIndex}`
       : null;
 
     // Apply the interaction. `activateAsideTopic` sets topicInteraction
@@ -2172,6 +2292,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     // in T7); in aside-only mode there is no reply pane, so it only groups here.
     if (action === 'clear') {
       clearTopicInteraction();
+    } else if (clickCategory !== null) {
+      activateAsideTopic({
+        topicKey: clickCategory,
+        anchor: { postId, rangeIndex: anchorRangeIndex! },
+        groupBy: 'category',
+      });
     } else {
       activateAsideTopic({ topicKey: clickTopicKey!, anchor: { postId, rangeIndex: rangeIndex! } });
     }
@@ -2206,6 +2332,18 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           const max = Math.max(0, aside.scrollHeight - aside.clientHeight);
           aside.scrollTop = Math.min(max, Math.max(0, aside.scrollTop + delta));
         }
+        // The one exception to holding still: never leave what was just
+        // clicked under the frozen group header that this grouping shows —
+        // the span itself, or for a card pin the type icons (a type icon is
+        // the only card-pinned gesture that can activate a group).
+        const clicked = pinRange !== null
+          ? pinEl
+          : (cardEl?.querySelector('[data-related-tag-cluster]') as HTMLElement | null) ?? pinEl;
+        const sticky = measureGroupSticky(aside);
+        const covered = sticky.visible
+          ? sticky.line + sticky.height - clicked.getBoundingClientRect().top
+          : 0;
+        if (covered > 0) aside.scrollTop = Math.max(0, aside.scrollTop - covered);
       }
     }
 
@@ -2244,6 +2382,43 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     });
     return () => { if (flipRafRef.current) cancelAnimationFrame(flipRafRef.current); };
   }, [reRankAnchorIds, anchoredRangeByPost, shownByAnchor, expandedCards]);
+
+  // ── Frozen group header ────────────────────────────────────────────────────
+  // The copy sits `top: <sticky header height>` below the panel header, which
+  // changes with the chip rows and the "Filtered by" row — track it.
+  const stickyHeaderRef = useRef<HTMLDivElement | null>(null);
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0);
+  useLayoutEffect(() => {
+    const header = stickyHeaderRef.current;
+    if (!header) return;
+    const update = () => setStickyHeaderHeight(header.offsetHeight);
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(update);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+
+  // Visibility is toggled imperatively (a data attribute, styled in CSS), so a
+  // scroll never re-renders the panel. Declared after the pin compensation so
+  // it measures the settled post-toggle scroll position.
+  const groupStickyBarRef = useRef<HTMLDivElement | null>(null);
+  const syncGroupSticky = React.useCallback(() => {
+    const bar = groupStickyBarRef.current;
+    const aside = bar?.closest('[data-testid="col-aside"]') as HTMLElement | null;
+    if (!bar || !aside) return;
+    const next = measureGroupSticky(aside).visible ? 'true' : 'false';
+    if (bar.dataset.visible !== next) bar.dataset.visible = next;
+  }, []);
+  useLayoutEffect(() => {
+    syncGroupSticky();
+  }, [syncGroupSticky, activeGroupHeader, visibleDisplayStacks, expandedCards, stickyHeaderHeight]);
+  useEffect(() => {
+    const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+    if (!aside) return;
+    aside.addEventListener('scroll', syncGroupSticky, { passive: true });
+    return () => aside.removeEventListener('scroll', syncGroupSticky);
+  }, [syncGroupSticky]);
 
   /** Ref-based guard: set when a touch tap just "activated" a card/range so the
    *  synthetic click that follows doesn't also navigate. */
@@ -2541,7 +2716,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       style={{ display: 'flex', flexDirection: 'column' }}
     >
       {/* Sticky header: title + filter chips + count — stays visible while scrolling */}
-      <div data-testid="related-sticky-header" style={{
+      <div ref={stickyHeaderRef} data-testid="related-sticky-header" style={{
         position: 'sticky', top: 0, zIndex: 10,
         // Breathing room so the first row of filter chips doesn't touch the top
         // bar. The padding is part of the sticky white header, so scrolled cards
@@ -2628,6 +2803,70 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
         )}
       </div>
 
+      {/* Frozen group header: a zero-height sticky row right under the panel
+          header, above the card rails (7) and below the panel header (10). Its
+          copy of "Topic (N) ×" shows only while the group's real header has
+          scrolled away and the group is still on screen (syncGroupSticky).
+          Square corners + side rails continue the group's border; the "N
+          more" pagination stays in the footer. A visual duplicate: hidden
+          from assistive tech — the real header × stays the accessible one. */}
+      <div
+        data-testid="related-group-sticky"
+        aria-hidden="true"
+        style={{ position: 'sticky', top: stickyHeaderHeight, height: 0, zIndex: 9 }}
+      >
+        {activeGroupHeader && (
+          <div
+            ref={groupStickyBarRef}
+            className="related-group-sticky-bar"
+            data-related-group-sticky-bar
+            style={{
+              position: 'absolute', top: 0, left: 0, right: 0,
+              display: 'flex', alignItems: 'center', gap: '6px',
+              boxSizing: 'border-box',
+              background: '#ffffff',
+              borderTop: `${GROUP_LINE_WIDTH}px solid ${activeGroupHeader.colors.border}`,
+              borderLeft: `${GROUP_LINE_WIDTH}px solid ${activeGroupHeader.colors.border}`,
+              borderRight: `${GROUP_LINE_WIDTH}px solid ${activeGroupHeader.colors.border}`,
+              padding: '6px 8px 6px 10px',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '11px', fontWeight: 600, color: activeGroupHeader.colors.text,
+                background: activeGroupHeader.colors.bg, border: `1px solid ${activeGroupHeader.colors.border}55`,
+                borderRadius: '4px', padding: '1px 6px',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                maxWidth: '220px',
+              }}
+            >
+              {activeGroupHeader.label} ({activeGroupHeader.count})
+            </span>
+            <button
+              type="button"
+              tabIndex={-1}
+              data-testid="related-group-sticky-dismiss"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleAnchor(activeGroupHeader.anchorId);
+              }}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: '#94a3b8', fontSize: '16px', lineHeight: 1,
+                padding: '6px 8px',
+                minWidth: 24, minHeight: 24,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                borderRadius: 4,
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#475569'; (e.currentTarget as HTMLElement).style.background = '#e2e8f0'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#94a3b8'; (e.currentTarget as HTMLElement).style.background = 'none'; }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Cards — no inner scroll, the aside's own scrollbar handles everything.
           NOTE: LayoutGroup + AnimatePresence mode="popLayout" + layout FLIP were
           removed — in this grouped, custom-scroll container their per-render
@@ -2650,8 +2889,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
         }}
       >
         {(() => {
-          // Compute the active anchor's dominant topic (after synthetic fallback) so
-          // each card can decide whether to show the F indicator.
+          // The active topic group's topic (after synthetic fallback): drives
+          // in-block span dimming, tooltip wording and the reading window. A
+          // type group has none.
           const activeAnchorId = reRankAnchorIds.length > 0
             ? reRankAnchorIds[reRankAnchorIds.length - 1]
             : null;
@@ -2662,9 +2902,51 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
             ? (anchoredRangeByPost[activeAnchorId] ?? 0)
             : 0;
           const activeAnchorRel = activeAnchorStack?.topPost.relations?.[activeAnchorRangeIdx];
-          const activeAnchorTopic: string | null = activeAnchorRel && activeAnchorStack
+          const activeAnchorTopic: string | null = activeAnchorRel && activeAnchorStack && !groupCategory
             ? topicOf(activeAnchorRel, activeAnchorStack.stackId, activeAnchorRangeIdx)
             : null;
+
+          // Which relation a collapsed card's reading window should show: the
+          // clicked span on the group's anchor card; else the relation that
+          // matches the active topic / type / passage (for a focus-phrase filter,
+          // preferably the one answering the very phrase that was clicked);
+          // else null → the default window around relations[0].
+          const windowTopic = activeTopicFilterKey ?? activeAnchorTopic;
+          const windowCategories = groupCategory
+            ? new Set([groupCategory])
+            : new Set(Array.from(filterCategories).map(categoryKey));
+          const clickedFocusRange = (() => {
+            if (topicInteraction?.origin !== 'focus' || !activeTopicFilterKey) return null;
+            const selected = getFocusTopicRelations(topicInteraction.anchor.postId)[topicInteraction.anchor.rangeIndex];
+            return selected
+              ? {
+                  start: selected.focusCommentStart ?? selected.focusStart,
+                  end: selected.focusCommentEnd ?? selected.focusEnd,
+                }
+              : null;
+          })();
+          const preferredWindowRelation = (postId: string, stackId: string, relations: Relation[] | undefined) => {
+            const anchored = anchoredRangeByPost[postId];
+            if (anchored !== undefined && relations?.[anchored]) return { index: anchored, isAnchor: true };
+            if (!relations || relations.length === 0) return null;
+            const matching = relations.flatMap((relation, index) => {
+              const matches = windowTopic
+                ? topicOf(relation, stackId, index) === windowTopic
+                : windowCategories.size > 0
+                ? windowCategories.has(categoryKey(relation.category))
+                : responseFilter
+                ? relation.focusStart < responseFilter.end && responseFilter.start < relation.focusEnd
+                : false;
+              return matches ? [index] : [];
+            });
+            if (matching.length === 0) return null;
+            const answeringClick = clickedFocusRange
+              ? matching.find((index) =>
+                  relations[index].focusStart < clickedFocusRange.end
+                  && clickedFocusRange.start < relations[index].focusEnd)
+              : undefined;
+            return { index: answeringClick ?? matching[0], isAnchor: false };
+          };
 
           return visibleDisplayStacks.flatMap((stack, index) => {
           const isCardHovered = hoveredCardId === stack.topPost.id;
@@ -2689,7 +2971,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           // imported status date and the source feed.
           const displayDate = stack.topPost.created_at;
 
-          // Smart windowing: show only the highlighted portion unless expanded
+          // Smart windowing: show only the highlighted portion unless expanded.
+          // The preference is an INDEX into visibleRelations (the revised
+          // relations on an AI-rewrite card share the original indices).
+          const preferredWindow = preferredWindowRelation(stack.topPost.id, stack.stackId, visibleRelations);
           const {
             text: visibleText,
             adjustedRelations,
@@ -2702,6 +2987,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               visibleContent,
               visibleRelations,
               isExpanded,
+              preferredWindow?.index ?? null,
+              preferredWindow?.isAnchor ?? false,
             );
           const isTruncated = hasPrefix || hasSuffix;
           const aiDiff = aiDiffSet
@@ -2743,10 +3030,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
             : { opacity: 1, filter: 'none' };
 
           // Is this card part of the active topic block? Drives in-block
-          // dimming of non-Topic spans and the "(shown)" tooltip wording.
-          const inActiveBlock =
+          // dimming of non-Topic spans and the "(shown)" tooltip wording. A type
+          // group has no topic to single out, so its cards keep every span lit.
+          const inActiveBlock = !groupCategory && (
             claimedBy.has(stack.topPost.id)
-            || (anchorSet.has(stack.topPost.id) && anchorsWithClaims.has(stack.topPost.id));
+            || (anchorSet.has(stack.topPost.id) && anchorsWithClaims.has(stack.topPost.id)));
 
           // Reverse cross-highlight (focus → aside): while a focus-post span is
           // hovered, this card's relations overlapping the hovered union get
@@ -2866,9 +3154,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               highlightOptions,
             );
             return chunk.kind === 'insert'
+              // Keyed although static: InlineLinkedContent re-emits a clone's
+              // children as an array, which makes React key-check them.
               ? <React.Fragment key={`insert-${chunkIndex}`}>
-                  {annotatedDiffChunks[chunkIndex - 1]?.kind === 'delete' && <span data-ai-edit-separator aria-hidden="true"> </span>}
-                  <ins>{highlightedChunk}</ins>
+                  {annotatedDiffChunks[chunkIndex - 1]?.kind === 'delete' && <span key="separator" data-ai-edit-separator aria-hidden="true"> </span>}
+                  <ins key="insert">{highlightedChunk}</ins>
                 </React.Fragment>
               : <React.Fragment key={`equal-${chunkIndex}`}>{highlightedChunk}</React.Fragment>;
           });
@@ -2903,24 +3193,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           // the grouping the stagger used to. Ungrouped cards keep their own indent.
           const blockIndentPx = anchorForThisCard ? depthOf(anchorForThisCard) * 8 : indentPx;
 
-          const anchorStack = anchorForThisCard
-            ? relatedStacks.find(s => s.topPost.id === anchorForThisCard)
-            : undefined;
+          // Label + colour of the block this card belongs to (topic or type).
+          const blockHeader = anchorForThisCard && activeGroupHeader?.anchorId === anchorForThisCard
+            ? activeGroupHeader
+            : null;
           const anchorRangeIdx = anchorForThisCard
             ? (anchoredRangeByPost[anchorForThisCard] ?? 0)
             : undefined;
-          const anchorTopic: string | undefined = (() => {
-            if (!anchorStack) return undefined;
-            const rel = anchorStack.topPost.relations?.[anchorRangeIdx ?? 0];
-            if (!rel) return anchorStack.topPost.account.display_name ?? undefined;
-            // Always produce a topic: real topic first, then synthetic fallback
-            return topicOf(rel, anchorStack.stackId, anchorRangeIdx ?? 0);
-          })();
-          const anchorColors = anchorStack
-            ? getCategoryColors(
-                anchorStack.topPost.relations?.[anchorRangeIdx ?? 0]?.category ?? anchorStack.rel
-              )
-            : colors;
+          const anchorTopic: string | undefined = blockHeader?.label;
+          const anchorColors = blockHeader?.colors ?? colors;
 
           // Block decoration metadata. groupTotal/groupShown count MATCHED
           // posts only (excluding the anchor). Block size = 1 (anchor) +
@@ -3027,6 +3308,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           const headerEl = renderHeader && anchorForThisCard ? (
             <div
               key={`header-${anchorForThisCard}`}
+              data-related-group-header
               style={{
                 position: 'relative',
                 display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap',
@@ -3129,6 +3411,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               data-related-card
               data-related-group-member={anchorForThisCard ? 'true' : undefined}
               data-related-group-start={isFirstInBlock ? 'true' : undefined}
+              data-related-group-end={isLastInBlock ? 'true' : undefined}
+              // Stable hook for "aside grouping is active": the card that
+              // anchors the active topic or type group, whatever its size. (It
+              // used to live on a per-card "topic (N) ›" row that grew the
+              // anchor's header 44→70px and slid the clicked span.)
+              data-testid={grouping?.anchor.postId === stack.topPost.id ? 'active-group-anchor' : undefined}
               data-related-category={categoryKey(stack.rel) || 'uncategorized'}
               style={{
                 position: 'relative',
@@ -3267,22 +3555,41 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                 <UnstyledButton onClick={(e) => handleNavigateToUser(e, stack.topPost.account)} className="avatarHoverDim" style={{ flexShrink: 0 }}>
                   <ProfileAvatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
                 </UnstyledButton>
-                <div style={{ display: 'flex', flex: '1 1 160px', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                  <AuthorHoverInfo
-                    displayName={stack.topPost.account.display_name}
-                    account={stack.topPost.account.acct || stack.topPost.account.username || stack.topPost.account.display_name}
-                    stats={{
-                      posts: stack.topPost.account.statuses_count,
-                      followers: stack.topPost.account.followers_count,
-                      following: stack.topPost.account.following_count,
-                    }}
-                  >
-                    <Anchor component="button" onClick={(e) => handleNavigateToUser(e, stack.topPost.account)} underline="hover"
-                      style={{ color: '#011445', fontWeight: 700, fontSize: 'var(--mantine-font-size-sm)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {stack.topPost.account.display_name}
-                    </Anchor>
-                  </AuthorHoverInfo>
-                  <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>· {formatPostDate(displayDate)}</Text>
+                {/* Name block: "name · date", plus the AI "Modified" pill as a
+                    second row under it. Name (~22px) + pill (14px) stay inside
+                    the 38px avatar, so a modified card's header is exactly as
+                    tall as any other (the pill once sat among the type icons,
+                    read as a contribution type, and wrapped narrow headers). */}
+                <div
+                  data-related-name-block
+                  style={{ display: 'flex', flex: '1 1 160px', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                    <AuthorHoverInfo
+                      displayName={stack.topPost.account.display_name}
+                      account={stack.topPost.account.acct || stack.topPost.account.username || stack.topPost.account.display_name}
+                      stats={{
+                        posts: stack.topPost.account.statuses_count,
+                        followers: stack.topPost.account.followers_count,
+                        following: stack.topPost.account.following_count,
+                      }}
+                    >
+                      <Anchor component="button" onClick={(e) => handleNavigateToUser(e, stack.topPost.account)} underline="hover"
+                        style={{ color: '#011445', fontWeight: 700, fontSize: 'var(--mantine-font-size-sm)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {stack.topPost.account.display_name}
+                      </Anchor>
+                    </AuthorHoverInfo>
+                    <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>· {formatPostDate(displayDate)}</Text>
+                  </div>
+                  {hasVisibleAiEdit && (
+                    <AiModifiedDisclosure
+                      active={isAiEditActive}
+                      editSummary={stack.topPost.rewrite.editSummary}
+                      onActiveChange={(active) => {
+                        setActiveAiEditPostId(active ? stack.topPost.id : null);
+                      }}
+                    />
+                  )}
                 </div>
                 {/* Compact contribution icons; labels appear in the tooltip. */}
                 <div
@@ -3329,10 +3636,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                           key={cat}
                           role="button"
                           tabIndex={0}
-                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); handleFilterChipClick(cat); } }}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setHoveredCategory(null); hideTooltip(); handleToggleAnchor(stack.topPost.id, undefined, 'card', cat); } }}
                           data-related-tag
                           data-related-span={hasSpecificSpan ? 'true' : 'false'}
                           aria-label={CATEGORY_LABELS[cat] ?? cat}
+                          aria-pressed={groupCategory === categoryKey(cat)}
                           onMouseEnter={(e) => { if (!isTouchRef.current) { setHoveredHighlightRangeIndex(null); setHoveredCategory(cat); if (hasSpecificSpan) scheduleTagScroll(index, tagRangeIdx); tagHover(e.clientX, e.clientY); } }}
                           onMouseLeave={() => { if (!isTouchRef.current) { setHoveredCategory(null); cancelTagScroll(); hideTooltip(); } }}
                           onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; tagHover(e.clientX, e.clientY); }}
@@ -3341,7 +3649,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                             e.stopPropagation();
                             setHoveredCategory(null);
                             hideTooltip();
-                            handleFilterChipClick(cat);
+                            // "More like this": group the cards of this type
+                            // around this one (the top chips still FILTER).
+                            // The icon sits in the header, so pin the card.
+                            handleToggleAnchor(stack.topPost.id, undefined, 'card', cat);
                           }}
                           style={{
                             // Category tags are always color-coded so the highlight↔icon
@@ -3362,125 +3673,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       );
                     });
                   })()}
-                  {hasVisibleAiEdit && (
-                    <AiModifiedDisclosure
-                      active={isAiEditActive}
-                      editSummary={stack.topPost.rewrite.editSummary}
-                      onActiveChange={(active) => {
-                        setActiveAiEditPostId(active ? stack.topPost.id : null);
-                      }}
-                    />
-                  )}
                 </div>
 
-                {/* F: Relation indicator — top-right. Shows the active grouping topic
-                    (driven by activeAnchorTopic) so the label always matches the
-                    "Grouped by:" pill at the top of the panel. Only visible when:
-                    (a) this card is the active see-more anchor, or
-                    (b) this card is part of the active anchor's topic cluster. */}
-                {(() => {
-                  const rels = stack.topPost.relations ?? [];
-                  if (rels.length === 0) return null;
-                  const isCurrentAnchor =
-                    reRankAnchorIds.length > 0 &&
-                    reRankAnchorIds[reRankAnchorIds.length - 1] === stack.topPost.id;
-                  // Gate: only show when active anchor or in the active anchor's cluster
-                  const isInActiveCluster = activeAnchorTopic !== null &&
-                    rels.some((r, ri) => topicOf(r, stack.stackId, ri) === activeAnchorTopic);
-                  const showRelationIndicator = isCurrentAnchor || isInActiveCluster;
-                  if (!showRelationIndicator) return null;
-                  // Pick the relation on THIS card that matches activeAnchorTopic — that's
-                  // the topic driving this card's place in the cluster. Fall back to rels[0]
-                  // only if no match (shouldn't happen when the gate above passes, but defensive).
-                  const matchIdx = activeAnchorTopic
-                    ? rels.findIndex((r, ri) => topicOf(r, stack.stackId, ri) === activeAnchorTopic)
-                    : -1;
-                  const indicatorRel = matchIdx >= 0 ? rels[matchIdx] : rels[0];
-                  const indicatorRangeIdx = matchIdx >= 0 ? matchIdx : 0;
-                  const indicatorTopic = activeAnchorTopic ?? topicOf(rels[0], stack.stackId, 0);
-                  // Color-match the bracket: the group rail + header use the ANCHOR's
-                  // category color (anchorColors). A member card that expresses the SAME
-                  // topic through a different category (e.g. Evidence-Personal/purple vs
-                  // the anchor's green) would otherwise show a mismatched indicator. Use
-                  // the anchor color whenever this card sits in a bracket block; fall back
-                  // to its own category only for a lone anchor (no block — colors equal).
-                  const indicatorColors = anchorForThisCard ? anchorColors : getCategoryColors(indicatorRel.category);
-                  // Always show the category color so the chip is recognizable
-                  // as the topic-anchor for that highlight color.
-                  const indicatorColor = indicatorColors.text;
-                  // PANE-LOCAL count: how many cards in THIS panel share the topic.
-                  // (topicTotal folds in reply counts for tooltips; using it here
-                  // showed "(8)" over a visible 5-card cluster — confusing.)
-                  let clusterCount = 0;
-                  postTopics.forEach((topics) => { if (topics.has(indicatorTopic)) clusterCount++; });
-                  // Every chip in a group reads the same. The anchor used to carry a
-                  // filled pill at full opacity, which made the card you clicked look
-                  // like a different control from the members it grouped; `aria-pressed`
-                  // and the `active-group-anchor` hook still identify it.
-                  const baseOpacity = 0.75;
-                  return (
-                    // Its own row. Sharing the header row left placement depending on
-                    // whether the card happened to carry a "Modified" badge, so
-                    // neighbouring cards in one group sat the chip at different heights.
-                    <div style={{
-                      flexBasis: '100%',
-                      display: 'flex',
-                      justifyContent: 'flex-end',
-                      minWidth: 0,
-                    }}>
-                    <button
-                      type="button"
-                      // Stable hook for "aside grouping is active": present on the
-                      // active anchor card whenever a topic interaction groups this
-                      // pane (independent of cluster size). Replaces the removed
-                      // top-of-panel "Grouped by:" pill as the e2e grouping signal.
-                      data-testid={isCurrentAnchor ? 'active-group-anchor' : undefined}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleAnchor(stack.topPost.id, indicatorRangeIdx);
-                      }}
-                      aria-label={`Show more posts about ${indicatorTopic}`}
-                      aria-pressed={isCurrentAnchor}
-                      style={{
-                        alignSelf: 'flex-start',
-                        flexShrink: 0,
-                        background: 'transparent',
-                        border: 'none',
-                        borderRadius: '4px',
-                        padding: '1px 4px',
-                        cursor: 'pointer',
-                        color: indicatorColor,
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        lineHeight: 1.3,
-                        maxWidth: '124px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        opacity: baseOpacity,
-                        transition: 'opacity 200ms ease, background 200ms ease, color 200ms ease',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '2px',
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.opacity = '1';
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.opacity = String(baseOpacity);
-                      }}
-                    >
-                      {/* Truncate ONLY the topic; keep the (count) and chevron always
-                          visible so a narrower pill never hides the group size. */}
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-                        {indicatorTopic}
-                      </span>
-                      <span style={{ flexShrink: 0 }}>({clusterCount})</span>
-                      <span aria-hidden style={{ flexShrink: 0, fontSize: '10px', marginLeft: '1px' }}>&#x203A;</span>
-                    </button>
-                    </div>
-                  );
-                })()}
                 </div>
 
                 {/* Content with smart windowing + highlight marks on hover */}
@@ -3527,9 +3721,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       data-ai-edited-default
                       aria-hidden={isAiEditActive}
                     >
-                      {hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
+                      {hasPrefix && <span data-window-ellipsis="start" style={WINDOW_ELLIPSIS_STYLE}>…{'\u2009'}</span>}
                       <InlineLinkedContent>{contentNodes}</InlineLinkedContent>
-                      {hasSuffix && !isExpanded && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
+                      {hasSuffix && !isExpanded && <span data-window-ellipsis="end" style={WINDOW_ELLIPSIS_STYLE}>{'\u2009'}…</span>}
                     </Text>
                     {hasVisibleAiEdit && aiDiff && (
                       <Text
@@ -3542,9 +3736,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                         aria-hidden={!isAiEditActive}
                         aria-label={stack.topPost.rewrite.editSummary || 'AI changes shown in this post'}
                       >
-                        {aiDiff.hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
+                        {aiDiff.hasPrefix && <span style={WINDOW_ELLIPSIS_STYLE}>…{'\u2009'}</span>}
                         <InlineLinkedContent>{trackedContentNodes}</InlineLinkedContent>
-                        {aiDiff.hasSuffix && !isExpanded && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
+                        {aiDiff.hasSuffix && !isExpanded && <span style={WINDOW_ELLIPSIS_STYLE}>{'\u2009'}…</span>}
                       </Text>
                     )}
                   </div>

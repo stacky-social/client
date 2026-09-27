@@ -37,7 +37,7 @@ import { getMockReplyRank } from "../../../../../utils/mockPostResolver";
 import { DEMO_CORPORA, getDemoCorpusByPath } from "../../../../../data/demoCorpora";
 import ReplyFilterBar from "../../../../../components/ReplyFilterBar";
 import { TOP_NAV_HEIGHT } from "../../../../../components/NavBar/TopNav";
-import { getCategoryColors } from "../../../../../utils/categoryStyles";
+import { CATEGORY_LABELS, getCategoryColors } from "../../../../../utils/categoryStyles";
 import {
   useHighlightStore,
   setFilterCategories,
@@ -358,35 +358,53 @@ export default function MockPostView() {
   }, [replyGroupingInteraction, replyRelationsById]);
 
   // Aside-origin topic that would filter this reply list. Gated on the cross-pane
-  // flag so it never acts when cross-pane filtering is off.
-  const replyFilterKey = useMemo(() => {
-    if (!replyFilteringActive) return null;
-    return replyTopicFilter(topicInteraction)?.topicKey ?? null;
-  }, [replyFilteringActive, topicInteraction]);
+  // flag so it never acts when cross-pane filtering is off. An aside TYPE group
+  // (a related card's contribution-type icon) filters by relation category
+  // instead: its key is a category, never to be compared with reply topics.
+  const replyFilterInteraction = useMemo(
+    () => (replyFilteringActive ? replyTopicFilter(topicInteraction) : null),
+    [replyFilteringActive, topicInteraction]
+  );
+  const replyFilterKey = replyFilterInteraction?.topicKey ?? null;
+  const replyFilterByCategory = replyFilterInteraction?.groupBy === "category";
 
   // Precompute matches before applying the topic filter: if NO displayed branch
   // carries the topic, leave the list unfiltered and show no chip — an empty
   // reply list reads as "no replies" when the truth is "no replies on that
   // topic". Mirrors the aside's fail-safe (RelatedStacks displayStacks branch).
-  const activeReplyTopicFilter = useMemo(() => {
+  const replyFilterMatch = useMemo(() => {
     if (!replyFilterKey) return null;
+    const matchesRelation = (rel: Relation) =>
+      replyFilterByCategory
+        ? String(rel.category ?? "").trim().toLowerCase() === replyFilterKey
+        : rel.topic === replyFilterKey;
     const hasMatch = filteredReplies.some((r) =>
-      (branchRelationsById.get(r.id) ?? replyRelationsById.get(r.id) ?? []).some(
-        (rel) => rel.topic === replyFilterKey
-      )
+      (branchRelationsById.get(r.id) ?? replyRelationsById.get(r.id) ?? []).some(matchesRelation)
     );
-    return hasMatch ? replyFilterKey : null;
-  }, [replyFilterKey, filteredReplies, branchRelationsById, replyRelationsById]);
+    return hasMatch ? { key: replyFilterKey, byCategory: replyFilterByCategory } : null;
+  }, [replyFilterKey, replyFilterByCategory, filteredReplies, branchRelationsById, replyRelationsById]);
+  const activeReplyTopicFilter = replyFilterMatch && !replyFilterMatch.byCategory ? replyFilterMatch.key : null;
+  // A type group keeps every reply carrying that contribution type — the same
+  // category test as a category filter, so it reuses that path. (The store
+  // clears category filters when the group activates, so they never mix.)
+  const activeReplyCategoryGroup = replyFilterMatch?.byCategory ? replyFilterMatch.key : null;
+  const replyFilterCategories = useMemo(
+    () => (activeReplyCategoryGroup ? new Set([activeReplyCategoryGroup]) : filterCategories),
+    [activeReplyCategoryGroup, filterCategories]
+  );
+  // Chip label in the reply filter bar: the topic, or the contribution type.
+  const replyFilterLabel = activeReplyTopicFilter
+    ?? (activeReplyCategoryGroup ? CATEGORY_LABELS[activeReplyCategoryGroup] ?? activeReplyCategoryGroup : null);
 
   const displayedTopLevel = useMemo(() => {
     if (!replyFilteringActive) return filteredReplies;
     return filterReplies(
       filteredReplies,
       (r: MockPostType) => replyRelationsById.get(r.id) ?? [],
-      { filterCategories, responseFilter, topicFilter: activeReplyTopicFilter },
+      { filterCategories: replyFilterCategories, responseFilter, topicFilter: activeReplyTopicFilter },
       (r: MockPostType) => branchRelationsById.get(r.id) ?? []
     );
-  }, [replyFilteringActive, filteredReplies, replyRelationsById, branchRelationsById, filterCategories, responseFilter, activeReplyTopicFilter]);
+  }, [replyFilteringActive, filteredReplies, replyRelationsById, branchRelationsById, replyFilterCategories, responseFilter, activeReplyTopicFilter]);
 
   // T8 filter auto-reveal: grandchildren (depth >= 2) are collapsed by default,
   // but a nested reply that MATCHES the active reply-list filter must not stay
@@ -395,9 +413,9 @@ export default function MockPostView() {
   // and force-reveal its ancestor chain so the match surfaces (root as context).
   const forceRevealParentIds = useMemo(() => {
     const anyFilter =
-      replyFilteringActive && (filterCategories.size > 0 || !!responseFilter || !!activeReplyTopicFilter);
+      replyFilteringActive && (replyFilterCategories.size > 0 || !!responseFilter || !!activeReplyTopicFilter);
     if (!anyFilter) return undefined;
-    const cats = Array.from(filterCategories);
+    const cats = Array.from(replyFilterCategories);
     const matches = (rid: string) => {
       const rels = replyRelationsById.get(rid) ?? [];
       if (cats.length > 0) {
@@ -424,7 +442,7 @@ export default function MockPostView() {
       }
     }
     return reveal.size > 0 ? reveal : undefined;
-  }, [replyFilteringActive, filterCategories, responseFilter, activeReplyTopicFilter, mergedReplies, id, replyRelationsById]);
+  }, [replyFilteringActive, replyFilterCategories, responseFilter, activeReplyTopicFilter, mergedReplies, id, replyRelationsById]);
 
   // Reply-origin cluster (rail + growth). Gated on the reply flags AND
   // origin==='replies' (replyGrouping is null otherwise), so an aside-origin
@@ -1055,7 +1073,7 @@ export default function MockPostView() {
           <ReplyFilterBar
             filterCategories={filterCategories}
             responseFilter={responseFilter}
-            topicFilter={activeReplyTopicFilter}
+            topicFilter={replyFilterLabel}
             shown={displayedTotal}
             total={totalTopLevelReplies}
             onRemoveCategory={(cat) => {

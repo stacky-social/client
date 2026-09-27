@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 const DETAIL = '/ChineseEVs/posts/152053690';
 
-test('browser Back undoes a contribution filter, the Back button leaves the page', async ({ page }) => {
+test('browser Back undoes a contribution-type group, the Back button leaves the page', async ({ page }) => {
   await page.goto(DETAIL);
   const tag = page.locator('[data-related-tag]').first();
   const label = await tag.getAttribute('aria-label');
@@ -11,19 +11,22 @@ test('browser Back undoes a contribution filter, the Back button leaves the page
   expect((await tag.boundingBox())!.width).toBeLessThanOrEqual(26);
   await tag.hover();
   await expect(page.getByTestId('hover-tooltip')).toHaveText(label!);
+  // #224: a card's type icon GROUPS "more like this" (the top chips filter);
+  // it writes the shared group tuple, never a category filter.
   await tag.click();
-  await expect(page).toHaveURL(/[?&]fc=/);
-  await expect(page.getByTestId('active-group-anchor')).toHaveCount(0);
+  await expect(page).toHaveURL(/[?&]fg=category/);
+  await expect(page).not.toHaveURL(/[?&]fc=/);
+  await expect(page.getByTestId('active-group-anchor')).toHaveCount(1);
 
-  // Browser Back is the undo control: it drops the filter and stays put.
+  // Browser Back is the undo control: it drops the group and stays put.
   await page.goBack();
   await expect(page).toHaveURL(new RegExp(`${DETAIL}$`));
 
-  // The visible Back button is the page control. Re-apply the filter to prove
+  // The visible Back button is the page control. Re-apply the group to prove
   // it leaves regardless of what is on the history stack; this is a deep link,
   // so there is no recorded origin and it falls back to the corpus feed.
   await tag.click();
-  await expect(page).toHaveURL(/[?&]fc=/);
+  await expect(page).toHaveURL(/[?&]fg=category/);
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await page.waitForURL((url) => url.pathname === '/ChineseEVs', { timeout: 30_000 });
   expect(new URL(page.url()).pathname).toBe('/ChineseEVs');

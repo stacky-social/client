@@ -14,7 +14,8 @@ const PASSTHROUGH_PARAMS = ['stackId', 'from', 'related', 'flags'];
  *
  * The three related-post interaction dimensions are mutually exclusive:
  * category (`fc`), focus passage (`fs`), or cross-pane topic (`ft` + anchor
- * metadata). `tab` is the fourth filter/sort dimension.
+ * metadata, plus `fg=category` when an aside group is keyed by contribution
+ * type instead of topic). `tab` is the fourth filter/sort dimension.
  */
 export function serializeFilterSearch({
   currentSearch = '',
@@ -39,6 +40,9 @@ export function serializeFilterSearch({
     next.set('fo', topicInteraction.origin);
     next.set('fa', topicInteraction.anchor.postId);
     next.set('fi', String(topicInteraction.anchor.rangeIndex));
+    // Contribution-type group: same tuple, keyed by a category. Topic groups
+    // never write `fg`, so every existing shared link keeps its meaning.
+    if (topicInteraction.groupBy === 'category') next.set('fg', 'category');
   }
 
   for (const key of PASSTHROUGH_PARAMS) {
@@ -80,20 +84,24 @@ export function parseFilterInteraction(search, plainPostText = null) {
   const origin = params.get('fo');
   const postId = params.get('fa');
   const rangeIndexText = params.get('fi');
-  if (topicKey || origin || postId || rangeIndexText) {
+  const groupBy = params.get('fg');
+  if (topicKey || origin || postId || rangeIndexText || groupBy) {
     const rangeIndex = rangeIndexText == null ? NaN : Number(rangeIndexText);
     if (
       !topicKey ||
       (origin !== 'aside' && origin !== 'replies' && origin !== 'focus') ||
       !postId ||
       !Number.isInteger(rangeIndex) ||
-      rangeIndex < 0
+      rangeIndex < 0 ||
+      // Only the aside groups by contribution type.
+      (groupBy !== null && (groupBy !== 'category' || origin !== 'aside'))
     ) {
       return { kind: 'none' };
     }
+    const interaction = { origin, topicKey, anchor: { postId, rangeIndex } };
     return {
       kind: 'topic',
-      interaction: { origin, topicKey, anchor: { postId, rangeIndex } },
+      interaction: groupBy === 'category' ? { ...interaction, groupBy: 'category' } : interaction,
     };
   }
 

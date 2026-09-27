@@ -68,7 +68,7 @@ export default function AiModifiedDisclosure({
           else onActiveChange(true);
         }}
       >
-        <IconSparkles size={12} stroke={2} aria-hidden />
+        <IconSparkles size={10} stroke={2} aria-hidden />
         Modified
       </button>
       <span id={descriptionId} className="ai-edit-sr-only">

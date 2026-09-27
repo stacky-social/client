@@ -190,3 +190,25 @@ test('validate drops the interaction when the anchor now carries a different top
 test('validate returns null for a null interaction', () => {
   assert.equal(validateTopicInteraction(null, () => 'T'), null);
 });
+
+// ─── Contribution-type grouping (groupBy: 'category') ────────────────────────
+
+test('an aside category group keeps its grouping dimension and clears filters', () => {
+  const next = reduceInteraction(seeded(), {
+    type: 'asideTopic', topicKey: 'disagree', anchor, groupBy: 'category',
+  });
+  assert.deepEqual(next.topicInteraction, { origin: 'aside', topicKey: 'disagree', anchor, groupBy: 'category' });
+  assert.equal(next.filterCategories.size, 0);
+  assert.equal(next.responseFilter, null);
+  // Same origin split as a topic group: groups the aside, filters the replies.
+  assert.equal(asideGrouping(next.topicInteraction), next.topicInteraction);
+  assert.equal(replyTopicFilter(next.topicInteraction), next.topicInteraction);
+});
+
+test('validate resolves a category group through its own dimension', () => {
+  const ti = { origin: 'aside', topicKey: 'disagree', anchor, groupBy: 'category' };
+  const resolve = (_a, _origin, groupBy) => (groupBy === 'category' ? 'disagree' : 'Some topic');
+  assert.equal(validateTopicInteraction(ti, resolve), ti);
+  const { groupBy: _drop, ...asTopic } = ti;
+  assert.equal(validateTopicInteraction(asTopic, resolve), null);
+});
