@@ -37,6 +37,7 @@ import AuthorHoverInfo from './AuthorHoverInfo';
 import ProfileAvatar from './ProfileAvatar';
 import InlineLinkedContent from './InlineLinkedContent';
 import { preserveInlineLinkOffsets } from '../utils/inlineLinks.mjs';
+import { readingWindowBounds, WINDOW_CHARS } from '../utils/relatedWindow.mjs';
 import './RelatedStacks.css';
 
 interface PostType {
@@ -937,7 +938,10 @@ function buildMultiHighlightNodes(
 
 // ─── Smart windowing: show only the highlighted portion if content is long ───
 
-const WINDOW_CHARS = 140;
+/** The "…" that marks a windowed card's cut edges. Same size as the text and
+ * slate-500 (4.8:1 on the card surface) with a thin space to the prose, so the
+ * truncation is legible rather than a pale glyph glued to the first word. */
+const WINDOW_ELLIPSIS_STYLE: React.CSSProperties = { color: '#64748b', userSelect: 'none' };
 
 /** Map an original-text boundary into the revised text. Start boundaries sit
  * after an insertion at that exact point; end boundaries sit before it, so an
@@ -999,15 +1003,20 @@ function remapRelationsToRewrite(
   });
 }
 
-/** Window content around the first relation's emphasized comment (when present),
- * otherwise around its broader content range. AI-diff bounds are only a fallback
- * for cards without relation offsets: the relationship is the reason the card is
- * in this pane and must remain visible in the collapsed view. */
+/** Window content around a relation's emphasized comment (when present),
+ * otherwise around its broader content range: relations[0] by default, or the
+ * `preferredIndex` relation (the card's clicked span, or the one matching the
+ * active filter/group) when the default window would not show it. The
+ * relationship is the reason the card is in this pane and must remain visible
+ * in the collapsed view. `preferredIndex` indexes `relations` as passed — the
+ * original order is never changed, because `__idx` routes hover and click
+ * handling back to the card's original relation indices. */
 function windowContent(
   plain: string,
   relations: Relation[] | undefined,
   expanded: boolean,
-  preferredBounds?: { start: number; end: number },
+  preferredIndex: number | null = null,
+  preferredIsAnchor = false,
 ): {
   text: string;
   adjustedRelations: Relation[] | undefined;
@@ -1016,8 +1025,7 @@ function windowContent(
   start: number;
   end: number;
 } {
-  const totalChars = WINDOW_CHARS * 2;
-  if (expanded || plain.length <= totalChars) {
+  if (expanded || plain.length <= WINDOW_CHARS * 2) {
     return {
       text: plain,
       adjustedRelations: relations,
@@ -1027,23 +1035,7 @@ function windowContent(
       end: plain.length,
     };
   }
-  const first = relations?.[0];
-  const hasCommentRange = !!first
-    && first.contentCommentEnd > first.contentCommentStart
-    && first.contentCommentStart >= first.contentStart
-    && first.contentCommentEnd <= first.contentEnd;
-  const relationCenter = first
-    ? Math.floor((
-      (hasCommentRange ? first.contentCommentStart : first.contentStart)
-      + (hasCommentRange ? first.contentCommentEnd : first.contentEnd)
-    ) / 2)
-    : null;
-  const start = relationCenter !== null
-    ? Math.max(0, relationCenter - WINDOW_CHARS)
-    : (preferredBounds?.start ?? 0);
-  const end = relationCenter !== null
-    ? Math.min(plain.length, relationCenter + WINDOW_CHARS)
-    : (preferredBounds?.end ?? Math.min(plain.length, totalChars));
+  const { start, end } = readingWindowBounds(plain, relations, preferredIndex, preferredIsAnchor);
   const text = plain.slice(start, end);
   const adjustedRelations = relations?.map((r, i) => ({
     ...r,
@@ -2914,6 +2906,48 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
             ? topicOf(activeAnchorRel, activeAnchorStack.stackId, activeAnchorRangeIdx)
             : null;
 
+          // Which relation a collapsed card's reading window should show: the
+          // clicked span on the group's anchor card; else the relation that
+          // matches the active topic / type / passage (for a focus-phrase filter,
+          // preferably the one answering the very phrase that was clicked);
+          // else null → the default window around relations[0].
+          const windowTopic = activeTopicFilterKey ?? activeAnchorTopic;
+          const windowCategories = groupCategory
+            ? new Set([groupCategory])
+            : new Set(Array.from(filterCategories).map(categoryKey));
+          const clickedFocusRange = (() => {
+            if (topicInteraction?.origin !== 'focus' || !activeTopicFilterKey) return null;
+            const selected = getFocusTopicRelations(topicInteraction.anchor.postId)[topicInteraction.anchor.rangeIndex];
+            return selected
+              ? {
+                  start: selected.focusCommentStart ?? selected.focusStart,
+                  end: selected.focusCommentEnd ?? selected.focusEnd,
+                }
+              : null;
+          })();
+          const preferredWindowRelation = (postId: string, stackId: string, relations: Relation[] | undefined) => {
+            const anchored = anchoredRangeByPost[postId];
+            if (anchored !== undefined && relations?.[anchored]) return { index: anchored, isAnchor: true };
+            if (!relations || relations.length === 0) return null;
+            const matching = relations.flatMap((relation, index) => {
+              const matches = windowTopic
+                ? topicOf(relation, stackId, index) === windowTopic
+                : windowCategories.size > 0
+                ? windowCategories.has(categoryKey(relation.category))
+                : responseFilter
+                ? relation.focusStart < responseFilter.end && responseFilter.start < relation.focusEnd
+                : false;
+              return matches ? [index] : [];
+            });
+            if (matching.length === 0) return null;
+            const answeringClick = clickedFocusRange
+              ? matching.find((index) =>
+                  relations[index].focusStart < clickedFocusRange.end
+                  && clickedFocusRange.start < relations[index].focusEnd)
+              : undefined;
+            return { index: answeringClick ?? matching[0], isAnchor: false };
+          };
+
           return visibleDisplayStacks.flatMap((stack, index) => {
           const isCardHovered = hoveredCardId === stack.topPost.id;
           const isHighlighted = !!highlightPostId && stack.topPost.id === highlightPostId;
@@ -2937,7 +2971,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           // imported status date and the source feed.
           const displayDate = stack.topPost.created_at;
 
-          // Smart windowing: show only the highlighted portion unless expanded
+          // Smart windowing: show only the highlighted portion unless expanded.
+          // The preference is an INDEX into visibleRelations (the revised
+          // relations on an AI-rewrite card share the original indices).
+          const preferredWindow = preferredWindowRelation(stack.topPost.id, stack.stackId, visibleRelations);
           const {
             text: visibleText,
             adjustedRelations,
@@ -2950,6 +2987,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               visibleContent,
               visibleRelations,
               isExpanded,
+              preferredWindow?.index ?? null,
+              preferredWindow?.isAnchor ?? false,
             );
           const isTruncated = hasPrefix || hasSuffix;
           const aiDiff = aiDiffSet
@@ -3682,9 +3721,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       data-ai-edited-default
                       aria-hidden={isAiEditActive}
                     >
-                      {hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
+                      {hasPrefix && <span data-window-ellipsis="start" style={WINDOW_ELLIPSIS_STYLE}>…{'\u2009'}</span>}
                       <InlineLinkedContent>{contentNodes}</InlineLinkedContent>
-                      {hasSuffix && !isExpanded && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
+                      {hasSuffix && !isExpanded && <span data-window-ellipsis="end" style={WINDOW_ELLIPSIS_STYLE}>{'\u2009'}…</span>}
                     </Text>
                     {hasVisibleAiEdit && aiDiff && (
                       <Text
@@ -3697,9 +3736,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                         aria-hidden={!isAiEditActive}
                         aria-label={stack.topPost.rewrite.editSummary || 'AI changes shown in this post'}
                       >
-                        {aiDiff.hasPrefix && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
+                        {aiDiff.hasPrefix && <span style={WINDOW_ELLIPSIS_STYLE}>…{'\u2009'}</span>}
                         <InlineLinkedContent>{trackedContentNodes}</InlineLinkedContent>
-                        {aiDiff.hasSuffix && !isExpanded && <span style={{ color: '#94a3b8', userSelect: 'none' }}>…</span>}
+                        {aiDiff.hasSuffix && !isExpanded && <span style={WINDOW_ELLIPSIS_STYLE}>{'\u2009'}…</span>}
                       </Text>
                     )}
                   </div>
