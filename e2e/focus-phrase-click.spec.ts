@@ -6,7 +6,8 @@ import mockData from '../src/app/FakeData/chinese-evs.json';
 //   not the hover-opened topic list is showing;
 // - a clicked phrase stays quiet: pointer jitter does not re-open popups;
 // - multi-topic phrases open the full list after one short delay, with no
-//   small tooltip first; single-topic phrases get a compact "Filter by" hint.
+//   small tooltip first; single-topic phrases get a compact "Filter by" hint;
+// - phrase emphasis appears only while the reader engages the text.
 
 const focusId = (mockData as any)[0].focusPost.id as string;
 const DETAIL_URL = `/ChineseEVs/posts/${focusId}`;
@@ -144,5 +145,34 @@ test.describe('focus phrase clicks and hover popups', () => {
     const tooltip = page.getByTestId('hover-tooltip');
     await expect(tooltip).toBeVisible({ timeout: 1500 });
     await expect(tooltip).toHaveText(`Filter by: ${topic}`);
+  });
+
+  test('phrases are plain at rest and bold while the text is hovered', async ({ page }) => {
+    await page.goto(DETAIL_URL);
+    const focus = page.locator('[data-testid="focus-reveal"]').first();
+    const marks = focus.locator('mark[data-range-ids]');
+    await expect(marks.first()).toBeVisible();
+    const shadows = () => marks.evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).textShadow));
+
+    expect((await shadows()).every((value) => value === 'none')).toBe(true);
+
+    const box = (await focus.boundingBox())!;
+    await page.mouse.move(box.x + 4, box.y + box.height / 2);
+    await expect.poll(async () => (await shadows()).every((value) => value.includes('0.7px'))).toBe(true);
+
+    await page.mouse.move(2, 2);
+    await expect.poll(async () => (await shadows()).every((value) => value === 'none')).toBe(true);
+
+    // A mouse click must not leave the phrase focus-visible: that would keep
+    // the emphasis (and a focus ring) on after the pointer leaves.
+    const mark = await pinned(page, SINGLE);
+    const point = await center(mark);
+    await page.mouse.move(point.x, point.y);
+    await page.mouse.down();
+    await page.mouse.up();
+    await expect.poll(() => topicParam(page)).not.toBeNull();
+    await page.mouse.move(2, 2);
+    await expect.poll(async () => (await shadows()).every((value) => value === 'none')).toBe(true);
+    await expect(mark).toHaveCSS('outline-style', 'none');
   });
 });

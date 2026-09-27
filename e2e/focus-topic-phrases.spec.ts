@@ -6,19 +6,21 @@ const DETAIL_URL = `/ChineseEVs/posts/${focusId}`;
 const visibleMark = '[data-testid="focus-reveal"] mark[data-range-ids]:visible';
 
 test.describe('focus topic phrases', () => {
-  test('phrases are persistently bold, mute their siblings, and open the topic picker', async ({ page }) => {
+  test('phrases bold on hover, mute their siblings, and open the topic picker', async ({ page }) => {
     await page.goto(DETAIL_URL);
     const mark = page.locator(
       '[data-testid="focus-reveal"] mark[aria-label^="Choose among"]:visible',
     ).first();
     await expect(mark).toBeVisible();
 
-    // Emphasis is a metric-neutral text-shadow, not font-weight, so a directed
-    // hover can un-bold a phrase without reflowing the paragraph.
-    await expect(mark).not.toHaveCSS('text-shadow', 'none');
+    // #224: phrases are plain at rest and bold only while the text is engaged
+    // (here: hovered). Emphasis is a metric-neutral text-shadow, not
+    // font-weight, so toggling it never reflows the paragraph.
+    await expect(mark).toHaveCSS('text-shadow', 'none');
     await expect(mark).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 
     await mark.hover();
+    await expect(mark).not.toHaveCSS('text-shadow', 'none');
     await expect(mark).toHaveClass(/fp-hot/);
     await expect(mark).toHaveCSS('color', 'rgb(0, 111, 115)');
     const muted = page.locator('[data-testid="focus-reveal"] mark.fp-muted');

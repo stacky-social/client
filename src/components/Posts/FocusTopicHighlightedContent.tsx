@@ -83,9 +83,11 @@ interface FocusTopicHighlightedContentProps {
 }
 
 /**
- * Persistent semantic phrases for a focus post. Every authored crux is bold at
- * rest; hovering one phrase mutes its siblings; topic filtering only begins on
- * click (or an explicit picker choice), so hover never mutates either pane.
+ * Persistent semantic phrases for a focus post. Every authored crux turns bold
+ * while the reader engages the text (hover, keyboard focus, or a related-card
+ * cross-highlight); hovering one phrase mutes its
+ * siblings; topic filtering only begins on click (or an explicit picker
+ * choice), so hover never mutates either pane.
  */
 const FocusTopicHighlightedContent = React.forwardRef<
   HTMLDivElement,
@@ -808,6 +810,9 @@ const FocusTopicHighlightedContent = React.forwardRef<
       } as React.CSSProperties
     : style;
 
+  // Same condition under which the passage wash below paints this post.
+  const asideHover = active && sidebarHoverActive && Boolean(hoveredRelations?.length);
+
   return (
     <>
       <div className="focus-reveal-shell">
@@ -815,6 +820,9 @@ const FocusTopicHighlightedContent = React.forwardRef<
           ref={setRefs}
           data-testid="focus-reveal"
           data-reveal-window={scrollWindowHeight !== null ? "" : undefined}
+          // Emphasis is shown only on engagement (see globals.css), which
+          // includes a related card cross-highlighting this post.
+          data-aside-hover={asideHover ? "" : undefined}
           className={className}
           style={mergedStyle}
           dangerouslySetInnerHTML={innerHtml}
