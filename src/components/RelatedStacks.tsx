@@ -1086,9 +1086,16 @@ function measureGroupSticky(aside: HTMLElement): { line: number; height: number;
   const height = bar?.offsetHeight ?? 0;
   const groupHeader = aside.querySelector('[data-related-group-header]');
   const lastCard = aside.querySelector('[data-related-group-end="true"]');
+  // Measure the last card's CONTENT, not its "K more" footer: counting the
+  // footer left the copy showing over an empty strip (header copy, blank gap,
+  // footer) once the card itself had scrolled under it.
+  const footer = lastCard?.querySelector('[data-related-group-footer]');
+  const groupContentBottom = footer
+    ? footer.getBoundingClientRect().top
+    : lastCard?.getBoundingClientRect().bottom ?? 0;
   const visible = !!bar && !!groupHeader && !!lastCard
     && groupHeader.getBoundingClientRect().top < line - 0.5
-    && lastCard.getBoundingClientRect().bottom > line + height;
+    && groupContentBottom > line + height;
   return { line, height, visible };
 }
 
@@ -3236,6 +3243,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           const renderFooter = showBlockDecorations && isLastInBlock && !!anchorTopic;
           const footerEl = renderFooter && anchorForThisCard ? (
             <div
+              data-related-group-footer
               // Block the card's touch-tap handler (cardEl onPointerDown) so a
               // tap on the footer doesn't also toggle card-active state.
               onPointerDown={(e) => e.stopPropagation()}
