@@ -108,6 +108,30 @@ function stackMatchesCategories(stack: RelatedStackType, filters: Set<string>): 
   return Array.from(filters).every((filter) => categories.has(categoryKey(filter)));
 }
 
+/** Top-chip category of a card: the count the filter bar shows per category
+ * (legacy `rel`, with the same 'uncategorized' fallback). A contribution-type
+ * group gathers exactly these cards, so its "(N)" agrees with that chip. */
+function chipCategoryOf(stack: RelatedStackType): string {
+  return categoryKey(stack.rel) || 'uncategorized';
+}
+
+/** The relation a contribution-type group anchors on: the card's first relation
+ * of that category, or 0 for a legacy stack-level classification that carries
+ * no offsets. Only used to give the shared URL tuple a stable, checkable index;
+ * a type group highlights no single span. */
+function categoryAnchorIndex(stack: RelatedStackType, category: string): number {
+  const index = (stack.topPost.relations ?? []).findIndex((relation) => categoryKey(relation.category) === category);
+  return index >= 0 ? index : 0;
+}
+
+/** Inverse of categoryAnchorIndex, used to validate a restored/shared tuple. */
+function categoryAtAnchor(stack: RelatedStackType, rangeIndex: number): string | null {
+  const relations = stack.topPost.relations ?? [];
+  if (relations.length === 0) return rangeIndex === 0 ? categoryKey(stack.rel) || null : null;
+  const relation = relations[rangeIndex];
+  return relation ? categoryKey(relation.category) || null : null;
+}
+
 /** Offset-annotated study posts must preserve their exact plain-text geometry.
  * Legacy Mastodon cards have no offsets, so they can safely receive the fuller
  * HTML/URL/publication-metadata normalization they need. */
@@ -1200,6 +1224,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // grouping is stable too — keeping the effects that depend on it from firing
   // every render.
   const grouping = useMemo(() => asideGrouping(topicInteraction), [topicInteraction]);
+  // A card's contribution-type icon groups "more like this" by CATEGORY through
+  // the same aside grouping; a span groups by TOPIC. Null for a topic group.
+  const groupCategory = grouping?.groupBy === 'category' ? grouping.topicKey : null;
   const asideFilterInteraction = useMemo(
     () =>
       topicInteraction?.origin === 'focus'
@@ -1217,8 +1244,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     () => (grouping ? [grouping.anchor.postId] : []),
     [grouping],
   );
+  // Only a topic group anchors a SPAN. A type group's anchor index merely keys
+  // the URL tuple, so it must not light (or dim around) any one highlight.
   const anchoredRangeByPost = useMemo<Record<string, number>>(
-    () => (grouping ? { [grouping.anchor.postId]: grouping.anchor.rangeIndex } : {}),
+    () => (grouping && grouping.groupBy !== 'category'
+      ? { [grouping.anchor.postId]: grouping.anchor.rangeIndex }
+      : {}),
     [grouping],
   );
 
@@ -1230,10 +1261,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // aside cannot see reply relations itself, so without this a restored
   // reply-origin interaction would always fail to resolve and be dropped.
   const resolveTopicKey = React.useCallback(
-    (anchor: { postId: string; rangeIndex: number }, origin?: 'aside' | 'replies' | 'focus'): string | null => {
+    (
+      anchor: { postId: string; rangeIndex: number },
+      origin?: 'aside' | 'replies' | 'focus',
+      groupBy?: 'category',
+    ): string | null => {
       if (origin === 'replies') return resolveReplyTopicKey(anchor);
       if (origin === 'focus') return resolveFocusTopicKey(anchor);
       const stack = relatedStacks.find((s) => s.topPost.id === anchor.postId);
+      if (groupBy === 'category') return stack ? categoryAtAnchor(stack, anchor.rangeIndex) : null;
       const rel = stack?.topPost.relations?.[anchor.rangeIndex];
       return rel ? topicKeyOf(rel) : null;
     },
@@ -1252,7 +1288,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       !topicInteraction ||
       (topicInteraction.origin !== 'aside' && topicInteraction.origin !== 'focus')
     ) return;
-    const currentTopic = resolveTopicKey(topicInteraction.anchor, topicInteraction.origin);
+    const currentTopic = resolveTopicKey(topicInteraction.anchor, topicInteraction.origin, topicInteraction.groupBy);
     // Focus prose lives in the parallel main route and can register one effect
     // after this aside. Let that component perform the authoritative check once
     // its relation data is ready instead of clearing a valid cold-link early.
@@ -1649,7 +1685,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     const aboveStacks = workingStacks.slice(0, anchorIdx);
     const belowStacks = workingStacks.slice(anchorIdx + 1);
 
-    const matchesAnchor = anchorTopic
+    // A type group gathers the cards the matching top chip counts; a topic
+    // group the cards sharing the clicked span's topic. Nothing is hidden
+    // either way — non-members keep their places around the block.
+    const matchesAnchor = groupCategory
+      ? (s: RelatedStackType) => chipCategoryOf(s) === groupCategory
+      : anchorTopic
       ? (s: RelatedStackType) =>
           (s.topPost.relations ?? []).some((r, ri) => topicOf(r, s.stackId, ri) === anchorTopic)
       : (s: RelatedStackType) =>
@@ -1733,7 +1774,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     }
 
     return { displayStacks: result, claimedBy, anchorSet, anchorParent, groupTotal, groupShown, activeAnchorTopic, groupMemberIds };
-  }, [relatedStacks, filterCategories, responseFilter, reRankAnchorIds, shownByAnchor, anchoredRangeByPost, baseOrderIds]);
+  }, [relatedStacks, filterCategories, responseFilter, reRankAnchorIds, shownByAnchor, anchoredRangeByPost, baseOrderIds, groupCategory]);
 
   // ── Aside filter-by-topic branch (T4) ──────────────────────────────────────
   // When the active interaction originated on the REPLIES pane, this panel is
@@ -1984,6 +2025,36 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     return s;
   }, [claimedBy]);
 
+  /** The active group block's label, count and colour — shared by the in-list
+   *  group header, its footer, the rails, and the frozen sticky copy of the
+   *  header. Null when no group block is drawn (no grouping, or no members). A
+   *  topic group is labelled by the anchor span's topic; a type group by the
+   *  contribution type, in that type's colour. */
+  const activeGroupHeader = useMemo(() => {
+    const anchorId = reRankAnchorIds.length > 0 ? reRankAnchorIds[reRankAnchorIds.length - 1] : null;
+    if (!anchorId || !anchorsWithClaims.has(anchorId)) return null;
+    const total = groupTotal.get(anchorId) ?? 0;
+    const anchorStack = relatedStacks.find(s => s.topPost.id === anchorId);
+    if (total <= 0 || !anchorStack) return null;
+    if (groupCategory) {
+      return {
+        anchorId,
+        label: CATEGORY_LABELS[groupCategory] ?? groupCategory,
+        count: 1 + total,
+        colors: getCategoryColors(groupCategory),
+      };
+    }
+    const rangeIdx = anchoredRangeByPost[anchorId] ?? 0;
+    const rel = anchorStack.topPost.relations?.[rangeIdx];
+    return {
+      anchorId,
+      // Always produce a label: real topic first, then the category fallback.
+      label: rel ? topicOf(rel, anchorStack.stackId, rangeIdx) : anchorStack.topPost.account.display_name,
+      count: 1 + total,
+      colors: getCategoryColors(rel?.category ?? anchorStack.rel),
+    };
+  }, [reRankAnchorIds, anchorsWithClaims, groupTotal, relatedStacks, groupCategory, anchoredRangeByPost]);
+
   /**
    * D3: shortest common related text — the narrowest focus-post substring that
    * all currently-visible stacks' relevant relations collectively cover.
@@ -2073,15 +2144,23 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   const flipFirstTopsRef = useRef<Map<string, number> | null>(null);
   const flipRafRef = useRef<number>(0);
 
-  /** Toggle the aside topic grouping for a clicked card span (or dismiss it via
-   *  the header ×). Routes through the atomic `activateAsideTopic` /
+  /** Toggle the aside topic grouping for a clicked card span, the type grouping
+   *  for a clicked contribution-type icon (`category`), or dismiss either via a
+   *  header/footer ×. Routes through the atomic `activateAsideTopic` /
    *  `clearTopicInteraction` so replace-not-stack holds (grouping clears any
    *  category/passage filter). The interacted card stays visually pinned while
    *  the others animate around it. */
-  const handleToggleAnchor = (postId: string, rangeIndex?: number, pinTo: 'span' | 'card' = 'card') => {
+  const handleToggleAnchor = (
+    postId: string,
+    rangeIndex?: number,
+    pinTo: 'span' | 'card' = 'card',
+    /** Set by a card's contribution-type icon: group "more like this" by this
+     *  category instead of by a span's topic. */
+    category?: string,
+  ) => {
     const activeAnchorId = grouping?.anchor.postId ?? null;
     const activeAnchorRange = grouping?.anchor.rangeIndex ?? null;
-    const activeTopicKey = grouping?.topicKey ?? null;
+    const activeTopicKey = grouping && !groupCategory ? grouping.topicKey : null;
 
     // The topic key for THIS click, computed at the click site (the store can't
     // derive it). Topicless spans (no explicit `topic`) cannot seed a topic
@@ -2092,14 +2171,26 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       const clickRel = clickStack?.topPost.relations?.[rangeIndex];
       clickTopicKey = clickRel ? topicKeyOf(clickRel) : null;
     }
+    // A type group's anchor index only keys the shared URL tuple.
+    const clickCategory = category !== undefined ? categoryKey(category) || null : null;
+    let anchorRangeIndex = rangeIndex;
+    if (clickCategory !== null) {
+      const clickStack = relatedStacks.find(s => s.topPost.id === postId);
+      if (!clickStack) return;
+      anchorRangeIndex = categoryAnchorIndex(clickStack, clickCategory);
+    }
 
     // Decide the action BEFORE any DOM capture so a no-op never strands the FLIP
     // capture state (which would otherwise leak until the next real toggle).
     let action: 'clear' | 'activate' | 'noop';
-    if (rangeIndex === undefined) {
+    if (clickCategory !== null) {
+      // Type icon: the active type toggles off from any card that shows it; any
+      // other type (or a topic group) switches to this one.
+      action = groupCategory === clickCategory ? 'clear' : 'activate';
+    } else if (rangeIndex === undefined) {
       // Header × / dismiss button: clear the current grouping (no-op if none).
       action = activeAnchorId !== null ? 'clear' : 'noop';
-    } else if (activeAnchorId === postId && activeAnchorRange === rangeIndex) {
+    } else if (activeTopicKey !== null && activeAnchorId === postId && activeAnchorRange === rangeIndex) {
       // The active anchor span clicked again → toggle the group off.
       action = 'clear';
     } else if (activeTopicKey !== null && clickTopicKey === activeTopicKey) {
@@ -2162,7 +2253,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     // This gesture owns the viewport. URL synchronization must not be
     // mistaken for opening a shared topic link and scroll the group again.
     revealedSharedGroupRef.current = action === 'activate'
-      ? `${sourcePostId ?? ctxActivePostId ?? ''}:${postId}:${rangeIndex}`
+      ? `${sourcePostId ?? ctxActivePostId ?? ''}:${postId}:${anchorRangeIndex}`
       : null;
 
     // Apply the interaction. `activateAsideTopic` sets topicInteraction
@@ -2172,6 +2263,12 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     // in T7); in aside-only mode there is no reply pane, so it only groups here.
     if (action === 'clear') {
       clearTopicInteraction();
+    } else if (clickCategory !== null) {
+      activateAsideTopic({
+        topicKey: clickCategory,
+        anchor: { postId, rangeIndex: anchorRangeIndex! },
+        groupBy: 'category',
+      });
     } else {
       activateAsideTopic({ topicKey: clickTopicKey!, anchor: { postId, rangeIndex: rangeIndex! } });
     }
@@ -2650,8 +2747,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
         }}
       >
         {(() => {
-          // Compute the active anchor's dominant topic (after synthetic fallback) so
-          // each card can decide whether to show the F indicator.
+          // The active topic group's topic (after synthetic fallback): drives
+          // in-block span dimming, tooltip wording and the reading window. A
+          // type group has none.
           const activeAnchorId = reRankAnchorIds.length > 0
             ? reRankAnchorIds[reRankAnchorIds.length - 1]
             : null;
@@ -2662,7 +2760,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
             ? (anchoredRangeByPost[activeAnchorId] ?? 0)
             : 0;
           const activeAnchorRel = activeAnchorStack?.topPost.relations?.[activeAnchorRangeIdx];
-          const activeAnchorTopic: string | null = activeAnchorRel && activeAnchorStack
+          const activeAnchorTopic: string | null = activeAnchorRel && activeAnchorStack && !groupCategory
             ? topicOf(activeAnchorRel, activeAnchorStack.stackId, activeAnchorRangeIdx)
             : null;
 
@@ -2743,10 +2841,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
             : { opacity: 1, filter: 'none' };
 
           // Is this card part of the active topic block? Drives in-block
-          // dimming of non-Topic spans and the "(shown)" tooltip wording.
-          const inActiveBlock =
+          // dimming of non-Topic spans and the "(shown)" tooltip wording. A type
+          // group has no topic to single out, so its cards keep every span lit.
+          const inActiveBlock = !groupCategory && (
             claimedBy.has(stack.topPost.id)
-            || (anchorSet.has(stack.topPost.id) && anchorsWithClaims.has(stack.topPost.id));
+            || (anchorSet.has(stack.topPost.id) && anchorsWithClaims.has(stack.topPost.id)));
 
           // Reverse cross-highlight (focus → aside): while a focus-post span is
           // hovered, this card's relations overlapping the hovered union get
@@ -2905,24 +3004,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           // the grouping the stagger used to. Ungrouped cards keep their own indent.
           const blockIndentPx = anchorForThisCard ? depthOf(anchorForThisCard) * 8 : indentPx;
 
-          const anchorStack = anchorForThisCard
-            ? relatedStacks.find(s => s.topPost.id === anchorForThisCard)
-            : undefined;
+          // Label + colour of the block this card belongs to (topic or type).
+          const blockHeader = anchorForThisCard && activeGroupHeader?.anchorId === anchorForThisCard
+            ? activeGroupHeader
+            : null;
           const anchorRangeIdx = anchorForThisCard
             ? (anchoredRangeByPost[anchorForThisCard] ?? 0)
             : undefined;
-          const anchorTopic: string | undefined = (() => {
-            if (!anchorStack) return undefined;
-            const rel = anchorStack.topPost.relations?.[anchorRangeIdx ?? 0];
-            if (!rel) return anchorStack.topPost.account.display_name ?? undefined;
-            // Always produce a topic: real topic first, then synthetic fallback
-            return topicOf(rel, anchorStack.stackId, anchorRangeIdx ?? 0);
-          })();
-          const anchorColors = anchorStack
-            ? getCategoryColors(
-                anchorStack.topPost.relations?.[anchorRangeIdx ?? 0]?.category ?? anchorStack.rel
-              )
-            : colors;
+          const anchorTopic: string | undefined = blockHeader?.label;
+          const anchorColors = blockHeader?.colors ?? colors;
 
           // Block decoration metadata. groupTotal/groupShown count MATCHED
           // posts only (excluding the anchor). Block size = 1 (anchor) +
@@ -3355,10 +3445,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                           key={cat}
                           role="button"
                           tabIndex={0}
-                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); handleFilterChipClick(cat); } }}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setHoveredCategory(null); hideTooltip(); handleToggleAnchor(stack.topPost.id, undefined, 'card', cat); } }}
                           data-related-tag
                           data-related-span={hasSpecificSpan ? 'true' : 'false'}
                           aria-label={CATEGORY_LABELS[cat] ?? cat}
+                          aria-pressed={groupCategory === categoryKey(cat)}
                           onMouseEnter={(e) => { if (!isTouchRef.current) { setHoveredHighlightRangeIndex(null); setHoveredCategory(cat); if (hasSpecificSpan) scheduleTagScroll(index, tagRangeIdx); tagHover(e.clientX, e.clientY); } }}
                           onMouseLeave={() => { if (!isTouchRef.current) { setHoveredCategory(null); cancelTagScroll(); hideTooltip(); } }}
                           onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; tagHover(e.clientX, e.clientY); }}
@@ -3367,7 +3458,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                             e.stopPropagation();
                             setHoveredCategory(null);
                             hideTooltip();
-                            handleFilterChipClick(cat);
+                            // "More like this": group the cards of this type
+                            // around this one (the top chips still FILTER).
+                            // The icon sits in the header, so pin the card.
+                            handleToggleAnchor(stack.topPost.id, undefined, 'card', cat);
                           }}
                           style={{
                             // Category tags are always color-coded so the highlight↔icon
