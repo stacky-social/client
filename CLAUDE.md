@@ -18,7 +18,7 @@ pnpm test:e2e:ui # Playwright in interactive UI mode
 pnpm test:unit   # Unit tests (node --test tests/unit/)
 ```
 
-End-to-end tests use **Playwright** (`e2e/*.spec.ts` — 6 spec files, 18 tests): the landing/OAuth page, the `/ChineseEVs` mock feed + post detail, focus highlighting, related-card navigation, a stress user journey, and the `/callback` failure path. Unit tests are plain **node:test** suites in `tests/unit/` (4 suites covering the reply-sort, thread-filter, reply-relations, and experiment-flag helpers), run via `pnpm test:unit`.
+End-to-end tests use **Playwright** (`e2e/*.spec.ts` — 45 spec files, 191 tests) covering the landing/OAuth page, the demo feeds and post detail, focus phrases and highlighting, the related panel (grouping, pinning, scrolling), the weave bridge, and study flows. Run them against a production build (`pnpm build && pnpm start -p <port>`, then `E2E_BASE_URL=http://localhost:<port> pnpm test:e2e`); the dev server is too slow for the heavier specs. About a dozen specs (weave-bridge geometry, mastodon-backend, unified-discovery, feed-focus-stability, and others) fail or flake on the baseline too, so compare against a clean build of the base commit before calling a failure a regression. Unit tests are plain **node:test** suites in `tests/unit/` (31 suites), run via `pnpm test:unit`.
 
 ## Tech Stack
 
@@ -51,7 +51,21 @@ The landing page (`/`) handles Mastodon OAuth instance selection. `/callback` co
 - **RelatedStacksContext** (`related-stacks-context.tsx`): Shared context in the shell layout. Manages which post's related stacks are shown in the aside panel. Provides toggle behavior — clicking the same post hides its stacks.
 - **Experiment flags** (`src/utils/experimentFlags.ts`): module-level store for the research ablation switches, persisted to `stacky:experimentFlags:v1` and toggled via the flask panel in the top nav.
 - **localStorage**: `accessToken`, `currentUser` (JSON), `stacky:localStore:v1` (offline post/interaction store), `stacky:experimentFlags:v1` (experiment flags), `stacky:feedRatio` (feed/aside split ratio)
-- **sessionStorage**: `scrollY:{path}` for scroll restoration, `previousPath:{path}` for back navigation, `activeFeedPost:/ChineseEVs` for restoring the focused feed post
+- **sessionStorage**: `scrollY:{path}` for scroll restoration, `previousPath:{path}` for back navigation, `activeFeedPost:{routeBase}` + `activeFeedPin:{routeBase}` for restoring the focused feed post and its click pin
+
+### Feed Focus (stableFeedFocusCore.mjs)
+
+Scrolling picks the focused feed post: the post whose top has crossed a reading line (30% of the viewport; the centre line on Home), with a Schmitt band (`feedFocusHysteresisPx`) so neighbours don't flicker. Clicking a topic phrase focuses a post **in place** (no scroll) and pins it (`createFeedFocusPin` / `selectPinnedFeedFocus`). The pin hands control back silently once the picker would choose the same post, and releases when the post moves more than one band further from the reading line than its closest approach, or leaves the screen. It measures geometry, not scroll deltas or time. The topic feeds, Home (`PostList`), and search share it.
+
+### Focus-Post Phrases (FocusTopicHighlightedContent.tsx)
+
+- Left-pane phrase emphasis (a text-shadow, metric-neutral) is off at rest. It turns on for hover over the text, keyboard focus, an aside cross-highlight, or a mobile tap (`data-engaged`). On touch, the first tap only engages; later taps act. The related cards' bold in the aside is always on.
+- A click rotates the phrase's topics A → B → … → off. Multi-topic phrases open the topic list on hover after ~500ms; single-topic phrases show a "Filter by: X" tooltip.
+- The `dangerouslySetInnerHTML` object is memoized. A new object makes React replace every `<mark>`, and a replacement between mousedown and mouseup swallows the click.
+
+### Related Panel Grouping (RelatedStacks.tsx)
+
+Clicking a highlighted span, or a card's contribution-type icon, **groups** ("more like this") rather than filters. Matches above the clicked card gather just above it and matches below gather just below (`reorderForAnchor`), in a bordered block with a "Label (N) ×" header and a "K more Label" footer. Type groups are topic interactions with `groupBy: 'category'` (`fg=category` in the URL). They filter the reply pane by relation category and clear any top filter. Filtering happens only from the top chip bar and the focus post. While a group is scrolled past, a zero-height sticky copy of its header sits under the panel's sticky header. Grouping no longer adds a per-card topic row, so cards keep their height; `active-group-anchor` marks the anchor card itself.
 
 ### Post List Caching (PostList.tsx)
 
