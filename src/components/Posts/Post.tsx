@@ -950,9 +950,12 @@ function Post({
           style={{ width: '100%', cursor: 'pointer' }}
         >
           <Group wrap="nowrap" gap="xs" style={{ alignItems: 'center', paddingRight: canDelete ? 34 : 0 }}>
-            <UnstyledButton onClick={handleNavigateToUser} className="avatarHoverDim">
-              <ProfileAvatar src={avatar} alt={author} radius="xl" />
-            </UnstyledButton>
+            {/* The profile picture opens the same author tooltip as the name. */}
+            <AuthorHoverInfo displayName={author} account={account} stats={authorStats} style={{ flexShrink: 0 }}>
+              <UnstyledButton onClick={handleNavigateToUser} className="avatarHoverDim">
+                <ProfileAvatar src={avatar} alt={author} radius="xl" />
+              </UnstyledButton>
+            </AuthorHoverInfo>
             <AuthorHoverInfo displayName={author} account={account} stats={authorStats}>
               <Anchor
                 component="button"

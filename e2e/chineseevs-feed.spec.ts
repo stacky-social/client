@@ -47,20 +47,32 @@ test.describe('AI workforce demo feed', () => {
       'box-shadow',
       'rgba(28, 43, 74, 0.1) 0px 5px 14px 0px, rgba(28, 43, 74, 0.06) 0px 2px 5px 0px',
     );
-    await focusCard.locator('[data-author-hover]').hover();
+    // Both the profile picture and the name carry the author tooltip (#224):
+    // the avatar's wrapper comes first in the header, the name's second.
+    const focusAvatarHover = focusCard.locator('[data-author-hover]').first();
+    const focusNameHover = focusCard.locator('[data-author-hover]').nth(1);
+    await expect(focusAvatarHover.locator('img, .mantine-Avatar-root').first()).toBeVisible();
+    await focusNameHover.hover();
     const authorTooltip = page.getByTestId('hover-tooltip').locator('[data-author-tooltip]');
     await expect(authorTooltip).toBeVisible();
     await expect(authorTooltip.locator('[data-author-username]')).toHaveText('@rokosbasilisk');
     await expect(authorTooltip.locator('[data-author-source]')).toHaveText('foxnews.com');
     await expect(authorTooltip.locator('[data-author-stat="posts"]')).toContainText(/\d+ posts?/);
     await page.mouse.move(0, 0);
-    await focusCard.locator('[data-author-hover] button').focus();
+    await expect(authorTooltip).toBeHidden();
+    await focusAvatarHover.hover();
+    await expect(authorTooltip.locator('[data-author-username]')).toHaveText('@rokosbasilisk');
+    await page.mouse.move(0, 0);
+    await focusNameHover.locator('button').focus();
     await expect(authorTooltip).toBeVisible();
 
-    const relatedAuthor = page.getByTestId('col-aside').locator('[data-related-card] [data-author-hover]').first();
-    await relatedAuthor.hover();
-    await expect(authorTooltip.locator('[data-author-username]')).toHaveText('@brokenwindows');
-    await expect(authorTooltip.locator('[data-author-source]')).toHaveText('foxnews.com');
+    const relatedCardHover = page.getByTestId('col-aside').locator('[data-related-card]').first().locator('[data-author-hover]');
+    for (const target of [relatedCardHover.first(), relatedCardHover.nth(1)]) {
+      await page.mouse.move(0, 0);
+      await target.hover();
+      await expect(authorTooltip.locator('[data-author-username]')).toHaveText('@brokenwindows');
+      await expect(authorTooltip.locator('[data-author-source]')).toHaveText('foxnews.com');
+    }
 
     // "Read more" affordance (collapsed posts) — present on at least one card.
     await expect(page.getByText('Read more').first()).toBeVisible();

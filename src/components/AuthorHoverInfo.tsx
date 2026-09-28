@@ -11,6 +11,8 @@ type AuthorHoverInfoProps = {
   account: string;
   stats?: AuthorStats;
   children: React.ReactNode;
+  /** Merged over the wrapper's default layout (e.g. `flexShrink: 0` for an avatar). */
+  style?: React.CSSProperties;
 };
 
 const TOOLTIP_COLORS = { text: "#1c2b4a", border: "#a8b3c5" };
@@ -44,12 +46,14 @@ function statLabel(value: number, singular: string): string {
   return `${value.toLocaleString()} ${value === 1 ? singular : `${singular}s`}`;
 }
 
-/** Adds a compact identity/activity tooltip to an existing username control. */
+/** Adds a compact identity/activity tooltip to an existing author control —
+ *  the username and the profile picture both use it. */
 export default function AuthorHoverInfo({
   displayName,
   account,
   stats,
   children,
+  style,
 }: AuthorHoverInfoProps) {
   const [localStats, setLocalStats] = useState<AuthorStats>({});
   const identity = useMemo(() => identityFromAccount(account), [account]);
@@ -135,7 +139,7 @@ export default function AuthorHoverInfo({
   return (
     <span
       data-author-hover
-      style={{ display: "inline-flex", minWidth: 0, maxWidth: "100%", flex: "0 1 auto" }}
+      style={{ display: "inline-flex", minWidth: 0, maxWidth: "100%", flex: "0 1 auto", ...style }}
       onMouseEnter={(event) => reveal(event.clientX, event.clientY)}
       onMouseLeave={hideTooltip}
       onFocus={(event) => {

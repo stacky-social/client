@@ -3572,9 +3572,21 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                   onClick={(e) => { e.stopPropagation(); handleNavigate(stack.topPost.id, stack.stackId); }}
                   style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '0 10px 6px', minWidth: 0 }}>
                 {/* Avatar + author · date inline (left). */}
-                <UnstyledButton onClick={(e) => handleNavigateToUser(e, stack.topPost.account)} className="avatarHoverDim" style={{ flexShrink: 0 }}>
-                  <ProfileAvatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
-                </UnstyledButton>
+                {/* The profile picture opens the same author tooltip as the name. */}
+                <AuthorHoverInfo
+                  displayName={stack.topPost.account.display_name}
+                  account={stack.topPost.account.acct || stack.topPost.account.username || stack.topPost.account.display_name}
+                  stats={{
+                    posts: stack.topPost.account.statuses_count,
+                    followers: stack.topPost.account.followers_count,
+                    following: stack.topPost.account.following_count,
+                  }}
+                  style={{ flexShrink: 0 }}
+                >
+                  <UnstyledButton onClick={(e) => handleNavigateToUser(e, stack.topPost.account)} className="avatarHoverDim" style={{ flexShrink: 0 }}>
+                    <ProfileAvatar src={stack.topPost.account.avatar} alt={stack.topPost.account.display_name} radius="xl" />
+                  </UnstyledButton>
+                </AuthorHoverInfo>
                 {/* Name block: "name · date", plus the AI "Modified" pill as a
                     second row under it. Name (~22px) + pill (14px) stay inside
                     the 38px avatar, so a modified card's header is exactly as

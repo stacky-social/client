@@ -168,7 +168,7 @@ test('revealing an off-screen topic keeps paragraphs from overlapping', async ({
 test('narrow related cards keep room for the author beside contribution icons', async ({ page }) => {
   await page.setViewportSize({ width: 820, height: 900 });
   await page.goto('/AIWorkforce/posts/cw-az-_rP88MDYWSRgL');
-  const authors = page.locator('[data-related-card] [data-post-id] .avatarHoverDim + div');
+  const authors = page.locator('[data-related-card] [data-post-id] [data-related-name-block]');
   await expect(authors.first()).toBeVisible();
   const widths = await authors.evaluateAll((elements) => elements.map((el) => el.getBoundingClientRect().width));
   expect(widths.every((width) => width >= 150)).toBe(true);
