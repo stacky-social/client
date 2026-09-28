@@ -128,19 +128,37 @@ export default function PostView() {
   const currentPostRef = useRef<HTMLDivElement>(null);
   const replyScrollRef = useRef<HTMLDivElement>(null);
   const focusAnchorRef = useRef<HTMLDivElement>(null);
-  const { compact: focusCompact, setCompact: setFocusCompact, onReplyScroll } = useCompactFocus(focusAnchorRef, replyScrollRef);
+  // The focus post sticks at top: 64 (see its wrapper below).
+  const { compact: focusCompact, setCompact: setFocusCompact, onReplyScroll, pinFocus } = useCompactFocus(focusAnchorRef, replyScrollRef, 64);
   const [focusHeight, setFocusHeight] = useState(300);
+  // Space between the focus post's box and the reply region, measured so the
+  // reply budget below stays exact.
+  const [replyGap, setReplyGap] = useState(16);
   useLayoutEffect(() => {
     const focus = currentPostRef.current;
     if (!focus) return;
-    const observer = new ResizeObserver(() => setFocusHeight(focus.getBoundingClientRect().height));
+    const observer = new ResizeObserver(() => {
+      const box = focus.getBoundingClientRect();
+      setFocusHeight(box.height);
+      const region = replyScrollRef.current;
+      if (region) {
+        const gap = region.getBoundingClientRect().top - box.bottom;
+        if (gap >= 0 && gap <= 64) setReplyGap(gap);
+      }
+    });
     observer.observe(focus);
     return () => observer.disconnect();
   }, [post?.id]);
   useLayoutEffect(() => {
-    if (replyScrollRef.current) replyScrollRef.current.scrollTop = Number(sessionStorage.getItem(`reply-scroll:${id}`) ?? 0);
-    setFocusCompact(Number(sessionStorage.getItem(`reply-scroll:${id}`) ?? 0) > 40);
-  }, [id, post?.id]);
+    const restored = Number(sessionStorage.getItem(`reply-scroll:${id}`) ?? 0);
+    if (replyScrollRef.current) replyScrollRef.current.scrollTop = restored;
+    setFocusCompact(restored > 40);
+    // Pin the page for a restored reply position (see useCompactFocus).
+    if (restored > 0) {
+      let frame = requestAnimationFrame(() => { frame = requestAnimationFrame(pinFocus); });
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [id, post?.id, pinFocus]);
 
   const mainRef = useRef<HTMLDivElement>(null);
   const [showFocusRelatedStacks, setShowFocusRelatedStacks] = useState(true);
@@ -684,7 +702,7 @@ export default function PostView() {
             sessionStorage.setItem(`reply-scroll:${id}`, String(event.currentTarget.scrollTop));
             sessionStorage.setItem(`reply-visible:${id}`, String(visibleTopLevelReplies));
           }}
-          style={{ paddingLeft: 6, marginLeft: -6, overflowAnchor: "none", overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${focusHeight + 72}px)`, minHeight: 160 }}
+          style={{ paddingLeft: 6, marginLeft: -6, overflowAnchor: "none", overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${Math.ceil(64 + focusHeight + replyGap)}px)`, minHeight: 160 }}
         >
         <Divider my="md" />
 

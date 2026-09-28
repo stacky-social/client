@@ -424,8 +424,17 @@ test('keeps the focus bridge fixed while children scroll below it', async ({ pag
   await page.goto(`/AIWorkforce/posts/${stickyFocusId}`);
   await expect(activePost(page)).toBeVisible();
   await expect(bridge(page)).toBeVisible();
+  // The first reply scroll legitimately compacts the focus and pins the page
+  // so the post sticks under the nav (the reply region is sized for that
+  // layout). Settle that one-time change first; measuring across it raced the
+  // pin frame and flaked by ~0.6px. The invariant is what follows: children
+  // scrolling must not move the bridge.
+  const region = page.getByTestId('reply-scroll-region');
+  await region.evaluate((element) => { element.scrollTop = 60; });
+  await expect(page.locator('[data-focus-compact]')).toHaveAttribute('data-focus-compact', 'true');
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const before = await geometry(page);
-  await page.getByTestId('reply-scroll-region').evaluate((element) => { element.scrollTop = 250; });
+  await region.evaluate((element) => { element.scrollTop = 250; });
   const after = await geometry(page);
   expect(after.sourceTopY).toBeCloseTo(before.sourceTopY, 0);
   expect(after.sourceBottomY).toBeCloseTo(before.sourceBottomY, 0);

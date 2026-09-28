@@ -174,12 +174,23 @@ export default function MockPostView() {
 
   const replyScrollRef = useRef<HTMLDivElement>(null);
   const focusAnchorRef = useRef<HTMLDivElement>(null);
-  const { compact: focusCompact, setCompact: setFocusCompact, onReplyScroll } = useCompactFocus(focusAnchorRef, replyScrollRef);
+  const { compact: focusCompact, setCompact: setFocusCompact, onReplyScroll, pinFocus } = useCompactFocus(focusAnchorRef, replyScrollRef, FOCUS_PIN_OFFSET);
   const [focusHeight, setFocusHeight] = useState(300);
+  // Space between the focus post's box and the reply region (the post's own
+  // bottom margin). Measured, so the reply budget below stays exact.
+  const [replyGap, setReplyGap] = useState(16);
   useLayoutEffect(() => {
     const focus = focusWrapRef.current;
     if (!focus) return;
-    const observer = new ResizeObserver(() => setFocusHeight(focus.getBoundingClientRect().height));
+    const observer = new ResizeObserver(() => {
+      const box = focus.getBoundingClientRect();
+      setFocusHeight(box.height);
+      const region = replyScrollRef.current;
+      if (region) {
+        const gap = region.getBoundingClientRect().top - box.bottom;
+        if (gap >= 0 && gap <= 64) setReplyGap(gap);
+      }
+    });
     observer.observe(focus);
     return () => observer.disconnect();
   }, [post?.id]);
@@ -210,10 +221,18 @@ export default function MockPostView() {
 
   useLayoutEffect(() => {
     if (replyScrollRef.current && showThread) {
-      replyScrollRef.current.scrollTop = Number(sessionStorage.getItem(`reply-scroll:${id}`) ?? 0);
-      setFocusCompact(Number(sessionStorage.getItem(`reply-scroll:${id}`) ?? 0) > 40);
+      const restored = Number(sessionStorage.getItem(`reply-scroll:${id}`) ?? 0);
+      replyScrollRef.current.scrollTop = restored;
+      setFocusCompact(restored > 40);
+      // A restored reply position means the reader was in the replies: pin the
+      // page as reading them would have, once the compact layout commits, or
+      // the reply region (sized for the stuck focus) ends below the viewport.
+      if (restored > 0) {
+        let frame = requestAnimationFrame(() => { frame = requestAnimationFrame(pinFocus); });
+        return () => cancelAnimationFrame(frame);
+      }
     }
-  }, [id, showThread]);
+  }, [id, showThread, pinFocus]);
 
   // Merge seeded mock replies with the user's store comments so both appear in
   // the thread. De-dupe by id defensively (a store comment should never collide
@@ -1052,7 +1071,13 @@ export default function MockPostView() {
             sessionStorage.setItem(`reply-scroll:${id}`, String(event.currentTarget.scrollTop));
             sessionStorage.setItem(`reply-visible:${id}`, String(visibleTopLevelReplies));
           }}
-          style={{ paddingLeft: 6, marginLeft: -6, overflowAnchor: "none", overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${focusHeight + 72}px)`, minHeight: 160 }}
+          // Sized for the STUCK focus post (sticky top + its height + the gap
+          // below it), so its bottom meets the viewport bottom once the page is
+          // pinned; useCompactFocus pins the page when the replies collapse the
+          // focus or reach their end. A fixed 72px budget used to leave the
+          // last reply up to ~52px below the viewport, unreachable because the
+          // wheel is contained in this region.
+          style={{ paddingLeft: 6, marginLeft: -6, overflowAnchor: "none", overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${Math.ceil(FOCUS_PIN_OFFSET + focusHeight + replyGap)}px)`, minHeight: 160 }}
         >
         <Divider my="md" />
 

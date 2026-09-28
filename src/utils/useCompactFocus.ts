@@ -7,6 +7,10 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 export function useCompactFocus(
   anchor: RefObject<HTMLDivElement>,
   replies: RefObject<HTMLDivElement>,
+  /** Viewport top of the focus post once it is stuck (its `position: sticky`
+   *  top). The reply region is sized for that stuck layout, so the page must
+   *  reach it for the last reply to be reachable. */
+  pinTop = 64,
 ) {
   const [compact, updateCompact] = useState(false);
   const compactRef = useRef(false);
@@ -63,18 +67,34 @@ export function useCompactFocus(
     };
   }, [anchor, replies, expandOnUpwardInput, setCompact]);
 
+  // Scroll the page just far enough that the focus post sticks at `pinTop`.
+  // Floored so the anchor lands at or just BELOW the line: landing a fraction
+  // above it would read as "scrolled past" and collapse via the window
+  // scroll handler.
+  const pinFocus = useCallback(() => {
+    const top = anchor.current?.getBoundingClientRect().top;
+    if (top === undefined || top <= pinTop + 0.5) return;
+    window.scrollBy({ top: Math.floor(top - pinTop), behavior: "instant" });
+  }, [anchor, pinTop]);
+
   const onReplyScroll = useCallback(() => {
-    if ((replies.current?.scrollTop ?? 0) > 40 && !compactRef.current) {
+    const region = replies.current;
+    if ((region?.scrollTop ?? 0) > 40 && !compactRef.current) {
       setCompact(true);
       // Pin once, after the compact layout has committed. Smooth scrolling
       // would keep generating competing scroll events during the resize.
-      pinFrame.current = requestAnimationFrame(() => {
-        const top = anchor.current?.getBoundingClientRect().top ?? 72;
-        if (top > 72) window.scrollBy({ top: top - 72, behavior: "instant" });
-      });
+      pinFrame.current = requestAnimationFrame(pinFocus);
+    } else if (region && region.scrollTop > 0
+      && region.scrollTop + region.clientHeight >= region.scrollHeight - 1) {
+      // The replies reached their end without the page being pinned — a
+      // short thread that never scrolls 40px, or a restored scroll position.
+      // The region is sized for the stuck focus post, and the wheel is
+      // contained inside it, so without this the last replies stay below the
+      // viewport with no way to scroll them into view.
+      pinFocus();
     }
     expandOnUpwardInput();
-  }, [anchor, replies, expandOnUpwardInput, setCompact]);
+  }, [replies, expandOnUpwardInput, setCompact, pinFocus]);
 
-  return { compact, setCompact, onReplyScroll };
+  return { compact, setCompact, onReplyScroll, pinFocus };
 }
