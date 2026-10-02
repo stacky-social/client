@@ -194,7 +194,7 @@ export function clearHoveredSidebarPost(postId: string): void {
 /** End only the transient aside→focus paint. The last relation/range/category
  * stays retained; the focus post keeps revealing it for a short grace period so
  * a move to a neighbouring card hands over without a flash, then returns to its
- * opening. */
+ * opening (unless Shift+R has switched that off; see hoverRestore.ts). */
 export function setSidebarHoverActive(active: boolean): void {
   if (hoverOwner !== "aside") return;
   if (state.sidebarHoverActive === active) return;

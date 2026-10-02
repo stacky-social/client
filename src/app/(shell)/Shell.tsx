@@ -2,7 +2,9 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useMediaQuery } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import { HoverTooltip } from "../../components/HoverTooltip";
+import { toggleHoverRestore } from "../../utils/hoverRestore";
 import { TopNav, TOP_NAV_HEIGHT } from "../../components/NavBar/TopNav";
 import { RelatedStacksProvider } from "./related-stacks-context";
 import { ResizableDivider } from "./ResizableDivider";
@@ -33,6 +35,8 @@ const BRIDGE_VARIANT_LABEL: Record<FocusConnectionVariant, string> = {
     classic: "Classic bridge design",
     border: "Border-only focus design",
 };
+
+const HOVER_RESTORE_NOTICE_ID = "hover-restore";
 
 export default function Shell({
     children,
@@ -99,6 +103,43 @@ export default function Shell({
 
         window.addEventListener("keydown", toggleBridgeVariant);
         return () => window.removeEventListener("keydown", toggleBridgeVariant);
+    }, []);
+
+    // Shift+R: whether leaving a related post returns the focus post to its
+    // original view. Nothing changes on screen until the next hover, so a
+    // toast says which behaviour is now on.
+    useEffect(() => {
+        const toggleRestore = (event: KeyboardEvent) => {
+            if (
+                event.defaultPrevented
+                || event.repeat
+                || event.key.toLowerCase() !== "r"
+                || !event.shiftKey
+                || event.altKey
+                || event.ctrlKey
+                || event.metaKey
+            ) return;
+
+            const target = event.target;
+            if (
+                target instanceof HTMLElement
+                && (target.isContentEditable || !!target.closest("input, textarea, select, [contenteditable='true']"))
+            ) return;
+
+            event.preventDefault();
+            const restoring = toggleHoverRestore();
+            notifications.hide(HOVER_RESTORE_NOTICE_ID);
+            notifications.show({
+                id: HOVER_RESTORE_NOTICE_ID,
+                message: restoring
+                    ? "Leaving a related post restores the focus post's view"
+                    : "Leaving a related post keeps the passage it revealed",
+                autoClose: 2500,
+            });
+        };
+
+        window.addEventListener("keydown", toggleRestore);
+        return () => window.removeEventListener("keydown", toggleRestore);
     }, []);
 
     // The open bridge is meant for close reading. During a fast document

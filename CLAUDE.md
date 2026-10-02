@@ -50,7 +50,7 @@ The landing page (`/`) handles Mastodon OAuth instance selection. `/callback` co
 
 - **RelatedStacksContext** (`related-stacks-context.tsx`): Shared context in the shell layout. Manages which post's related stacks are shown in the aside panel. Provides toggle behavior — clicking the same post hides its stacks.
 - **Experiment flags** (`src/utils/experimentFlags.ts`): module-level store for the research ablation switches, persisted to `stacky:experimentFlags:v1` and toggled via the flask panel in the top nav.
-- **localStorage**: `accessToken`, `currentUser` (JSON), `stacky:localStore:v1` (offline post/interaction store), `stacky:experimentFlags:v1` (experiment flags), `stacky:feedRatio` (feed/aside split ratio)
+- **localStorage**: `accessToken`, `currentUser` (JSON), `stacky:localStore:v1` (offline post/interaction store), `stacky:experimentFlags:v1` (experiment flags), `stacky:feedRatio` (feed/aside split ratio), `stacky:hover-restore` (Shift+R choice, below)
 - **sessionStorage**: `scrollY:{path}` for scroll restoration, `previousPath:{path}` for back navigation, `activeFeedPost:{routeBase}` + `activeFeedPin:{routeBase}` for restoring the focused feed post and its click pin
 
 ### Feed Focus (stableFeedFocusCore.mjs)
@@ -61,6 +61,7 @@ Scrolling picks the focused feed post: the post whose top has crossed a reading 
 
 - Left-pane phrase emphasis (a text-shadow, metric-neutral) is off at rest. It turns on for hover over the text, keyboard focus, an aside cross-highlight, or a mobile tap (`data-engaged`). On touch, the first tap only engages; later taps act. The related cards' bold in the aside is always on.
 - A click rotates the phrase's topics A → B → … → off. Multi-topic phrases open the topic list on hover after ~500ms; single-topic phrases show a "Filter by: X" tooltip.
+- Hovering a related post (or a reply) scrolls the focus post's reading window only as far as the whole highlighted passage needs, keeping the text before it; a passage taller than the window keeps its bold key phrase in view. Leaving restores the original view after 250ms (so moving between cards doesn't flash). **Shift+R** toggles restoring off/on (`src/utils/hoverRestore.ts`).
 - The `dangerouslySetInnerHTML` object is memoized. A new object makes React replace every `<mark>`, and a replacement between mousedown and mouseup swallows the click.
 
 ### Related Panel Grouping (RelatedStacks.tsx)

@@ -17,6 +17,7 @@ import {
   useHighlightStore,
   setFocusHoverRanges,
 } from "../../utils/highlightStore";
+import { useHoverRestore } from "../../utils/hoverRestore";
 import { renderFocusCompositeHtml } from "../../utils/focusHighlightHtml.mjs";
 import {
   focusTopicCandidates,
@@ -754,8 +755,11 @@ const FocusTopicHighlightedContent = React.forwardRef<
 
   // A related-card hover reveals its passage here. The store keeps the last
   // hovered relations after the pointer leaves; they stay revealed only for
-  // HOVER_RELEASE_MS, after which the post returns to its original view. A
-  // tapped card (touch) has no leave, so it holds until the reader taps away.
+  // HOVER_RELEASE_MS, after which the post returns to its original view. With
+  // restoring switched off (Shift+R), the last passage stays revealed until
+  // the next hover replaces it. A tapped card (touch) has no leave, so it
+  // holds until the reader taps away.
+  const restoreOnLeave = useHoverRestore();
   const liveHover = Boolean(hoveredRelations?.length)
     && (sidebarHoverActive || (tappedCardPostId !== null && tappedCardPostId === hoveredPostId));
   const [hoverReleased, setHoverReleased] = useState(!liveHover);
@@ -764,9 +768,10 @@ const FocusTopicHighlightedContent = React.forwardRef<
       setHoverReleased(false);
       return;
     }
+    if (!restoreOnLeave) return;
     const timer = window.setTimeout(() => setHoverReleased(true), HOVER_RELEASE_MS);
     return () => window.clearTimeout(timer);
-  }, [liveHover]);
+  }, [liveHover, restoreOnLeave]);
   const hoverRevealed = Boolean(hoveredRelations?.length) && (liveHover || !hoverReleased);
   const hoverRevealRef = useRef(false);
   const preHoverScrollRef = useRef(0);

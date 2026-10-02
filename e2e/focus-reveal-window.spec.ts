@@ -190,3 +190,58 @@ test('a related-card hover shows its whole passage without blank space and leavi
   expect(scrolled, 'no hover scrolled the reading window — test proved nothing').toBeGreaterThan(0);
   expect(offenders, offenders.join('; ')).toEqual([]);
 });
+
+// Shift+R switches restoring off, so leaving a card keeps the passage it
+// revealed; the choice survives a reload, and Shift+R again turns restoring
+// back on, releasing the kept passage.
+test('Shift+R toggles whether leaving a related card restores the focus post', async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const reveal = page.locator('[data-testid="post"][data-active="true"] [data-testid="focus-reveal"]').first();
+  const spans = page.locator('[data-related-card] mark[data-range-id]');
+  const scrollTop = () => reveal.evaluate((el) => el.scrollTop);
+  const open = async () => {
+    await page.goto('/ChineseEVs', { waitUntil: 'domcontentloaded' });
+    await reveal.waitFor({ state: 'visible', timeout: 90_000 });
+    await expect(spans.first()).toBeVisible();
+    await page.waitForTimeout(1000);
+  };
+  const hover = async (index: number) => {
+    await spans.nth(index).scrollIntoViewIfNeeded();
+    await spans.nth(index).hover();
+    await page.waitForTimeout(500);
+  };
+  const leave = () => page.mouse.move(4, 600);
+
+  await open();
+  let index = -1;
+  for (let i = 0; i < Math.min(await spans.count(), 12) && index < 0; i += 1) {
+    if (!(await spans.nth(i).isVisible())) continue;
+    await hover(i);
+    if (await scrollTop() > 0) index = i;
+    await leave();
+    await expect.poll(scrollTop).toBe(0);
+  }
+  test.skip(index < 0, 'no related span reveals a passage below the clamp');
+
+  await page.keyboard.press('Shift+R');
+  await expect(page.getByText('Leaving a related post keeps the passage it revealed')).toBeVisible();
+  await hover(index);
+  const revealed = await scrollTop();
+  expect(revealed).toBeGreaterThan(0);
+  await leave();
+  await page.waitForTimeout(800);
+  expect(await scrollTop()).toBe(revealed);
+
+  await open();
+  expect(await page.evaluate(() => localStorage.getItem('stacky:hover-restore'))).toBe('keep');
+  await hover(index);
+  await leave();
+  await page.waitForTimeout(800);
+  expect(await scrollTop()).toBeGreaterThan(0);
+
+  await page.keyboard.press('Shift+R');
+  await expect(page.getByText("Leaving a related post restores the focus post's view")).toBeVisible();
+  await expect.poll(scrollTop).toBe(0);
+  await expect(reveal).not.toHaveAttribute('data-reveal-window');
+});
