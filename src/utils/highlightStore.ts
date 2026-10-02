@@ -182,8 +182,9 @@ export function setHoveredSidebarPost(
   notify();
 }
 
-/** End reply paint without moving the focus reading window. A delayed leave
- * must not clear a newer card's hover. */
+/** End reply paint; the focus post returns to its opening shortly after (see
+ * FocusTopicHighlightedContent). A delayed leave must not clear a newer card's
+ * hover. */
 export function clearHoveredSidebarPost(postId: string): void {
   if (hoverOwner !== "reply" || state.hoveredPostId !== postId || !state.sidebarHoverActive) return;
   state = { ...state, sidebarHoverActive: false };
@@ -191,7 +192,9 @@ export function clearHoveredSidebarPost(postId: string): void {
 }
 
 /** End only the transient aside→focus paint. The last relation/range/category
- * stays retained so the focus post keeps its exact reading position. */
+ * stays retained; the focus post keeps revealing it for a short grace period so
+ * a move to a neighbouring card hands over without a flash, then returns to its
+ * opening. */
 export function setSidebarHoverActive(active: boolean): void {
   if (hoverOwner !== "aside") return;
   if (state.sidebarHoverActive === active) return;

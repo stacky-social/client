@@ -2559,9 +2559,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   const debouncedRangeHover = useRef((idx: number | null) => {
     if (rangeHoverTimer.current) clearTimeout(rangeHoverTimer.current);
     if (idx === null) {
-      // Keep the last related passage as the focus post's reading anchor after
-      // the pointer leaves. The next card/range replaces it explicitly, so the
-      // focus text does not snap back to its opening between inspections.
+      // Keep the last related passage as the focus post's reading anchor when
+      // the pointer leaves a span but stays on the card. The next range
+      // replaces it explicitly, so the focus text does not snap back to its
+      // opening between inspections of the same card.
       rangeHoverTimer.current = null;
     } else {
       rangeHoverTimer.current = setTimeout(() => setHoveredHighlightRangeIndex(idx), 200);
@@ -2640,9 +2641,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       }, 160);
 
       // Clear panel-local hover/dimming once at the beginning of a scroll
-      // gesture. Preserve the cross-pane relation + exact span/category anchor:
-      // it owns the focus post's current reading position and must remain stable
-      // until a genuinely new related post/span hover replaces it.
+      // gesture. The cross-pane relation + exact span/category anchor stay in
+      // the store; the focus post returns to its opening shortly after unless a
+      // new related post/span hover takes over.
       if (wasAlreadyScrolling) return;
       if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
       hoverTimerRef.current = null;
@@ -3549,9 +3550,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                   pendingHoverCardIdRef.current = null;
                   hoverTimerRef.current = setTimeout(() => {
                     hoverTimerRef.current = null;
-                    // End card dimming without discarding the focus post's last
-                    // reading anchor. Its temporary colour ends too; a new
-                    // related hover replaces and repaints that anchor.
+                    // End card dimming and its temporary colour. The focus
+                    // post returns to its opening shortly after, unless a
+                    // neighbouring card's hover takes over first.
                     setHoveredCardId(null);
                     setSidebarHoverActive(false);
                   }, 60);

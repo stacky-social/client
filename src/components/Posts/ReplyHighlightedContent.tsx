@@ -65,8 +65,8 @@ export default function ReplyHighlightedContent({
     }
   };
 
-  // End our pending publish and transient paint on unmount. Retain the focus
-  // reading position, just as leaving a related card does.
+  // End our pending publish and transient paint on unmount, just as leaving a
+  // related card does.
   useEffect(() => {
     return () => {
       if (enterTimer.current) clearTimeout(enterTimer.current);

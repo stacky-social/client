@@ -34,6 +34,31 @@ import FocusTopicPicker, { type FocusTopicPickerAnchor } from "./FocusTopicPicke
 // sees a small tooltip replaced by a large list a moment later.
 const TOOLTIP_DELAY_MS = 350;
 const PICKER_DELAY_MS = 500;
+// After the pointer leaves a related card, its passage stays revealed this long
+// before the focus post returns to its original view. A card hover starts 90ms
+// after entry, so moving across the gap to a neighbouring card hands over
+// without the post flashing back to its opening in between.
+const HOVER_RELEASE_MS = 250;
+
+/**
+ * The reading window's scroll offset for a passage spanning [top, bottom]
+ * (content coordinates, line leading included). It scrolls only as far as the
+ * passage needs, so the window keeps as much of the text before the passage as
+ * fits, and it stops on a line top so the first visible line is never cut. A
+ * passage taller than the window top-aligns instead. Because it never scrolls
+ * past what the passage needs, the window never trades text above for the empty
+ * spacer below (beyond the remainder of one line).
+ */
+function revealScrollTop(
+  sortedLineTops: number[],
+  passage: { top: number; bottom: number },
+  windowHeight: number,
+): number {
+  const needed = passage.bottom - windowHeight;
+  if (needed <= 0.5) return 0;
+  const lineTop = sortedLineTops.find((top) => top >= needed - 0.5) ?? passage.top;
+  return Math.max(0, Math.min(lineTop, passage.top));
+}
 
 function stripHtml(html: string): string {
   return html
@@ -108,10 +133,12 @@ const FocusTopicHighlightedContent = React.forwardRef<
   forwardedRef,
 ) {
   const {
+    hoveredPostId,
     hoveredRelations,
     sidebarHoverActive,
     hoveredHighlightRangeIndex,
     hoveredCategory,
+    tappedCardPostId,
     responseFilter,
     topicInteraction,
   } = useHighlightStore();
@@ -725,12 +752,31 @@ const FocusTopicHighlightedContent = React.forwardRef<
     };
   }, [engaged]);
 
+  // A related-card hover reveals its passage here. The store keeps the last
+  // hovered relations after the pointer leaves; they stay revealed only for
+  // HOVER_RELEASE_MS, after which the post returns to its original view. A
+  // tapped card (touch) has no leave, so it holds until the reader taps away.
+  const liveHover = Boolean(hoveredRelations?.length)
+    && (sidebarHoverActive || (tappedCardPostId !== null && tappedCardPostId === hoveredPostId));
+  const [hoverReleased, setHoverReleased] = useState(!liveHover);
+  useEffect(() => {
+    if (liveHover) {
+      setHoverReleased(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setHoverReleased(true), HOVER_RELEASE_MS);
+    return () => window.clearTimeout(timer);
+  }, [liveHover]);
+  const hoverRevealed = Boolean(hoveredRelations?.length) && (liveHover || !hoverReleased);
+  const hoverRevealRef = useRef(false);
+  const preHoverScrollRef = useRef(0);
+
   // Preserve the existing fixed-height reveal: when an aside hover, restored
   // focus topic, or legacy passage targets text below the clamp, the prose moves
   // inside its original height instead of expanding the card.
   const revealIndices = useMemo(() => {
     if (!active || isTextExpanded) return [];
-    if (hoveredRelations?.length) {
+    if (hoverRevealed && hoveredRelations?.length) {
       let source = hoveredRelations;
       if (
         hoveredHighlightRangeIndex != null
@@ -764,6 +810,7 @@ const FocusTopicHighlightedContent = React.forwardRef<
     hoveredCategory,
     hoveredHighlightRangeIndex,
     hoveredRelations,
+    hoverRevealed,
     isTextExpanded,
     responseFilter,
     selectedIndex,
@@ -783,6 +830,11 @@ const FocusTopicHighlightedContent = React.forwardRef<
   useLayoutEffect(() => {
     const element = innerRef.current;
     if (!element) return;
+    // Ending a hover returns the window to where it stood before the hover
+    // began: the post's opening, or wherever the reader's selection had it.
+    const wasHoverReveal = hoverRevealRef.current;
+    hoverRevealRef.current = hoverRevealed;
+    if (hoverRevealed && !wasHoverReveal) preHoverScrollRef.current = element.scrollTop;
     if (!revealKey) {
       element.style.clipPath = "";
       if (element.scrollTop > 0) element.scrollTop = 0;
@@ -791,23 +843,35 @@ const FocusTopicHighlightedContent = React.forwardRef<
     }
     const ids = new Set(revealIndices.map(String));
     const candidates = Array.from(element.querySelectorAll<HTMLElement>('mark[data-range-ids]'));
-    const targetRelation = hoveredRelations?.[hoveredHighlightRangeIndex ?? 0];
-    const hasComment = targetRelation && targetRelation.focusCommentEnd > targetRelation.focusCommentStart;
-    const targetStart = hasComment ? targetRelation.focusCommentStart : targetRelation?.focusStart;
-    const targetEnd = hasComment ? targetRelation.focusCommentEnd : targetRelation?.focusEnd;
-    const mark = candidates.find((candidate) =>
-      targetStart != null && targetEnd != null
-      && Number(candidate.dataset.fs) < targetEnd && targetStart < Number(candidate.dataset.fe),
-    ) ?? candidates.find((candidate) =>
-      (candidate.getAttribute("data-range-ids") || "")
-        .split(/\s+/)
-        .some((id) => ids.has(id)),
-    );
-    if (!mark) return;
+    const targetRelation = hoverRevealed ? hoveredRelations?.[hoveredHighlightRangeIndex ?? 0] : undefined;
+    const segmentsWithin = (start: number, end: number) =>
+      Array.from(element.querySelectorAll<HTMLElement>("[data-fs]")).filter((segment) =>
+        Number(segment.dataset.fs) < end && start < Number(segment.dataset.fe));
+    // A hovered relation reveals its whole passage (the wash, rendered as many
+    // segments split at every relation boundary) and, above all, the key phrase
+    // bolded inside it.
+    let segments: HTMLElement[] = [];
+    let keySegments: HTMLElement[] = [];
+    if (targetRelation) {
+      const { focusStart, focusEnd, focusCommentStart, focusCommentEnd } = targetRelation;
+      const hasKey = focusCommentEnd > focusCommentStart;
+      if (hasKey) keySegments = segmentsWithin(focusCommentStart, focusCommentEnd);
+      segments = segmentsWithin(
+        hasKey ? Math.min(focusStart, focusCommentStart) : focusStart,
+        hasKey ? Math.max(focusEnd, focusCommentEnd) : focusEnd,
+      );
+    }
+    if (!segments.length) {
+      const first = candidates.find((candidate) => rangeIdsFor(candidate).some((id) => ids.has(String(id))));
+      const id = first && rangeIdsFor(first).find((rangeId) => ids.has(String(rangeId)));
+      if (id != null) segments = candidates.filter((candidate) => rangeIdsFor(candidate).includes(id));
+    }
+    if (!segments.length) return;
     const elementRect = element.getBoundingClientRect();
-    const markRect = mark.getBoundingClientRect();
-    const fullyVisible = markRect.top >= elementRect.top
-      && markRect.bottom <= elementRect.bottom;
+    const fullyVisible = segments.every((segment) => {
+      const segmentRect = segment.getBoundingClientRect();
+      return segmentRect.top >= elementRect.top && segmentRect.bottom <= elementRect.bottom;
+    });
     if (scrollWindowHeight === null) {
       // Keyboard focus and browser scrollIntoView can scroll overflow:hidden
       // text before the topic click arrives. WebKit's clamped paragraphs still
@@ -815,35 +879,52 @@ const FocusTopicHighlightedContent = React.forwardRef<
       if (!fullyVisible || element.scrollTop > 0) setScrollWindowHeight(Math.max(1, elementRect.height));
       return;
     }
+    if (wasHoverReveal && !hoverRevealed) element.scrollTop = preHoverScrollRef.current;
     const computed = window.getComputedStyle(element);
     const lineHeight = Number.parseFloat(computed.lineHeight)
       || Number.parseFloat(computed.fontSize) * 1.5;
+    const leadingOf = (rect: DOMRect) => Math.max(0, (lineHeight - rect.height) / 2);
+    const toContent = (y: number) => y - elementRect.top + element.scrollTop;
     // Measure glyphs, not mark boxes: highlight padding must never affect the
-    // reading window. Extra trailing space lets even the final line top-align.
+    // reading window.
     const range = document.createRange();
-    range.selectNodeContents(mark);
-    const glyph = Array.from(range.getClientRects()).find((rect) => rect.width > 0);
-    if (!glyph) return;
-    const leading = Math.max(0, (lineHeight - glyph.height) / 2);
-    // The ::after spacer is exactly one window tall, so the real content height
-    // is scrollHeight minus it. A post that already fits its window has nothing
-    // worth scrolling to: top-aligning a late passage would push the opening
-    // lines out of view and leave the spacer showing as empty space, while the
-    // whole post was on screen to begin with.
-    const contentHeight = element.scrollHeight - elementRect.height;
-    const fitsWindow = contentHeight <= elementRect.height + 1;
-    const target = fitsWindow
-      ? 0
-      : Math.max(0, glyph.top - elementRect.top + element.scrollTop - leading);
+    const glyphsOf = (elements: HTMLElement[]) => elements.flatMap((segment) => {
+      range.selectNodeContents(segment);
+      return Array.from(range.getClientRects()).filter((rect) => rect.width > 0);
+    });
+    const extentOf = (rects: DOMRect[]) => ({
+      top: Math.min(...rects.map((rect) => toContent(rect.top) - leadingOf(rect))),
+      bottom: Math.max(...rects.map((rect) => toContent(rect.bottom) + leadingOf(rect))),
+    });
+    const glyphs = glyphsOf(segments);
+    if (!glyphs.length) return;
+    const keyGlyphs = glyphsOf(keySegments);
+    const lineTops: number[] = [];
+    const lineWalker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    for (let text = lineWalker.nextNode(); text; text = lineWalker.nextNode()) {
+      range.selectNodeContents(text);
+      for (const rect of Array.from(range.getClientRects())) {
+        if (rect.width > 0) lineTops.push(toContent(rect.top) - leadingOf(rect));
+      }
+    }
+    lineTops.sort((a, b) => a - b);
+    // A post that already fits its window gets 0 here: nothing is worth
+    // scrolling to when the whole post was on screen to begin with.
+    let target = revealScrollTop(lineTops, extentOf(glyphs), elementRect.height);
+    // A passage taller than the window shows only its start; it must never
+    // leave the key phrase out of view.
+    if (keyGlyphs.length) {
+      const key = extentOf(keyGlyphs);
+      if (key.bottom > target + elementRect.height + 0.5) {
+        target = revealScrollTop(lineTops, key, elementRect.height);
+      }
+    }
     // A phrase the reader just clicked (or rotated) must not move: when the
     // selected phrase is already wholly inside the window, leave the window
-    // where it is. Aside hovers still top-align their passage as before.
-    const selectionReveal = !hoveredRelations?.length
-      && selectedIndexRef.current !== null;
+    // where it is.
+    const selectionReveal = !hoverRevealed && selectedIndexRef.current !== null;
     const selectedInView = selectionReveal
-      && Array.from(range.getClientRects())
-        .filter((rect) => rect.width > 0)
-        .every((rect) => rect.top >= elementRect.top - 0.5 && rect.bottom <= elementRect.bottom + 0.5);
+      && glyphs.every((rect) => rect.top >= elementRect.top - 0.5 && rect.bottom <= elementRect.bottom + 0.5);
     if (!selectedInView) element.scrollTo({ top: target, behavior: "instant" as ScrollBehavior });
 
     // Paragraph spacing is not necessarily a multiple of the line height.
@@ -856,12 +937,12 @@ const FocusTopicHighlightedContent = React.forwardRef<
       range.selectNodeContents(node);
       for (const rect of Array.from(range.getClientRects())) {
         if (rect.width > 0 && rect.top < elementRect.bottom && rect.bottom > elementRect.bottom + 0.5) {
-          paintBottom = Math.min(paintBottom, Math.max(0, rect.top - elementRect.top - leading));
+          paintBottom = Math.min(paintBottom, Math.max(0, rect.top - elementRect.top - leadingOf(rect)));
         }
       }
     }
     element.style.clipPath = `inset(0 0 ${elementRect.height - paintBottom}px 0)`;
-  }, [revealIndices, revealKey, scrollWindowHeight, hoveredRelations, hoveredHighlightRangeIndex, style?.WebkitLineClamp, style?.fontSize, textWidth]);
+  }, [revealIndices, revealKey, scrollWindowHeight, hoveredRelations, hoveredHighlightRangeIndex, hoverRevealed, style?.WebkitLineClamp, style?.fontSize, textWidth]);
 
   const mergedStyle: React.CSSProperties = scrollWindowHeight !== null
     ? {

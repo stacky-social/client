@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test';
 
-// Clicking a focus phrase locks the post into a fixed-height reading window and
-// scrolls the chosen passage to the top of it. A trailing spacer the height of
-// the window lets even a final passage top-align.
+// Clicking a focus phrase, or hovering a related card, locks the post into a
+// fixed-height reading window and scrolls just far enough to show the chosen
+// passage whole, keeping as much of the text before it as fits. A trailing
+// spacer the height of the window sits below the text.
 //
 // That spacer must never be visible on a post that already fits: scrolling a
 // late passage to the top there pushes the opening lines out of view and fills
@@ -121,4 +122,71 @@ test('a phrase already visible in the reading window stays put when clicked', as
   const top = await clicked.evaluate((mark) =>
     Array.from(mark.getClientRects()).find((r) => r.width > 0)!.top);
   expect(Math.abs(top - next!.top)).toBeLessThanOrEqual(1);
+});
+
+// #224: hovering a related card must never scroll the focus post past its last
+// line, trading text above the passage for empty space below it, and must show
+// the whole highlighted passage when it fits. Leaving the card returns the post
+// to its opening.
+test('a related-card hover shows its whole passage without blank space and leaving restores the opening', async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/ChineseEVs', { waitUntil: 'domcontentloaded' });
+  const reveal = page.locator('[data-testid="post"][data-active="true"] [data-testid="focus-reveal"]').first();
+  await reveal.waitFor({ state: 'visible', timeout: 90_000 });
+  await page.waitForTimeout(1000);
+
+  const cards = page.locator('[data-related-card]');
+  await expect(cards.first()).toBeVisible();
+  let scrolled = 0;
+  const offenders: string[] = [];
+  for (let i = 0; i < Math.min(await cards.count(), 10); i += 1) {
+    const card = cards.nth(i);
+    const span = card.locator('mark[data-range-id]').first();
+    try {
+      await card.scrollIntoViewIfNeeded({ timeout: 5000 });
+      await span.hover({ timeout: 5000 });
+    } catch {
+      continue; // card moved or has no span; not what this test is about
+    }
+    await page.waitForTimeout(500);
+
+    const state = await reveal.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      const range = document.createRange();
+      const glyphs = (root: Element) => {
+        range.selectNodeContents(root);
+        return Array.from(range.getClientRects()).filter((rect) => rect.width > 0);
+      };
+      const lineHeight = Number.parseFloat(getComputedStyle(el).lineHeight);
+      const textBottom = Math.max(...glyphs(el).map((rect) => rect.bottom));
+      const passage = Array.from(el.querySelectorAll('[data-aside-highlight="strong"]')).flatMap(glyphs);
+      const passageTop = Math.min(...passage.map((rect) => rect.top));
+      const passageBottom = Math.max(...passage.map((rect) => rect.bottom));
+      return {
+        scrollTop: Math.round(el.scrollTop),
+        blankBelow: Math.round(box.bottom - textBottom),
+        lineHeight,
+        passageFits: passage.length > 0 && passageBottom - passageTop <= box.height,
+        passageShown: passage.every((rect) => rect.top >= box.top - 0.5 && rect.bottom <= box.bottom + 0.5),
+      };
+    });
+    if (state.scrollTop > 0) scrolled += 1;
+    if (state.blankBelow > state.lineHeight) {
+      offenders.push(`card ${i}: ${state.blankBelow}px of empty space below the text`);
+    }
+    if (state.passageFits && !state.passageShown) {
+      offenders.push(`card ${i}: the highlighted passage fits the window but is cut off`);
+    }
+
+    // Leave to the empty left gutter, not another card.
+    await page.mouse.move(4, 600);
+    await expect.poll(() => reveal.evaluate((el) => el.scrollTop), {
+      message: `card ${i}: leaving the card should restore the post's opening`,
+    }).toBe(0);
+    await expect(reveal).not.toHaveAttribute('data-reveal-window');
+  }
+
+  expect(scrolled, 'no hover scrolled the reading window — test proved nothing').toBeGreaterThan(0);
+  expect(offenders, offenders.join('; ')).toEqual([]);
 });
