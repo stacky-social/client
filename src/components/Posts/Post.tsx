@@ -191,11 +191,28 @@ function measureClampEllipsis(element: HTMLElement): ClampEllipsisPosition | nul
   const shell = element.parentElement;
   if (!shell) return null;
 
-  const elementRect = element.getBoundingClientRect();
   const shellRect = shell.getBoundingClientRect();
   const computed = getComputedStyle(element);
   const lineHeight = Number.parseFloat(computed.lineHeight)
     || Number.parseFloat(computed.fontSize) * POST_LINE_HEIGHT_EM;
+  // A focus post's reading window paints only whole lines (see
+  // FocusTopicHighlightedContent), so its last visible line ends at the
+  // painted bottom, not the box's. Measure against that edge.
+  const boxRect = element.getBoundingClientRect();
+  const paintBottom = Number.parseFloat(element.dataset.revealPaintBottom ?? '');
+  const windowed = element.hasAttribute('data-reveal-window');
+  const elementRect = windowed && Number.isFinite(paintBottom)
+    ? new DOMRect(boxRect.left, boxRect.top, boxRect.width, paintBottom)
+    : boxRect;
+  if (windowed) {
+    // Scrolled to the post's end: nothing follows, so no trailing ellipsis.
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const textBottom = Math.max(
+      ...Array.from(range.getClientRects()).filter((rect) => rect.width > 0).map((rect) => rect.bottom),
+    );
+    if (textBottom <= elementRect.bottom + 0.5) return null;
+  }
   const sampleY = elementRect.bottom - lineHeight / 2;
 
   // Keep our existing overlay out of hit testing while finding the text caret.
@@ -515,6 +532,13 @@ function Post({
     measureOverflow();
     const resizeObserver = new ResizeObserver(measureOverflow);
     resizeObserver.observe(element);
+    // A focus post's reading window can change layout without a scroll or a
+    // resize (opening at the top, repainting its last line).
+    const windowObserver = new MutationObserver(measureOverflow);
+    windowObserver.observe(element, {
+      attributes: true,
+      attributeFilter: ['data-reveal-window', 'data-reveal-paint-bottom'],
+    });
     element.addEventListener('scroll', measureOverflow, { passive: true });
     void document.fonts?.ready.then(measureOverflow);
 
@@ -523,6 +547,7 @@ function Post({
       cancelAnimationFrame(animationFrame);
       element.removeEventListener('scroll', measureOverflow);
       resizeObserver.disconnect();
+      windowObserver.disconnect();
     };
   }, [displayText, text, isTextExpanded, compact, clampLines, contentRelations, focusRelations]);
   useEffect(() => {

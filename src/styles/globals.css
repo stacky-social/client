@@ -261,55 +261,44 @@ body {
 }
 
 /* A focus post can become a fixed-height window onto a later passage while a
-   related card is active. The ellipsis reads as the first character of that
-   excerpt and returns the window to the earlier text when clicked. */
+   related card is active. Once the window is scrolled past the post's opening,
+   an ellipsis overwrites the first characters of its first line
+   (FocusTopicHighlightedContent). It is drawn over the text rather than
+   inserted into it, so it can never change a line break; the characters
+   beneath it turn transparent through the focus-window-covered highlight,
+   which leaves any passage wash behind them intact. */
 .focus-reveal-shell {
     position: relative;
     min-width: 0;
 }
 
-.focus-window-prefix-group {
-    white-space: nowrap;
-}
-
-.focus-window-prefix {
-    /* Inserted immediately before the first real character of the excerpt.
-       It is ordinary inline content—not a float or an edge overlay—so its
-       baseline and wrapping are owned by the same line as the text. */
-    display: inline-block;
-    position: relative;
-    top: 1px;
-    padding: 0;
-    margin: 0;
-    border: 0;
+.focus-window-lead {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
+    visibility: hidden;
     color: #64748b;
-    background: transparent;
-    font-family: inherit;
-    font-size: inherit;
     font-weight: 600;
-    line-height: inherit;
-    text-align: left;
-    vertical-align: baseline;
-    cursor: pointer;
+    /* Covering whole characters can leave the box wider than the ellipsis;
+       keep the ellipsis against the visible text ("…ccoli"), not a gap. */
+    text-align: right;
+    white-space: pre;
     user-select: none;
 }
 
-/* Preserve a comfortable horizontal pointer target without adding visible
-   whitespace between the ellipsis and the excerpt text. */
-.focus-window-prefix::after {
-    content: '';
-    position: absolute;
-    inset: -0.1em -0.18em;
+.focus-window-lead[data-shown] {
+    visibility: visible;
 }
 
-.focus-window-prefix:hover {
-    color: #1c2b4a;
+/* Browsers without the CSS Custom Highlight API cannot hide the covered
+   characters, so the ellipsis paints over them instead. */
+.focus-window-lead[data-opaque] {
+    background: #fff;
 }
 
-.focus-window-prefix:focus-visible {
-    outline: 2px solid #2f6f68;
-    outline-offset: -2px;
-    border-radius: 2px;
+::highlight(focus-window-covered) {
+    color: transparent;
 }
 
 /* ── Focus-post semantic topic phrases ───────────────────────────────────────

@@ -126,8 +126,9 @@ test('a phrase already visible in the reading window stays put when clicked', as
 
 // #224: hovering a related card must never scroll the focus post past its last
 // line, trading text above the passage for empty space below it, and must show
-// the whole highlighted passage when it fits. Leaving the card returns the post
-// to its opening.
+// the whole highlighted passage when it fits. A scrolled window opens with an
+// ellipsis drawn over its first characters, and shows no trailing ellipsis once
+// it reaches the post's end. Leaving the card returns the post to its opening.
 test('a related-card hover shows its whole passage without blank space and leaving restores the opening', async ({ page }) => {
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -163,7 +164,13 @@ test('a related-card hover shows its whole passage without blank space and leavi
       const passage = Array.from(el.querySelectorAll('[data-aside-highlight="strong"]')).flatMap(glyphs);
       const passageTop = Math.min(...passage.map((rect) => rect.top));
       const passageBottom = Math.max(...passage.map((rect) => rect.bottom));
+      const lead = el.parentElement!.querySelector('[data-testid="focus-window-lead"]')!;
+      const trailing = el.closest('[data-testid="post"]')!.querySelector('[data-testid="post-clamp-ellipsis"]');
       return {
+        leadShown: lead.hasAttribute('data-shown'),
+        leadOffset: lead.getBoundingClientRect().top - box.top,
+        textEndsInView: textBottom <= box.bottom + 0.5,
+        trailingShown: trailing?.getAttribute('data-inline-positioned') === 'true',
         scrollTop: Math.round(el.scrollTop),
         blankBelow: Math.round(box.bottom - textBottom),
         lineHeight,
@@ -178,6 +185,18 @@ test('a related-card hover shows its whole passage without blank space and leavi
     if (state.passageFits && !state.passageShown) {
       offenders.push(`card ${i}: the highlighted passage fits the window but is cut off`);
     }
+    if (state.scrollTop > 0 && !state.leadShown) {
+      offenders.push(`card ${i}: the window is scrolled but shows no leading ellipsis`);
+    }
+    if (state.scrollTop === 0 && state.leadShown) {
+      offenders.push(`card ${i}: a leading ellipsis over the post's opening`);
+    }
+    if (state.leadShown && Math.abs(state.leadOffset) > 1) {
+      offenders.push(`card ${i}: the leading ellipsis sits ${state.leadOffset}px off the first line`);
+    }
+    if (state.textEndsInView && state.trailingShown) {
+      offenders.push(`card ${i}: a trailing ellipsis after the post's last line`);
+    }
 
     // Leave to the empty left gutter, not another card.
     await page.mouse.move(4, 600);
@@ -185,6 +204,8 @@ test('a related-card hover shows its whole passage without blank space and leavi
       message: `card ${i}: leaving the card should restore the post's opening`,
     }).toBe(0);
     await expect(reveal).not.toHaveAttribute('data-reveal-window');
+    await expect(page.locator('[data-testid="post"][data-active="true"] [data-testid="focus-window-lead"]'))
+      .not.toHaveAttribute('data-shown');
   }
 
   expect(scrolled, 'no hover scrolled the reading window — test proved nothing').toBeGreaterThan(0);

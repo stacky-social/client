@@ -61,6 +61,94 @@ function revealScrollTop(
   return Math.max(0, Math.min(lineTop, passage.top));
 }
 
+const COVERED_HIGHLIGHT = "focus-window-covered";
+
+/** Characters hidden under a reading window's leading ellipsis. One highlight
+ *  shared by every focus post, named by the ::highlight rule in globals.css.
+ *  Null where the CSS Custom Highlight API is missing. */
+function coveredHighlight(): Highlight | null {
+  if (typeof Highlight === "undefined" || typeof CSS === "undefined" || !CSS.highlights) return null;
+  let highlight = CSS.highlights.get(COVERED_HIGHLIGHT);
+  if (!highlight) {
+    highlight = new Highlight();
+    CSS.highlights.set(COVERED_HIGHLIGHT, highlight);
+  }
+  return highlight;
+}
+
+/**
+ * While the reading window is scrolled past the post's opening, an ellipsis
+ * overwrites the start of its first visible line ("…ccoli foo bar"). It is
+ * drawn over the text, never inserted into it, so it cannot change a line
+ * break. It covers whole characters at least as wide as itself (whole words
+ * when a word and its space are wide enough: "… foo bar"); the caller hides
+ * those through the covered highlight. Returns the covered range, or null
+ * (ellipsis hidden) when the window shows the post's start.
+ */
+function placeLeadingEllipsis(element: HTMLElement, lead: HTMLElement): Range | null {
+  lead.removeAttribute("data-shown");
+  const shell = element.parentElement;
+  if (!shell || !element.hasAttribute("data-reveal-window") || element.scrollTop < 0.5) return null;
+  const computed = window.getComputedStyle(element);
+  lead.style.width = "";
+  lead.style.fontSize = computed.fontSize;
+  const ellipsisWidth = lead.getBoundingClientRect().width;
+  const windowTop = element.getBoundingClientRect().top - 0.5;
+
+  const range = document.createRange();
+  let first: DOMRect | null = null;
+  let right = 0;
+  let start: [Text, number] | null = null;
+  let end: [Text, number] | null = null;
+  let afterSpace = false;
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  scan: for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+    if (!first) {
+      range.selectNodeContents(node);
+      const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0);
+      if (!rects.some((rect) => rect.top >= windowTop)) continue;
+    }
+    for (let offset = 0; offset < node.length; offset += 1) {
+      if (/\s/.test(node.data[offset])) {
+        afterSpace = Boolean(first);
+        continue;
+      }
+      range.setStart(node, offset);
+      range.setEnd(node, offset + 1);
+      const glyph = Array.from(range.getClientRects()).find((rect) => rect.width > 0);
+      if (!glyph) continue;
+      if (!first) {
+        if (glyph.top < windowTop) continue;
+        first = glyph;
+        start = [node, offset];
+      } else if (Math.abs(glyph.top - first.top) > 1) {
+        break scan; // the line ended before covering a full ellipsis width
+      } else if (afterSpace && glyph.left - first.left >= ellipsisWidth) {
+        break scan; // the words already covered leave room for the ellipsis
+      }
+      afterSpace = false;
+      end = [node, offset + 1];
+      right = glyph.right;
+      if (right - first.left >= ellipsisWidth) break scan;
+    }
+  }
+  if (!first || !start || !end) return null;
+
+  const covered = document.createRange();
+  covered.setStart(...start);
+  covered.setEnd(...end);
+  const shellRect = shell.getBoundingClientRect();
+  const lineHeight = Number.parseFloat(computed.lineHeight)
+    || Number.parseFloat(computed.fontSize) * 1.5;
+  const lineTop = first.top - Math.max(0, (lineHeight - first.height) / 2);
+  lead.style.left = `${first.left - shellRect.left}px`;
+  lead.style.top = `${lineTop - shellRect.top}px`;
+  lead.style.lineHeight = `${lineHeight}px`;
+  lead.style.width = `${Math.max(ellipsisWidth, right - first.left)}px`;
+  lead.setAttribute("data-shown", "");
+  return covered;
+}
+
 function stripHtml(html: string): string {
   return html
     .replace(/<[^>]*>/g, "")
@@ -775,6 +863,23 @@ const FocusTopicHighlightedContent = React.forwardRef<
   const hoverRevealed = Boolean(hoveredRelations?.length) && (liveHover || !hoverReleased);
   const hoverRevealRef = useRef(false);
   const preHoverScrollRef = useRef(0);
+  const leadRef = useRef<HTMLSpanElement | null>(null);
+  const coveredRef = useRef<Range | null>(null);
+  // Show or hide the leading ellipsis for the window's current scroll.
+  const syncLeadingEllipsis = useCallback(() => {
+    const element = innerRef.current;
+    const lead = leadRef.current;
+    const highlight = coveredHighlight();
+    if (coveredRef.current) highlight?.delete(coveredRef.current);
+    coveredRef.current = element && lead ? placeLeadingEllipsis(element, lead) : null;
+    if (!coveredRef.current) return;
+    // Without the highlight API the ellipsis paints an opaque box instead.
+    if (highlight) highlight.add(coveredRef.current);
+    else lead?.setAttribute("data-opaque", "");
+  }, []);
+  useEffect(() => () => {
+    if (coveredRef.current) coveredHighlight()?.delete(coveredRef.current);
+  }, []);
 
   // Preserve the existing fixed-height reveal: when an aside hover, restored
   // focus topic, or legacy passage targets text below the clamp, the prose moves
@@ -842,8 +947,10 @@ const FocusTopicHighlightedContent = React.forwardRef<
     if (hoverRevealed && !wasHoverReveal) preHoverScrollRef.current = element.scrollTop;
     if (!revealKey) {
       element.style.clipPath = "";
+      delete element.dataset.revealPaintBottom;
       if (element.scrollTop > 0) element.scrollTop = 0;
       setScrollWindowHeight(null);
+      syncLeadingEllipsis();
       return;
     }
     const ids = new Set(revealIndices.map(String));
@@ -882,6 +989,7 @@ const FocusTopicHighlightedContent = React.forwardRef<
       // text before the topic click arrives. WebKit's clamped paragraphs still
       // have truncated layout boxes there, so reveal them in normal block flow.
       if (!fullyVisible || element.scrollTop > 0) setScrollWindowHeight(Math.max(1, elementRect.height));
+      syncLeadingEllipsis();
       return;
     }
     if (wasHoverReveal && !hoverRevealed) element.scrollTop = preHoverScrollRef.current;
@@ -947,7 +1055,10 @@ const FocusTopicHighlightedContent = React.forwardRef<
       }
     }
     element.style.clipPath = `inset(0 0 ${elementRect.height - paintBottom}px 0)`;
-  }, [revealIndices, revealKey, scrollWindowHeight, hoveredRelations, hoveredHighlightRangeIndex, hoverRevealed, style?.WebkitLineClamp, style?.fontSize, textWidth]);
+    // Post.tsx anchors the trailing ellipsis to the last line painted here.
+    element.dataset.revealPaintBottom = String(paintBottom);
+    syncLeadingEllipsis();
+  }, [revealIndices, revealKey, scrollWindowHeight, hoveredRelations, hoveredHighlightRangeIndex, hoverRevealed, style?.WebkitLineClamp, style?.fontSize, syncLeadingEllipsis, textWidth]);
 
   const mergedStyle: React.CSSProperties = scrollWindowHeight !== null
     ? {
@@ -980,6 +1091,12 @@ const FocusTopicHighlightedContent = React.forwardRef<
           style={mergedStyle}
           dangerouslySetInnerHTML={innerHtml}
         />
+        <span
+          ref={leadRef}
+          className="focus-window-lead"
+          data-testid="focus-window-lead"
+          aria-hidden="true"
+        >…</span>
       </div>
       {picker ? (
         <FocusTopicPicker
