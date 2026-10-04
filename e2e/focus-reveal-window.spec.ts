@@ -5,10 +5,11 @@ import { expect, test } from '@playwright/test';
 // passage whole, keeping as much of the text before it as fits. A trailing
 // spacer the height of the window sits below the text.
 //
-// That spacer must never be visible on a post that already fits: scrolling a
-// late passage to the top there pushes the opening lines out of view and fills
-// the rest of the card with empty space, for no reading benefit — the whole post
-// was already on screen.
+// A post that already fits needs no window at all. Scrolling a late passage to
+// the top there pushes the opening lines out of view and fills the rest of the
+// card with empty space, for no reading benefit — the whole post was already on
+// screen — and even an unscrolled window counted its spacer as more text, which
+// put a "Read more" on the card (#224).
 
 test('a post that fits its reading window is never scrolled inside it', async ({ page }) => {
   // The dev server compiles this route on demand, which can outlast the default.
@@ -51,15 +52,17 @@ test('a post that fits its reading window is never scrolled inside it', async ({
       return { windowed, height, content, scrollTop: Math.round(el.scrollTop) };
     });
 
-    if (!state.windowed || state.content > state.height + 1) continue;
+    if (state.content > state.height + 1) continue;
     observedFitting++;
     if (state.scrollTop > 0) {
       offenders.push(`card ${i}: window ${state.height}px, content ${state.content}px, `
         + `scrolled ${state.scrollTop}px — ${state.scrollTop}px of the card renders empty`);
+    } else if (state.windowed) {
+      offenders.push(`card ${i}: opened a reading window although its ${state.content}px of text fits`);
     }
   }
 
-  expect(observedFitting, 'no card entered the window while fitting it — test proved nothing')
+  expect(observedFitting, 'no fitting card had a phrase clicked — test proved nothing')
     .toBeGreaterThan(0);
   expect(offenders, offenders.join('; ')).toEqual([]);
 });
@@ -265,4 +268,90 @@ test('Shift+R toggles whether leaving a related card restores the focus post', a
   await expect(page.getByText("Leaving a related post restores the focus post's view")).toBeVisible();
   await expect.poll(scrollTop).toBe(0);
   await expect(reveal).not.toHaveAttribute('data-reveal-window');
+});
+
+// #224: hovering a related span must not add "Read more" to a focus post whose
+// text already fits, nor change the post's height. The passage wash pads each
+// highlighted segment past its line; measuring those padded boxes made a
+// passage on the first line read as "cut off", which opened the reading window,
+// whose blank spacer then counted as more text — and the new "Read more" row
+// pushed everything below it down by a line.
+test('a related-span hover never adds "Read more" to a post that fits', async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await page.goto('/EnergyTech', { waitUntil: 'domcontentloaded' });
+  await page.locator('[data-testid="post"][data-active="true"]').first().waitFor({ timeout: 90_000 });
+  await page.waitForTimeout(1500);
+
+  const posts = page.locator('[data-testid="feed"] [data-testid="post"]:has([data-testid="focus-reveal"])');
+  let fitting = 0;
+  const offenders: string[] = [];
+  for (let p = 0; p < Math.min(await posts.count(), 4); p += 1) {
+    const post = posts.nth(p);
+    await post.evaluate((el) => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top - 150));
+    await page.waitForTimeout(700);
+    if (await post.getAttribute('data-active') !== 'true') continue;
+    const state = () => post.evaluate((el) => ({
+      readMore: Array.from(el.querySelectorAll('button'))
+        .some((b) => b.textContent?.trim() === 'Read more' && b.offsetParent !== null),
+      height: Math.round(el.getBoundingClientRect().height),
+    }));
+    const rest = await state();
+    if (rest.readMore) continue;
+    fitting += 1;
+    const spans = page.locator('[data-related-card] mark[data-range-id]');
+    for (let i = 0; i < Math.min(await spans.count(), 12); i += 1) {
+      const span = spans.nth(i);
+      if (!(await span.isVisible())) continue;
+      try {
+        await span.hover({ timeout: 2000 });
+      } catch {
+        continue;
+      }
+      await page.waitForTimeout(350);
+      const hovered = await state();
+      if (hovered.readMore) offenders.push(`post ${p}, span ${i}: "Read more" appeared`);
+      if (hovered.height !== rest.height) offenders.push(`post ${p}, span ${i}: height ${rest.height}→${hovered.height}`);
+      await page.mouse.move(2, 400);
+      await page.waitForTimeout(300);
+    }
+  }
+  expect(fitting, 'no fitting focus post to exercise').toBeGreaterThan(0);
+  expect(offenders, offenders.join('; ')).toEqual([]);
+});
+
+// #224: on a thread, hovering reply spans (nested ones included) must not move
+// anything: the focus post above keeps its height, so the replies never jump.
+test('hovering reply spans never changes the focus post height', async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/Tariffs/posts/cw-fxp4bHADekz7QC-b', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('mark[data-reply-range-id]').first()).toBeAttached({ timeout: 90_000 });
+  await page.waitForTimeout(1500);
+  await page.evaluate(async () => {
+    document.querySelectorAll<HTMLElement>('[data-testid^="nested-see-more-"]').forEach((b) => b.click());
+    await new Promise((r) => setTimeout(r, 400));
+  });
+  const focus = page.locator('[data-testid="focus-reveal"]').first().locator('xpath=ancestor::*[@data-testid="post"][1]');
+  const spans = page.locator('mark[data-reply-range-id]');
+  const offenders: string[] = [];
+  let hovered = 0;
+  for (let i = 0; i < Math.min(await spans.count(), 10); i += 1) {
+    const span = spans.nth(i);
+    try {
+      await span.scrollIntoViewIfNeeded({ timeout: 2000 });
+    } catch {
+      continue;
+    }
+    await page.mouse.move(2, 450);
+    await page.waitForTimeout(400);
+    const rest = (await focus.boundingBox())!.height;
+    await span.hover();
+    await page.waitForTimeout(500);
+    hovered += 1;
+    const during = (await focus.boundingBox())!.height;
+    if (Math.abs(during - rest) > 0.5) offenders.push(`reply span ${i}: focus height ${rest}→${during}`);
+  }
+  expect(hovered).toBeGreaterThan(0);
+  expect(offenders, offenders.join('; ')).toEqual([]);
 });

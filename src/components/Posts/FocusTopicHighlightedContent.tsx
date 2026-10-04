@@ -980,9 +980,16 @@ const FocusTopicHighlightedContent = React.forwardRef<
     }
     if (!segments.length) return;
     const elementRect = element.getBoundingClientRect();
+    // Measure glyphs, not segment boxes: the passage wash pads every segment
+    // past its line, so a passage on the first or last line read as cut off
+    // and opened a window (and a "Read more") on a post that fits.
+    const visibilityRange = document.createRange();
     const fullyVisible = segments.every((segment) => {
-      const segmentRect = segment.getBoundingClientRect();
-      return segmentRect.top >= elementRect.top && segmentRect.bottom <= elementRect.bottom;
+      if (!segment.textContent?.trim()) return true;
+      visibilityRange.selectNodeContents(segment);
+      const rects = Array.from(visibilityRange.getClientRects()).filter((rect) => rect.width > 0);
+      return rects.length > 0 && rects.every((rect) =>
+        rect.top >= elementRect.top - 0.5 && rect.bottom <= elementRect.bottom + 0.5);
     });
     if (scrollWindowHeight === null) {
       // Keyboard focus and browser scrollIntoView can scroll overflow:hidden

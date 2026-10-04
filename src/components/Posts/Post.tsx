@@ -182,6 +182,24 @@ const COMPACT_TEXT_FONT_SIZE = '0.875em';
 
 type ClampEllipsisPosition = { left: number; top: number; lineHeight: number };
 
+/** Top and bottom of the rendered text itself. Element boxes are left out:
+ *  the focus post's passage wash pads its segments past their lines. */
+function textGlyphBounds(element: HTMLElement): { top: number; bottom: number } | null {
+  const range = document.createRange();
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  let top = Infinity;
+  let bottom = -Infinity;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    range.selectNodeContents(node);
+    for (const rect of Array.from(range.getClientRects())) {
+      if (rect.width <= 0) continue;
+      top = Math.min(top, rect.top);
+      bottom = Math.max(bottom, rect.bottom);
+    }
+  }
+  return Number.isFinite(top) ? { top, bottom } : null;
+}
+
 /**
  * Find the final visible glyph in a clamped (or internally scrolled) text box.
  * The browser's multiline ellipsis is not exposed as a DOM node, so the custom
@@ -206,12 +224,8 @@ function measureClampEllipsis(element: HTMLElement): ClampEllipsisPosition | nul
     : boxRect;
   if (windowed) {
     // Scrolled to the post's end: nothing follows, so no trailing ellipsis.
-    const range = document.createRange();
-    range.selectNodeContents(element);
-    const textBottom = Math.max(
-      ...Array.from(range.getClientRects()).filter((rect) => rect.width > 0).map((rect) => rect.bottom),
-    );
-    if (textBottom <= elementRect.bottom + 0.5) return null;
+    const text = textGlyphBounds(element);
+    if (!text || text.bottom <= elementRect.bottom + 0.5) return null;
   }
   const sampleY = elementRect.bottom - lineHeight / 2;
 
@@ -515,7 +529,14 @@ function Post({
       animationFrame = requestAnimationFrame(() => {
         // A one-pixel tolerance avoids a false "Read more" when fractional line
         // metrics round scrollHeight and clientHeight in opposite directions.
-        const overflowing = element.scrollHeight - element.clientHeight > 1;
+        // A focus post's reading window adds a blank spacer below its text, so
+        // while it is open, overflow means text the window actually hides.
+        let overflowing = element.scrollHeight - element.clientHeight > 1;
+        if (element.hasAttribute('data-reveal-window')) {
+          const box = element.getBoundingClientRect();
+          const text = textGlyphBounds(element);
+          overflowing = Boolean(text && (text.top < box.top - 0.5 || text.bottom > box.bottom + 0.5));
+        }
         setIsOverflowing(overflowing);
         const nextPosition = overflowing ? measureClampEllipsis(element) : null;
         setClampEllipsisPosition((current) => {
