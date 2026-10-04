@@ -1,5 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import mockData from '../src/app/FakeData/chinese-evs.json';
+import scaleDemoData from '../src/app/FakeData/scale-demo.json';
 
 // T7 — the cross-pane "group HERE, filter THERE" model on the thread/detail
 // route (/ChineseEVs/posts/[id]). One shared `topicInteraction` primitive:
@@ -302,5 +303,84 @@ test.describe('Cross-pane grouping / filtering (T7)', () => {
     await expect(page.locator('[data-reply-cluster-member]')).toHaveCount(0);
     const after = await readTopLevelOrder();
     expect(after, 'dismissing the cluster must keep the clustered order').toEqual(during);
+  });
+});
+
+// #224: a span whose tooltip reads "0 more <Topic>" carries a topic no other
+// post in either pane shares. Clicking it must do nothing in BOTH panes: no
+// group of one in the reply list, no invisible grouping (or Back step) in the
+// aside. Scenario derived from the Tariffs fixture: the first topic that only
+// one reply, and the first that only one related post, carries.
+test.describe('"0 more" spans', () => {
+  const zeroFixture = (scaleDemoData as unknown as Entry[]).find((e) => e.focusPost.id === 'cw-u-wJYypDmXgHFRtK')!;
+  const owners = new Map<string, Set<string>>();
+  const note = (owner: string, topic?: string) => {
+    if (!topic) return;
+    if (!owners.has(topic)) owners.set(topic, new Set());
+    owners.get(topic)!.add(owner);
+  };
+  for (const r of zeroFixture.replies ?? []) for (const rel of r.relations ?? []) note(`reply:${r.id}`, rel.topic);
+  for (const p of zeroFixture.relatedPosts ?? []) for (const rel of p.relations ?? []) note(`related:${p.id}`, rel.topic);
+  const uniqueOn = (kind: 'reply' | 'related', posts: Array<{ id: string; relations?: Rel[] }>) => {
+    for (const p of posts) {
+      const rangeIndex = (p.relations ?? []).findIndex((rel) =>
+        rel.topic && owners.get(rel.topic)!.size === 1 && owners.get(rel.topic)!.has(`${kind}:${p.id}`));
+      if (rangeIndex >= 0) return { id: p.id, rangeIndex, topic: p.relations![rangeIndex].topic! };
+    }
+    throw new Error(`fixture has no ${kind} topic unique to one post`);
+  };
+  const replyZero = uniqueOn('reply', zeroFixture.replies ?? []);
+  const relatedZero = uniqueOn('related', zeroFixture.relatedPosts ?? []);
+
+  const open = async (page: Page) => {
+    await page.goto('/Tariffs/posts/cw-u-wJYypDmXgHFRtK');
+    await expect(page.locator('mark[data-reply-range-id]').first()).toBeAttached({ timeout: 90_000 });
+    // Show every reply: "N more replies" pages the list, branches expand in place.
+    for (let round = 0; round < 12; round += 1) {
+      const grew = await page.evaluate(async () => {
+        const before = document.querySelectorAll('[data-reply-depth]').length;
+        document.querySelectorAll<HTMLElement>('[data-testid^="nested-see-more-"]').forEach((b) => b.click());
+        Array.from(document.querySelectorAll('button'))
+          .filter((b) => /^\d+ more repl/.test(b.textContent?.trim() ?? ''))
+          .forEach((b) => b.click());
+        await new Promise((r) => setTimeout(r, 400));
+        return document.querySelectorAll('[data-reply-depth]').length > before;
+      });
+      if (!grew) break;
+    }
+  };
+  const groupingState = (page: Page) => page.evaluate(() => ({
+    search: location.search,
+    replyGroup: document.querySelectorAll('[data-reply-cluster-member]').length,
+    asideGroup: document.querySelectorAll('[data-related-group-header]').length,
+  }));
+
+  test('clicking a reply span with "0 more" leaves both panes as they were', async ({ page }) => {
+    test.setTimeout(180_000);
+    await open(page);
+    const span = page.locator(`[data-post-id="${replyZero.id}"] mark[data-reply-range-id="${replyZero.rangeIndex}"]`).first();
+    await span.scrollIntoViewIfNeeded();
+    await span.hover();
+    await expect(page.getByTestId('hover-tooltip')).toHaveText(`0 more ${replyZero.topic}`);
+    const before = await groupingState(page);
+    await span.click();
+    await page.waitForTimeout(600);
+    expect(await groupingState(page)).toEqual(before);
+  });
+
+  test('clicking a related-card span with "0 more" leaves both panes as they were', async ({ page }) => {
+    test.setTimeout(180_000);
+    await open(page);
+    const card = page.locator(`[data-related-card] [data-post-id="${relatedZero.id}"]`);
+    await expect(card).toBeAttached();
+    const span = card.locator(`mark[data-range-id="${relatedZero.rangeIndex}"]`).first();
+    await span.scrollIntoViewIfNeeded();
+    await span.hover();
+    // Related-card tooltips appear after a dwell.
+    await expect(page.getByTestId('hover-tooltip')).toHaveText(`0 more ${relatedZero.topic}`, { timeout: 5000 });
+    const before = await groupingState(page);
+    await span.click();
+    await page.waitForTimeout(600);
+    expect(await groupingState(page)).toEqual(before);
   });
 });

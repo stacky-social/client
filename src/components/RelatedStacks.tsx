@@ -2180,6 +2180,15 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   const flipFirstTopsRef = useRef<Map<string, number> | null>(null);
   const flipRafRef = useRef<number>(0);
 
+  // "N more <topic>" for a related card's span: the other posts, across both
+  // panes, that carry its topic. The span tooltip shows it, and a span click
+  // with none is a no-op.
+  const otherPostsWithTopic = (postId: string, topic: string) => {
+    const total = topicTotal.get(topic) ?? 0;
+    const hasSelf = postTopics.get(postId)?.has(topic) ? 1 : 0;
+    return Math.max(0, total - hasSelf);
+  };
+
   /** Toggle the aside topic grouping for a clicked card span, the type grouping
    *  for a clicked contribution-type icon (`category`), or dismiss either via a
    *  header/footer ×. Routes through the atomic `activateAsideTopic` /
@@ -2202,10 +2211,14 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     // derive it). Topicless spans (no explicit `topic`) cannot seed a topic
     // interaction — grouping and cross-pane filtering must key identically.
     let clickTopicKey: string | null = null;
+    let clickOthers = 0;
     if (rangeIndex !== undefined) {
       const clickStack = relatedStacks.find(s => s.topPost.id === postId);
       const clickRel = clickStack?.topPost.relations?.[rangeIndex];
       clickTopicKey = clickRel ? topicKeyOf(clickRel) : null;
+      if (clickStack && clickRel) {
+        clickOthers = otherPostsWithTopic(postId, topicOf(clickRel, clickStack.stackId, rangeIndex));
+      }
     }
     // A type group's anchor index only keys the shared URL tuple.
     const clickCategory = category !== undefined ? categoryKey(category) || null : null;
@@ -2235,6 +2248,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       action = 'noop';
     } else if (clickTopicKey === null) {
       // Topicless span — cannot start a topic interaction; leave state as-is.
+      action = 'noop';
+    } else if (clickOthers === 0) {
+      // "0 more <topic>": nothing else carries the topic, so the group would
+      // hold only this card and draw no block. Do nothing (no invisible
+      // interaction, no empty Back step); the reply pane matches.
       action = 'noop';
     } else {
       action = 'activate';
@@ -3087,11 +3105,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               // F-indicator). This is intentionally DISTINCT from the focus-post
               // span click, which applies the overlap filter (responseFilter).
               onRangeClick: (ri: number) => handleToggleAnchor(stack.topPost.id, ri, 'span'),
-              otherCountByTopic: (topic: string) => {
-                const total = topicTotal.get(topic) ?? 0;
-                const hasSelf = postTopics.get(stack.topPost.id)?.has(topic) ? 1 : 0;
-                return Math.max(0, total - hasSelf);
-              },
+              otherCountByTopic: (topic: string) => otherPostsWithTopic(stack.topPost.id, topic),
               countLinkedToRanges: (ris: number[]) => {
                 // N for "Click to focus on N related posts": related posts whose
                 // relations overlap the focus region(s) of the clicked span(s) —

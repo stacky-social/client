@@ -681,6 +681,13 @@ export default function MockPostView() {
       // Topicless span → cannot start a topic interaction (grouping and the
       // cross-pane filter must key identically). Leave state as-is.
       if (clickTopicKey === null) return;
+      // "0 more <topic>": no other post in either pane carries the topic, so a
+      // group would hold only this reply. Do nothing, as the aside does.
+      const clickTopic = rels[rangeIndex]?.topic ?? "";
+      const others = flags.crossPaneFiltering
+        ? replyTopicCountFn(clickTopic)
+        : Math.max(0, (replyTopicCountsMap.get(clickTopic) ?? 0) - 1);
+      if (others === 0) return;
       // R-REORDER-9 parity with the aside: re-picking the ALREADY-GROUPED topic
       // from a different span is a no-op — the block must not jump anchors. Only
       // the active anchor span toggles the group off (handled above).
@@ -694,7 +701,15 @@ export default function MockPostView() {
       if (scope) beginPanelInteraction(scope, null);
       activateReplyTopic({ topicKey: clickTopicKey, anchor: { postId: replyId, rangeIndex } });
     },
-    [flags.replyReranking, replyRelationsById, replyGroupingInteraction, replyGroupTopic]
+    [
+      flags.replyReranking,
+      flags.crossPaneFiltering,
+      replyRelationsById,
+      replyGroupingInteraction,
+      replyGroupTopic,
+      replyTopicCountFn,
+      replyTopicCountsMap,
+    ]
   );
 
   useLayoutEffect(() => {
