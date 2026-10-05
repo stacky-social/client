@@ -629,4 +629,18 @@ body {
     width: 18px;
     background: linear-gradient(to left, var(--cw-weave-shadow), rgba(28, 43, 74, 0));
     pointer-events: none;
+    /* Fades back in just after the bridge's opening reveal (220ms). */
+    transition: opacity 240ms ease-out 200ms;
+}
+
+/* The raised-pane illusion belongs to the connected bridge: while a scroll
+   has let the bridge go, the divider's shadow fades out with it. */
+[data-testid="content-group"][data-weave-split="true"][data-weave-variant="open"][data-weave-suspended="scroll"]
+    [role="separator"][aria-orientation="vertical"]::before {
+    opacity: 0;
+    transition: opacity 120ms ease-in 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-testid="content-group"] [role="separator"][aria-orientation="vertical"]::before { transition: none; }
 }
