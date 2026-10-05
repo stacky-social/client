@@ -31,3 +31,33 @@
 .bridge [data-weave-variant="classic"] .guide {
   stroke: none;
 }
+
+/* Open variant is neumorphic: soft seams instead of teal strokes, and the
+   ribbon carries the focus card's diffuse shadow so they lift together. */
+.bridge [data-weave-variant="open"] .guide,
+.bridge [data-weave-variant="open"] .dividerRail {
+  stroke: var(--cw-weave-edge);
+}
+
+/* Shadows fade in once the bridge has finished opening. Rendering a blurred
+   shadow under the growing reveal clip on every frame made the opening choppy. */
+.bridge [data-weave-variant="open"] .ribbon,
+.bridge [data-weave-variant="open"] .dividerRail {
+  filter: none;
+  transition: filter 240ms ease-out;
+}
+
+.bridge [data-weave-variant="open"][data-phase="connected"] .ribbon {
+  filter: drop-shadow(0 8px 12px var(--cw-weave-shadow));
+}
+
+/* The divider casts to its left, so the related pane reads as one raised
+   surface with the focus card and bridge, above the rest of the feed. */
+.bridge [data-weave-variant="open"][data-phase="connected"] .dividerRail {
+  filter: drop-shadow(-5px 0 7px var(--cw-weave-shadow));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bridge [data-weave-variant="open"] .ribbon,
+  .bridge [data-weave-variant="open"] .dividerRail { transition: none; }
+}

@@ -6,7 +6,7 @@ import { notifications } from "@mantine/notifications";
 import { HoverTooltip } from "../../components/HoverTooltip";
 import { toggleHoverRestore } from "../../utils/hoverRestore";
 import { TopNav, TOP_NAV_HEIGHT } from "../../components/NavBar/TopNav";
-import { RelatedStacksProvider } from "./related-stacks-context";
+import { RelatedStacksFreeze, RelatedStacksProvider } from "./related-stacks-context";
 import { ResizableDivider } from "./ResizableDivider";
 import { FEED_RATIO_MAX, FEED_RATIO_MIN, useFeedRatio } from "./useFeedRatio";
 import WeaveBridge, { type WeaveBridgeVariant } from "../../components/WeaveBridge";
@@ -24,8 +24,17 @@ const WEAVE_RUNWAY = 48;
 const PANE_GUTTER = 8;
 const FEED_WEAVE_INSET = WEAVE_RUNWAY - PANE_GUTTER - (SLIDER_W / 2);
 const BRIDGE_EXIT_GRACE_MS = 240;
-const OPEN_BRIDGE_SUSPEND_SPEED_PX_PER_SECOND = 2000;
-const OPEN_BRIDGE_SCROLL_SETTLE_MS = 150;
+// A reader scroll freezes the aside only when it is quick, or once it moves
+// focus to a different post (RelatedStacksFreeze). Small reading adjustments
+// on the same post leave it live.
+const FEED_SCROLL_FAST_PX_PER_SECOND = 1500;
+const FEED_SCROLL_SETTLE_MS = 180;
+// Only reader-driven scrolling freezes the aside. Programmatic scrolls (route
+// restoration, scrollIntoView, anchoring) arrive without recent input.
+const FEED_SCROLL_INTENT_MS = 400;
+const SCROLL_KEYS = new Set([
+    "ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " ", "Spacebar",
+]);
 const BRIDGE_VARIANT_STORAGE_KEY = "stacky:weave-bridge-variant";
 type FocusConnectionVariant = WeaveBridgeVariant | "border";
 const BRIDGE_VARIANT_CYCLE: FocusConnectionVariant[] = ["open", "classic", "border"];
@@ -49,8 +58,12 @@ export default function Shell({
     const isNarrowViewport = useMediaQuery("(max-width: 48rem)", false);
     const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)", false);
     const [bridgeVariant, setBridgeVariant] = useState<FocusConnectionVariant>("open");
-    const [openBridgeSuspended, setOpenBridgeSuspended] = useState(false);
-    const openBridgeSuspendedRef = useRef(false);
+    // feedGesture: a reader-driven scroll is in progress; feedFast: it has
+    // been quick. feedScrolling: the aside is actually frozen, as decided by
+    // RelatedStacksFreeze from those two and the active post.
+    const [feedGesture, setFeedGesture] = useState(false);
+    const [feedFast, setFeedFast] = useState(false);
+    const [feedScrolling, setFeedScrolling] = useState(false);
     // Border-only mode draws no bridge. Retain the last drawn variant so the
     // bridge does not switch visual treatments during the single render before
     // its disabled-state effect removes the SVG.
@@ -142,56 +155,69 @@ export default function Shell({
         return () => window.removeEventListener("keydown", toggleRestore);
     }, []);
 
-    // The open bridge is meant for close reading. During a fast document
-    // scroll, temporarily return to the ordinary bordered focus card instead
-    // of asking fixed SVG geometry to compete with rapidly moving content.
-    // Slow reading adjustments stay connected; once a fast scroll settles,
-    // enabling the bridge again reuses its normal opening animation.
+    // While the reader scrolls quickly, or scrolls onto another post, the
+    // aside goes static and blurred and the bridge lets go; the focused card
+    // falls back to its ordinary bordered state. Once scrolling settles, the
+    // aside swaps to the settled post, unblurs, and the bridge reopens.
     useEffect(() => {
         let settleTimer = 0;
+        let intentUntil = 0;
+        let inGesture = false;
         let lastY = window.scrollY;
         let lastAt = performance.now();
-
-        const setSuspended = (suspended: boolean) => {
-            if (openBridgeSuspendedRef.current === suspended) return;
-            openBridgeSuspendedRef.current = suspended;
-            setOpenBridgeSuspended(suspended);
+        const markIntent = () => { intentUntil = performance.now() + FEED_SCROLL_INTENT_MS; };
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (SCROLL_KEYS.has(event.key)) markIntent();
+        };
+        // A drag on the page scrollbar targets the root element itself.
+        const onPointerDown = (event: PointerEvent) => {
+            if (event.target === document.documentElement) markIntent();
+        };
+        const endGesture = () => {
+            inGesture = false;
+            setFeedGesture(false);
+            setFeedFast(false);
         };
 
-        if (bridgeVariant !== "open" || !showAside) {
-            setSuspended(false);
+        if (!showAside) {
+            endGesture();
             return;
         }
 
         const onScroll = () => {
             const now = performance.now();
-            const distance = Math.abs(window.scrollY - lastY);
-            // Cap long idle gaps so the first large scroll gesture is measured
-            // as motion rather than diluted by all the time spent stationary.
-            const elapsedMs = Math.min(50, Math.max(8, now - lastAt));
-            const speed = distance / (elapsedMs / 1000);
-            lastY = window.scrollY;
+            const y = window.scrollY;
+            // Cap long idle gaps so the first step of a flick reads as motion.
+            const speed = Math.abs(y - lastY) / (Math.min(50, Math.max(8, now - lastAt)) / 1000);
+            lastY = y;
             lastAt = now;
 
-            if (speed >= OPEN_BRIDGE_SUSPEND_SPEED_PX_PER_SECOND) {
-                setSuspended(true);
+            if (!inGesture) {
+                if (now > intentUntil) return;
+                inGesture = true;
+                setFeedGesture(true);
             }
-            if (!openBridgeSuspendedRef.current) return;
-
+            if (speed >= FEED_SCROLL_FAST_PX_PER_SECOND) setFeedFast(true);
             window.clearTimeout(settleTimer);
-            settleTimer = window.setTimeout(
-                () => setSuspended(false),
-                OPEN_BRIDGE_SCROLL_SETTLE_MS,
-            );
+            settleTimer = window.setTimeout(endGesture, FEED_SCROLL_SETTLE_MS);
         };
 
         window.addEventListener("scroll", onScroll, { passive: true });
+        window.addEventListener("wheel", markIntent, { passive: true });
+        window.addEventListener("touchmove", markIntent, { passive: true });
+        window.addEventListener("keydown", onKeyDown);
+        window.addEventListener("pointerdown", onPointerDown);
         return () => {
             window.removeEventListener("scroll", onScroll);
+            window.removeEventListener("wheel", markIntent);
+            window.removeEventListener("touchmove", markIntent);
+            window.removeEventListener("keydown", onKeyDown);
+            window.removeEventListener("pointerdown", onPointerDown);
             window.clearTimeout(settleTimer);
-            setSuspended(false);
+            endGesture();
         };
-    }, [bridgeVariant, showAside]);
+    }, [showAside]);
+    const openBridgeSuspended = feedScrolling && bridgeVariant !== "border";
 
     // Keep the split geometry alive just long enough for the bridge to unweave.
     // Narrow and reduced-motion transitions collapse immediately.
@@ -279,7 +305,8 @@ export default function Shell({
                 data-testid="content-group"
                 data-weave-split={showAside ? "true" : undefined}
                 data-weave-variant={bridgeVariant}
-                data-weave-suspended={openBridgeSuspended ? "fast-scroll" : undefined}
+                data-weave-suspended={openBridgeSuspended ? "scroll" : undefined}
+                data-feed-scrolling={feedScrolling ? "true" : undefined}
                 data-weave-shortcut="Shift+B"
                 aria-keyshortcuts="Shift+B"
                 ref={groupRef}
@@ -333,7 +360,7 @@ export default function Shell({
                         onResize={onSliderResize}
                         onDoubleClick={reset}
                         quietIdleLine
-                        activeLineColor={bridgeVariant === "open" ? "var(--cw-teal)" : undefined}
+                        activeLineColor={bridgeVariant === "open" ? "var(--cw-weave-edge)" : undefined}
                         valueNow={Math.round(ratio * 100)}
                         valueMin={Math.round(FEED_RATIO_MIN * 100)}
                         valueMax={Math.round(FEED_RATIO_MAX * 100)}
@@ -394,7 +421,15 @@ export default function Shell({
                         containerType: "inline-size",
                     }}
                 >
-                    {aside ?? null}
+                    <div data-testid="aside-freeze" className="aside-freeze">
+                        <RelatedStacksFreeze
+                            gesture={feedGesture}
+                            fast={feedFast}
+                            onFrozenChange={setFeedScrolling}
+                        >
+                            {aside ?? null}
+                        </RelatedStacksFreeze>
+                    </div>
                 </div>
             </div>
 

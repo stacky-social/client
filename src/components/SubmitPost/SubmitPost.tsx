@@ -26,6 +26,36 @@ type FeedbackMemoryEntry = {
 };
 
 const MAX_FEEDBACK_MEMORY = 4;
+const COMPOSER_NAV_OFFSET_PX = 56;
+const COMPOSER_MIN_VISIBLE_PX = 120;
+// The unsent draft and its AI feedback survive leaving Home (opening a related
+// post, then Back) for the rest of the browser session.
+const DRAFT_STORAGE_KEY = 'crossweave:composerDraft:v1';
+
+type SavedDraft = {
+  draftId: string;
+  text: string;
+  feedback: { advice?: string | null; praise?: string | null; simulatedReplies?: Array<{ id?: string; content: string }> } | null;
+  memory: FeedbackMemoryEntry[];
+};
+
+function readSavedDraft(): SavedDraft | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
+    return raw ? JSON.parse(raw) as SavedDraft : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSavedDraft(draft: SavedDraft | null) {
+  try {
+    if (draft && draft.text.trim()) sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    else sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+  } catch {
+    // Storage unavailable (private mode, quota): the draft just isn't kept.
+  }
+}
 const DRAFT_RETRIEVAL_LIMIT = 6;
 const DRAFT_STOP_WORDS = new Set([
   'about', 'after', 'again', 'also', 'because', 'been', 'before', 'being', 'could',
@@ -96,7 +126,15 @@ function retrievalStackFromMastodon(status: MastodonStatus) {
   };
 }
 
-export function SubmitPost({ appearance = 'card' }: { appearance?: 'card' | 'timeline' }) {
+export function SubmitPost({
+  appearance = 'card',
+  onPaneOwnershipChange,
+}: {
+  appearance?: 'card' | 'timeline';
+  /** The draft owns the related pane only while the composer is on screen;
+   *  the host feed takes it back (re-publishing its focused post) otherwise. */
+  onPaneOwnershipChange?: (owns: boolean) => void;
+}) {
   // Local current user — reactive so the avatar reflects store identity.
   const currentUser = useLocalStore(() => getMe());
   const { token: accessToken } = useAccessToken();
@@ -140,6 +178,55 @@ export function SubmitPost({ appearance = 'card' }: { appearance?: 'card' | 'tim
     surfaceKey: paneSurfaceKey,
     stacks: paneStacks,
   };
+
+  // Is enough of the composer on screen (below the sticky nav) to be what the
+  // reader is looking at? Scrolled away, the feed's focused post gets the pane.
+  const composerRef = useRef<HTMLElement | null>(null);
+  const composerVisibleRef = useRef(true);
+  const [composerVisible, setComposerVisible] = useState(true);
+  useEffect(() => {
+    const node = composerRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => {
+      const visible = entry.isIntersecting && entry.intersectionRect.height >= COMPOSER_MIN_VISIBLE_PX;
+      composerVisibleRef.current = visible;
+      setComposerVisible(visible);
+    }, { rootMargin: `-${COMPOSER_NAV_OFFSET_PX}px 0px 0px 0px`, threshold: [0, 0.1, 0.25, 0.5, 1] });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  // Restore after mount (not in initial state) so server and client render
+  // the same empty composer before the saved draft appears.
+  const restoredTextRef = useRef<string | null>(null);
+  const [draftRestored, setDraftRestored] = useState(false);
+  useEffect(() => {
+    const saved = readSavedDraft();
+    if (saved?.text) {
+      draftIdRef.current = saved.draftId;
+      composerSurfaceKeyRef.current = `composer:${saved.draftId}`;
+      feedbackMemoryRef.current = saved.memory ?? [];
+      hadDraftRef.current = true;
+      if (saved.feedback) {
+        restoredTextRef.current = saved.text.trim();
+        setFeedback({ loading: false, ...saved.feedback });
+      }
+      setPostText(saved.text);
+    }
+    setDraftRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!draftRestored) return;
+    writeSavedDraft({
+      draftId: draftIdRef.current,
+      text: postText,
+      feedback: feedback && !feedback.loading
+        ? { advice: feedback.advice, praise: feedback.praise, simulatedReplies: feedback.simulatedReplies }
+        : readSavedDraft()?.text === postText ? readSavedDraft()?.feedback ?? null : null,
+      memory: feedbackMemoryRef.current,
+    });
+  }, [draftRestored, postText, feedback]);
 
   useEffect(() => {
     if (!accessToken) {
@@ -207,6 +294,9 @@ export function SubmitPost({ appearance = 'card' }: { appearance?: 'card' | 'tim
   // the related-post pane remains dedicated to the post currently in view.
   // The feedback service is remote; posting remains available if it is offline.
   useEffect(() => {
+    // Before the saved draft is restored the composer is momentarily empty;
+    // acting on that would clear the restored feedback.
+    if (!draftRestored) return;
     const text = postText.trim();
     const requestId = ++feedbackReqIdRef.current;
     setFeedbackError(null);
@@ -220,9 +310,16 @@ export function SubmitPost({ appearance = 'card' }: { appearance?: 'card' | 'tim
       setFeedbackLoading(false);
       return;
     }
+    // A draft restored with its feedback already shows that feedback; only
+    // an edit asks the service again.
+    if (restoredTextRef.current !== null) {
+      const unchanged = restoredTextRef.current === text;
+      restoredTextRef.current = null;
+      if (unchanged) return;
+    }
     const t = setTimeout(() => void requestFeedback(text, requestId), 600);
     return () => clearTimeout(t);
-  }, [postText, requestFeedback]);
+  }, [draftRestored, postText, requestFeedback]);
 
   useEffect(() => () => {
     feedbackReqIdRef.current++;
@@ -264,8 +361,10 @@ export function SubmitPost({ appearance = 'card' }: { appearance?: 'card' | 'tim
     }
 
     // Claim the pane immediately so an old feed card is not mistaken for a
-    // draft match while retrieval is in flight.
-    setFromPost([], draftIdRef.current, { force: true, surfaceKey });
+    // draft match while retrieval is in flight (only while the composer is on
+    // screen; otherwise the feed keeps it until the reader scrolls back up).
+    currentDraftStacksRef.current = [];
+    if (composerVisibleRef.current) setFromPost([], draftIdRef.current, { force: true, surfaceKey });
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       const localById = new Map<string, LocalPost>();
@@ -293,7 +392,7 @@ export function SubmitPost({ appearance = 'card' }: { appearance?: 'card' | 'tim
         combined.map((stack) => [stack.topPost.id, stack]),
       ).values()).slice(0, DRAFT_RETRIEVAL_LIMIT);
       currentDraftStacksRef.current = unique;
-      setFromPost(unique, draftIdRef.current, { force: true, surfaceKey });
+      if (composerVisibleRef.current) setFromPost(unique, draftIdRef.current, { force: true, surfaceKey });
     }, 500);
 
     return () => {
@@ -301,6 +400,24 @@ export function SubmitPost({ appearance = 'card' }: { appearance?: 'card' | 'tim
       controller.abort();
     };
   }, [accessToken, leaveFeedSurface, postText, setFromPost]);
+
+  // Hand the pane back and forth as the composer enters and leaves the screen.
+  const hasDraft = postText.trim().length >= 10;
+  const ownsPane = composerVisible && hasDraft;
+  useEffect(() => {
+    if (ownsPane && paneStateRef.current.surfaceKey !== composerSurfaceKeyRef.current) {
+      setFromPost(currentDraftStacksRef.current, draftIdRef.current, {
+        force: true,
+        surfaceKey: composerSurfaceKeyRef.current,
+      });
+    }
+    // The context ignores feed claims while a composer surface holds the pane,
+    // so release it explicitly before the feed re-publishes its focus.
+    if (!ownsPane && paneStateRef.current.surfaceKey === composerSurfaceKeyRef.current) {
+      leaveFeedSurface(composerSurfaceKeyRef.current);
+    }
+    onPaneOwnershipChange?.(ownsPane);
+  }, [ownsPane, onPaneOwnershipChange, setFromPost, leaveFeedSurface]);
 
   useEffect(() => () => {
     retrievalReqIdRef.current++;
@@ -369,12 +486,19 @@ export function SubmitPost({ appearance = 'card' }: { appearance?: 'card' | 'tim
   };
 
   const visibleUser = accessToken ? mastodonUser : currentUser;
+  const draftOwnsPane = paneSurfaceKey === composerSurfaceKeyRef.current
+    && panePostId === draftIdRef.current
+    && paneStacks.length > 0;
   const charactersRemaining = MASTODON_STATUS_MAX_LENGTH - postText.length;
 
   return (
     <section
       className={`${classes.composer} ${appearance === 'timeline' ? classes.timeline : ''}`}
       aria-label="Create a post"
+      // While the draft owns the related pane, the composer is the bridge's
+      // source, exactly like a focused feed post (WeaveBridge, globals.css).
+      data-weave-source-id={draftOwnsPane ? draftIdRef.current : undefined}
+      ref={composerRef}
     >
       <div className={classes.threadRail} aria-hidden="true">
         <span /><span /><span /><span />

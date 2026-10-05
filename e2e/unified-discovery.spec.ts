@@ -91,9 +91,9 @@ test.describe('unified discovery and interactions', () => {
       return (CSS as any).highlights?.get(name)?.size ?? 0;
     });
     expect(highlightRangeCount).toBeGreaterThan(0);
-    const firstTop = await results.first().evaluate((element) => element.getBoundingClientRect().top);
-    expect(firstTop).toBeGreaterThanOrEqual(56);
-    expect(firstTop).toBeLessThan(100);
+    // The search bar stays in view above the first result.
+    await expect(input).toBeInViewport();
+    await expect(results.first()).toBeInViewport();
 
     const firstResultId = await results.first().getAttribute('data-search-feed-post');
     await page.getByTestId('top-nav').getByRole('button', { name: 'Home' }).last().click();

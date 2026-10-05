@@ -87,6 +87,12 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator('[data-demo-feed-post]').first()).toBeVisible({ timeout: 15_000 });
 });
 
+function expectFillet(g: { sourceX: number; targetX: number; sourceTopY: number; sourceBottomY: number; targetTopY: number; targetBottomY: number }) {
+  const fillet = Math.min(80, Math.max(36, Math.round((g.targetX - g.sourceX) * 1.3)));
+  expectNear(g.sourceTopY - g.targetTopY, fillet, 1);
+  expectNear(g.targetBottomY - g.sourceBottomY, fillet, 1);
+}
+
 test('aligns both strands with the synchronized focus post and aside', async ({ page }) => {
   await expectConnectedBridge(page);
   const [g, card, aside, divider, nav, overlay, frameStyle, bridgeStyles, panelStyles] = await Promise.all([
@@ -141,10 +147,10 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
   expect(frameStyle.sourcePhase).toBe('open');
   expect(bridgeStyles).toEqual([
     { fill: 'rgb(255, 255, 255)', stroke: 'none' },
-    { fill: 'none', stroke: 'rgb(69, 169, 158)' },
-    { fill: 'none', stroke: 'rgb(69, 169, 158)' },
-    { fill: 'none', stroke: 'rgb(69, 169, 158)' },
-    { fill: 'none', stroke: 'rgb(69, 169, 158)' },
+    { fill: 'none', stroke: 'rgb(227, 232, 238)' },
+    { fill: 'none', stroke: 'rgb(227, 232, 238)' },
+    { fill: 'none', stroke: 'rgb(227, 232, 238)' },
+    { fill: 'none', stroke: 'rgb(227, 232, 238)' },
   ]);
   expect(panelStyles).toEqual(['rgb(255, 255, 255)', 'rgb(255, 255, 255)']);
   expectNear(g.sourceTopY, card!.y + frameStyle.topBorderWidth / 2, 0.02);
@@ -154,11 +160,9 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
     0.02,
   );
   expect(g.sourceBottomY - g.sourceTopY).toBeGreaterThan(card!.height - 5);
-  expect(g.targetTopY).toBeLessThanOrEqual(g.sourceTopY - 68);
-  expect(g.targetBottomY).toBeGreaterThanOrEqual(g.sourceBottomY + 68);
-  expect(g.targetBottomY - g.targetTopY).toBeGreaterThan(
-    (g.sourceBottomY - g.sourceTopY) * 1.75,
-  );
+  // Neumorphic fillet: the mouth extends past each card edge by ~1.3x the
+  // bridge width (clamped 36-80px), like a tab's rounded inner corner.
+  expectFillet(g);
   expectNear(g.upperStart.x, g.sourceX); expectNear(g.upperStart.y, g.sourceTopY);
   expectNear(g.lowerStart.x, g.sourceX); expectNear(g.lowerStart.y, g.sourceBottomY);
   expectNear(g.upperSourceJoint.x, g.sourceX); expectNear(g.upperSourceJoint.y, g.sourceTopY);
@@ -394,11 +398,9 @@ test('keeps the full-frame flare at a narrow desktop split', async ({ page }) =>
   expectNear(g.sourceBottomY, card!.y + card!.height, 3);
   expect(g.targetX - g.sourceX).toBeGreaterThanOrEqual(46);
   expect(g.targetX - g.sourceX).toBeLessThanOrEqual(56);
-  expect(g.targetTopY).toBeLessThanOrEqual(g.sourceTopY - 68);
-  expect(g.targetBottomY).toBeGreaterThanOrEqual(g.sourceBottomY + 68);
-  expect(g.targetBottomY - g.targetTopY).toBeGreaterThan(
-    (g.sourceBottomY - g.sourceTopY) * 1.75,
-  );
+  // Neumorphic fillet: the mouth extends past each card edge by ~1.3x the
+  // bridge width (clamped 36-80px), like a tab's rounded inner corner.
+  expectFillet(g);
   expect(g.upperMaxY.y).toBeLessThanOrEqual(g.sourceTopY + 1);
   expect(g.lowerMinY.y).toBeGreaterThanOrEqual(g.sourceBottomY - 1);
 });

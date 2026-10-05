@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 type RelatedStacksArray = any[];
 
@@ -144,6 +144,38 @@ export function RelatedStacksProvider({ children }: { children: React.ReactNode 
   );
 
   return <RelatedStacksContext.Provider value={value}>{children}</RelatedStacksContext.Provider>;
+}
+
+/**
+ * Keep the aside static during a quick feed scroll or one that moves focus to
+ * another post. While a reader gesture is running, descendants keep the context
+ * captured when it began if the gesture is fast or the live active post has
+ * changed; small adjustments on the same post pass through untouched. Deciding
+ * here, in the same render the new post arrives, means the new cards never
+ * flash unblurred before the freeze. `onFrozenChange` reports the decision
+ * before paint so the shell can blur the pane and release the bridge.
+ */
+export function RelatedStacksFreeze({
+  gesture,
+  fast,
+  onFrozenChange,
+  children,
+}: {
+  gesture: boolean;
+  fast: boolean;
+  onFrozenChange: (frozen: boolean) => void;
+  children: React.ReactNode;
+}) {
+  const live = useContext(RelatedStacksContext);
+  const atGestureStart = useRef(live);
+  if (!gesture) atGestureStart.current = live;
+  const frozen = gesture && (fast || live?.activePostId !== atGestureStart.current?.activePostId);
+  useLayoutEffect(() => onFrozenChange(frozen), [frozen, onFrozenChange]);
+  return (
+    <RelatedStacksContext.Provider value={frozen ? atGestureStart.current : live}>
+      {children}
+    </RelatedStacksContext.Provider>
+  );
 }
 
 export function useRelatedStacks() {
