@@ -80,11 +80,22 @@
     clip-path: none !important;
 }
 
-/* Once the open bridge has opened, the bridge SVG casts one shadow for the
-   card and ribbon together (WeaveBridge.tsx). The card's own shadow steps
-   aside so the two never overlap or meet in a visible seam. */
+/* While the open bridge is drawn, the bridge SVG casts one shadow for the
+   card and ribbon together (WeaveBridge.tsx), fading in once it connects.
+   The card's own shadow steps aside so the two never overlap or meet in a
+   visible seam. */
 [data-testid="content-group"][data-weave-split="true"][data-weave-variant="open"]:not([data-weave-suspended="scroll"])
-    [data-weave-source-open="true"][data-weave-source-phase="open"]:not([data-weave-no-related="true"]) {
+    [data-weave-source-open="true"]:not([data-weave-no-related="true"]):not([data-weave-source-phase="closed"]) {
+    box-shadow: none !important;
+}
+
+/* While the reader scrolls, the bridge lets go; the focused card stays flat
+   rather than falling back to its own drop shadow, so the lift fades out
+   with the bridge and fades back in with it (the bridge's shadow layer). */
+[data-testid="content-group"][data-weave-split="true"][data-weave-variant="open"][data-weave-suspended="scroll"]
+    [data-testid="feed"] [data-testid="post"][data-active="true"],
+[data-testid="content-group"][data-weave-split="true"][data-weave-variant="open"][data-weave-suspended="scroll"]
+    [data-weave-source-id] {
     box-shadow: none !important;
 }
 
