@@ -172,15 +172,15 @@ function DividerRails(props: DividerRailsProps) {
   );
 }
 
-/** Everything except the source card's own box: the ribbon's shadow may fall
- *  above and below the fillets (and past the divider), never back onto the
- *  card. Clipping the whole left side instead left a hard vertical shadow edge
- *  just above and below the card's top-right corner. */
+/** Where the ribbon's shadow may show: below the card's top edge (the top
+ *  fillet stays flat, the bottom fillet lifts like the card), left of the
+ *  divider (never into the related pane), and never back onto the card itself
+ *  (the SVG paints above it). */
 function shadowClipPath(geometry: BridgeGeometry) {
   const far = 100000;
   const top = geometry.sourceTopY - TOP_NAV_HEIGHT;
   const bottom = geometry.sourceBottomY - TOP_NAV_HEIGHT;
-  return `M ${-far} ${-far} H ${far} V ${far} H ${-far} Z `
+  return `M ${-far} ${top} H ${geometry.targetX} V ${far} H ${-far} Z `
     + `M ${-far} ${top} H ${geometry.sourceX} V ${bottom} H ${-far} Z`;
 }
 
@@ -209,6 +209,8 @@ function syncRenderedGeometry(svg: SVGSVGElement | null, geometry: BridgeGeometr
     ?.setAttribute("d", geometry.ribbonPath);
   layer.querySelector<SVGPathElement>("[data-weave-shadow-clip]")
     ?.setAttribute("d", shadowClipPath(geometry));
+  layer.querySelector<SVGPathElement>("[data-weave-ribbon-shadow]")
+    ?.setAttribute("d", geometry.ribbonPath);
   layer.querySelector<SVGPathElement>('[data-testid="weave-strand-upper"]')
     ?.setAttribute("d", geometry.upperPath);
   layer.querySelector<SVGPathElement>('[data-testid="weave-strand-lower"]')
@@ -868,14 +870,20 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
         {/* The reveal window grows from the card midpoint in both axes, so the
             bridge widens and opens vertically in lockstep with the two rails. */}
         <g clipPath={entering || exiting ? `url(#${revealClipId})` : undefined}>
-          <g clipPath={layerClassic ? undefined : `url(#${shadowClipId})`}>
-            <path
-              className={classes.ribbon}
-              d={geometry.ribbonPath}
-              style={layerClassic ? { fill: `url(#${ribbonGradientId})` } : undefined}
-              data-testid={testId("weave-ribbon")}
-            />
-          </g>
+          {/* Open bridge: a clipped shadow-only copy of the ribbon lifts the
+              bottom fillet like the card; the white ribbon itself is drawn on
+              top unclipped, so the clip never cuts the surface. */}
+          {!layerClassic && (
+            <g clipPath={`url(#${shadowClipId})`}>
+              <path className={classes.ribbonShadow} d={geometry.ribbonPath} data-weave-ribbon-shadow="" />
+            </g>
+          )}
+          <path
+            className={classes.ribbon}
+            d={geometry.ribbonPath}
+            style={layerClassic ? { fill: `url(#${ribbonGradientId})` } : undefined}
+            data-testid={testId("weave-ribbon")}
+          />
           <path
             className={classes.guide}
             d={geometry.upperPath}

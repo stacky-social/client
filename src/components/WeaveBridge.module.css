@@ -39,25 +39,22 @@
   stroke: var(--cw-weave-edge);
 }
 
-/* Shadows fade in once the bridge has finished opening. Rendering a blurred
-   shadow under the growing reveal clip on every frame made the opening choppy. */
-.bridge [data-weave-variant="open"] .ribbon,
-.bridge [data-weave-variant="open"] .dividerRail {
-  filter: none;
-  transition: filter 240ms ease-out;
+/* Shadow-only copy of the open ribbon (see WeaveBridge.tsx). It matches the
+   focus card's lift and fades in once the bridge has finished opening:
+   rendering a blurred shadow under the growing reveal clip on every frame made
+   the opening choppy. */
+.ribbonShadow {
+  fill: var(--cw-canvas);
+  stroke: none;
+  opacity: 0;
+  filter: drop-shadow(0 8px 10px var(--cw-weave-shadow)) drop-shadow(0 2px 3px rgba(28, 43, 74, 0.05));
+  transition: opacity 240ms ease-out;
 }
 
-.bridge [data-weave-variant="open"][data-phase="connected"] .ribbon {
-  filter: drop-shadow(0 8px 12px var(--cw-weave-shadow));
-}
-
-/* The divider casts to its left, so the related pane reads as one raised
-   surface with the focus card and bridge, above the rest of the feed. */
-.bridge [data-weave-variant="open"][data-phase="connected"] .dividerRail {
-  filter: drop-shadow(-5px 0 7px var(--cw-weave-shadow));
+.bridge [data-phase="connected"] .ribbonShadow {
+  opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bridge [data-weave-variant="open"] .ribbon,
-  .bridge [data-weave-variant="open"] .dividerRail { transition: none; }
+  .ribbonShadow { transition: none; }
 }

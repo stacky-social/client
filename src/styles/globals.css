@@ -596,3 +596,18 @@ body {
 @media (prefers-reduced-motion: reduce) {
     [data-testid="col-aside"] { transition: none; }
 }
+
+/* Neumorphic split: the related pane is the raised surface, so the divider
+   casts a soft shadow onto the feed side along its full height. It sits under
+   the bridge SVG, whose white mouth covers it where the focus post connects. */
+[data-testid="content-group"][data-weave-split="true"][data-weave-variant="open"]
+    [role="separator"][aria-orientation="vertical"]::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 50%;
+    width: 18px;
+    background: linear-gradient(to left, var(--cw-weave-shadow), rgba(28, 43, 74, 0));
+    pointer-events: none;
+}
