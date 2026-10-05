@@ -1,4 +1,5 @@
 import React from "react";
+import { PAPER, hasPaperLink } from "../../utils/paper";
 
 /**
  * Crossweave brand lockup for the top nav: the four-colour woven "X" mark +
@@ -47,6 +48,45 @@ export function CrossweaveLogo({ height = 28 }: { height?: number }) {
         CrossWeave
       </span>
     </div>
+  );
+}
+
+/**
+ * "UI demo" tag shown beside the logo: this is a research prototype, not a
+ * full-featured site. Links to the paper once PAPER.url is set. Render it as a
+ * sibling of the logo, never inside a button or link.
+ */
+export function DemoBadge({ size = "sm" }: { size?: "sm" | "md" }) {
+  const style: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: size === "md" ? "3px 10px" : "2px 8px",
+    borderRadius: 999,
+    border: `1px solid ${TEAL}`,
+    color: "#2f7d74",
+    background: "#eef8f6",
+    fontSize: size === "md" ? 12 : 11,
+    fontWeight: 700,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    lineHeight: 1.4,
+    whiteSpace: "nowrap",
+    textDecoration: "none",
+  };
+  if (!hasPaperLink()) {
+    return <span data-testid="demo-badge" style={style} title="Research UI demo, not a full-featured site">UI demo</span>;
+  }
+  return (
+    <a
+      data-testid="demo-badge"
+      href={PAPER.url}
+      target="_blank"
+      rel="noreferrer"
+      style={style}
+      title="Research UI demo: read the paper"
+    >
+      UI demo ↗
+    </a>
   );
 }
 
