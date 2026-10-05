@@ -7,7 +7,7 @@ import {
     IconLogout,
 } from "@tabler/icons-react";
 import { useRouter, usePathname } from "next/navigation";
-import CrossweaveLogo from "./CrossweaveLogo";
+import CrossweaveLogo, { DemoBadge } from "./CrossweaveLogo";
 import { endStudySession, useStudyMode } from "../../utils/studyMode";
 
 /** Height of the sticky top nav bar (used by the shell for sticky offsets). */
@@ -91,6 +91,9 @@ export function TopNav() {
             >
                 <CrossweaveLogo height={28} />
             </button>
+            <span style={{ marginLeft: 10, display: "inline-flex" }}>
+                <DemoBadge />
+            </span>
 
             <Group gap={4} style={{ marginLeft: "auto" }}>
                 {LINKS.map(({ link, label, Icon }) => {

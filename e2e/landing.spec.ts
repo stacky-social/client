@@ -1,20 +1,21 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Landing page', () => {
-  test('makes real account access primary and the JSON demo explicit', async ({ page }) => {
+  test('makes the demo primary and account access secondary', async ({ page }) => {
     await page.goto('/');
 
     await expect(page.getByRole('heading', { name: 'Follow the conversation. See how ideas connect.' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Sign in to CrossWeave' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Try CrossWeave now' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
 
-    const createAccount = page.getByRole('link', { name: /Create an account/ });
-    await expect(createAccount).toHaveAttribute('href', 'https://beta.stacky.social/auth/sign_up');
+    // Sign-up is closed for the demo: the button is shown greyed out.
+    await expect(page.getByTestId('create-account')).toBeDisabled();
+    await expect(page.getByTestId('demo-badge')).toHaveText(/UI demo/);
+    await expect(page.getByTestId('paper-citation')).toBeVisible();
     await expect(page.getByRole('button', { name: /Explore the demo/ })).toBeVisible();
 
     await expect(page.getByText('CrossWeave', { exact: true })).toBeVisible();
     await expect(page.getByRole('img', { name: 'CrossWeave logo' })).toHaveCount(1);
-    await expect(page.getByText('CrossWeave · Mastodon-powered', { exact: true })).toBeVisible();
     await expect(page.getByText(/Stacky/)).toHaveCount(0);
 
     const connector = await page.evaluate(() => {
