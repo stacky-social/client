@@ -167,6 +167,13 @@ export default function Shell({
         let lastAt = performance.now();
         const markIntent = () => { intentUntil = performance.now() + FEED_SCROLL_INTENT_MS; };
         const onKeyDown = (event: KeyboardEvent) => {
+            // Keys typed into a field edit text, they don't scroll the feed
+            // (Space in the composer would otherwise start a "gesture").
+            const target = event.target;
+            if (
+                target instanceof HTMLElement
+                && (target.isContentEditable || !!target.closest("input, textarea, select, [contenteditable='true']"))
+            ) return;
             if (SCROLL_KEYS.has(event.key)) markIntent();
         };
         // A drag on the page scrollbar targets the root element itself.

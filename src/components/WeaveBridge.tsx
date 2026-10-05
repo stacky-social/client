@@ -16,10 +16,19 @@ type SourceKind = "card" | "sticky";
 
 type BridgeGeometry = {
   focusId: string; sourceKind: SourceKind; variant: WeaveBridgeVariant; signature: string;
+  /** The SVG scrolls with the document (absolute at its origin), so the bridge
+   *  moves in the same compositor frame as the cards. A fixed SVG re-placed
+   *  from scroll events always trailed them by a frame. `originY` is the SVG
+   *  top in viewport coordinates at measure time (-scrollY); the viewport
+   *  size fields hold the document size the SVG spans. */
+  originY: number;
   viewportWidth: number; viewportHeight: number;
   sourceX: number; sourceTopY: number; sourceBottomY: number;
   targetX: number; targetTopY: number; targetBottomY: number;
   upperPath: string; lowerPath: string; ribbonPath: string;
+  /** Left edge of the source card, and the outline (card + ribbon) that casts
+   *  the open bridge's single shared shadow. */
+  sourceLeftX: number; sourceOutline: string; shadowPath: string;
 };
 
 type LayerPhase = "entering" | "connected" | "exiting";
@@ -172,16 +181,14 @@ function DividerRails(props: DividerRailsProps) {
   );
 }
 
-/** Where the ribbon's shadow may show: below the card's top edge (the top
- *  fillet stays flat, the bottom fillet lifts like the card), left of the
- *  divider (never into the related pane), and never back onto the card itself
- *  (the SVG paints above it). */
+/** Where the shared shadow may show: anywhere left of the divider (never into
+ *  the related pane) except the source card's own box, which it must not
+ *  darken (the SVG paints above the card). One outline casting one shadow
+ *  keeps the card and bridge a single raised object, with no seam where a
+ *  CSS card shadow used to meet a separate ribbon shadow. */
 function shadowClipPath(geometry: BridgeGeometry) {
   const far = 100000;
-  const top = geometry.sourceTopY - TOP_NAV_HEIGHT;
-  const bottom = geometry.sourceBottomY - TOP_NAV_HEIGHT;
-  return `M ${-far} ${top} H ${geometry.targetX} V ${far} H ${-far} Z `
-    + `M ${-far} ${top} H ${geometry.sourceX} V ${bottom} H ${-far} Z`;
+  return `M ${-far} ${-far} H ${geometry.targetX} V ${far} H ${-far} Z ${geometry.sourceOutline}`;
 }
 
 function elementWithValue(root: HTMLElement, selector: string, attribute: string, value: string) {
@@ -198,6 +205,7 @@ function syncRenderedGeometry(svg: SVGSVGElement | null, geometry: BridgeGeometr
   if (!layer) return;
 
   svg.setAttribute("viewBox", `0 0 ${geometry.viewportWidth} ${geometry.viewportHeight}`);
+  svg.style.height = `${geometry.viewportHeight}px`;
   svg.setAttribute("data-source-kind", geometry.sourceKind);
   svg.setAttribute("data-source-x", String(geometry.sourceX));
   svg.setAttribute("data-source-top-y", String(geometry.sourceTopY));
@@ -210,7 +218,7 @@ function syncRenderedGeometry(svg: SVGSVGElement | null, geometry: BridgeGeometr
   layer.querySelector<SVGPathElement>("[data-weave-shadow-clip]")
     ?.setAttribute("d", shadowClipPath(geometry));
   layer.querySelector<SVGPathElement>("[data-weave-ribbon-shadow]")
-    ?.setAttribute("d", geometry.ribbonPath);
+    ?.setAttribute("d", geometry.shadowPath);
   layer.querySelector<SVGPathElement>('[data-testid="weave-strand-upper"]')
     ?.setAttribute("d", geometry.upperPath);
   layer.querySelector<SVGPathElement>('[data-testid="weave-strand-lower"]')
@@ -220,8 +228,8 @@ function syncRenderedGeometry(svg: SVGSVGElement | null, geometry: BridgeGeometr
   );
   gradient?.setAttribute("x1", String(geometry.sourceX));
   gradient?.setAttribute("x2", String(geometry.targetX));
-  const localTargetTop = geometry.targetTopY - TOP_NAV_HEIGHT;
-  const localTargetBottom = geometry.targetBottomY - TOP_NAV_HEIGHT;
+  const localTargetTop = geometry.targetTopY - geometry.originY;
+  const localTargetBottom = geometry.targetBottomY - geometry.originY;
   const upperRail = layer.querySelector<SVGLineElement>('[data-testid="weave-divider-rail-upper"]');
   const lowerRail = layer.querySelector<SVGLineElement>('[data-testid="weave-divider-rail-lower"]');
   [upperRail, lowerRail].forEach((rail) => {
@@ -521,7 +529,8 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
       const sourceBottomY = precise(sourceRect.bottom - sourceBottomInset);
       const sourceSpan = sourceBottomY - sourceTopY;
       const bridgeWidth = targetX - sourceX;
-      const local = (viewportY: number) => precise(viewportY - TOP_NAV_HEIGHT);
+      const originY = -window.scrollY;
+      const local = (viewportY: number) => precise(viewportY - originY);
       let targetTopY: number;
       let targetBottomY: number;
       let upperCurvePath: string;
@@ -565,14 +574,33 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
         lowerReturn,
         "Z",
       ].join(" ");
+      // The card's outline for the shared shadow: its rounded left corners plus
+      // the open right edge that the ribbon continues.
+      const sourceLeftX = precise(sourceRect.left);
+      const cornerRadius = Math.min(
+        Number.parseFloat(sourceStyle.borderTopLeftRadius) || 0,
+        (sourceBottomY - sourceTopY) / 2,
+      );
+      const cardTop = local(sourceRect.top);
+      const cardBottom = local(sourceRect.bottom);
+      const sourceOutline = [
+        `M ${sourceX} ${cardTop}`,
+        `H ${precise(sourceLeftX + cornerRadius)}`,
+        `A ${cornerRadius} ${cornerRadius} 0 0 0 ${sourceLeftX} ${precise(cardTop + cornerRadius)}`,
+        `V ${precise(cardBottom - cornerRadius)}`,
+        `A ${cornerRadius} ${cornerRadius} 0 0 0 ${precise(sourceLeftX + cornerRadius)} ${cardBottom}`,
+        `H ${sourceX} Z`,
+      ].join(" ");
+      const shadowPath = `${sourceOutline} ${ribbonPath}`;
       const coordinates = [sourceX, sourceTopY, sourceBottomY, targetX, targetTopY, targetBottomY];
       const next: BridgeGeometry = {
         focusId: activePostId,
         sourceKind,
         variant,
         signature: `${variant}|${activePostId}|${sourceKind}|${window.innerWidth}|${window.innerHeight}|${coordinates.join("|")}`,
-        viewportWidth: round(window.innerWidth),
-        viewportHeight: round(window.innerHeight - TOP_NAV_HEIGHT),
+        originY,
+        viewportWidth: round(document.documentElement.clientWidth),
+        viewportHeight: round(document.documentElement.scrollHeight),
         sourceX,
         sourceTopY,
         sourceBottomY,
@@ -582,6 +610,9 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
         upperPath,
         lowerPath,
         ribbonPath,
+        sourceLeftX,
+        sourceOutline,
+        shadowPath,
       };
       const previous = motionRef.current;
       if (
@@ -628,6 +659,13 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
     });
     contentObserver?.observe(aside, { childList: true, subtree: true });
 
+    // The focused card animates its 1px lift and border state (e.g. when a
+    // scroll suspension ends). Transitions trigger neither observer above, so
+    // a measurement taken mid-transition left the strands and shadow a pixel
+    // off the card's borders until a hover happened to re-measure.
+    feed.addEventListener("transitionend", scheduleMeasure);
+    aside.addEventListener("transitionend", scheduleMeasure);
+
     window.addEventListener("scroll", measureScrollSynchronously, { passive: true });
     window.addEventListener("resize", scheduleMeasure);
     scheduleMeasure();
@@ -636,6 +674,8 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
       if (frame) cancelAnimationFrame(frame);
       window.removeEventListener("scroll", measureScrollSynchronously);
       window.removeEventListener("resize", scheduleMeasure);
+      feed.removeEventListener("transitionend", scheduleMeasure);
+      aside.removeEventListener("transitionend", scheduleMeasure);
       sourceObserver?.disconnect();
       layoutObserver?.disconnect();
       contentObserver?.disconnect();
@@ -807,13 +847,14 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
     const ribbonGradientId = `weave-ribbon-gradient-${layer.key}`;
     const revealClipId = `weave-reveal-clip-${layer.key}`;
     const shadowClipId = `weave-shadow-clip-${layer.key}`;
+    const shadowFilterId = `weave-shadow-filter-${layer.key}`;
     const morphDelay = entering ? layer.enterDelay : 0;
-    const revealTop = geometry.targetTopY - TOP_NAV_HEIGHT;
+    const revealTop = geometry.targetTopY - geometry.originY;
     const revealHeight = geometry.targetBottomY - geometry.targetTopY;
     const revealWidth = geometry.targetX - geometry.sourceX + 1;
     const revealMidY = (
       geometry.sourceTopY + geometry.sourceBottomY
-    ) / 2 - TOP_NAV_HEIGHT;
+    ) / 2 - geometry.originY;
     const testId = role === "current" ? (value: string) => value : () => undefined;
     return (
       <g
@@ -849,6 +890,26 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
               gutter before the related pane, so the card, bridge and related
               posts no longer read as one white surface. */}
           {!layerClassic && (
+            // Shadow only: the outline's own fill is composited away, so even a
+            // momentarily stale outline can never paint a white bar over a
+            // card border. Matches the card's CSS lift (0 8px 20px + 0 2px 6px).
+            <filter id={shadowFilterId} filterUnits="userSpaceOnUse" x={-10000} y={-10000} width={30000} height={30000} colorInterpolationFilters="sRGB">
+              <feGaussianBlur in="SourceAlpha" stdDeviation="10" result="wide" />
+              <feOffset in="wide" dy="8" result="wideDown" />
+              <feFlood floodColor="rgb(28, 43, 74)" floodOpacity="0.11" result="wideColor" />
+              <feComposite in="wideColor" in2="wideDown" operator="in" result="wideShadow" />
+              <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="near" />
+              <feOffset in="near" dy="2" result="nearDown" />
+              <feFlood floodColor="rgb(28, 43, 74)" floodOpacity="0.05" result="nearColor" />
+              <feComposite in="nearColor" in2="nearDown" operator="in" result="nearShadow" />
+              <feMerge result="shadows">
+                <feMergeNode in="wideShadow" />
+                <feMergeNode in="nearShadow" />
+              </feMerge>
+              <feComposite in="shadows" in2="SourceAlpha" operator="out" />
+            </filter>
+          )}
+          {!layerClassic && (
             <clipPath id={shadowClipId} clipPathUnits="userSpaceOnUse">
               <path clipRule="evenodd" d={shadowClipPath(geometry)} data-weave-shadow-clip="" />
             </clipPath>
@@ -870,12 +931,13 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
         {/* The reveal window grows from the card midpoint in both axes, so the
             bridge widens and opens vertically in lockstep with the two rails. */}
         <g clipPath={entering || exiting ? `url(#${revealClipId})` : undefined}>
-          {/* Open bridge: a clipped shadow-only copy of the ribbon lifts the
-              bottom fillet like the card; the white ribbon itself is drawn on
-              top unclipped, so the clip never cuts the surface. */}
+          {/* Open bridge: one shadow-only outline of card + ribbon, clipped off
+              the card itself, casts the whole raised surface's shadow; the
+              white ribbon is drawn on top unclipped, so the clip never cuts
+              the surface. */}
           {!layerClassic && (
             <g clipPath={`url(#${shadowClipId})`}>
-              <path className={classes.ribbonShadow} d={geometry.ribbonPath} data-weave-ribbon-shadow="" />
+              <path className={classes.ribbonShadow} d={geometry.shadowPath} filter={`url(#${shadowFilterId})`} data-weave-ribbon-shadow="" />
             </g>
           )}
           <path
@@ -903,7 +965,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
             x={geometry.targetX}
             midpointY={revealMidY}
             targetTopY={revealTop}
-            targetBottomY={geometry.targetBottomY - TOP_NAV_HEIGHT}
+            targetBottomY={geometry.targetBottomY - geometry.originY}
             viewportHeight={geometry.viewportHeight}
             testId={testId}
           />
@@ -918,6 +980,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
       aria-hidden="true"
       focusable="false"
       className={classes.bridge}
+      style={{ height: displayGeometry.viewportHeight }}
       viewBox={`0 0 ${displayGeometry.viewportWidth} ${displayGeometry.viewportHeight}`}
       preserveAspectRatio="none"
       data-testid="weave-bridge"

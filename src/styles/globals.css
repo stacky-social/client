@@ -80,6 +80,14 @@
     clip-path: none !important;
 }
 
+/* Once the open bridge has opened, the bridge SVG casts one shadow for the
+   card and ribbon together (WeaveBridge.tsx). The card's own shadow steps
+   aside so the two never overlap or meet in a visible seam. */
+[data-testid="content-group"][data-weave-split="true"][data-weave-variant="open"]:not([data-weave-suspended="scroll"])
+    [data-weave-source-open="true"][data-weave-source-phase="open"]:not([data-weave-no-related="true"]) {
+    box-shadow: none !important;
+}
+
 /* An empty related pane is not a bridge destination. Close the active post
    back into the ordinary rounded focus card even if an outgoing bridge layer
    is still finishing its collapse. */
