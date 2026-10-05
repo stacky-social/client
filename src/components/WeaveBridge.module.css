@@ -1,13 +1,14 @@
 .bridge {
-  position: fixed;
-  /* Paint the unified edge above the focus card (z-index 5). The SVG is
-     pointer-transparent and contains no filled geometry over card content;
-     only its final overlap masks the old shadow seam. */
-  z-index: 6; top: 56px; right: 0; bottom: 0; left: 0;
-  width: 100vw; height: calc(100vh - 56px);
-  /* Paths keep their real off-screen endpoints while this viewport cleanly
-     conceals the excess. Clamping the path itself caused visible joins to jump
-     as a focused card crossed the top or bottom edge. */
+  /* Anchored to the document, not the viewport: the bridge scrolls in the
+     same compositor frame as the cards it joins, so it never trails them.
+     (A fixed SVG re-placed from scroll events lagged a frame behind.) Paint
+     above the focus card (z-index 5) and below the sticky nav (z-index 200),
+     which covers it as it scrolls underneath. The SVG is pointer-transparent
+     and its geometry never covers card content. Height is set inline to the
+     document height. */
+  position: absolute;
+  z-index: 6; top: 0; left: 0;
+  width: 100%;
   overflow: hidden; pointer-events: none;
 }
 
@@ -39,15 +40,17 @@
   stroke: var(--cw-weave-edge);
 }
 
-/* Shadow-only copy of the open ribbon (see WeaveBridge.tsx). It matches the
-   focus card's lift and fades in once the bridge has finished opening:
+/* Shadow-only outline of the open card + ribbon (see WeaveBridge.tsx). It
+   fades in once the bridge has finished opening:
    rendering a blurred shadow under the growing reveal clip on every frame made
    the opening choppy. */
 .ribbonShadow {
   fill: var(--cw-canvas);
   stroke: none;
   opacity: 0;
-  filter: drop-shadow(0 8px 10px var(--cw-weave-shadow)) drop-shadow(0 2px 3px rgba(28, 43, 74, 0.05));
+  /* The shadow itself comes from the SVG filter in WeaveBridge.tsx (same lift
+     as the focus card's CSS shadow, which switches off while the bridge is
+     open, so the two never overlap or seam). */
   transition: opacity 240ms ease-out;
 }
 

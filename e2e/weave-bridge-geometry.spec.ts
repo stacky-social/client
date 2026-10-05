@@ -18,6 +18,20 @@ async function expectConnectedBridge(page: Page) {
   );
 }
 
+// The bridge SVG scrolls with the document (no scroll-event lag) and spans
+// it, so the sticky nav must paint over it rather than the SVG starting below.
+async function expectNavCoversBridge(page: Page) {
+  const covered = await page.evaluate(() => {
+    const nav = document.querySelector('[data-testid="top-nav"]')!;
+    const svg = document.querySelector('[data-testid="weave-bridge"]')!;
+    const navZ = Number(getComputedStyle(nav).zIndex);
+    const svgZ = Number(getComputedStyle(svg).zIndex);
+    return { navZ, svgZ, position: getComputedStyle(svg).position };
+  });
+  expect(covered.position).toBe('absolute');
+  expect(covered.navZ).toBeGreaterThan(covered.svgZ);
+}
+
 async function geometry(page: Page) {
   return bridge(page).evaluate((svg) => {
     const number = (name: string) => Number(svg.getAttribute(name));
@@ -197,7 +211,7 @@ test('aligns both strands with the synchronized focus post and aside', async ({ 
   expect(lowerTerminalSlope).toBeGreaterThan(2.4);
   await expect(bridge(page).getByTestId('weave-divider-rail-upper')).toHaveCount(1);
   await expect(bridge(page).getByTestId('weave-divider-rail-lower')).toHaveCount(1);
-  expect(overlay!.y).toBeGreaterThanOrEqual(nav!.y + nav!.height - 1);
+  await expectNavCoversBridge(page);
   await expect(bridge(page)).toHaveAttribute('aria-hidden', 'true');
   await expect(bridge(page)).toHaveCSS('pointer-events', 'none');
   await expect(bridge(page)).toHaveCSS('overflow', 'hidden');
@@ -361,10 +375,7 @@ test('retargets to the resting post after scrolling', async ({ page }) => {
   await expect(page.getByTestId('col-aside').locator('[data-related-focus-post-id]').first()).toHaveAttribute(
     'data-related-focus-post-id', nextId!,
   );
-  const [nav, overlay] = await Promise.all([
-    page.getByTestId('top-nav').boundingBox(), bridge(page).boundingBox(),
-  ]);
-  expect(overlay!.y).toBeGreaterThanOrEqual(nav!.y + nav!.height - 1);
+  await expectNavCoversBridge(page);
 });
 
 test('retargets after pointer and keyboard divider resizing', async ({ page }) => {

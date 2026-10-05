@@ -28,6 +28,7 @@ type FeedbackMemoryEntry = {
 
 const MAX_FEEDBACK_MEMORY = 4;
 const COMPOSER_NAV_OFFSET_PX = 56;
+const COMPOSER_HANDOFF_BAND_PX = 40;
 // The unsent draft and its AI feedback survive leaving Home (opening a related
 // post, then Back) for the rest of the browser session.
 const DRAFT_STORAGE_KEY = 'crossweave:composerDraft:v1';
@@ -199,7 +200,14 @@ export function SubmitPost({
         viewportHeight: window.innerHeight,
         mode: 'center',
       });
-      const visible = window.scrollY <= 1 || (rect.bottom > readingLine && rect.top < window.innerHeight);
+      // Schmitt band, like the feed picker: while the composer holds the pane
+      // it keeps it until its bottom is clearly above the line, and it only
+      // takes it back once its bottom is clearly below. Without the band, a
+      // composer whose bottom sat on the line while its height changed (feedback
+      // arriving, text wrapping) could flip ownership back and forth.
+      const band = COMPOSER_HANDOFF_BAND_PX;
+      const edge = composerVisibleRef.current ? readingLine - band : readingLine + band;
+      const visible = window.scrollY <= 1 || (rect.bottom > edge && rect.top < window.innerHeight);
       if (visible === composerVisibleRef.current) return;
       composerVisibleRef.current = visible;
       setComposerVisible(visible);
@@ -385,8 +393,10 @@ export function SubmitPost({
     // Claim the pane immediately so an old feed card is not mistaken for a
     // draft match while retrieval is in flight (only while the composer is on
     // screen; otherwise the feed keeps it until the reader scrolls back up).
-    currentDraftStacksRef.current = [];
-    if (composerVisibleRef.current) setFromPost([], draftIdRef.current, { force: true, surfaceKey });
+    if (composerVisibleRef.current && paneStateRef.current.surfaceKey !== surfaceKey) {
+      currentDraftStacksRef.current = [];
+      setFromPost([], draftIdRef.current, { force: true, surfaceKey });
+    }
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       const localById = new Map<string, LocalPost>();

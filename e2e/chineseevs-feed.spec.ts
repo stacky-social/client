@@ -43,11 +43,9 @@ test.describe('AI workforce demo feed', () => {
     const relatedAvatar = page.getByTestId('col-aside').locator('[data-related-card] [data-default-profile-avatar="true"]').first();
     await expect(relatedAvatar).toBeVisible();
     await expect(page.locator('img[src="/icon.svg"]')).toHaveCount(0);
-    await expect(focusCard).toHaveCSS(
-      'box-shadow',
-      // Open-bridge focus card: the neumorphic lift (globals.css).
-      'rgba(28, 43, 74, 0.11) 0px 8px 20px 0px, rgba(28, 43, 74, 0.05) 0px 2px 6px 0px',
-    );
+    // With the open bridge connected, the bridge SVG casts one shadow for the
+    // card and ribbon together, so the card's own CSS shadow steps aside.
+    await expect(focusCard).toHaveCSS('box-shadow', 'none');
     // Both the profile picture and the name carry the author tooltip (#224):
     // the avatar's wrapper comes first in the header, the name's second.
     const focusAvatarHover = focusCard.locator('[data-author-hover]').first();
