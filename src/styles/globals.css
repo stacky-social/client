@@ -8,14 +8,18 @@
     --cw-canvas: #ffffff;
     --cw-related-post-surface: #ffffff;
     --cw-line: #dfe4ea;
+    /* Neumorphic bridge: the focus card, ribbon and pane edge read as one
+       softly raised surface — a pale seam plus a diffuse shadow, no accent. */
+    --cw-weave-edge: #e3e8ee;
+    --cw-weave-shadow: rgba(28, 43, 74, 0.11);
 }
 
 /* A focused post in split view is a genuinely open surface. Apply this from
    the shell state as well as the bridge lifecycle so neither the incoming nor
    outgoing focus can flash a right edge during a handoff. */
-[data-testid="content-group"][data-weave-split="true"]:not([data-weave-variant="border"]):not([data-weave-suspended="fast-scroll"])
+[data-testid="content-group"][data-weave-split="true"]:not([data-weave-variant="border"]):not([data-weave-suspended="scroll"])
     [data-testid="post"][data-active="true"]:not([data-weave-no-related="true"]),
-[data-testid="content-group"][data-weave-split="true"]:not([data-weave-suspended="fast-scroll"])
+[data-testid="content-group"][data-weave-split="true"]:not([data-weave-suspended="scroll"])
     [data-testid="post"][data-weave-source-open="true"]:not([data-weave-no-related="true"]) {
     border-right-color: transparent !important;
     border-top-right-radius: 0 !important;
@@ -30,10 +34,50 @@
     clip-path: inset(-24px 0 -24px -24px);
 }
 
-[data-testid="content-group"]:not([data-weave-suspended="fast-scroll"])
+[data-testid="content-group"]:not([data-weave-suspended="scroll"])
     [data-testid="post"][data-weave-source-open="true"]:not([data-weave-no-related="true"]) {
     border-color: var(--cw-teal) !important;
     border-right-color: transparent !important;
+}
+
+/* Open bridge: swap the teal outline for the soft seam and a deeper, diffuse
+   lift. The SVG ribbon casts the same shadow so card and bridge share one
+   elevation (WeaveBridge.module.css). */
+[data-testid="content-group"][data-weave-variant="open"][data-weave-split="true"]:not([data-weave-suspended="scroll"])
+    [data-testid="post"][data-active="true"]:not([data-weave-no-related="true"]),
+[data-testid="content-group"][data-weave-variant="open"]:not([data-weave-suspended="scroll"])
+    [data-testid="post"][data-weave-source-open="true"]:not([data-weave-no-related="true"]) {
+    border-color: var(--cw-weave-edge) !important;
+    border-right-color: transparent !important;
+    box-shadow: 0 8px 20px var(--cw-weave-shadow), 0 2px 6px rgba(28, 43, 74, 0.05) !important;
+}
+
+/* The composer, while its draft owns the pane, opens into the bridge like a
+   focused post: no right edge, square right corners, shadow cut at the seam. */
+[data-testid="content-group"][data-weave-split="true"]:not([data-weave-variant="border"]):not([data-weave-suspended="scroll"])
+    [data-weave-source-id] {
+    /* Match a focused post so the seams join cleanly: white surface, the
+       bridge's 2px soft edge (the -1px margin keeps the box from moving), and
+       the shared diffuse lift instead of the composer's tint and teal focus. */
+    background: #ffffff !important;
+    border: 2px solid var(--cw-weave-edge) !important;
+    margin: -1px -1px calc(1rem - 1px) -1px;
+    box-shadow: 0 8px 20px var(--cw-weave-shadow), 0 2px 6px rgba(28, 43, 74, 0.05) !important;
+    border-right-color: transparent !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    clip-path: inset(-24px 0 -24px -24px);
+}
+
+/* While the draft owns the pane, a focused feed post is not the bridge's
+   source: keep it a closed, ordinary focus card instead of a half-open one. */
+[data-testid="content-group"]:has([data-weave-source-id])
+    [data-testid="feed"] [data-testid="post"][data-active="true"] {
+    border-right-color: var(--cw-teal) !important;
+    border-color: var(--cw-teal) !important;
+    border-top-right-radius: 10px !important;
+    border-bottom-right-radius: 10px !important;
+    clip-path: none !important;
 }
 
 /* An empty related pane is not a bridge destination. Close the active post
@@ -527,4 +571,28 @@ body {
   content: "";
   display: block;
   height: var(--reveal-window-height);
+}
+
+/* Feed scrolling: the related pane holds its last post, softly blurred and
+   inert, until the feed settles on a new post (Shell.tsx). The blur sits on
+   the scroll container itself, not its content: the container clips its
+   overflow, which cut a blurred child off in a hard vertical line. Filtering
+   the container lets the blur feather past its edges instead. */
+[data-testid="col-aside"] {
+    transition: filter 220ms ease, opacity 220ms ease;
+}
+
+[data-testid="content-group"][data-feed-scrolling="true"] [data-testid="col-aside"] {
+    filter: blur(4px);
+    opacity: 0.55;
+    transition-duration: 120ms;
+}
+
+[data-testid="content-group"][data-feed-scrolling="true"] .aside-freeze {
+    pointer-events: none;
+    user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-testid="col-aside"] { transition: none; }
 }

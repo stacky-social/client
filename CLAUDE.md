@@ -57,6 +57,10 @@ The landing page (`/`) handles Mastodon OAuth instance selection. `/callback` co
 
 Scrolling picks the focused feed post: the post whose top has crossed a reading line (30% of the viewport; the centre line on Home), with a Schmitt band (`feedFocusHysteresisPx`) so neighbours don't flicker. Clicking a topic phrase focuses a post **in place** (no scroll) and pins it (`createFeedFocusPin` / `selectPinnedFeedFocus`). The pin hands control back silently once the picker would choose the same post, and releases when the post moves more than one band further from the reading line than its closest approach, or leaves the screen. It measures geometry, not scroll deltas or time. The topic feeds, Home (`PostList`), and search share it.
 
+### Aside Scroll Freeze (Shell.tsx)
+
+While the reader scrolls the feed (wheel, touch, scroll keys, or a scrollbar drag), the aside goes static and blurred (`RelatedStacksFreeze` serves it a context snapshot; `data-feed-scrolling` on the content group drives the CSS) and the drawn bridge lets go (`data-weave-suspended="scroll"`). About 180ms after the last scroll it swaps to the settled post, unblurs, and the bridge reopens. Programmatic scrolls (restoration, `scrollIntoView`) never freeze it. The open bridge is neumorphic: tab-like fillet curves (the mouth extends ~1.3× the gap past the card, `OPEN_FILLET_*` in WeaveBridge.tsx), soft seams (`--cw-weave-edge`) and a shared diffuse shadow (`--cw-weave-shadow`), no teal.
+
 ### Focus-Post Phrases (FocusTopicHighlightedContent.tsx)
 
 - Left-pane phrase emphasis (a text-shadow, metric-neutral) is off at rest. It turns on for hover over the text, keyboard focus, an aside cross-highlight, or a mobile tap (`data-engaged`). On touch, the first tap only engages; later taps act. The related cards' bold in the aside is always on.

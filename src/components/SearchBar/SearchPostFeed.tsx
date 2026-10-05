@@ -95,15 +95,14 @@ export default function SearchPostFeed({
     return restoreFeedScrollSnapshot();
   }, [posts.length, surfaceKey]);
 
-  // A submitted/refined search lands on its first post instead of leaving the
-  // participant above the result feed. Restored search sessions do not pass a
-  // new request, so their prior reading position remains eligible for restore.
+  // A submitted/refined search returns to the top of the page, so the search
+  // bar stays in view above the first results (jumping to the first post hid
+  // the query being refined). Restored search sessions do not pass a new
+  // request, so their prior reading position remains eligible for restore.
   useEffect(() => {
     if (!scrollRequest || posts.length === 0) return;
     const frame = requestAnimationFrame(() => {
-      feedRef.current
-        ?.querySelector<HTMLElement>("[data-search-feed-post]")
-        ?.scrollIntoView({ block: "start", behavior: "instant" });
+      window.scrollTo({ top: 0, behavior: "instant" });
     });
     return () => cancelAnimationFrame(frame);
   }, [posts, scrollRequest, surfaceKey]);

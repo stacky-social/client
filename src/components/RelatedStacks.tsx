@@ -3444,6 +3444,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
             <div
               key={stack.stackId}
               data-related-card
+              // Warm the detail route while the pointer is on the card, so a
+              // click opens it without waiting on the route's code.
+              onPointerEnter={() => router.prefetch(postRouteFor(stack.topPost.id))}
               data-related-group-member={anchorForThisCard ? 'true' : undefined}
               data-related-group-start={isFirstInBlock ? 'true' : undefined}
               data-related-group-end={isLastInBlock ? 'true' : undefined}

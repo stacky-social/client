@@ -45,7 +45,8 @@ test.describe('AI workforce demo feed', () => {
     await expect(page.locator('img[src="/icon.svg"]')).toHaveCount(0);
     await expect(focusCard).toHaveCSS(
       'box-shadow',
-      'rgba(28, 43, 74, 0.1) 0px 5px 14px 0px, rgba(28, 43, 74, 0.06) 0px 2px 5px 0px',
+      // Open-bridge focus card: the neumorphic lift (globals.css).
+      'rgba(28, 43, 74, 0.11) 0px 8px 20px 0px, rgba(28, 43, 74, 0.05) 0px 2px 6px 0px',
     );
     // Both the profile picture and the name carry the author tooltip (#224):
     // the avatar's wrapper comes first in the header, the name's second.

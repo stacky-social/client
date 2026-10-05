@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SubmitPost } from '../SubmitPost/SubmitPost';
 import PostList from '../PostList';
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
@@ -23,16 +23,40 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch = fal
         enterFeedSurface(feedSurfaceKey);
     }, [enterFeedSurface, feedSurfaceKey]);
 
+    // While the composer is on screen with a draft, the draft owns the related
+    // pane. The feed keeps tracking its focused post meanwhile and re-publishes
+    // it the moment the composer scrolls away (or the draft is cleared).
+    const composerOwnsPaneRef = useRef(false);
+    const lastFeedFocusRef = useRef<{ stacks: any[]; postId: string } | null>(null);
+
     const handleStackIconClick = useCallback((incomingRelatedStacks: any[], postId: string, _position: { top: number, height: number }) => {
+        if (composerOwnsPaneRef.current) {
+            lastFeedFocusRef.current = {
+                stacks: Array.isArray(incomingRelatedStacks) ? incomingRelatedStacks : [],
+                postId,
+            };
+            setActivePostId(postId);
+            return;
+        }
         const togglingOff = postId === asideActivePostId && Array.isArray(asideStacks) && asideStacks.length > 0;
         // Publish only the relation payload carried by the post adapter. This is
         // the same contract a real timeline/related-post API will satisfy and
         // avoids a demo-only resolver silently inventing data for empty posts.
         const stacksToPublish = Array.isArray(incomingRelatedStacks) ? incomingRelatedStacks : [];
+        lastFeedFocusRef.current = { stacks: stacksToPublish, postId };
         setFromPost(stacksToPublish, postId, { surfaceKey: feedSurfaceKey });
         setActivePostId(togglingOff ? null : postId);
         setIsExpandModalOpen(false);
     }, [asideActivePostId, asideStacks, feedSurfaceKey, setFromPost]);
+
+    const handleComposerPaneOwnership = useCallback((owns: boolean) => {
+        const wasOwned = composerOwnsPaneRef.current;
+        composerOwnsPaneRef.current = owns;
+        const last = lastFeedFocusRef.current;
+        if (wasOwned && !owns && last) {
+            setFromPost(last.stacks, last.postId, { force: true, surfaceKey: feedSurfaceKey });
+        }
+    }, [feedSurfaceKey, setFromPost]);
 
     return (
         <div
@@ -50,7 +74,10 @@ export default function Posts({ apiUrl, loadStackInfo, showSubmitAndSearch = fal
                 {showSubmitAndSearch && (
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: isHomeTimeline ? 0 : '2rem' }}>
                         <div style={{ width: '100%' }}>
-                            <SubmitPost appearance={source === 'home' || source === 'curated-home' || apiUrl?.includes('/timelines/home') ? 'timeline' : 'card'} />
+                            <SubmitPost
+                                appearance={source === 'home' || source === 'curated-home' || apiUrl?.includes('/timelines/home') ? 'timeline' : 'card'}
+                                onPaneOwnershipChange={handleComposerPaneOwnership}
+                            />
                         </div>
                     </div>
                 )}

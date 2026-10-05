@@ -109,31 +109,45 @@ test('Shift+B cycles and persists open, classic, and border-only focus designs',
     .toBe('open');
 });
 
-test('temporarily replaces only the open bridge during fast scrolling', async ({ page }) => {
+test('lets the drawn bridge go while the reader scrolls the feed', async ({ page }) => {
   await openDemo(page);
+  const feed = await page.getByTestId('feed').boundingBox();
+  await page.mouse.move(feed!.x + feed!.width / 2, 400);
 
-  await page.evaluate(() => {
-    let step = 0;
-    const interval = window.setInterval(() => {
-      window.scrollBy(0, step % 2 === 0 ? 120 : -120);
-      step += 1;
-      if (step === 8) window.clearInterval(interval);
-    }, 30);
-  });
+  // Keep wheeling while asserting so a slow frame cannot settle the gesture
+  // before the mid-scroll checks run.
+  const wheel = () => {
+    let wheeling = true;
+    const gesture = (async () => {
+      for (let step = 0; wheeling && step < 40; step += 1) {
+        await page.mouse.wheel(0, step % 2 === 0 ? 120 : -80);
+        await page.waitForTimeout(30);
+      }
+    })();
+    return async () => { wheeling = false; await gesture; };
+  };
 
-  await expect(group(page)).toHaveAttribute('data-weave-suspended', 'fast-scroll');
+  let stop = wheel();
+  await expect(group(page)).toHaveAttribute('data-weave-suspended', 'scroll');
   await expect(bridge(page)).toHaveCount(0);
   await expect(activePost(page)).toHaveCSS('border-right-color', 'rgb(69, 169, 158)');
   await expect(activePost(page)).toHaveCSS('border-top-right-radius', '10px');
   await expect(activePost(page)).toHaveCSS('clip-path', 'none');
+  await stop();
 
-  await expect(group(page)).not.toHaveAttribute('data-weave-suspended', 'fast-scroll');
+  await expect(group(page)).not.toHaveAttribute('data-weave-suspended', 'scroll');
   await expect(bridge(page)).toHaveAttribute('data-weave-state', 'connected');
 
+  // Border-only mode draws no bridge, so there is nothing to suspend; the
+  // aside still freezes while the feed moves.
   await page.keyboard.press('Shift+B');
-  await expect(bridge(page)).toHaveAttribute('data-weave-state', 'connected');
-  await page.evaluate(() => window.scrollBy(0, 500));
-  await page.waitForTimeout(50);
-  await expect(group(page)).not.toHaveAttribute('data-weave-suspended', 'fast-scroll');
-  await expect(bridge(page)).toBeVisible();
+  await page.keyboard.press('Shift+B');
+  await expect(group(page)).toHaveAttribute('data-weave-variant', 'border');
+  stop = wheel();
+  await expect(group(page)).toHaveAttribute('data-feed-scrolling', 'true');
+  await expect(group(page)).not.toHaveAttribute('data-weave-suspended', 'scroll');
+  await stop();
+  await page.keyboard.press('Shift+B');
+  await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY))
+    .toBe('open');
 });
