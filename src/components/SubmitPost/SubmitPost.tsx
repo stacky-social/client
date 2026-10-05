@@ -13,6 +13,7 @@ import {
 } from '../../utils/mastodonApi';
 import { useAccessToken } from '../../utils/useAccessToken';
 import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
+import { feedFocusReadingLine } from '../../utils/stableFeedFocus';
 import axios from 'axios';
 import { FeedbackBlock } from './ComposerFeedback';
 import classes from './SubmitPost.module.css';
@@ -27,7 +28,6 @@ type FeedbackMemoryEntry = {
 
 const MAX_FEEDBACK_MEMORY = 4;
 const COMPOSER_NAV_OFFSET_PX = 56;
-const COMPOSER_MIN_VISIBLE_PX = 120;
 // The unsent draft and its AI feedback survive leaving Home (opening a related
 // post, then Back) for the rest of the browser session.
 const DRAFT_STORAGE_KEY = 'crossweave:composerDraft:v1';
@@ -179,21 +179,43 @@ export function SubmitPost({
     stacks: paneStacks,
   };
 
-  // Is enough of the composer on screen (below the sticky nav) to be what the
-  // reader is looking at? Scrolled away, the feed's focused post gets the pane.
+  // Is the composer what the reader is on? Same rule as Home's feed focus
+  // (stableFeedFocusCore, centre mode): it holds the pane at the top of the
+  // page or while it still spans the reading line. Once its bottom passes the
+  // line, the post now on the line (normally the first) takes over. Waiting
+  // until the composer had nearly left the screen let focus skip that post.
   const composerRef = useRef<HTMLElement | null>(null);
   const composerVisibleRef = useRef(true);
   const [composerVisible, setComposerVisible] = useState(true);
   useEffect(() => {
-    const node = composerRef.current;
-    if (!node || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver(([entry]) => {
-      const visible = entry.isIntersecting && entry.intersectionRect.height >= COMPOSER_MIN_VISIBLE_PX;
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const node = composerRef.current;
+      if (!node) return;
+      const rect = node.getBoundingClientRect();
+      const readingLine = feedFocusReadingLine({
+        viewportTop: COMPOSER_NAV_OFFSET_PX,
+        viewportHeight: window.innerHeight,
+        mode: 'center',
+      });
+      const visible = window.scrollY <= 1 || (rect.bottom > readingLine && rect.top < window.innerHeight);
+      if (visible === composerVisibleRef.current) return;
       composerVisibleRef.current = visible;
       setComposerVisible(visible);
-    }, { rootMargin: `-${COMPOSER_NAV_OFFSET_PX}px 0px 0px 0px`, threshold: [0, 0.1, 0.25, 0.5, 1] });
-    observer.observe(node);
-    return () => observer.disconnect();
+    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(measure); };
+    measure();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule);
+    if (composerRef.current) observer?.observe(composerRef.current);
+    return () => {
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      observer?.disconnect();
+      cancelAnimationFrame(frame);
+    };
   }, []);
 
   // Restore after mount (not in initial state) so server and client render

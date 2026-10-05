@@ -366,6 +366,11 @@ export default function Shell({
                         valueMax={Math.round(FEED_RATIO_MAX * 100)}
                         style={{
                             position: "relative",
+                            // Same layer as the fixed bridge SVG (z 6), which is
+                            // rendered later and so paints over the divider: the
+                            // bridge's white mouth must cover the divider's
+                            // shadow (globals.css). Still above the cards (z 5).
+                            zIndex: 6,
                             top: "auto",
                             bottom: "auto",
                             marginLeft: PANE_GUTTER,
