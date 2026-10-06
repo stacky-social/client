@@ -18,6 +18,7 @@ import { useExperimentFlags } from '../utils/experimentFlags';
 import { reorderForAnchor } from '../utils/reorderForAnchor';
 import type { Relation } from '../types/PostType';
 import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
+import { buildTooltipLabel, spanIsActionable } from './spanTooltip';
 import { showUndoableAction } from '../utils/actionNotifications';
 import AiModifiedDisclosure from './AiModifiedDisclosure';
 import {
@@ -333,27 +334,21 @@ function getSyntheticCategoryCount(_category: string, realCount: number): number
 }
 
 // ─── Tooltip label renderer ───────────────────────────────────────────────────
-// Unfiltered spans preview the number of other posts; an active topic filter
-// already supplies that context, so its tooltip contains only the topic name.
-function buildTooltipLabel(
-  topic: string | undefined,
-  otherCount: number | undefined,
-  textColor: string,
-  topicOnly: boolean = false,
-): React.ReactNode | null {
-  if (!topic) return null;
-  const count = otherCount ?? 0;
-  return (
-    <>
-      {!topicOnly && `${count} more `}<strong style={{ color: textColor }}>{topic}</strong>
-    </>
-  );
+// Shared with reply spans (ReplyHighlightedContent): see spanTooltip.tsx.
+
+/** Related-card spans whose click does nothing must not look clickable. */
+function spanCursor(otherCount: number, topic: string | undefined, activeTopic: string | null): string {
+  return spanIsActionable(otherCount, topic, activeTopic) ? EYE_CURSOR : 'default';
 }
 
-// Related-card span tooltips appear only after a 1.5s dwell (hover spec), so
-// sweeping the cursor across spans doesn't spam tooltips. The highlight itself
+// Related-card span tooltips appear after a short dwell (RELATED_SPAN_TOOLTIP_DELAY_MS),
+// so sweeping the cursor across spans doesn't spam tooltips. The highlight itself
 // stays immediate — only the tooltip waits. Any reschedule / leave / click
 // cancels a pending one. Module-level: shared across all card marks.
+// Was 1.5s (June hover spec), which in practice hid the tooltip: readers point
+// and click within a second, so they never learned what a span does or that
+// some spans lead nowhere. 350ms still keeps a sweep across text quiet.
+const RELATED_SPAN_TOOLTIP_DELAY_MS = 350;
 let cardTooltipTimer: ReturnType<typeof setTimeout> | null = null;
 /** The <mark> a range index renders as, inside `root`. A range usually owns a
  *  single `data-range-id` mark, but where highlights overlap the segment carries
@@ -369,7 +364,7 @@ function findRangeMark(root: HTMLElement | null, rangeIndex: number): HTMLElemen
 
 function scheduleCardTooltip(payload: Parameters<typeof showTooltip>[0]) {
   if (cardTooltipTimer) clearTimeout(cardTooltipTimer);
-  cardTooltipTimer = setTimeout(() => { cardTooltipTimer = null; showTooltip(payload); }, 1500);
+  cardTooltipTimer = setTimeout(() => { cardTooltipTimer = null; showTooltip(payload); }, RELATED_SPAN_TOOLTIP_DELAY_MS);
 }
 function cancelCardTooltip() {
   if (cardTooltipTimer) { clearTimeout(cardTooltipTimer); cardTooltipTimer = null; }
@@ -731,6 +726,12 @@ function buildMultiHighlightNodes(
         const rel = line.height > 0 ? (clientY - line.top) / line.height : 0;
         return Math.max(0, Math.min(cats.length - 1, Math.floor(rel * cats.length)));
       };
+      // Clickable look only if at least one stacked topic leads somewhere.
+      const overlapCursor = cats.some((c) => spanCursor(
+        opts.otherCountByTopic ? opts.otherCountByTopic(bandTopic(c)) : 0,
+        bandTopic(c),
+        opts.activeTopic,
+      ) !== 'default') ? EYE_CURSOR : 'default';
       const overlapHover = (clientX: number, clientY: number, currentTarget: HTMLElement) => {
         const bandIdx = bandIdxAt(currentTarget, clientY);
         const band = cats[bandIdx];
@@ -746,7 +747,7 @@ function buildMultiHighlightNodes(
         scheduleCardTooltip({
           // R-REORDER-9: hovering a span whose topic is already the active
           // grouping reads "N more <Topic> (shown)" — the click is a no-op.
-          content: buildTooltipLabel(topic, moreCount, band.colors.text, opts.activeTopic !== null),
+          content: buildTooltipLabel(topic, moreCount, band.colors.text, opts.activeTopic),
           colors,
           x: clientX,
           y: clientY,
@@ -787,7 +788,7 @@ function buildMultiHighlightNodes(
               background: `linear-gradient(180deg, ${gradientStops})`,
               color: 'inherit', borderRadius: '3px', padding: '1px 0',
               transition: 'background 200ms ease',
-              cursor: EYE_CURSOR,
+              cursor: overlapCursor,
               outline: 'none',
               border: 'none',
               pointerEvents: 'auto',
@@ -809,6 +810,7 @@ function buildMultiHighlightNodes(
       // Resolved topic for this range — used for in-block dimming and the
       // "(shown)" tooltip wording / no-op click for same-topic spans.
       const resolvedTopicForRange = topicOf(c, opts.stackId, c.rangeIndex);
+      const spanOtherCount = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopicForRange) : 0;
       const isOnActiveTopic = opts.activeTopic !== null;
       // In-block dimming: when this card sits inside the active topic block,
       // non-Topic spans dim out (unless this very span is hovered).
@@ -870,7 +872,7 @@ function buildMultiHighlightNodes(
               opts.onRangeHover(c.rangeIndex);
               const moreCount = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopicForRange) : 0;
               scheduleCardTooltip({
-                content: buildTooltipLabel(resolvedTopicForRange, moreCount, colors.text, opts.activeTopic !== null),
+                content: buildTooltipLabel(resolvedTopicForRange, moreCount, colors.text, opts.activeTopic),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
@@ -886,7 +888,7 @@ function buildMultiHighlightNodes(
               opts.onRangeHover(c.rangeIndex);
               const moreCount = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopicForRange) : 0;
               scheduleCardTooltip({
-                content: buildTooltipLabel(resolvedTopicForRange, moreCount, colors.text, opts.activeTopic !== null),
+                content: buildTooltipLabel(resolvedTopicForRange, moreCount, colors.text, opts.activeTopic),
                 colors: { text: colors.text, border: colors.border },
                 x: e.clientX,
                 y: e.clientY,
@@ -911,7 +913,7 @@ function buildMultiHighlightNodes(
             style={{
               background: bgColor, color: 'inherit', borderRadius: '3px', padding: '1px 0',
               transition: 'background 200ms ease',
-              cursor: EYE_CURSOR,
+              cursor: spanCursor(spanOtherCount, resolvedTopicForRange, opts.activeTopic),
               outline: 'none',
               border: 'none',
               pointerEvents: 'auto',

@@ -11,6 +11,7 @@ import {
   setHoveredHighlightRangeIndex,
 } from "../../utils/highlightStore";
 import { showTooltip, hideTooltip } from "../HoverTooltip";
+import { buildTooltipLabel, spanIsActionable } from "../spanTooltip";
 import { pointBridgesInlineRects } from "../../utils/inlineHighlightGeometry.mjs";
 import InlineLinkedContent from "../InlineLinkedContent";
 
@@ -162,7 +163,10 @@ export default function ReplyHighlightedContent({
           borderRadius: "3px",
           padding: "1px 0",
           transition: "background 200ms ease",
-          cursor: onSpanClick ? "pointer" : "inherit",
+          cursor: onSpanClick && (!r.topic || !otherCountByTopic
+            || spanIsActionable(otherCountByTopic(r.topic), r.topic, activeClusterTopic ?? null))
+            ? "pointer"
+            : "default",
           WebkitTapHighlightColor: "transparent",
         }}
         onMouseEnter={(e) => {
@@ -173,14 +177,10 @@ export default function ReplyHighlightedContent({
           hoveredIdxRef.current = origIdx;
           setHoveredHighlightRangeIndex(origIdx);
           if (r.topic && otherCountByTopic) {
-            // R-REORDER-9 parity: already-grouped topic reads "(shown)".
-            const isShown = activeClusterTopic !== null;
+            // Same wording as related-card spans (spanTooltip.tsx): what a
+            // click does, or that it does nothing.
             showTooltip({
-              content: (
-                <>
-                  {!isShown && `${otherCountByTopic(r.topic)} more `}<strong style={{ color: colors.text }}>{r.topic}</strong>
-                </>
-              ),
+              content: buildTooltipLabel(r.topic, otherCountByTopic(r.topic), colors.text, activeClusterTopic ?? null),
               colors: { text: colors.text, border: colors.border },
               x: e.clientX,
               y: e.clientY,
