@@ -306,7 +306,7 @@ test.describe('Cross-pane grouping / filtering (T7)', () => {
   });
 });
 
-// #224: a span whose tooltip reads "No other posts on <Topic>" carries a topic no other
+// #224: a span whose tooltip reads "0 more <Topic>" carries a topic no other
 // post in either pane shares. Clicking it must do nothing in BOTH panes: no
 // group of one in the reply list, no invisible grouping (or Back step) in the
 // aside. Scenario derived from the Tariffs fixture: the first topic that only
@@ -361,7 +361,7 @@ test.describe('"0 more" spans', () => {
     const span = page.locator(`[data-post-id="${replyZero.id}"] mark[data-reply-range-id="${replyZero.rangeIndex}"]`).first();
     await span.scrollIntoViewIfNeeded();
     await span.hover();
-    await expect(page.getByTestId('hover-tooltip')).toHaveText(`No other posts on ${replyZero.topic}`);
+    await expect(page.getByTestId('hover-tooltip')).toHaveText(`0 more ${replyZero.topic}`);
     const before = await groupingState(page);
     await span.click();
     await page.waitForTimeout(600);
@@ -377,7 +377,7 @@ test.describe('"0 more" spans', () => {
     await span.scrollIntoViewIfNeeded();
     await span.hover();
     // Related-card tooltips appear after a dwell.
-    await expect(page.getByTestId('hover-tooltip')).toHaveText(`No other posts on ${relatedZero.topic}`, { timeout: 5000 });
+    await expect(page.getByTestId('hover-tooltip')).toHaveText(`0 more ${relatedZero.topic}`, { timeout: 5000 });
     const before = await groupingState(page);
     await span.click();
     await page.waitForTimeout(600);
