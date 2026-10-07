@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconBook,
+  IconQuestionMark, IconBulb, IconQuote, IconLink, IconPointer, IconArrowRight,
   IconMoodSmile, IconFrame, IconUser, IconHeartHandshake, IconThumbUp, IconThumbDown,
   IconStack2,
 } from '@tabler/icons-react';
@@ -48,10 +48,10 @@ export function getCategoryColors(rel: string): CategoryStyle {
 /** Element map kept for the existing React.cloneElement call sites in
  *  RelatedStacks. New code should prefer categoryIcon(). */
 export const iconMapping: Record<string, JSX.Element> = {
-  uncategorized: <IconStack2 size={14} />, predictions: <IconBulb size={14} />,
+  uncategorized: <IconStack2 size={14} />, predictions: <IconArrowRight size={14} />,
   evidence_public: <IconQuote size={14} />, evidence_personal: <IconUser size={14} />,
   connections: <IconLink size={14} />, pointers: <IconPointer size={14} />,
-  proposals: <IconBook size={14} />, humor: <IconMoodSmile size={14} />,
+  proposals: <IconBulb size={14} />, humor: <IconMoodSmile size={14} />,
   // values uses the handshake-heart, NOT the plain heart: the plain heart is the
   // Like action glyph, and a category badge must not read as a like indicator.
   values: <IconHeartHandshake size={14} />, framing: <IconFrame size={14} />,
