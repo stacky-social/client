@@ -18,17 +18,17 @@ export interface CategoryStyle { bg: string; border: string; text: string }
 const NEUTRAL: CategoryStyle = { bg: "#eceef1", border: "#8a919c", text: "#4a515c" };
 
 export const CATEGORY_COLORS: Record<string, CategoryStyle> = {
-  agree: { bg: "#bdf4cf", border: "#037441", text: "#00703e" },
-  disagree: { bg: "#fedbda", border: "#97182b", text: "#a12e39" },
-  predictions: { bg: "#fbe2ab", border: "#9c7703", text: "#765901" },
-  evidence_public: { bg: "#cce9ff", border: "#2785bd", text: "#016495" },
-  evidence_personal: { bg: "#dde3fe", border: "#3b3eb3", text: "#4751b0" },
-  connections: { bg: "#feddc7", border: "#fe860f", text: "#8e4802" },
-  questions: { bg: "#ddedb5", border: "#9eb92e", text: "#556601" },
-  humor: { bg: "#efdcff", border: "#9e57cb", text: "#783f9b" },
-  values: { bg: "#a8f5f4", border: "#25c2c2", text: "#006c6c" },
-  framing: { bg: "#ffd8ec", border: "#f776c4", text: "#953170" },
-  proposals: { bg: "#efdcff", border: "#9e57cb", text: "#783f9b" },
+  agree: { bg: "#c3f3ca", border: "#1b7f3b", text: "#03712f" },
+  disagree: { bg: "#fedbd9", border: "#d7263d", text: "#a12e36" },
+  predictions: { bg: "#f7e3ab", border: "#f2c200", text: "#735a00" },
+  evidence_public: { bg: "#d6e6fe", border: "#1e6fd9", text: "#1b5bb0" },
+  evidence_personal: { bg: "#ecddfe", border: "#5b2a86", text: "#72429f" },
+  connections: { bg: "#ffddc8", border: "#f57c00", text: "#904702" },
+  questions: { bg: "#b9efff", border: "#7fd8f0", text: "#00697d" },
+  humor: { bg: "#fed7f5", border: "#ec6fd6", text: "#8d357f" },
+  values: { bg: "#a8f5f4", border: "#00a3a3", text: "#066b6b" },
+  framing: { bg: "#e9e0d6", border: "#8d5a2b", text: "#6b4420" },
+  proposals: { bg: "#fed7f5", border: "#ec6fd6", text: "#8d357f" },
   pointers: NEUTRAL,
   uncategorized: NEUTRAL,
 };
