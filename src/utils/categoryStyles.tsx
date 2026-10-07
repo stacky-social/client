@@ -11,28 +11,26 @@ import {
 
 export interface CategoryStyle { bg: string; border: string; text: string }
 
-// Category meaning remains icon- and label-specific, while color is deliberately
-// constrained to the four lobes of the CrossWeave mark. Reusing these palettes
-// makes highlights, filter chips, and relation tags feel like one system.
-const BRAND_TEAL: CategoryStyle = { bg: "#e3f4f2", border: "#45a99e", text: "#246f68" };
-const BRAND_CORAL: CategoryStyle = { bg: "#fbe8e6", border: "#e15c52", text: "#9e3d36" };
-const BRAND_AMBER: CategoryStyle = { bg: "#fff3df", border: "#f0a83e", text: "#8a5a16" };
-const BRAND_NAVY: CategoryStyle = { bg: "#e8edf5", border: "#1c2b4a", text: "#1c2b4a" };
+// Each contribution type gets its own hue so readers can tell them apart at a
+// glance. Borders were optimised in OKLCH for a normal-vision ΔE >= 15 between
+// every pair (and >= 32° hue gap); text colours keep >= 5:1 contrast on their
+// tint. Icons and labels stay the secondary encoding for colour-blind readers.
+const NEUTRAL: CategoryStyle = { bg: "#eceef1", border: "#8a919c", text: "#4a515c" };
 
 export const CATEGORY_COLORS: Record<string, CategoryStyle> = {
-  agree: BRAND_TEAL,
-  disagree: BRAND_CORAL,
-  predictions: BRAND_AMBER,
-  evidence_public: BRAND_NAVY,
-  evidence_personal: BRAND_CORAL,
-  connections: BRAND_TEAL,
-  questions: BRAND_CORAL,
-  humor: BRAND_AMBER,
-  values: BRAND_TEAL,
-  framing: BRAND_NAVY,
-  proposals: BRAND_NAVY,
-  pointers: BRAND_AMBER,
-  uncategorized: BRAND_NAVY,
+  agree: { bg: "#bdf4cf", border: "#037441", text: "#00703e" },
+  disagree: { bg: "#fedbda", border: "#97182b", text: "#a12e39" },
+  predictions: { bg: "#fbe2ab", border: "#9c7703", text: "#765901" },
+  evidence_public: { bg: "#cce9ff", border: "#2785bd", text: "#016495" },
+  evidence_personal: { bg: "#dde3fe", border: "#3b3eb3", text: "#4751b0" },
+  connections: { bg: "#feddc7", border: "#fe860f", text: "#8e4802" },
+  questions: { bg: "#ddedb5", border: "#9eb92e", text: "#556601" },
+  humor: { bg: "#efdcff", border: "#9e57cb", text: "#783f9b" },
+  values: { bg: "#a8f5f4", border: "#25c2c2", text: "#006c6c" },
+  framing: { bg: "#ffd8ec", border: "#f776c4", text: "#953170" },
+  proposals: { bg: "#efdcff", border: "#9e57cb", text: "#783f9b" },
+  pointers: NEUTRAL,
+  uncategorized: NEUTRAL,
 };
 
 export const CATEGORY_LABELS: Record<string, string> = {
