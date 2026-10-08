@@ -4,7 +4,7 @@ test.describe('Landing page', () => {
   test('makes the demo primary and account access secondary', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { name: 'Follow the conversation. See how ideas connect.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Escape your bubble. See all the angles.' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Try CrossWeave now' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
 
