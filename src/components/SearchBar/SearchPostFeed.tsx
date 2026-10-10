@@ -61,6 +61,7 @@ export default function SearchPostFeed({
   // or away from it.
   const focusPinRef = useRef<FeedFocusPin | null>(null);
   const restoredScrollRef = useRef(false);
+  const initializedFocusRef = useRef(false);
   const feedRef = useRef<HTMLDivElement | null>(null);
   const highlightName = `curated-search-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const searchTerms = useMemo(() => curatedSearchTerms(query), [query]);
@@ -85,15 +86,28 @@ export default function SearchPostFeed({
     enterFeedSurface(surfaceKey);
     restoredScrollRef.current = false;
     focusPinRef.current = null;
+    initializedFocusRef.current = false;
+    activePostIdRef.current = null;
     setActivePostId(null);
     return () => leaveFeedSurface(surfaceKey);
   }, [enterFeedSurface, leaveFeedSurface, surfaceKey]);
 
+  // Match Home: expose related posts as soon as results arrive, even when the
+  // result list is too short to scroll. Later hydration/appends must not reset
+  // the reader's scroll-driven or explicitly selected focus.
   useEffect(() => {
-    if (posts.length === 0 || restoredScrollRef.current) return;
+    if (initializedFocusRef.current || posts.length === 0) return;
+    initializedFocusRef.current = true;
+    publish(posts[0]);
+  }, [posts, publish]);
+
+  useEffect(() => {
+    // A new query must never race a saved-position restore. Its only scroll
+    // target is the page top (below), not the automatically selected card.
+    if (scrollRequest || posts.length === 0 || restoredScrollRef.current) return;
     restoredScrollRef.current = true;
-    return restoreFeedScrollSnapshot();
-  }, [posts.length, surfaceKey]);
+    return restoreFeedScrollSnapshot(undefined, { fallbackToPathname: false });
+  }, [posts.length, scrollRequest, surfaceKey]);
 
   // A submitted/refined search returns to the top of the page, so the search
   // bar stays in view above the first results (jumping to the first post hid
@@ -195,9 +209,8 @@ export default function SearchPostFeed({
       if (selected && selected.id !== activePostIdRef.current) publish(selected.value);
     };
 
-    // Do not eagerly claim the first result merely because it happens to fit
-    // below the discovery summary. Search starts with an intentionally blank
-    // related pane; a real scroll gesture (or explicit post action) selects it.
+    // Initial focus is published above; subsequent scroll gestures select the
+    // reading position using the same stable-focus rules as Home.
     const stopListening = onFeedFocusScroll(evaluate);
     return () => {
       stopListening();
@@ -207,7 +220,7 @@ export default function SearchPostFeed({
   // Relation metadata arrives after the Mastodon search results. Republish a
   // newly hydrated payload without changing focus or replaying panel motion.
   useEffect(() => {
-    if (!activePostId) return;
+    if (!activePostId || activePostId !== activePostIdRef.current) return;
     const active = posts.find((post) => post.postId === activePostId);
     if (active) {
       setFromPost(active.relatedStacks ?? [], active.postId, {

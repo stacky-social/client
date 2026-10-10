@@ -96,12 +96,91 @@ test.describe('unified discovery and interactions', () => {
     await expect(results.first()).toBeInViewport();
 
     const firstResultId = await results.first().getAttribute('data-search-feed-post');
+    await expect(results.first().getByTestId('post').first()).toHaveAttribute('data-active', 'true');
+    await expect(page.locator('[data-related-focus-post-id]').first()).toHaveAttribute('data-related-focus-post-id', firstResultId!);
     await page.getByTestId('top-nav').getByRole('button', { name: 'Home' }).last().click();
     await expect(page).toHaveURL(/\/home$/);
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(input).toHaveValue('humanoid robots');
     await expect(page).toHaveURL(/\/search\?q=humanoid\+robots$/);
     await expect(results.first()).toHaveAttribute('data-search-feed-post', firstResultId!);
+    await expect(page.locator('[data-related-focus-post-id]').first()).toHaveAttribute('data-related-focus-post-id', firstResultId!);
+
+    // Refining the query resets the initial selection without requiring scroll.
+    await input.fill('tariffs');
+    await expect(page).toHaveURL(/\/search\?q=tariffs$/);
+    await expect.poll(() => results.first().getAttribute('data-search-feed-post')).not.toBe(firstResultId);
+    const refinedId = await results.first().getAttribute('data-search-feed-post');
+    await expect(page.locator('[data-related-focus-post-id]').first()).toHaveAttribute('data-related-focus-post-id', refinedId!);
+
+    await input.fill('zzzxnonexistentsearchresult');
+    await expect(results).toHaveCount(0);
+    await expect(page.locator('[data-related-focus-post-id]')).toHaveCount(0);
+  });
+
+  test('automatic search focus never scrolls the search bar off a short viewport', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.setViewportSize({ width: 1280, height: 600 });
+    await page.goto('/search', { waitUntil: 'domcontentloaded' });
+    const input = page.getByLabel('Search hashtags, people, and posts');
+    await expect(page.getByRole('button', { name: 'Filter posts by #AIWorkforce' })).toBeVisible();
+
+    // A previous reading position must not compete with a newly typed query.
+    // Watch every frame, including transient jumps during pane/bridge setup.
+    await page.evaluate(() => {
+      sessionStorage.setItem('scrollY:/search', '700');
+      sessionStorage.setItem('crossweave:feed-scroll:v1:/search', JSON.stringify({
+        y: 700, anchorId: 'old-result', anchorAttribute: 'data-search-feed-post', anchorOffset: 60,
+      }));
+      (window as any).__searchScrollWatch = { maxY: 0, hidden: false, stop: false };
+      const sample = () => {
+        const watch = (window as any).__searchScrollWatch;
+        const field = document.querySelector('[aria-label="Search hashtags, people, and posts"]');
+        const rect = field?.getBoundingClientRect();
+        watch.maxY = Math.max(watch.maxY, window.scrollY);
+        watch.hidden ||= !rect || rect.top < 56 || rect.bottom > window.innerHeight;
+        if (!watch.stop) requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+    for (const query of ['tariffs', 'humanoid robots']) {
+      await input.fill(query);
+      await expect(page).toHaveURL(new RegExp(`q=${query.replace(/ /g, '\\+')}$`));
+      const first = page.locator('[data-search-feed-post]').first();
+      await expect(first.getByTestId('post').first()).toHaveAttribute('data-active', 'true');
+      const id = await first.getAttribute('data-search-feed-post');
+      await expect(page.locator('[data-related-focus-post-id]').first()).toHaveAttribute('data-related-focus-post-id', id!);
+      // Longer than the 90-frame saved-position restoration window.
+      await page.evaluate(() => new Promise<void>((resolve) => {
+        let frames = 0;
+        const tick = () => ++frames >= 100 ? resolve() : requestAnimationFrame(tick);
+        requestAnimationFrame(tick);
+      }));
+      await expect(input).toBeInViewport({ ratio: 1 });
+    }
+    const observed = await page.evaluate(() => {
+      const watch = (window as any).__searchScrollWatch;
+      watch.stop = true;
+      return { maxY: watch.maxY, hidden: watch.hidden };
+    });
+    expect(observed).toEqual({ maxY: 0, hidden: false });
+
+    // Opening a query URL must also ignore an unrelated pathname-only snapshot.
+    await page.addInitScript(() => {
+      (window as any).__maximumSearchScroll = 0;
+      window.addEventListener('scroll', () => {
+        (window as any).__maximumSearchScroll = Math.max((window as any).__maximumSearchScroll, window.scrollY);
+      });
+    });
+    await page.goto('/search?q=tariffs', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-search-feed-post]').first().getByTestId('post').first()).toHaveAttribute('data-active', 'true');
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      let frames = 0;
+      const tick = () => ++frames >= 100 ? resolve() : requestAnimationFrame(tick);
+      requestAnimationFrame(tick);
+    }));
+    await expect(input).toBeInViewport({ ratio: 1 });
+    expect(await page.evaluate(() => (window as any).__maximumSearchScroll)).toBe(0);
   });
 
   test('a short post with no replies has no artificial detail-page scroll range', async ({ page }) => {

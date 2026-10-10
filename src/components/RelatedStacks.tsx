@@ -3489,7 +3489,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                 // layout borders. The card wrapper keeps the same width, and the
                 // right rail can extend outward without moving the divider.
                 borderRadius: anchorForThisCard ? 0 : '10px',
-                ...cardDimStyle,
+                // Dimming belongs to the card surface, not this wrapper: the
+                // shared group outline and footer must stay continuously visible.
                 // Every card in the active topic block sits alongside a continuous
                 // group connector line (rendered as an absolute child below). The
                 // padding leaves room for it; the line itself bridges the flex gap
@@ -3504,7 +3505,6 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                 paddingBottom: anchorForThisCard ? GROUP_GAP_PX : undefined,
                 marginLeft: blockIndentPx > 0 ? `${blockIndentPx}px` : undefined,
                 marginBottom: anchorForThisCard && !isLastInBlock ? -GROUP_GAP_PX : undefined,
-                transition: 'filter 200ms ease',
               }}
               onMouseMove={(e) => {
                 if (isTouchRef.current) return;
@@ -3537,6 +3537,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               {anchorForThisCard && (
                 <div
                   aria-hidden
+                  data-related-group-frame
                   style={{
                     position: 'absolute',
                     top: 0,
@@ -3558,6 +3559,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               <Paper
                 ref={(el) => { paperRefs.current[index] = el; if (isHighlighted) highlightCardRef.current = el; }}
                 data-post-id={stack.topPost.id}
+                data-related-card-surface
                 onClick={(e) => handleCardClick(e, stack.topPost.id, stack.stackId)}
                 onMouseEnter={() => {
                   if (isTouchRef.current || panelScrollingRef.current) return;
@@ -3596,12 +3598,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                 }}
                 style={{
                   position: 'relative', width: '100%', backgroundColor: 'var(--cw-related-post-surface)', zIndex: isAiEditActive ? 7 : isHighlighted ? 6 : 5,
+                  ...cardDimStyle,
                   borderRadius: '10px', margin: '0 auto', paddingTop: '10px',
                   border: isHighlighted ? `2px solid #1c2b4a` : `2px solid #e2e8f0`,
                   boxShadow: isHighlighted
                     ? '0 0 0 3px rgba(28,43,74,0.18), 0 4px 16px rgba(0,0,0,0.10)'
                     : stack.size > 1 ? 'none' : '0 2px 12px rgba(0,0,0,0.06)',
-                  transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
+                  transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease, filter 200ms ease',
                   cursor: 'pointer',
                 }}
               >
@@ -3889,6 +3892,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                 <>
                   {[...Array(2)].map((_, idx) => (
                     <div key={idx} data-related-stack-layer aria-hidden style={{
+                      ...cardDimStyle,
                       position: 'absolute', inset: 0,
                       transform: `translate(${6 - 3 * idx}px, ${12 - 6 * idx + (isCardHovered ? 20 - (idx * 10) : 0)}px)`,
                       width: '100%', backgroundColor: 'var(--cw-related-post-surface)', borderRadius: '10px',

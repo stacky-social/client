@@ -22,7 +22,7 @@ test.describe('hybrid touch + mouse input', () => {
     const cards = page.locator('[data-related-card]');
     await expect(cards).toHaveCount(10);
     await cards.first().hover();
-    await expect(cards.nth(1)).toHaveCSS('opacity', '0.45');
+    await expect(cards.nth(1).locator('[data-related-card-surface]')).toHaveCSS('opacity', '0.45');
 
     // The Modified-by-AI disclosure uses the same current-pointer contract.
     const michaelCard = page.locator('[data-post-id="143196877"]');

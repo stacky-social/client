@@ -85,15 +85,15 @@ test.describe('Related-card navigation & interaction guards', () => {
     const second = cards.nth(1);
 
     await first.hover();
-    await expect(second).toHaveCSS('opacity', '0.45');
+    await expect(second.locator('[data-related-card-surface]')).toHaveCSS('opacity', '0.45');
 
     await page.getByTestId('col-aside').evaluate((element) => {
       element.scrollBy({ top: 320, behavior: 'instant' });
     });
 
-    await expect(second).toHaveCSS('opacity', '1');
+    await expect(second.locator('[data-related-card-surface]')).toHaveCSS('opacity', '1');
     await page.waitForTimeout(220);
-    await expect(page.locator('[data-related-card][style*="opacity: 0.45"]')).toHaveCount(0);
+    await expect(page.locator('[data-related-card-surface][style*="opacity: 0.45"]')).toHaveCount(0);
   });
 
   test('B2: clicking a related-card interaction control does NOT navigate', async ({ page }) => {

@@ -80,10 +80,10 @@ export function saveFeedScrollSnapshot(route?: string): void {
   sessionStorage.setItem(`${LEGACY_PREFIX}${pathnameOf(resolvedRoute)}`, String(window.scrollY));
 }
 
-function readSnapshot(route: string): { snapshot: FeedScrollSnapshot; key?: string } | null {
+function readSnapshot(route: string, fallbackToPathname: boolean): { snapshot: FeedScrollSnapshot; key?: string } | null {
   const exactKey = snapshotKey(route);
   const pathnameKey = snapshotKey(pathnameOf(route));
-  for (const key of exactKey === pathnameKey ? [exactKey] : [exactKey, pathnameKey]) {
+  for (const key of !fallbackToPathname || exactKey === pathnameKey ? [exactKey] : [exactKey, pathnameKey]) {
     const raw = sessionStorage.getItem(key);
     if (!raw) continue;
     try {
@@ -96,6 +96,7 @@ function readSnapshot(route: string): { snapshot: FeedScrollSnapshot; key?: stri
     }
   }
 
+  if (!fallbackToPathname) return null;
   const legacy = sessionStorage.getItem(`${LEGACY_PREFIX}${pathnameOf(route)}`);
   const y = legacy === null ? NaN : Number.parseInt(legacy, 10);
   return Number.isFinite(y) && y >= 0 ? { snapshot: { y } } : null;
@@ -121,11 +122,12 @@ export function restoreFeedScrollSnapshot(
   {
     maxFrames = 90,
     onSettled,
-  }: { maxFrames?: number; onSettled?: () => void } = {},
+    fallbackToPathname = true,
+  }: { maxFrames?: number; onSettled?: () => void; fallbackToPathname?: boolean } = {},
 ): () => void {
   if (typeof window === 'undefined') return () => {};
   const resolvedRoute = route ?? currentRoute();
-  const stored = readSnapshot(resolvedRoute);
+  const stored = readSnapshot(resolvedRoute, fallbackToPathname);
   if (!stored) return () => {};
 
   const { snapshot, key } = stored;
