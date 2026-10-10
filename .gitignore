@@ -152,3 +152,6 @@ package-lock.json
 # TestSprite run artifacts: regenerated per run, and config.json holds an API key.
 /testsprite_tests/
 .next-test/
+
+# Personal Obsidian vault settings and workspace state
+/.obsidian/

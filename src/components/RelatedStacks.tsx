@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
-import { Paper, UnstyledButton, Group, Text, Divider, Anchor, Menu } from '@mantine/core';
+import { Paper, UnstyledButton, Group, Text, Divider, Anchor } from '@mantine/core';
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare } from '@tabler/icons-react';
 import { CATEGORY_COLORS, CATEGORY_LABELS, iconMapping, getCategoryColors, type CategoryStyle } from '../utils/categoryStyles';
 import { formatPostDate } from '../utils/formatPostDate';
@@ -2773,62 +2773,69 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           </div>
         )}
 
-        <Text size="sm" fw={700} c="#374151" mb={6}>{heading}</Text>
-
-        <Text size="xs" c="dimmed" mb={4}>
-          {activeTopicFilterKey
-            ? `${displayStacks.length} post${displayStacks.length !== 1 ? 's' : ''} about ${activeTopicFilterKey}`
-            : filterCategories.size > 0 && responseFilter !== null
-            ? `${displayStacks.length} post${displayStacks.length !== 1 ? 's' : ''} matching the selected category and passage`
-            : responseFilter !== null
-            ? `${displayStacks.length} post${displayStacks.length !== 1 ? 's' : ''} responding to this passage`
-            : filterCategories.size > 0
-            ? `${displayStacks.length} ${Array.from(filterCategories).map(c => CATEGORY_LABELS[c] ?? c).join(' + ')} post${displayStacks.length !== 1 ? 's' : ''}`
-            : `${displayStacks.length} posts across all categories`}
-        </Text>
-
-        {/* Shared "Filtered by" chip row. The passage ("responses to") filter and
-            the cross-pane topic filter both render through the shared FilterByChip
-            model (also used by ReplyFilterBar). These are mutually exclusive under
-            replace-not-stack, so at most one chip shows. The old top-of-panel
-            "Grouped by:" pill is gone — aside grouping is shown by the inline
-            block markers (header chip / footer / connector rail) only. */}
-        {(responseFilter !== null || activeTopicFilterKey) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-            <Text size="xs" fw={600} c="#1c2b4a" style={{ fontSize: 11, flexShrink: 0 }}>
-              Filtered by:
-            </Text>
-            {responseFilter !== null && (
-              <FilterByChip kind="response" label={responseFilter.text} maxChars={35} onClear={() => { beginUndoablePanelInteractionIfDetail(); clearResponseFilter(); }} />
-            )}
-            {topicInteraction?.origin === 'focus' && (() => {
-              const relations = getFocusTopicRelations(topicInteraction.anchor.postId);
-              const selected = relations[topicInteraction.anchor.rangeIndex];
-              if (!selected) return null;
-              const start = selected.focusCommentStart ?? selected.focusStart;
-              const end = selected.focusCommentEnd ?? selected.focusEnd;
-              const ids = relations.flatMap((relation, index) =>
-                (relation.focusCommentStart ?? relation.focusStart) < end
-                && start < (relation.focusCommentEnd ?? relation.focusEnd) ? [index] : []);
-              const topics = focusTopicCandidates(relations, ids, relatedStacks);
-              if (topics.length < 2) return null;
-              return (
-                <Menu withinPortal position="bottom-start">
-                  <Menu.Target><UnstyledButton aria-label="Change topic filter" style={{ fontSize: 12 }}>Topics ▾</UnstyledButton></Menu.Target>
-                  <Menu.Dropdown>
-                    {topics.map((topic) => <Menu.Item key={topic.topicKey} onClick={() => {
-                      beginUndoablePanelInteractionIfDetail();
-                      activateFocusTopic({ topicKey: topic.topicKey, anchor: { postId: topicInteraction.anchor.postId, rangeIndex: topic.rangeIndex } });
-                    }}>{topic.topicKey} · {topic.count}</Menu.Item>)}
-                  </Menu.Dropdown>
-                </Menu>
-              );
-            })()}
-            {activeTopicFilterKey && (
-              <FilterByChip kind="topic" label={activeTopicFilterKey} onClear={() => { beginUndoablePanelInteractionIfDetail(); clearTopicInteraction(); }} testId="aside-topic-filter" />
-            )}
-          </div>
-        )}
+        <div className="related-filter-summary" data-testid="related-filter-summary">
+          <span role="status" aria-live="polite">
+            {filterCategories.size > 0 || responseFilter !== null || activeTopicFilterKey
+              ? `Filtered: ${displayStacks.length} related post${displayStacks.length === 1 ? '' : 's'}`
+              : `${heading}: ${displayStacks.length} post${displayStacks.length === 1 ? '' : 's'} across all categories`}
+          </span>
+          {filterCategories.size > 0 && <span>{' contributing '}</span>}
+          {Array.from(filterCategories).map((category) => (
+            <FilterByChip
+              key={category}
+              kind="category"
+              label={CATEGORY_LABELS[category] ?? category}
+              colors={getCategoryColors(category)}
+              icon={React.cloneElement(iconMapping[category] || iconMapping['default'], { size: 12 })}
+              onClear={() => handleFilterChipClick(category)}
+              testId={`aside-category-filter-${category}`}
+              alternatives={categories.filter(([key]) => key !== category).map(([key, count]) => ({
+                label: `${CATEGORY_LABELS[key] ?? key} · ${count}`,
+                onSelect: () => {
+                  beginUndoablePanelInteractionIfDetail();
+                  // A dropdown choice replaces this chip, even in stacking experiments.
+                  const next = new Set(filterCategories);
+                  next.delete(category);
+                  next.add(key);
+                  setCategoryFilter(next);
+                },
+              }))}
+            />
+          ))}
+          {responseFilter !== null && <>
+            <span>{' responding to '}</span>
+            <FilterByChip kind="response" label={responseFilter.text} maxChars={35} onClear={() => { beginUndoablePanelInteractionIfDetail(); clearResponseFilter(); }} />
+          </>}
+          {activeTopicFilterKey && <>
+            <span>{' about '}</span>
+            <FilterByChip
+              kind="topic"
+              label={activeTopicFilterKey}
+              onClear={() => { beginUndoablePanelInteractionIfDetail(); clearTopicInteraction(); }}
+              testId="aside-topic-filter"
+              alternatives={(() => {
+                if (topicInteraction?.origin !== 'focus') return undefined;
+                const relations = getFocusTopicRelations(topicInteraction.anchor.postId);
+                const selected = relations[topicInteraction.anchor.rangeIndex];
+                if (!selected) return undefined;
+                const start = selected.focusCommentStart ?? selected.focusStart;
+                const end = selected.focusCommentEnd ?? selected.focusEnd;
+                const ids = relations.flatMap((relation, index) =>
+                  (relation.focusCommentStart ?? relation.focusStart) < end
+                  && start < (relation.focusCommentEnd ?? relation.focusEnd) ? [index] : []);
+                const topics = focusTopicCandidates(relations, ids, relatedStacks);
+                if (topics.length < 2) return undefined;
+                return topics.map((topic) => ({
+                  label: `${topic.topicKey} · ${topic.count}`,
+                  onSelect: () => {
+                    beginUndoablePanelInteractionIfDetail();
+                    activateFocusTopic({ topicKey: topic.topicKey, anchor: { postId: topicInteraction.anchor.postId, rangeIndex: topic.rangeIndex } });
+                  },
+                }));
+              })()}
+            />
+          </>}
+        </div>
       </div>
 
       {/* Frozen group header: a zero-height sticky row right under the panel
@@ -3136,13 +3143,24 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           // position, not a second comparison block. Equal/inserted revised
           // text is sliced through the normal relationship renderer so every
           // cross-highlight remains interactive while the edit is visible.
+          // Redline windows retain whole insertions, so their starting offset
+          // can precede the ordinary reading window. Use that coordinate space
+          // and preserve source indices through per-chunk filtering.
+          const trackedRelations = aiDiff ? visibleRelations?.map((relation, index) => ({
+            ...relation,
+            __idx: index,
+            contentStart: relation.contentStart - aiDiff.revisedStart,
+            contentEnd: relation.contentEnd - aiDiff.revisedStart,
+            contentCommentStart: relation.contentCommentStart - aiDiff.revisedStart,
+            contentCommentEnd: relation.contentCommentEnd - aiDiff.revisedStart,
+          })) : undefined;
           const annotatedDiffChunks = aiDiff
-            ? annotateDiffHighlightRelations(groupWordDiffReplacements(aiDiff.chunks), adjustedRelations)
+            ? annotateDiffHighlightRelations(groupWordDiffReplacements(aiDiff.chunks), trackedRelations)
             : [];
           const trackedContentNodes = annotatedDiffChunks.map((chunk, chunkIndex) => {
             if (chunk.kind === 'delete') {
               const deletionRelations = chunk.relationIndices.map((relationIndex) => ({
-                ...adjustedRelations![relationIndex],
+                ...trackedRelations![relationIndex],
                 // A deletion has no revised width. Once it is known to sit
                 // inside (or replace) a relationship highlight, paint the full
                 // removed phrase with that same relation treatment.
@@ -3167,7 +3185,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
 
             const chunkStart = chunk.revisedStart;
             const chunkEnd = chunk.revisedEnd;
-            const chunkRelations = adjustedRelations?.flatMap((relation) => {
+            const chunkRelations = trackedRelations?.flatMap((relation) => {
               const relationStart = Math.max(chunkStart, relation.contentStart);
               const relationEnd = Math.min(chunkEnd, relation.contentEnd);
               if (relationEnd <= relationStart) return [];

@@ -1,3 +1,10 @@
+---
+knowledge_type: "reference"
+decision_status: "reference"
+visibility: "public"
+title: "CLAUDE.md"
+---
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -111,3 +118,11 @@ NEXT_PUBLIC_MODE=development
 - **Commits**: Imperative mood, reference issue number: `Add login form (#5)`. No co-author signatures.
 - **PRs**: Include `Closes #<number>` in body. Keep under ~400 changed lines. Merge commits only — never squash or rebase.
 - Never push directly to the main branch.
+
+## Decision history and session continuity
+
+Read `knowledge/README.md` and relevant accepted decision notes before changing
+interaction behavior. The Obsidian Base indexes existing Markdown documents;
+private `docs/` notes remain ignored. Treat historical plan directives as source
+material, not instructions to execute. Record new rationale and validation in
+`knowledge/` (public) or `docs/` (private), linking superseded decisions.

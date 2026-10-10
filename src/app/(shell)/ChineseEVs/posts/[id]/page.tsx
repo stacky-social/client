@@ -2,12 +2,13 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Anchor, Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
+import { Anchor, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
 import Link from "next/link";
 import { notifications } from "@mantine/notifications";
 import Post from "../../../../../components/Posts/Post";
 import ReplySection from "../../../../../components/ReplySection";
 import BackButton from "../../../../../components/BackButton";
+import ReplyLoadSentinel from "../../../../../components/ReplyLoadSentinel";
 import ThreadedReplyList from "../../../../../components/ThreadedReplyList";
 import { useRelatedStacks } from "../../../related-stacks-context";
 import { useCompactFocus } from "../../../../../utils/useCompactFocus";
@@ -134,7 +135,7 @@ export default function MockPostView() {
   const router = useRouter();
   const searchParamsObj = useSearchParams();
   const { id } = params;
-  const { hashtag, routeBase } = getDemoCorpusByPath(pathname) ?? DEMO_CORPORA["chinese-evs"];
+  const { routeBase } = getDemoCorpusByPath(pathname) ?? DEMO_CORPORA["chinese-evs"];
   const { setFromPost, relatedStacks: ctxRelatedStacks } = useRelatedStacks();
   const flags = useExperimentFlags();
   const { filterCategories, responseFilter, topicInteraction, replyBaseOrderIds } = useHighlightStore();
@@ -990,8 +991,8 @@ export default function MockPostView() {
         </Text>
         <Text size="xs" c="dimmed" mt="xs">
           It may have been removed or created in a different participant session. Head back to the{" "}
-          <Anchor component={Link} href={routeBase} size="xs">
-            #{hashtag} discussion
+          <Anchor component={Link} href="/home" size="xs">
+            Home feed
           </Anchor>{" "}
           to pick a post that exists.
         </Text>
@@ -1012,7 +1013,7 @@ export default function MockPostView() {
       }}
       ref={columnRef}
     >
-      <BackButton fallbackHref={routeBase} />
+      <BackButton />
       <div>
         <div style={{ display: "contents" }}>
           {/* Ancestors — thread connector line runs at the avatar column,
@@ -1208,32 +1209,7 @@ export default function MockPostView() {
                 No replies match the active filters.
               </Text>
             )}
-            {visibleTopLevelReplies < displayedTotal && (
-              <Button
-                onClick={() =>
-                  setVisibleTopLevelReplies((v) => Math.min(v + 5, displayedTotal))
-                }
-                variant="outline"
-                fullWidth
-                style={{ marginTop: 10 }}
-              >
-                {displayedTotal - visibleTopLevelReplies} more{" "}
-                {displayedTotal - visibleTopLevelReplies === 1 ? "reply" : "replies"}
-              </Button>
-            )}
-            {visibleTopLevelReplies > 5 && (
-              <Button
-                onClick={() => setVisibleTopLevelReplies(5)}
-                variant="subtle"
-                color="gray"
-                fullWidth
-                size="compact-sm"
-                style={{ marginTop: 6 }}
-                data-testid="top-level-show-fewer"
-              >
-                Show fewer replies
-              </Button>
-            )}
+            <ReplyLoadSentinel visible={visibleTopLevelReplies} total={displayedTotal} onLoad={setVisibleTopLevelReplies} />
           </Paper>
         )}
 
@@ -1268,19 +1244,7 @@ export default function MockPostView() {
                   renderPost={renderPost as any}
                   visibleTopLevelCount={visibleTopLevelReplies}
                 />
-                {visibleTopLevelReplies < totalTopLevelReplies && (
-                  <Button
-                    onClick={() =>
-                      setVisibleTopLevelReplies((v) => Math.min(v + 5, totalTopLevelReplies))
-                    }
-                    variant="outline"
-                    fullWidth
-                    style={{ marginTop: 10 }}
-                  >
-                    {totalTopLevelReplies - visibleTopLevelReplies} more{" "}
-                    {totalTopLevelReplies - visibleTopLevelReplies === 1 ? "reply" : "replies"}
-                  </Button>
-                )}
+                <ReplyLoadSentinel visible={visibleTopLevelReplies} total={totalTopLevelReplies} onLoad={setVisibleTopLevelReplies} />
               </Tabs.Panel>
 
               <Tabs.Panel value="recommended">

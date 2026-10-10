@@ -1,3 +1,10 @@
+---
+knowledge_type: "reference"
+decision_status: "reference"
+visibility: "public"
+title: "AI-Assisted Workflow Guide"
+---
+
 # AI-Assisted Workflow Guide
 
 This guide walks you through using Claude Code and the skills in this repo to follow the team development workflow. Each section matches a phase of your iteration cycle.

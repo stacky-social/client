@@ -1,3 +1,10 @@
+---
+knowledge_type: "reference"
+decision_status: "proposed"
+visibility: "public"
+title: "Mastodon architecture and Chinese EV corpus migration"
+---
+
 # Mastodon architecture and Chinese EV corpus migration
 
 _Repository and live-service review: 2026-08-11. Planning only; no server files or live data were changed._

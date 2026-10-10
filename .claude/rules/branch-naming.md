@@ -1,3 +1,10 @@
+---
+knowledge_type: "convention"
+decision_status: "reference"
+visibility: "public"
+title: "Branch Naming Convention"
+---
+
 # Branch Naming Convention
 
 When creating branches, ALWAYS follow this pattern:

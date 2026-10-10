@@ -288,7 +288,7 @@ test.describe('Shareable related-post filter history', () => {
     // was opened from, while browser Back keeps undoing filters (covered by the
     // tests above). A shared-link ?from hint is unvalidated URL input, so an id
     // that resolves to nothing must not become the destination — the reader
-    // lands on the corpus feed instead of a missing post.
+    // lands on Home instead of a missing post.
     await page.goto(`${DETAIL_URL}?from=999999999`);
     const backBtn = page.getByRole('button', { name: /Back/ });
     await expect(backBtn).toBeVisible();
@@ -299,7 +299,7 @@ test.describe('Shareable related-post filter history', () => {
     await expect(firstChip).toHaveAttribute('aria-pressed', 'true');
 
     await backBtn.click();
-    await page.waitForURL((url) => url.pathname === '/AIWorkforce', { timeout: 30_000 });
-    expect(new URL(page.url()).pathname).toBe('/AIWorkforce');
+    await page.waitForURL((url) => url.pathname === '/home', { timeout: 30_000 });
+    expect(new URL(page.url()).pathname).toBe('/home');
   });
 });

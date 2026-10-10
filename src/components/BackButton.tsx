@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { UnstyledButton, Text, Group } from '@mantine/core';
 import { IconArrowLeft } from '@tabler/icons-react';
+import { backNavigationTarget } from '../utils/backNavigation.mjs';
 
 interface BackButtonProps {
   /**
@@ -36,7 +37,7 @@ export default function BackButton({ fallbackHref = '/home' }: BackButtonProps) 
     }
     // A recorded origin pointing back at this same post would strand the
     // reader here, which is the very thing this button exists to avoid.
-    const target = previous && previous.split('?')[0] !== here ? previous : fallbackHref;
+    const target = backNavigationTarget(previous, here, fallbackHref);
     router.push(target);
   };
 

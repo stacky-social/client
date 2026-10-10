@@ -1,3 +1,10 @@
+---
+knowledge_type: "convention"
+decision_status: "reference"
+visibility: "public"
+title: "Commit Conventions"
+---
+
 # Commit Conventions
 
 When creating commits:

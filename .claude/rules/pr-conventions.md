@@ -1,3 +1,10 @@
+---
+knowledge_type: "convention"
+decision_status: "reference"
+visibility: "public"
+title: "Pull Request Conventions"
+---
+
 # Pull Request Conventions
 
 - Include `Closes #<number>` or `Fixes #<number>` in every PR body

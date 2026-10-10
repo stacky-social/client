@@ -369,7 +369,16 @@ const FocusTopicHighlightedContent = React.forwardRef<
     pointer?: { x: number; y: number },
   ) => {
     if (topics.length <= 1) return;
-    const rect = pointer ? { left: pointer.x, right: pointer.x, top: pointer.y, bottom: pointer.y } : mark.getBoundingClientRect();
+    // Keep the menu below the entire hovered line, even when the pointer is
+    // near its top. A multiline mark's bounding box would jump to its last line.
+    const hoveredLine = pointer
+      ? Array.from(mark.getClientRects()).find((line) => pointer.y >= line.top && pointer.y <= line.bottom)
+      : undefined;
+    const rect = pointer ? {
+      left: pointer.x, right: pointer.x,
+      top: Math.min(hoveredLine?.top ?? pointer.y, pointer.y - 18),
+      bottom: Math.max(hoveredLine?.bottom ?? pointer.y, pointer.y + 18),
+    } : mark.getBoundingClientRect();
     hideTooltip();
     tooltipShownRef.current = false;
     setPicker({

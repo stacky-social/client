@@ -25,6 +25,8 @@ type BridgeGeometry = {
   viewportWidth: number; viewportHeight: number;
   sourceX: number; sourceTopY: number; sourceBottomY: number;
   targetX: number; targetTopY: number; targetBottomY: number;
+  /** Cover the divider hit area and native focus outline through the open mouth. */
+  dividerCoverRight: number;
   upperPath: string; lowerPath: string; ribbonPath: string;
   /** Left edge of the source card, and the outline (card + ribbon) that casts
    *  the open bridge's single shared shadow. */
@@ -230,6 +232,11 @@ function syncRenderedGeometry(svg: SVGSVGElement | null, geometry: BridgeGeometr
   gradient?.setAttribute("x2", String(geometry.targetX));
   const localTargetTop = geometry.targetTopY - geometry.originY;
   const localTargetBottom = geometry.targetBottomY - geometry.originY;
+  const dividerCover = layer.querySelector<SVGRectElement>('[data-testid="weave-divider-cover"]');
+  dividerCover?.setAttribute("x", String(geometry.targetX - 1));
+  dividerCover?.setAttribute("y", String(localTargetTop));
+  dividerCover?.setAttribute("width", String(geometry.dividerCoverRight - geometry.targetX + 1));
+  dividerCover?.setAttribute("height", String(localTargetBottom - localTargetTop));
   const upperRail = layer.querySelector<SVGLineElement>('[data-testid="weave-divider-rail-upper"]');
   const lowerRail = layer.querySelector<SVGLineElement>('[data-testid="weave-divider-rail-lower"]');
   [upperRail, lowerRail].forEach((rail) => {
@@ -592,7 +599,12 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
         `H ${sourceX} Z`,
       ].join(" ");
       const shadowPath = `${sourceOutline} ${ribbonPath}`;
-      const coordinates = [sourceX, sourceTopY, sourceBottomY, targetX, targetTopY, targetBottomY];
+      // The active 3px guide straddles targetX; keyboard focus also outlines
+      // the entire hit target. The ribbon stops at targetX, so without this
+      // small extension its right half cuts through the opening. Keep native
+      // focus/resize feedback outside the mouth and leave hit testing intact.
+      const dividerCoverRight = Math.ceil(dividerRect?.right ?? targetX) + 2;
+      const coordinates = [sourceX, sourceTopY, sourceBottomY, targetX, targetTopY, targetBottomY, dividerCoverRight];
       const next: BridgeGeometry = {
         focusId: activePostId,
         sourceKind,
@@ -607,6 +619,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
         targetX,
         targetTopY,
         targetBottomY,
+        dividerCoverRight,
         upperPath,
         lowerPath,
         ribbonPath,
@@ -851,7 +864,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
     const morphDelay = entering ? layer.enterDelay : 0;
     const revealTop = geometry.targetTopY - geometry.originY;
     const revealHeight = geometry.targetBottomY - geometry.targetTopY;
-    const revealWidth = geometry.targetX - geometry.sourceX + 1;
+    const revealWidth = (layerClassic ? geometry.targetX : geometry.dividerCoverRight) - geometry.sourceX + 1;
     const revealMidY = (
       geometry.sourceTopY + geometry.sourceBottomY
     ) / 2 - geometry.originY;
@@ -946,6 +959,16 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
             style={layerClassic ? { fill: `url(#${ribbonGradientId})` } : undefined}
             data-testid={testId("weave-ribbon")}
           />
+          {!layerClassic && (
+            <rect
+              className={classes.ribbon}
+              x={geometry.targetX - 1}
+              y={revealTop}
+              width={geometry.dividerCoverRight - geometry.targetX + 1}
+              height={revealHeight}
+              data-testid={testId("weave-divider-cover")}
+            />
+          )}
           <path
             className={classes.guide}
             d={geometry.upperPath}

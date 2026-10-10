@@ -13,7 +13,7 @@ import { expect, test } from '@playwright/test';
 // tests seed the key directly and exercise the button's own contract.
 
 const POST = '/EnergyTech/posts/cw-S1VeKWSitwk9wRrq';
-const FEED = '/EnergyTech';
+const FEED = '/home';
 const backButton = 'button:has-text("Back")';
 
 test('the visible Back button returns to the page you came from', async ({ page }) => {
@@ -42,10 +42,16 @@ test('the visible Back button returns to the page you came from', async ({ page 
   expect(new URL(page.url()).pathname).toBe(FEED);
 });
 
-test('with no recorded origin it falls back to the corpus feed', async ({ page }) => {
+for (const recordedOrigin of [null, '/EnergyTech']) {
+test(`with ${recordedOrigin ?? 'no recorded origin'} it falls back to Home`, async ({ page }) => {
   test.setTimeout(150_000);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  // A deep link with no ?from= and nothing in sessionStorage.
+  if (recordedOrigin) {
+    await page.addInitScript(([post, origin]) => {
+      sessionStorage.setItem(`previousPath:${post}`, origin);
+    }, [POST, recordedOrigin]);
+  }
+  // Both direct links and stale bare-corpus origins must return to Home.
   await page.goto(POST, { waitUntil: 'domcontentloaded' });
   await page.locator('[data-testid="focus-reveal"]').first()
     .waitFor({ state: 'visible', timeout: 90_000 });
@@ -58,6 +64,8 @@ test('with no recorded origin it falls back to the corpus feed', async ({ page }
   await page.waitForURL((url) => url.pathname === FEED, { timeout: 30_000 });
   expect(new URL(page.url()).pathname).toBe(FEED);
 });
+
+}
 
 test('browser Back still undoes a filter rather than leaving the post', async ({ page }) => {
   test.setTimeout(150_000);

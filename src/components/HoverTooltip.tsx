@@ -95,7 +95,7 @@ export function HoverTooltip(): JSX.Element | null {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const offsetX = 14;
-      const offsetY = 18;
+      const offsetY = 28;
       let x = clientX + offsetX;
       let y = clientY + offsetY;
       if (x + tw > vw - 8) x = vw - tw - 8;

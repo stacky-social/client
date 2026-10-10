@@ -1,3 +1,4 @@
+import { revealTopLevelReplies } from './helpers/revealReplies';
 import { test, expect, Page } from '@playwright/test';
 import mockData from '../src/app/FakeData/chinese-evs.json';
 import scaleDemoData from '../src/app/FakeData/scale-demo.json';
@@ -141,13 +142,6 @@ async function clickAsideCardMark(page: Page, ids: string[], forceId?: string): 
 /** Entry 143195604 has 15 top-level replies (real descendant data) and the reply
  *  list paginates at 5; reveal the full top level so a fixture-derived anchor
  *  (which may sort past the first page) is rendered. */
-async function revealTopLevelReplies(page: Page) {
-  for (let i = 0; i < 6; i++) {
-    const more = page.getByRole('button', { name: /^\d+ more repl/i });
-    if ((await more.count()) === 0) break;
-    await more.first().click();
-  }
-}
 
 test.describe('Cross-pane grouping / filtering (T7)', () => {
   test('reply span → left clusters (rail) + aside "Filtered by"; re-click clears both', async ({ page }) => {
@@ -335,14 +329,12 @@ test.describe('"0 more" spans', () => {
   const open = async (page: Page) => {
     await page.goto('/Tariffs/posts/cw-u-wJYypDmXgHFRtK');
     await expect(page.locator('mark[data-reply-range-id]').first()).toBeAttached({ timeout: 90_000 });
-    // Show every reply: "N more replies" pages the list, branches expand in place.
+    // Load every top-level reply, then expand nested branches in place.
+    await revealTopLevelReplies(page);
     for (let round = 0; round < 12; round += 1) {
       const grew = await page.evaluate(async () => {
         const before = document.querySelectorAll('[data-reply-depth]').length;
         document.querySelectorAll<HTMLElement>('[data-testid^="nested-see-more-"]').forEach((b) => b.click());
-        Array.from(document.querySelectorAll('button'))
-          .filter((b) => /^\d+ more repl/.test(b.textContent?.trim() ?? ''))
-          .forEach((b) => b.click());
         await new Promise((r) => setTimeout(r, 400));
         return document.querySelectorAll('[data-reply-depth]').length > before;
       });

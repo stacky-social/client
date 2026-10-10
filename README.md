@@ -1,3 +1,10 @@
+---
+knowledge_type: "reference"
+decision_status: "reference"
+visibility: "public"
+title: "crossweave"
+---
+
 # crossweave
 
 crossweave is a Mastodon-compatible social client built with Next.js. Users browse a feed of posts and explore **stacks** — groups of related posts — in a right-hand panel connected to the post they are reading. It also includes an `#AIWorkforce` research feed backed by the bundled live-demo corpus, which doubles as a zero-setup demo. The stack is Next.js 15 (App Router) with TypeScript, Node 22.x, pnpm, Mantine v7, and axios.
@@ -143,3 +150,10 @@ focused with a `Closes #<number>` reference in the body.
 Some hardening is still planned before this is fully production-ready: more
 robust handling of the OAuth client secret, sanitizing rendered post HTML, and
 broader accessibility coverage.
+
+## Decisions and session continuity
+
+The [decision database](knowledge/README.md) indexes repository documentation in
+Obsidian Bases using Markdown properties. Open the repository root as a vault,
+then open `knowledge/Decisions.base`. Historical local specs remain private;
+current public decisions and validation are recorded under `knowledge/`.

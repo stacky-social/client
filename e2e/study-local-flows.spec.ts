@@ -1,3 +1,4 @@
+import { revealTopLevelReplies } from './helpers/revealReplies';
 import { test, expect } from '@playwright/test';
 import mockData from '../src/app/FakeData/listy-injection.json';
 
@@ -95,9 +96,7 @@ test.describe('study-mode local flows', () => {
         continue;
       }
       await expect(thread).toBeVisible();
-      while (await page.getByRole('button', { name: /more repl(?:y|ies)$/ }).count()) {
-        await page.getByRole('button', { name: /more repl(?:y|ies)$/ }).first().click();
-      }
+      await revealTopLevelReplies(page);
       await expect(thread.locator('[data-reply-depth="0"]')).toHaveCount(expectedIds.length);
       for (const replyId of expectedIds) {
         await expect(thread.locator(`[data-post-id="${replyId}"]`)).toBeVisible();

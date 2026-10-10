@@ -1,3 +1,10 @@
+---
+knowledge_type: "plan"
+decision_status: "proposed"
+visibility: "public"
+title: "Backend integration and user-study plan"
+---
+
 # Backend integration and user-study plan
 
 This is a planning artifact only. No changes have been made to the Mastodon fork.

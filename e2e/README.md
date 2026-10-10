@@ -1,3 +1,10 @@
+---
+knowledge_type: "reference"
+decision_status: "reference"
+visibility: "public"
+title: "E2E smoke tests"
+---
+
 # E2E smoke tests
 
 Run with `pnpm test:e2e` (or `pnpm test:e2e:ui` for the Playwright UI).

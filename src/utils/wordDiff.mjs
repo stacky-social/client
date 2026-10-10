@@ -255,10 +255,20 @@ export function createWordDiffForRevisedRange(
     }
   }
 
+  let actualStart = start;
+  let actualEnd = end;
   const chunks = [];
   entries.forEach((entry, index) => {
     if (entry.chunk.kind !== "equal") {
-      if (selectedChanges.has(index)) chunks.push(entry.chunk);
+      if (selectedChanges.has(index)) {
+        chunks.push(entry.chunk);
+        // Whole insertions may extend beyond the requested reading window.
+        // Report their real coordinates so highlights stay on the same words.
+        if (entry.chunk.kind === "insert") {
+          actualStart = Math.min(actualStart, entry.start);
+          actualEnd = Math.max(actualEnd, entry.end);
+        }
+      }
       return;
     }
     const visibleStart = Math.max(start, entry.start);
@@ -273,10 +283,10 @@ export function createWordDiffForRevisedRange(
   return {
     chunks: compact(chunks),
     hasChanges: selectedChanges.size > 0,
-    revisedStart: start,
-    revisedEnd: end,
-    hasPrefix: start > 0,
-    hasSuffix: end < revised.length,
+    revisedStart: actualStart,
+    revisedEnd: actualEnd,
+    hasPrefix: actualStart > 0,
+    hasSuffix: actualEnd < revised.length,
   };
 }
 

@@ -25,7 +25,7 @@ const RAIL_R = 12;
  * single continuous rail whose top-left / bottom-left corners are rounded and
  * whose first member carries the topic tag. Applied at the BRANCH level (the
  * depth-0 wrapper) so the rail spans each member's whole subtree — post + its
- * "Show N more" expander + any expanded children — and never breaks.
+ * "Show N nested replies" expander + any expanded children — and never breaks.
  */
 interface ClusterRail {
   memberIds: Set<string>;
@@ -91,7 +91,7 @@ interface ThreadedReplyListProps {
   /**
    * Active reply-cluster bracket. When present, the grouped top-level members
    * render inside a continuous rail (rounded corners + topic tag) that wraps each
-   * member's whole branch, so it never breaks at a member's "Show N more" expander
+   * member's whole branch, so it never breaks at a member's "Show N nested replies" expander
    * the way a per-post wrapper did. Mirrors the aside's related-card grouping.
    */
   clusterRail?: ClusterRail;
@@ -132,13 +132,11 @@ function buildChildMap(replies: PostType[]): Map<string, PostType[]> {
 
 /** X-style branch preview: nested replies (replies-to-replies, i.e. depth >= 2
  *  from the focus post) are HIDDEN by default — each parent collapses its whole
- *  subtree behind "Show N more replies", which expands in place. When a reply
+ *  subtree behind "Show N nested replies", which expands in place. When a reply
  *  filter is active, page.tsx passes the matching branches' parent ids in
  *  `forceRevealParentIds` so a matching grandchild surfaces instead of staying
  *  hidden behind the collapsed count. */
 const NESTED_PREVIEW = 0;
-/** Children revealed per "show more" click (mirrors the top-level 5-at-a-time). */
-const NESTED_PAGE = 5;
 
 /** OP reply first, then most-liked, then newest — X's relevance, approximated. */
 function pickPreviewFirst(children: PostType[], opAcct?: string): PostType[] {
@@ -186,7 +184,7 @@ function renderTree(
     : childMap.get(post.id) ?? [];
   // A filter-matched branch is force-revealed (all children, no expander); else
   // the default is NESTED_PREVIEW (0 → grandchildren collapsed) plus whatever the
-  // user has manually expanded via "Show N more replies".
+  // user has manually expanded via "Show N nested replies".
   const forced = forceRevealParentIds?.has(post.id) ?? false;
   const shown = forced
     ? children.length
@@ -281,10 +279,8 @@ function renderTree(
       {/* The post card itself */}
       {renderPost(post)}
 
-      {/* Recursively render children — one preview inline, the rest behind the
-          in-place expander, so a branch never dumps its whole subtree at once.
-          Preview children apply the same rule to THEIR children, so the default
-          view reads as X-style linear chains. */}
+      {/* Each expanded parent reveals its immediate children. Deeper branches
+          retain their own independent expansion state. */}
       {visibleChildren.map((child) =>
         renderTree(child, depth + 1, childMap, renderPost, shownByParent, onShowMore, onShowLess, opAcct, previewsEnabled, forceRevealParentIds, clusterRail)
       )}
@@ -309,10 +305,11 @@ function renderTree(
                 e.stopPropagation();
                 onShowMore(post.id);
               }}
-              aria-label={`Show more replies to this comment (${remaining} hidden, expands in place)`}
+              aria-label={`Show ${remaining} nested ${remaining === 1 ? "reply" : "replies"} to this comment`}
+              aria-expanded={false}
               style={expanderStyle}
             >
-              Show {remaining} more {remaining === 1 ? "reply" : "replies"}
+              Show {remaining} nested {remaining === 1 ? "reply" : "replies"}
             </button>
           )}
           {isExpanded && (
@@ -323,10 +320,11 @@ function renderTree(
                 e.stopPropagation();
                 onShowLess(post.id);
               }}
-              aria-label="Collapse this branch back to its preview reply"
+              aria-label="Hide nested replies"
+              aria-expanded={true}
               style={{ ...expanderStyle, color: "#94a3b8" }}
             >
-              Show fewer
+              Hide nested replies
             </button>
           )}
         </div>
@@ -355,8 +353,8 @@ export default function ThreadedReplyList({
     setShownByParent({});
   }, [rootId]);
   const handleShowMore = (parentId: string) =>
-    setShownByParent((prev) => ({ ...prev, [parentId]: (prev[parentId] ?? NESTED_PREVIEW) + NESTED_PAGE }));
-  // Collapse folds the branch back to its one-reply preview. Descendants'
+    setShownByParent((prev) => ({ ...prev, [parentId]: Number.MAX_SAFE_INTEGER }));
+  // Collapse hides all children of this parent. Descendants'
   // own expansion counts are kept, so re-expanding restores where you were.
   const handleShowLess = (parentId: string) =>
     setShownByParent((prev) => {

@@ -169,3 +169,16 @@ test("phrase grouping preserves unchanged words and paragraph boundaries", () =>
     assert.deepEqual(groupWordDiffReplacements(raw), raw);
   }
 });
+
+test("redline coordinates include whole insertions at a clipped window boundary", () => {
+  const original = "Before. brief wording. Who wins that tariff trade war? After.";
+  const revised = "Before. substantially expanded contextual wording. Who wins that tariff trade war? After.";
+  const requestedStart = revised.indexOf("contextual");
+  const range = createWordDiffForRevisedRange(original, revised, requestedStart, revised.length);
+  const displayedRevised = range.chunks.filter((chunk) => chunk.kind !== "delete").map((chunk) => chunk.text).join("");
+  assert.ok(range.revisedStart < requestedStart);
+  assert.equal(displayedRevised, revised.slice(range.revisedStart, range.revisedEnd));
+  const crux = "Who wins that tariff trade war?";
+  const start = revised.indexOf(crux) - range.revisedStart;
+  assert.equal(displayedRevised.slice(start, start + crux.length), crux);
+});

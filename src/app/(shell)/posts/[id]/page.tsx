@@ -4,12 +4,13 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallba
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
-import { Anchor, Button, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
+import { Anchor, Divider, Loader, Paper, Tabs, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import Post from "../../../../components/Posts/Post";
 import RepliesStack from "../../../../components/RepliesStack";
 import ReplySection from "../../../../components/ReplySection";
 import BackButton from "../../../../components/BackButton";
+import ReplyLoadSentinel from "../../../../components/ReplyLoadSentinel";
 import ThreadedReplyList from "../../../../components/ThreadedReplyList";
 import { useRelatedStacks } from "../../related-stacks-context";
 import { useCompactFocus } from "../../../../utils/useCompactFocus";
@@ -738,23 +739,7 @@ export default function PostView() {
                   renderPost={renderPost}
                   visibleTopLevelCount={visibleTopLevelReplies}
                 />
-                {visibleTopLevelReplies < totalTopLevelReplies && (
-                  <Button
-                    onClick={() =>
-                      setVisibleTopLevelReplies((v) =>
-                        Math.min(v + 5, totalTopLevelReplies)
-                      )
-                    }
-                    variant="outline"
-                    fullWidth
-                    style={{ marginTop: 10 }}
-                  >
-                    {totalTopLevelReplies - visibleTopLevelReplies} more{" "}
-                    {totalTopLevelReplies - visibleTopLevelReplies === 1
-                      ? "reply"
-                      : "replies"}
-                  </Button>
-                )}
+                <ReplyLoadSentinel visible={visibleTopLevelReplies} total={totalTopLevelReplies} onLoad={setVisibleTopLevelReplies} />
               </Tabs.Panel>
 
               <Tabs.Panel value="recommended">

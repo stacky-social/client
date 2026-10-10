@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Menu } from "@mantine/core";
 
 export type FilterByKind = "category" | "response" | "topic";
 
@@ -22,6 +23,8 @@ export interface FilterByChipModel {
   maxChars?: number;
   /** Optional test hook for e2e targeting (the cross-pane topic chips). */
   testId?: string;
+  /** Label opens alternatives; the separate × always clears the filter. */
+  alternatives?: { label: string; onSelect: () => void }[];
 }
 
 const clearX: React.CSSProperties = { fontSize: 13, lineHeight: 1, paddingLeft: 2 };
@@ -34,12 +37,36 @@ export default function FilterByChip({
   icon,
   maxChars = 32,
   testId,
+  alternatives,
 }: FilterByChipModel) {
   const bg = colors?.bg ?? "#f1f5f9";
   const text = colors?.text ?? "#475569";
   const border = colors?.border ?? "#cbd5e1";
   const shown = label.length > maxChars ? label.slice(0, maxChars) + "…" : label;
   const display = kind === "response" ? `“${shown}”` : shown;
+  if (alternatives?.length) {
+    return (
+      <span data-testid={testId} className="filter-summary-chip" style={{ background: bg, color: text, borderColor: border }}>
+        <Menu withinPortal position="bottom-start" trigger="click-hover" openDelay={180} closeDelay={200}>
+          <Menu.Target>
+            <button type="button" className="filter-summary-chip-label" aria-label={`Change ${kind === "category" ? "contribution type" : kind} filter`} onClick={(e) => e.stopPropagation()}>
+              {icon}<span>{display}</span><span aria-hidden>▾</span>
+            </button>
+          </Menu.Target>
+          <Menu.Dropdown>
+            {alternatives.map((alternative) => (
+              <Menu.Item key={alternative.label} onClick={(e) => { e.stopPropagation(); alternative.onSelect(); }}>
+                {alternative.label}
+              </Menu.Item>
+            ))}
+          </Menu.Dropdown>
+        </Menu>
+        <button type="button" className="filter-summary-chip-clear" aria-label={`Remove ${label} filter`} onClick={(e) => { e.stopPropagation(); onClear(); }}>
+          <span aria-hidden>×</span>
+        </button>
+      </span>
+    );
+  }
   return (
     <button
       type="button"

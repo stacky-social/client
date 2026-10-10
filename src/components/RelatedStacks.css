@@ -230,3 +230,51 @@
     .ai-edit-edited-text,
     .ai-edit-inline-text { transition: none; }
   }
+
+
+  .related-filter-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 4px;
+    color: #1c2b4a;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.6;
+  }
+
+  .filter-summary-chip {
+    display: inline-flex;
+    align-items: stretch;
+    max-width: 100%;
+    border: 1px solid;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .filter-summary-chip-label,
+  .filter-summary-chip-clear {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    padding: 2px 7px;
+    border: 0;
+    border-radius: 12px;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .filter-summary-chip-label > span:first-of-type {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .filter-summary-chip-clear { font-size: 15px; padding-left: 5px; }
+  .filter-summary-chip-clear:hover { background: rgba(28, 43, 74, 0.08); }
+  .filter-summary-chip button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }

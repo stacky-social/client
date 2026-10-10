@@ -1,3 +1,10 @@
+---
+knowledge_type: "reference"
+decision_status: "reference"
+visibility: "public"
+title: "Curated demo feed data schema"
+---
+
 # Curated demo feed data schema
 
 The shared contract backs `scale-demo.json`, the corrected multi-topic curated

@@ -1,0 +1,47 @@
+filters:
+  and:
+    - 'file.ext == "md"'
+    - 'knowledge_type != null'
+properties:
+  note.knowledge_type:
+    displayName: Kind
+  note.decision_status:
+    displayName: Status
+  note.visibility:
+    displayName: Visibility
+views:
+  - type: table
+    name: All documentation
+    order:
+      - file.name
+      - note.title
+      - note.knowledge_type
+      - note.decision_status
+      - note.visibility
+      - note.recorded_on
+  - type: table
+    name: Current decisions
+    filters:
+      and:
+        - 'decision_status == "accepted"'
+    order:
+      - file.name
+      - note.title
+      - note.recorded_on
+  - type: table
+    name: Historical designs and plans
+    filters:
+      and:
+        - 'decision_status == "historical"'
+    order:
+      - file.name
+      - note.knowledge_type
+      - note.recorded_on
+  - type: table
+    name: Proposals
+    filters:
+      and:
+        - 'decision_status == "proposed"'
+    order:
+      - file.name
+      - note.title

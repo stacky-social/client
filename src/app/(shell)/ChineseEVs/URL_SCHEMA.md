@@ -1,3 +1,10 @@
+---
+knowledge_type: "reference"
+decision_status: "reference"
+visibility: "public"
+title: "CrossWeave detail-view URL schema"
+---
+
 # CrossWeave detail-view URL schema
 
 The curated `/ChineseEVs/*` routes and Mastodon-backed `/posts/[id]` route share
