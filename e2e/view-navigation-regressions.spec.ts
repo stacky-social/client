@@ -97,17 +97,40 @@ test('Jason’s related span only emphasizes its authored focus phrase', async (
   await expect(page.getByTestId('col-aside').locator('[data-focus-article-link]')).toHaveCount(0);
 });
 
-test('filtered related-span tooltips contain only the topic name', async ({ page }) => {
-  await page.goto(DETAIL);
-  const focusMark = page.locator('[data-testid="focus-reveal"] mark[data-range-ids]:visible').first();
-  await focusMark.click();
-  const span = page.locator('[data-related-card] mark[data-range-id]').first();
-  await span.scrollIntoViewIfNeeded();
-  await page.waitForTimeout(350);
-  await span.hover();
+test('topic tooltips keep alternate-topic counts and bold only the topic name', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto(DETAIL, { waitUntil: 'domcontentloaded' });
+  const topicOne = 'Dependence Versus Decoupling';
+  const topicTwo = 'Strategic Vulnerability';
+  const first = page.locator('[data-related-card] [data-post-id="143196877"] mark[data-range-id="0"]').first();
+  const second = page.locator('[data-related-card] [data-post-id="152047229"] mark[data-range-id="0"]').first();
   const tooltip = page.getByTestId('hover-tooltip');
-  await expect(tooltip).toBeVisible({ timeout: 2500 });
-  await expect(tooltip).not.toContainText(/\d+ more|\(shown\)/);
+  const hoverSettled = async (span: typeof first) => {
+    await span.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(350);
+    await page.mouse.move(0, 0);
+    await span.hover();
+    await expect(tooltip).toBeVisible();
+  };
+  await hoverSettled(second);
+  await expect(tooltip).toHaveText(new RegExp(`^[1-9]\\d* more ${topicTwo}$`));
+  await first.click();
+  await expect(page.locator('[data-related-group-header]')).toContainText(topicOne);
+  await hoverSettled(first);
+  await expect(tooltip).toHaveText(`Showing ${topicOne}`);
+  await expect(tooltip.locator('strong')).toHaveText(topicOne);
+  await expect(tooltip.locator('strong')).toHaveCSS('font-weight', '700');
+  await expect(tooltip.locator(':scope > span')).toHaveCSS('font-weight', '400');
+
+  // The other topic still shows its count while a box is open. Cross-pane
+  // filtering can change the eligible reply contribution to that count.
+  await hoverSettled(second);
+  await expect(tooltip).toHaveText(new RegExp(`^[1-9]\\d* more ${topicTwo}$`));
+  await expect(tooltip.locator('strong')).toHaveText(topicTwo);
+  await expect(tooltip.locator('strong')).toHaveCSS('font-weight', '700');
+  await expect(tooltip.locator(':scope > span')).toHaveCSS('font-weight', '400');
+  await second.click();
+  await expect(page.locator('[data-related-group-header]')).toContainText(topicTwo);
 });
 
 test('authored URLs remain inline and truncate without losing their destination', async ({ page }) => {
