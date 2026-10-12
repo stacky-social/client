@@ -75,6 +75,15 @@ const THREAD_LINE_LEFT = 36;
 // play a brief settle/fade. Keyed so a stale intent never animates an unrelated
 // load (deep link / browser Back never carry it).
 const ANIMATE_INTENT_KEY = "stacky:focusAnimateIntent";
+
+function hasArrivalIntent(id: string): boolean {
+  try {
+    const raw = sessionStorage.getItem(ANIMATE_INTENT_KEY);
+    return !!raw && JSON.parse(raw)?.postId === id;
+  } catch {
+    return false;
+  }
+}
 // Where the pinned focus post lands: just under the fixed top nav (matches
 // the pinned focus post's TOP_NAV_HEIGHT + 8 offset).
 const FOCUS_PIN_OFFSET = TOP_NAV_HEIGHT + 8;
@@ -212,6 +221,15 @@ export default function MockPostView() {
 
   useLayoutEffect(() => {
     if (replyScrollRef.current && showThread) {
+      // A click into this post (reply/ancestor, carrying the arrival intent)
+      // opens it fresh: full focus post, replies from the top. Only a return
+      // (Back, reload) restores where the reader left the replies.
+      if (animatedForIdRef.current === id || hasArrivalIntent(id)) {
+        sessionStorage.removeItem(`reply-scroll:${id}`);
+        replyScrollRef.current.scrollTop = 0;
+        setFocusCompact(false);
+        return;
+      }
       const restored = Number(sessionStorage.getItem(`reply-scroll:${id}`) ?? 0);
       replyScrollRef.current.scrollTop = restored;
       setFocusCompact(restored > 40);

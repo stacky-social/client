@@ -196,3 +196,19 @@ test('narrow related cards keep room for the author beside contribution icons', 
   const widths = await authors.evaluateAll((elements) => elements.map((el) => el.getBoundingClientRect().width));
   expect(widths.every((width) => width >= 150)).toBe(true);
 });
+
+test('clicking into a previously read parent opens it full size with replies at the top', async ({ page }) => {
+  const parent = '/Tariffs/posts/cw-EDRT9w2Eyda0DG8R';
+  await page.goto(parent);
+  const region = page.getByTestId('reply-scroll-region');
+  await expect(region.locator('[data-testid="post"]').first()).toBeVisible();
+  await page.mouse.move(450, 700);
+  for (let i = 0; i < 30; i++) await page.mouse.wheel(0, 40);
+  await expect(page.locator('[data-focus-compact]')).toHaveAttribute('data-focus-compact', 'true');
+
+  await page.goto('/Tariffs/posts/cw-qe33Kq_7f3aTEXwZ');
+  await page.locator('[data-testid="post"]').first().locator('div[role="button"]').first().click();
+  await expect(page).toHaveURL(new RegExp(`${parent}(?:\\?|$)`));
+  await expect(page.locator('[data-focus-compact]')).toHaveAttribute('data-focus-compact', 'false');
+  await expect.poll(() => region.evaluate((el) => el.scrollTop)).toBe(0);
+});
