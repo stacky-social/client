@@ -309,16 +309,18 @@ export function useCompactFocus(
       region.scrollTo({ top: target, behavior: prefersReducedMotion() ? "auto" : "smooth" });
     };
     const scroll = () => {
-      if (performance.now() - lastInput.current.at > USER_INPUT_WINDOW_MS) return;
       const top = anchorTop();
       const region = replies.current;
       if (top === undefined || !region) return;
-      const { dir } = lastInput.current;
       if (!compactRef.current) {
-        // Page carried past the pin line (e.g. a scrollbar-free overscroll).
-        if (dir > 0 && top < pinTop - 1.5 && canCollapse()) setCompact(true, true);
+        // Page carried past the pin line — by input, or by a scripted or
+        // browser scroll (focusing the composer, find-in-page): the full
+        // post must never stay pinned over content scrolling beneath it.
+        if (top < pinTop - 1.5 && !resize.current && canCollapse()) setCompact(true, true);
         return;
       }
+      if (performance.now() - lastInput.current.at > USER_INPUT_WINDOW_MS) return;
+      const { dir } = lastInput.current;
       // Touch or the page scrollbar moved a compact post off its pin line:
       // hand that scroll to the replies, and expand once they are at the top.
       const gap = top - pinTop;
