@@ -336,6 +336,8 @@ function spanCursor(otherCount: number, topic: string | undefined, activeTopic: 
 // and click within a second, so they never learned what a span does or that
 // some spans lead nowhere. 350ms still keeps a sweep across text quiet.
 const RELATED_SPAN_TOOLTIP_DELAY_MS = 350;
+/** Grace before a type icon's hover releases (long enough to cross to the next icon). */
+const TAG_LEAVE_GRACE_MS = 200;
 let cardTooltipTimer: ReturnType<typeof setTimeout> | null = null;
 /** The <mark> a range index renders as, inside `root`. A range usually owns a
  *  single `data-range-id` mark, but where highlights overlap the segment carries
@@ -2344,6 +2346,22 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     if (tagScrollTimer.current) { clearTimeout(tagScrollTimer.current); tagScrollTimer.current = null; }
   };
 
+  // Leaving a type icon releases its category after a short grace. Crossing
+  // the gap to the neighbouring icon would otherwise fall back to the card-wide
+  // hover for a frame, flashing every focus-post emphasis on and off.
+  const tagLeaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelTagLeave = () => {
+    if (tagLeaveTimer.current) { clearTimeout(tagLeaveTimer.current); tagLeaveTimer.current = null; }
+  };
+  const scheduleTagLeave = () => {
+    cancelTagLeave();
+    tagLeaveTimer.current = setTimeout(() => {
+      tagLeaveTimer.current = null;
+      setHoveredCategory(null);
+    }, TAG_LEAVE_GRACE_MS);
+  };
+  useEffect(() => cancelTagLeave, []);
+
   // hoveredIndex: for the stacked-card bottom-edge layer effect only
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   // hoveredCardId: tracks which card the mouse is actually over, BY POST ID (not
@@ -3369,7 +3387,10 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                     borderBottom: isLastInBlock ? `${GROUP_LINE_WIDTH}px solid ${anchorColors.border}` : undefined,
                     borderBottomLeftRadius: isLastInBlock ? GROUP_CORNER_R : undefined,
                     borderBottomRightRadius: isLastInBlock ? GROUP_CORNER_R : undefined,
-                    zIndex: 7,
+                    // Above every card layer (an active AI redline lifts its
+                    // card to 7) so the frame is never painted over; below the
+                    // sticky group headers (9, 10).
+                    zIndex: 8,
                   }}
                 />
               )}
@@ -3518,6 +3539,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       const tagRangeIdx = indices[0] ?? -1;
                       const tagHover = (clientX: number, clientY: number) => {
                         // Icon intent must survive the delayed card-hover setup.
+                        cancelTagLeave();
                         if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
                         hoverTimerRef.current = null;
                         pendingHoverCardIdRef.current = null;
@@ -3537,18 +3559,19 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                           key={cat}
                           role="button"
                           tabIndex={0}
-                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setHoveredCategory(null); hideTooltip(); handleToggleAnchor(stack.topPost.id, undefined, 'card', cat); } }}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); cancelTagLeave(); setHoveredCategory(null); hideTooltip(); handleToggleAnchor(stack.topPost.id, undefined, 'card', cat); } }}
                           data-related-tag
                           data-contribution-category={cat}
                           data-related-span={hasSpecificSpan ? 'true' : 'false'}
                           aria-label={CATEGORY_LABELS[cat] ?? cat}
                           aria-pressed={groupCategory === categoryKey(cat)}
-                          onMouseEnter={(e) => { if (!isTouchRef.current) { setHoveredHighlightRangeIndex(null); setHoveredCategory(cat); if (hasSpecificSpan) scheduleTagScroll(index, tagRangeIdx); tagHover(e.clientX, e.clientY); } }}
-                          onMouseLeave={() => { if (!isTouchRef.current) { setHoveredCategory(null); cancelTagScroll(); hideTooltip(); } }}
+                          onMouseEnter={(e) => { if (!isTouchRef.current) { cancelTagLeave(); setHoveredHighlightRangeIndex(null); setHoveredCategory(cat); if (hasSpecificSpan) scheduleTagScroll(index, tagRangeIdx); tagHover(e.clientX, e.clientY); } }}
+                          onMouseLeave={() => { if (!isTouchRef.current) { scheduleTagLeave(); cancelTagScroll(); hideTooltip(); } }}
                           onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; tagHover(e.clientX, e.clientY); }}
                           onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideTooltip(); }}
                           onClick={(e) => {
                             e.stopPropagation();
+                            cancelTagLeave();
                             setHoveredCategory(null);
                             hideTooltip();
                             // "More like this": group the cards of this type
