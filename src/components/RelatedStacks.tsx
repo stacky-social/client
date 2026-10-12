@@ -1137,6 +1137,16 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   const [visibleCardCount, setVisibleCardCount] = useState(RELATED_PAGE_SIZE);
   const visibleCardCountRef = useRef(RELATED_PAGE_SIZE);
   const autoLoadSentinelRef = useRef<HTMLDivElement | null>(null);
+  // Pin slack: a regroup can need the clicked card to stay where scrolling
+  // alone cannot hold it — at the panel top (× removes the group header above
+  // a card at scrollTop 0) or at its bottom. These spacers absorb that deficit
+  // and collapse invisibly once scrolled out of view (collapsePinSpacers).
+  const pinTopSpacerRef = useRef<HTMLDivElement | null>(null);
+  const pinBottomSpacerRef = useRef<HTMLDivElement | null>(null);
+  // Set when holding the clicked card still leaves it under the frozen group
+  // header copy: the copy stays hidden until the reader scrolls the panel, so
+  // the gesture never has to move what was just clicked.
+  const groupStickySuppressedRef = useRef(false);
   const panelFocusIdRef = useRef<string | null>(null);
   const restoringPanelScrollRef = useRef(false);
   const pendingViewportRestoreRef = useRef<PanelViewportSnapshot | null>(null);
@@ -1566,8 +1576,11 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     Array.from(filterCategories).sort().join(','),
     responseFilter ? `${responseFilter.start}:${responseFilter.end}` : '',
     asideTopicFilterKey ?? '',
-    grouping ? `${grouping.anchor.postId}:${grouping.anchor.rangeIndex}` : '',
-  ].join('|'), [sourcePostId, ctxActivePostId, filterCategories, responseFilter, asideTopicFilterKey, grouping]);
+    // Grouping is deliberately NOT part of this key. A group toggle keeps the
+    // clicked card still while the others gather around it; resetting to the
+    // first page here (after paint) dropped every card past ten — including a
+    // dismissed group's anchor beyond the first page, which vanished on ×.
+  ].join('|'), [sourcePostId, ctxActivePostId, filterCategories, responseFilter, asideTopicFilterKey]);
 
   const paginationFocusRef = useRef<string | null>(null);
   useEffect(() => {
@@ -2022,6 +2035,13 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     });
     flipFirstTopsRef.current = firstTops;
 
+    // Keep every card that is on screen now. The active group can hold the
+    // page open past its base size (minimumCountForActiveGroup); without
+    // locking that in, dismissing a group anchored beyond the first page would
+    // un-render the anchor the reader just acted on.
+    const keepCount = visibleCardCountRef.current;
+    setVisibleCardCount((current) => Math.max(current, keepCount));
+
     // WS6 pre-interaction transaction: capture the order the user CURRENTLY sees
     // as the new base (permanent-reorder) and, on the detail route, record the
     // pre-interaction snapshot on the undo ring — all BEFORE the mutation below,
@@ -2086,21 +2106,34 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       if (pinEl) {
         const delta = pinEl.getBoundingClientRect().top - prevTop;
         if (Math.abs(delta) > 0.5) {
-          const max = Math.max(0, aside.scrollHeight - aside.clientHeight);
-          aside.scrollTop = Math.min(max, Math.max(0, aside.scrollTop + delta));
+          // Scrolling by `delta` puts the pinned element back. When the scroll
+          // range cannot absorb it (the card sits at the panel's top or bottom
+          // edge), a spacer supplies the missing room instead of clamping —
+          // clamping is what let a × at scrollTop 0 drop the card ~54px.
+          let desired = aside.scrollTop + delta;
+          const top = pinTopSpacerRef.current;
+          if (desired < 0 && top) {
+            top.style.height = `${top.offsetHeight - desired}px`;
+            desired = 0;
+          }
+          const bottom = pinBottomSpacerRef.current;
+          const max = aside.scrollHeight - aside.clientHeight;
+          if (desired > max && bottom) {
+            bottom.style.height = `${bottom.offsetHeight + desired - max}px`;
+          }
+          aside.scrollTop = Math.max(0, desired);
         }
-        // The one exception to holding still: never leave what was just
-        // clicked under the frozen group header that this grouping shows —
-        // the span itself, or for a card pin the type icons (a type icon is
-        // the only card-pinned gesture that can activate a group).
+        // Never move what was just clicked — not even to uncover it from the
+        // frozen group header this grouping shows (that used to scroll the
+        // card ~22px). If the copy would cover the clicked span (or, for a card
+        // pin, the type icons) the copy waits for the reader's next scroll.
         const clicked = pinRange !== null
           ? pinEl
           : (cardEl?.querySelector('[data-related-tag-cluster]') as HTMLElement | null) ?? pinEl;
         const sticky = measureGroupSticky(aside);
         const covered = sticky.visible
-          ? sticky.line + sticky.height - clicked.getBoundingClientRect().top
-          : 0;
-        if (covered > 0) aside.scrollTop = Math.max(0, aside.scrollTop - covered);
+          && sticky.line + sticky.height > clicked.getBoundingClientRect().top;
+        groupStickySuppressedRef.current = covered;
       }
     }
 
@@ -2138,7 +2171,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       }
     });
     return () => { if (flipRafRef.current) cancelAnimationFrame(flipRafRef.current); };
-  }, [reRankAnchorIds, anchoredRangeByPost, shownByAnchor, expandedCards]);
+  }, [reRankAnchorIds, anchoredRangeByPost, shownByAnchor, expandedCards, grouping]);
 
   // ── Frozen group header ────────────────────────────────────────────────────
   // The copy sits `top: <sticky header height>` below the panel header, which
@@ -2164,18 +2197,73 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     const bar = groupStickyBarRef.current;
     const aside = bar?.closest('[data-testid="col-aside"]') as HTMLElement | null;
     if (!bar || !aside) return;
-    const next = measureGroupSticky(aside).visible ? 'true' : 'false';
+    const next = !groupStickySuppressedRef.current && measureGroupSticky(aside).visible ? 'true' : 'false';
     if (bar.dataset.visible !== next) bar.dataset.visible = next;
   }, []);
   useLayoutEffect(() => {
     syncGroupSticky();
   }, [syncGroupSticky, activeGroupHeader, visibleDisplayStacks, expandedCards, stickyHeaderHeight]);
+
+  // Pin spacers go away once nobody can see them: the top one when it has
+  // scrolled above the panel header (dropping it while scrolling back by its
+  // height is invisible), the bottom one when it is below the panel's bottom
+  // edge (the scroll range shrinks without clamping the current position).
+  const collapsePinSpacers = React.useCallback(() => {
+    const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
+    if (!aside) return;
+    const top = pinTopSpacerRef.current;
+    if (top && top.offsetHeight > 0) {
+      const header = aside.querySelector('[data-testid="related-sticky-header"]') as HTMLElement | null;
+      const line = header?.getBoundingClientRect().bottom ?? aside.getBoundingClientRect().top;
+      if (top.getBoundingClientRect().bottom <= line + 0.5) {
+        const height = top.offsetHeight;
+        top.style.height = '0px';
+        aside.scrollTop = Math.max(0, aside.scrollTop - height);
+      }
+    }
+    const bottom = pinBottomSpacerRef.current;
+    if (bottom && bottom.offsetHeight > 0
+      && bottom.getBoundingClientRect().top >= aside.getBoundingClientRect().bottom - 0.5) {
+      bottom.style.height = '0px';
+    }
+  }, []);
+
+  // A new focus post starts without pin slack.
+  useLayoutEffect(() => {
+    if (pinTopSpacerRef.current) pinTopSpacerRef.current.style.height = '0px';
+    if (pinBottomSpacerRef.current) pinBottomSpacerRef.current.style.height = '0px';
+    groupStickySuppressedRef.current = false;
+  }, [sourcePostId, ctxActivePostId]);
+
   useEffect(() => {
     const aside = document.querySelector('[data-testid="col-aside"]') as HTMLElement | null;
     if (!aside) return;
-    aside.addEventListener('scroll', syncGroupSticky, { passive: true });
-    return () => aside.removeEventListener('scroll', syncGroupSticky);
-  }, [syncGroupSticky]);
+    const onScroll = () => {
+      collapsePinSpacers();
+      syncGroupSticky();
+    };
+    // The reader's own scroll intent (wheel, touch, keys, scrollbar drag)
+    // releases a frozen header held back by a pinned click. Programmatic
+    // scrolls (the pin compensation itself) never do.
+    const release = (event: Event) => {
+      if (!groupStickySuppressedRef.current) return;
+      if (event.type === 'pointerdown' && event.target !== aside) return;
+      groupStickySuppressedRef.current = false;
+      requestAnimationFrame(syncGroupSticky);
+    };
+    aside.addEventListener('scroll', onScroll, { passive: true });
+    aside.addEventListener('wheel', release, { passive: true });
+    aside.addEventListener('touchmove', release, { passive: true });
+    aside.addEventListener('keydown', release);
+    aside.addEventListener('pointerdown', release);
+    return () => {
+      aside.removeEventListener('scroll', onScroll);
+      aside.removeEventListener('wheel', release);
+      aside.removeEventListener('touchmove', release);
+      aside.removeEventListener('keydown', release);
+      aside.removeEventListener('pointerdown', release);
+    };
+  }, [syncGroupSticky, collapsePinSpacers]);
 
   /** Ref-based guard: set when a touch tap just "activated" a card/range so the
    *  synthetic click that follows doesn't also navigate. */
@@ -2639,6 +2727,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           </div>
         )}
       </div>
+
+      {/* Pin slack above the cards (sized imperatively by the pin effect). */}
+      <div ref={pinTopSpacerRef} data-related-pin-spacer="top" aria-hidden="true" style={{ height: 0, flexShrink: 0 }} />
 
       {/* Cards — no inner scroll, the aside's own scrollbar handles everything.
           NOTE: LayoutGroup + AnimatePresence mode="popLayout" + layout FLIP were
@@ -3669,6 +3760,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           </div>
         ) : null}
       </div>
+
+      {/* Pin slack below the cards (sized imperatively by the pin effect). */}
+      <div ref={pinBottomSpacerRef} data-related-pin-spacer="bottom" aria-hidden="true" style={{ height: 0, flexShrink: 0 }} />
 
       <StackPostsModal
         isOpen={stackPostsModalOpen} onClose={() => setStackPostsModalOpen(false)}

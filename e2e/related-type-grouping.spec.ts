@@ -231,7 +231,7 @@ test.describe('frozen group header (#224)', () => {
   });
 });
 
-test('a type icon clicked right under the panel header is not left beneath the frozen copy', async ({ page }) => {
+test('a type icon clicked right under the panel header stays put and is not covered by the frozen copy', async ({ page }) => {
   await openDetail(page);
   // The first Disagree card has no member above it, so its group header is
   // inserted directly above it — scrolled away when the card sits at the top.
@@ -244,11 +244,19 @@ test('a type icon clicked right under the panel header is not left beneath the f
     element.scrollTop += target.getBoundingClientRect().top - line - 4;
   }, anchorId);
   const icon = card.locator('[data-related-tag]').first();
+  const before = (await icon.boundingBox())!.y;
   await icon.evaluate((element) => (element as HTMLElement).click());
+  await expect(page.getByTestId('active-group-anchor')).toHaveCount(1);
+  // The clicked icon never moves — not even to clear the frozen copy. The
+  // copy waits instead, so nothing covers what was just clicked…
+  expect(Math.abs((await icon.boundingBox())!.y - before)).toBeLessThanOrEqual(1);
   const bar = page.locator('[data-related-group-sticky-bar]');
+  await expect(bar).toHaveAttribute('data-visible', 'false');
+  // …until the reader scrolls the panel.
+  const box = (await aside.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, 40);
   await expect(bar).toHaveAttribute('data-visible', 'true');
-  const barBottom = await bar.evaluate((element) => element.getBoundingClientRect().bottom);
-  expect((await icon.boundingBox())!.y).toBeGreaterThanOrEqual(barBottom - 0.5);
 });
 
 test.describe('related card header and reading window (#224)', () => {
