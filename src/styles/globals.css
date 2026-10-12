@@ -180,6 +180,11 @@
 
 /* Auto-hide scrollbar: visible only while scrolling or on hover */
 html {
+    /* Always keep the (transparent, auto-hiding) scrollbar's space. Chrome
+       did not honour scrollbar-gutter here, so a filter or group that made
+       the page short enough to drop its scrollbar shifted the centred layout
+       sideways. */
+    overflow-y: scroll;
     scrollbar-gutter: stable;
 }
 
@@ -204,10 +209,6 @@ html:active::-webkit-scrollbar-thumb {
 
 html::-webkit-scrollbar-thumb:hover {
     background: rgba(0, 0, 0, 0.3);
-}
-
-@supports not (scrollbar-gutter: stable) {
-    html { overflow-y: scroll; }
 }
 
 /* Strip <p> margins inside clamped post text so -webkit-line-clamp aligns
@@ -293,7 +294,9 @@ html::-webkit-scrollbar-thumb:hover {
 /* Resizable shell columns: body background = gutter color; suppress horizontal scroll. */
 body {
     background-color: var(--cw-canvas);
-    overflow-x: hidden;
+    /* clip, not hidden: html scrolls (overflow-y: scroll), so a hidden body
+       would become its own scroll container and break every sticky panel. */
+    overflow-x: clip;
 }
 
 /* Related panel collapse: the aside is a container-query context
