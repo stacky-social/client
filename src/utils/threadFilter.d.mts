@@ -21,6 +21,7 @@ export function clusterTopLevel(
   relationsOfId: (id: string) => Relation[],
   anchorId: string,
   anchorTopic: string,
+  keyOf?: (relation: Relation) => string | null | undefined,
 ): { order: string[]; memberIds: Set<string> };
 
 export function applyBaseOrder(sortedIds: string[], baseIds: string[]): string[];

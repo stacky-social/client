@@ -14,8 +14,8 @@ const PASSTHROUGH_PARAMS = ['stackId', 'from', 'related', 'flags'];
  *
  * The three related-post interaction dimensions are mutually exclusive:
  * category (`fc`), focus passage (`fs`), or cross-pane topic (`ft` + anchor
- * metadata, plus `fg=category` when an aside group is keyed by contribution
- * type instead of topic). `tab` is the fourth filter/sort dimension.
+ * metadata, plus `fg=category` when an aside or reply group is keyed by
+ * contribution type instead of topic). `tab` is the fourth filter/sort dimension.
  */
 export function serializeFilterSearch({
   currentSearch = '',
@@ -93,8 +93,9 @@ export function parseFilterInteraction(search, plainPostText = null) {
       !postId ||
       !Number.isInteger(rangeIndex) ||
       rangeIndex < 0 ||
-      // Only the aside groups by contribution type.
-      (groupBy !== null && (groupBy !== 'category' || origin !== 'aside'))
+      // A contribution-type group starts from an aside icon or a reply tag;
+      // focus prose never groups by type.
+      (groupBy !== null && (groupBy !== 'category' || origin === 'focus'))
     ) {
       return { kind: 'none' };
     }

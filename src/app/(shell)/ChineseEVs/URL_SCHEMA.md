@@ -37,6 +37,7 @@ combined state.
 | `fo` | `aside \| replies` | none | with `ft` | yes | Pane where the topic interaction began; that pane groups and the other filters |
 | `fa` | `{post-id}` | none | with `ft` | yes | Post containing the topic anchor |
 | `fi` | non-negative integer | none | with `ft` | yes | Relation-range index within the anchor post |
+| `fg` | `category` | none | with `ft` | yes | Contribution-type group: `ft` is a category key. `fo=aside` (a card's type icon) groups the aside and filters the replies; `fo=replies` (a reply's type tag) groups the replies and filters the aside. Rejected with `fo=focus` |
 | `from` | `{post-id}` | none | one-shot on mount (seeds `previousPath`) | no | Back-link source — sets `sessionStorage['previousPath:/.../posts/{current}']` so BackButton can render |
 | `stackId` | `{stack-id}` | none | pass-through | pass-through | Preserved across navigation; not modified by `useUrlSync` |
 | `related` | `{post-id}` | none | one-shot on page mount | pass-through | Shared-pairing context: the matching related card is rendered (even beyond the first page), scrolled into view, and transiently emphasised |

@@ -36,10 +36,12 @@ export interface TopicInteraction {
   topicKey: string;
   anchor: { postId: string; rangeIndex: number };
   /**
-   * Only set (to 'category') for a contribution-type aside group: a card's type
-   * icon groups "more like this" by relation category instead of topic. Then
-   * `topicKey` is the category key and `anchor.rangeIndex` the card's first
-   * relation of that category. Absent = an ordinary topic interaction.
+   * Only set (to 'category') for a contribution-type group: a related card's
+   * type icon (origin 'aside') or a reply's type tag (origin 'replies') groups
+   * "more like this" by relation category instead of topic, and the other pane
+   * filters by it. Then `topicKey` is the category key and `anchor.rangeIndex`
+   * the anchor post's first relation of that category. Absent = an ordinary
+   * topic interaction.
    */
   groupBy?: "category";
 }
@@ -398,8 +400,14 @@ export function activateAsideTopic(payload: {
 export function activateReplyTopic(payload: {
   topicKey: string;
   anchor: { postId: string; rangeIndex: number };
+  groupBy?: "category";
 }): void {
-  applyInteraction({ type: "replyTopic", topicKey: payload.topicKey, anchor: payload.anchor });
+  applyInteraction({
+    type: "replyTopic",
+    topicKey: payload.topicKey,
+    anchor: payload.anchor,
+    groupBy: payload.groupBy,
+  });
 }
 
 /** Filter both response panes from a clicked semantic phrase in the focus post. */
@@ -741,20 +749,24 @@ export function resolveFocusTopicKey(anchor: { postId: string; rangeIndex: numbe
 // registers a resolver here so an aside-run validation of a restored
 // REPLY-origin interaction can resolve its anchor against the current thread's
 // reply relations (else the interaction is wrongly dropped, T4/T7 seam).
-let _replyTopicResolver:
-  | ((anchor: { postId: string; rangeIndex: number }) => string | null | undefined)
-  | null = null;
+type ReplyTopicResolver = (
+  anchor: { postId: string; rangeIndex: number },
+  groupBy?: "category",
+) => string | null | undefined;
+let _replyTopicResolver: ReplyTopicResolver | null = null;
 
-export function registerReplyTopicResolver(
-  fn: ((anchor: { postId: string; rangeIndex: number }) => string | null | undefined) | null,
-): void {
+export function registerReplyTopicResolver(fn: ReplyTopicResolver | null): void {
   _replyTopicResolver = fn;
 }
 
-/** Resolve a reply-origin anchor's current topic key via the registered detail
- *  page resolver (null when no thread is mounted or the span is gone). */
-export function resolveReplyTopicKey(anchor: { postId: string; rangeIndex: number }): string | null {
-  return (_replyTopicResolver ? _replyTopicResolver(anchor) : null) ?? null;
+/** Resolve a reply-origin anchor's current topic key (or, for a type group,
+ *  its category key) via the registered detail page resolver (null when no
+ *  thread is mounted or the span is gone). */
+export function resolveReplyTopicKey(
+  anchor: { postId: string; rangeIndex: number },
+  groupBy?: "category",
+): string | null {
+  return (_replyTopicResolver ? _replyTopicResolver(anchor, groupBy) : null) ?? null;
 }
 
 // ─── Navigation callback (shared between page and aside parallel routes) ────

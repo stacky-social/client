@@ -78,7 +78,11 @@ export function reduceInteraction(dims, action) {
     case "replyTopic":
       return {
         ...clearedDims(),
-        topicInteraction: { origin: "replies", topicKey: action.topicKey, anchor: action.anchor },
+        // A reply's contribution-type tag groups the reply list by category
+        // (and filters the aside by it), the mirror of the aside type icon.
+        topicInteraction: action.groupBy === "category"
+          ? { origin: "replies", topicKey: action.topicKey, anchor: action.anchor, groupBy: "category" }
+          : { origin: "replies", topicKey: action.topicKey, anchor: action.anchor },
       };
     case "focusTopic":
       return {

@@ -1067,7 +1067,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       origin?: 'aside' | 'replies' | 'focus',
       groupBy?: 'category',
     ): string | null => {
-      if (origin === 'replies') return resolveReplyTopicKey(anchor);
+      if (origin === 'replies') return resolveReplyTopicKey(anchor, groupBy);
       if (origin === 'focus') return resolveFocusTopicKey(anchor);
       const stack = relatedStacks.find((s) => s.topPost.id === anchor.postId);
       if (groupBy === 'category') return stack ? categoryAtAnchor(stack, anchor.rangeIndex) : null;
@@ -1555,17 +1555,25 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // key). Precompute the matches: if NONE carry the topic, leave the pane
   // unfiltered and show no chip — a filter that empties the panel would read as
   // "nothing here" when the real story is "this pane has no posts on that topic".
-  const { displayStacks, activeTopicFilterKey } = useMemo(() => {
+  // A reply's type tag (a reply-origin type group) filters this pane by
+  // contribution type instead: every card carrying the type in any relation.
+  const asideFilterByCategory = asideFilterInteraction?.groupBy === 'category';
+  const { displayStacks, activeTopicFilterKey, activeTypeFilterKey } = useMemo(() => {
     if (!asideTopicFilterKey) {
-      return { displayStacks: groupedStacks, activeTopicFilterKey: null as string | null };
+      return { displayStacks: groupedStacks, activeTopicFilterKey: null as string | null, activeTypeFilterKey: null as string | null };
     }
     const matched = groupedStacks.filter((s) =>
-      relationsMatchTopic(s.topPost.relations, asideTopicFilterKey),
+      asideFilterByCategory
+        ? categoriesOfStack(s).has(asideTopicFilterKey)
+        : relationsMatchTopic(s.topPost.relations, asideTopicFilterKey),
     );
-    return matched.length > 0
-      ? { displayStacks: matched, activeTopicFilterKey: asideTopicFilterKey }
-      : { displayStacks: groupedStacks, activeTopicFilterKey: null };
-  }, [groupedStacks, asideTopicFilterKey]);
+    if (matched.length === 0) {
+      return { displayStacks: groupedStacks, activeTopicFilterKey: null, activeTypeFilterKey: null };
+    }
+    return asideFilterByCategory
+      ? { displayStacks: matched, activeTopicFilterKey: null, activeTypeFilterKey: asideTopicFilterKey }
+      : { displayStacks: matched, activeTopicFilterKey: asideTopicFilterKey, activeTypeFilterKey: null };
+  }, [groupedStacks, asideTopicFilterKey, asideFilterByCategory]);
 
   const distinctDisplayedPostCount = new Set(displayStacks.map((stack) => stack.topPost.id)).size;
 
@@ -2611,7 +2619,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
 
         <div className="related-filter-summary" data-testid="related-filter-summary">
           <span role="status" aria-live="polite">
-            {filterCategories.size > 0 || responseFilter !== null || activeTopicFilterKey
+            {filterCategories.size > 0 || responseFilter !== null || activeTopicFilterKey || activeTypeFilterKey
               ? `Filtered: ${distinctDisplayedPostCount} related post${distinctDisplayedPostCount === 1 ? '' : 's'}`
               : `${heading}: ${distinctDisplayedPostCount} post${distinctDisplayedPostCount === 1 ? '' : 's'} across all categories`}
           </span>
@@ -2634,6 +2642,17 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               }))}
             />
           ))}
+          {activeTypeFilterKey && <>
+            <span>{' contributing '}</span>
+            <FilterByChip
+              kind="category"
+              label={CATEGORY_LABELS[activeTypeFilterKey] ?? activeTypeFilterKey}
+              colors={getCategoryColors(activeTypeFilterKey)}
+              icon={React.cloneElement(iconMapping[activeTypeFilterKey] || iconMapping['default'], { size: 12 })}
+              onClear={() => { beginUndoablePanelInteractionIfDetail(); clearTopicInteraction(); }}
+              testId="aside-type-filter"
+            />
+          </>}
           {responseFilter !== null && <>
             <span>{' responding to '}</span>
             <FilterByChip kind="response" label={responseFilter.text} maxChars={35} onClear={() => { beginUndoablePanelInteractionIfDetail(); clearResponseFilter(); }} />
@@ -2794,8 +2813,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           // preferably the one answering the very phrase that was clicked);
           // else null → the default window around relations[0].
           const windowTopic = activeTopicFilterKey ?? activeAnchorTopic;
-          const windowCategories = groupCategory
-            ? new Set([groupCategory])
+          const windowCategories = groupCategory || activeTypeFilterKey
+            ? new Set([(groupCategory ?? activeTypeFilterKey)!])
             : new Set(Array.from(filterCategories).map(categoryKey));
           const clickedFocusRange = (() => {
             if (topicInteraction?.origin !== 'focus' || !activeTopicFilterKey) return null;
@@ -2936,7 +2955,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               isCardHovered: isCardActive,
               anyCardHovered,
               hoveredRangeIndex: isCardActive ? (isCardTapped ? tappedRangeIndex : hoveredHighlightRangeIndex) : null,
-              hoveredCategory: (isCardActive ? hoveredCategory : null) ?? groupCategory,
+              hoveredCategory: (isCardActive ? hoveredCategory : null) ?? groupCategory ?? activeTypeFilterKey,
               filterCategories,
               focusHoverMatchedIdx,
               forceCommentEmphasis: isAiEditActive,

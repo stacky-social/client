@@ -44,7 +44,6 @@ import {
   setFilterCategories,
   clearResponseFilter,
   activateReplyTopic,
-  activateAsideTopic,
   clearTopicInteraction,
   setReplyTopicCounts,
   registerReplyTopicResolver,
@@ -57,7 +56,7 @@ import {
   currentPanelScope,
   navigateFromPanelScope,
 } from "../../../../../utils/highlightStore";
-import { categoryKeyOf, pickTypeGroupAnchor, relatedCountForCategory } from "../../../../../utils/typeGroupAnchor.mjs";
+import { categoryKeyOf, relatedCountForCategory } from "../../../../../utils/typeGroupAnchor.mjs";
 import {
   restoreFeedScrollSnapshot,
   saveFeedScrollSnapshot,
@@ -138,6 +137,18 @@ function getStoreReplies(id: string, posts: Record<string, StorePost>): MockPost
     queue.push(...(children.get(child.id) ?? []));
   }
   return out as unknown as MockPostType[];
+}
+
+/** The key a reply-origin interaction's anchor currently resolves to: the
+ *  span's topic, or for a type group (groupBy 'category') its category. */
+function replyKeyAtAnchor(
+  relationsById: Map<string, Relation[]>,
+  anchor: { postId: string; rangeIndex: number },
+  groupBy?: "category",
+): string | null {
+  const rel = (relationsById.get(anchor.postId) ?? [])[anchor.rangeIndex];
+  if (!rel) return null;
+  return groupBy === "category" ? categoryKeyOf(rel.category) || null : rel.topic ?? null;
 }
 
 export default function MockPostView() {
@@ -341,10 +352,9 @@ export default function MockPostView() {
   // switch; cross-slot effect order between the @aside slot and this page is
   // otherwise unguaranteed, and a stale resolver would wrongly drop the
   // interaction. Cleared on unmount below.
-  registerReplyTopicResolver((anchor) => {
-    const rels = replyRelationsById.get(anchor.postId) ?? [];
-    return rels[anchor.rangeIndex]?.topic ?? null;
-  });
+  registerReplyTopicResolver((anchor, groupBy) =>
+    replyKeyAtAnchor(replyRelationsById, anchor, groupBy)
+  );
   useEffect(() => () => registerReplyTopicResolver(null), []);
 
   // The reply pane owns the data needed to validate a reply-origin deep link.
@@ -354,8 +364,7 @@ export default function MockPostView() {
   // arrives, so each pane validates only the anchor domain it understands.
   useEffect(() => {
     if (post?.id !== id || !topicInteraction || topicInteraction.origin !== "replies") return;
-    const rels = replyRelationsById.get(topicInteraction.anchor.postId) ?? [];
-    const currentTopic = rels[topicInteraction.anchor.rangeIndex]?.topic ?? null;
+    const currentTopic = replyKeyAtAnchor(replyRelationsById, topicInteraction.anchor, topicInteraction.groupBy);
     if (currentTopic !== topicInteraction.topicKey) clearTopicInteraction();
   }, [id, post?.id, replyRelationsById, topicInteraction]);
 
@@ -379,10 +388,11 @@ export default function MockPostView() {
     () => replyGrouping(topicInteraction),
     [topicInteraction]
   );
+  // A reply type tag groups by contribution type: the key is then a category.
+  const replyGroupByCategory = replyGroupingInteraction?.groupBy === "category";
   const replyGroupTopic = useMemo(() => {
     if (!replyGroupingInteraction) return null;
-    const rels = replyRelationsById.get(replyGroupingInteraction.anchor.postId) ?? [];
-    return rels[replyGroupingInteraction.anchor.rangeIndex]?.topic ?? null;
+    return replyKeyAtAnchor(replyRelationsById, replyGroupingInteraction.anchor, replyGroupingInteraction.groupBy);
   }, [replyGroupingInteraction, replyRelationsById]);
 
   // Aside-origin topic that would filter this reply list. Gated on the cross-pane
@@ -477,12 +487,25 @@ export default function MockPostView() {
   // interaction never grows a rail here — that pane is filtered, not grouped.
   const replyCluster =
     flags.replyReranking && flags.replySortTabs && replyGroupingInteraction && replyGroupTopic
-      ? { anchorId: replyGroupingInteraction.anchor.postId, topic: replyGroupTopic, rangeIndex: replyGroupingInteraction.anchor.rangeIndex }
+      ? {
+          anchorId: replyGroupingInteraction.anchor.postId,
+          topic: replyGroupTopic,
+          rangeIndex: replyGroupingInteraction.anchor.rangeIndex,
+          byCategory: replyGroupByCategory,
+        }
       : null;
   const replyClusterColor = replyCluster
     ? getCategoryColors(
-        (replyRelationsById.get(replyCluster.anchorId) ?? [])[replyCluster.rangeIndex]?.category ?? "uncategorized"
+        replyCluster.byCategory
+          ? replyCluster.topic
+          : (replyRelationsById.get(replyCluster.anchorId) ?? [])[replyCluster.rangeIndex]?.category ?? "uncategorized"
       )
+    : null;
+  // Rail label: the topic, or the contribution type's label.
+  const replyClusterLabel = replyCluster
+    ? replyCluster.byCategory
+      ? CATEGORY_LABELS[replyCluster.topic] ?? replyCluster.topic
+      : replyCluster.topic
     : null;
 
   const { topLevelOrder, clusterMemberIds } = useMemo(() => {
@@ -501,7 +524,8 @@ export default function MockPostView() {
         order,
         (rid: string) => replyRelationsById.get(rid) ?? [],
         replyCluster.anchorId,
-        replyCluster.topic
+        replyCluster.topic,
+        replyCluster.byCategory ? (r: Relation) => categoryKeyOf(r.category) : undefined
       );
       order = res.order;
       memberIds = res.memberIds;
@@ -688,6 +712,7 @@ export default function MockPostView() {
       const active = replyGroupingInteraction;
       const isSameSpan =
         active !== null &&
+        !active.groupBy &&
         active.anchor.postId === replyId &&
         active.anchor.rangeIndex === rangeIndex;
       if (isSameSpan) {
@@ -714,7 +739,7 @@ export default function MockPostView() {
       // R-REORDER-9 parity with the aside: re-picking the ALREADY-GROUPED topic
       // from a different span is a no-op — the block must not jump anchors. Only
       // the active anchor span toggles the group off (handled above).
-      if (active !== null && clickTopicKey === replyGroupTopic) return;
+      if (active !== null && !active.groupBy && clickTopicKey === replyGroupTopic) return;
       // Convert to the shared primitive: a reply-origin topic interaction
       // CLUSTERS this reply list (replyGrouping) and, under crossPaneFiltering,
       // FILTERS the aside to the same topic (asideTopicFilter, consumed in T4).
@@ -735,59 +760,49 @@ export default function MockPostView() {
     ]
   );
 
-  // Reply type tag: the related panel's type-icon interaction ("more like
-  // this", an aside topic interaction grouped by category, fg=category), so
-  // the URL, Back-undo, aside grouping, and reply filtering all match a click
-  // on a related card's icon. The group needs a related card to anchor on: the
-  // reply itself when it is also a related post, otherwise the first card of
-  // the type as the panel draws it. With no related post of the type there is
-  // nothing to group, and the tag does nothing. Like the aside icon, the active
-  // type toggles off from any tag that shows it. The reply stays put.
-  const activeTypeGroup =
-    topicInteraction?.origin === "aside" && topicInteraction.groupBy === "category"
-      ? topicInteraction.topicKey
-      : null;
+  // Reply type tag: the reply-pane counterpart of the aside type icon. Like a
+  // reply span's topic it is a REPLY-origin interaction (fo=replies), keyed by
+  // contribution type (fg=category): the reply list GROUPS the replies of that
+  // type around the clicked one, and the related panel FILTERS to posts
+  // carrying the type. Same URL, Back-undo, and pin as handleReplySpanClick.
+  // Any tag of the active type toggles the group off; "0 more <Type>" does
+  // nothing, as a span does.
+  const activeReplyTypeGroup = replyGroupByCategory ? replyGroupTopic : null;
+  const replyTypeOthers = useCallback(
+    (key: string) => {
+      const replies = replyCategoryCountsMap.get(key) ?? 0;
+      const related = flags.crossPaneFiltering ? relatedCountForCategory(ctxRelatedStacks as any, key) : 0;
+      return Math.max(0, related + replies - 1);
+    },
+    [ctxRelatedStacks, replyCategoryCountsMap, flags.crossPaneFiltering]
+  );
   const replyTypeTagState = useCallback(
     (cat: string) => {
       const key = categoryKeyOf(cat);
-      const related = relatedCountForCategory(ctxRelatedStacks as any, key);
-      const replies = replyCategoryCountsMap.get(key) ?? 0;
-      return {
-        others: Math.max(0, related + replies - 1),
-        active: activeTypeGroup === key,
-        actionable: activeTypeGroup === key || related > 0,
-      };
+      const others = replyTypeOthers(key);
+      const active = activeReplyTypeGroup === key;
+      return { others, active, actionable: flags.replyReranking && (active || others > 0) };
     },
-    [ctxRelatedStacks, replyCategoryCountsMap, activeTypeGroup]
+    [replyTypeOthers, activeReplyTypeGroup, flags.replyReranking]
   );
   const handleReplyTypeTagClick = useCallback(
     (replyId: string, cat: string) => {
+      if (!flags.replyReranking) return;
       const key = categoryKeyOf(cat);
       if (!key) return;
-      const pinReply = () => {
-        const el = (replyScrollRef.current ?? document).querySelector(`[data-post-id="${replyId}"]`) as HTMLElement | null;
-        replyPinRef.current = el ? { id: replyId, top: el.getBoundingClientRect().top } : null;
-      };
-      if (activeTypeGroup === key) {
-        pinReply();
-        const scope = currentPanelScope();
-        if (scope) beginPanelInteraction(scope, null);
-        clearTopicInteraction();
-        return;
-      }
-      const drawnCardIds = Array.from(
-        document.querySelectorAll('[data-testid="col-aside"] [data-related-card]')
-      )
-        .map((card) => card.querySelector("[data-post-id]")?.getAttribute("data-post-id"))
-        .filter((pid): pid is string => !!pid);
-      const anchor = pickTypeGroupAnchor(ctxRelatedStacks as any, key, [replyId, ...drawnCardIds]);
-      if (!anchor) return;
-      pinReply();
+      const active = activeReplyTypeGroup === key;
+      if (!active && replyTypeOthers(key) === 0) return;
+      const rels = replyRelationsById.get(replyId) ?? [];
+      const rangeIndex = rels.findIndex((rel) => categoryKeyOf(rel.category) === key);
+      if (!active && rangeIndex < 0) return;
+      const el = (replyScrollRef.current ?? document).querySelector(`[data-post-id="${replyId}"]`) as HTMLElement | null;
+      replyPinRef.current = el ? { id: replyId, top: el.getBoundingClientRect().top } : null;
       const scope = currentPanelScope();
       if (scope) beginPanelInteraction(scope, null);
-      activateAsideTopic({ topicKey: key, anchor, groupBy: "category" });
+      if (active) clearTopicInteraction();
+      else activateReplyTopic({ topicKey: key, anchor: { postId: replyId, rangeIndex }, groupBy: "category" });
     },
-    [activeTypeGroup, ctxRelatedStacks]
+    [flags.replyReranking, activeReplyTypeGroup, replyTypeOthers, replyRelationsById]
   );
 
   useLayoutEffect(() => {
@@ -1018,7 +1033,11 @@ export default function MockPostView() {
       replyTopicCount={
         showReplyContributions && flags.crossPaneFiltering ? replyTopicCountFn : undefined
       }
-      activeClusterTopic={showReplyContributions ? activeReplyTopicFilter ?? replyCluster?.topic ?? null : undefined}
+      activeClusterTopic={
+        showReplyContributions
+          ? activeReplyTopicFilter ?? (replyCluster && !replyCluster.byCategory ? replyCluster.topic : null)
+          : undefined
+      }
       replyCountForSpans={isFocusPost ? replyCountForSpans : undefined}
       clampLines={isFocusPost ? 5 : 10}
       compact={isFocusPost && focusCompact}
@@ -1283,7 +1302,7 @@ export default function MockPostView() {
                       firstId: clusterFirstId,
                       lastId: clusterLastId,
                       color: replyClusterColor,
-                      topic: replyCluster.topic,
+                      topic: replyClusterLabel ?? replyCluster.topic,
                       count: clusterMemberIds ? clusterMemberIds.size : 0,
                       onDismiss: clearTopicInteraction,
                     }

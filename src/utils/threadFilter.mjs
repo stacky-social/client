@@ -48,16 +48,19 @@ export function filterReplies(replies, relationsOf, { filterCategories, response
  * @param orderedIds    current top-level order (post-filter, post-sort)
  * @param relationsOfId (id) => Relation[]
  * @param anchorId      the clicked reply
- * @param anchorTopic   topic driving the cluster
+ * @param anchorTopic   topic driving the cluster (or category key, see keyOf)
+ * @param keyOf         (relation) => key compared with anchorTopic; defaults to
+ *                      the explicit topic. A contribution-type group passes the
+ *                      normalized category.
  * @returns { order: string[], memberIds: Set<string> } — memberIds includes the anchor
  */
-export function clusterTopLevel(orderedIds, relationsOfId, anchorId, anchorTopic) {
+export function clusterTopLevel(orderedIds, relationsOfId, anchorId, anchorTopic, keyOf = (r) => r.topic) {
   const memberIds = new Set([anchorId]);
   const anchorIdx = orderedIds.indexOf(anchorId);
   if (anchorIdx < 0) return { order: [...orderedIds], memberIds };
 
   const matches = (id) =>
-    id !== anchorId && (relationsOfId(id) ?? []).some((r) => r.topic === anchorTopic);
+    id !== anchorId && (relationsOfId(id) ?? []).some((r) => r && keyOf(r) === anchorTopic);
 
   const aboveMatched = [];
   const aboveRest = [];

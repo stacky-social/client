@@ -95,6 +95,20 @@ test('round-trips a contribution-type group with its grouping dimension', () => 
   assert.deepEqual(parseFilterInteraction(search), { kind: 'topic', interaction });
 });
 
+// A reply's type tag groups the reply list by category and filters the aside.
+test('round-trips a reply-origin contribution-type group', () => {
+  const interaction = {
+    origin: 'replies',
+    topicKey: 'agree',
+    anchor: { postId: '501', rangeIndex: 0 },
+    groupBy: 'category',
+  };
+  const search = serializeFilterSearch({ ...base, topicInteraction: interaction });
+  assert.equal(new URLSearchParams(search).get('fg'), 'category');
+  assert.equal(new URLSearchParams(search).get('fo'), 'replies');
+  assert.deepEqual(parseFilterInteraction(search), { kind: 'topic', interaction });
+});
+
 test('topic groups never carry fg, and a malformed fg is rejected whole', () => {
   const topic = serializeFilterSearch({
     ...base,
@@ -102,7 +116,7 @@ test('topic groups never carry fg, and a malformed fg is rejected whole', () => 
   });
   assert.equal(new URLSearchParams(topic).has('fg'), false);
   assert.deepEqual(parseFilterInteraction('ft=disagree&fo=aside&fa=77&fi=0&fg=bogus'), { kind: 'none' });
-  // Only the aside groups by contribution type.
-  assert.deepEqual(parseFilterInteraction('ft=disagree&fo=replies&fa=77&fi=0&fg=category'), { kind: 'none' });
+  // Focus prose never groups by contribution type.
+  assert.deepEqual(parseFilterInteraction('ft=disagree&fo=focus&fa=77&fi=0&fg=category'), { kind: 'none' });
   assert.deepEqual(parseFilterInteraction('fg=category'), { kind: 'none' });
 });
