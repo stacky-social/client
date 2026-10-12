@@ -54,8 +54,9 @@ test.describe('post-card feedback', () => {
       };
     });
     expect(markerGeometry.maskBeforeGlyph).toBeGreaterThanOrEqual(3);
+    // The glyph stays inside the text box. It may sit well left of the edge:
+    // a word the marker would cut is hidden whole (ellipsis-whole-characters).
     expect(markerGeometry.glyphRightInset).toBeGreaterThanOrEqual(0);
-    expect(markerGeometry.glyphRightInset).toBeLessThanOrEqual(markerGeometry.fontSize);
     expect(markerGeometry.coversTextTail).toBe(true);
     expect(markerGeometry.background).toBe('rgb(255, 255, 255)');
     expect(markerGeometry.color).toBe('rgb(100, 116, 139)');

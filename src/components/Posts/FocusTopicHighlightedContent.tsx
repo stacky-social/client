@@ -30,6 +30,7 @@ import { blendHex, getCategoryColors } from "../../utils/categoryStyles";
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { hideTooltip, showTooltip } from "../HoverTooltip";
 import FocusTopicPicker, { type FocusTopicPickerAnchor } from "./FocusTopicPicker";
+import { coverHighlight } from "../../utils/coveredText";
 
 // Single-topic phrases show a compact "Filter by" hint; multi-topic phrases
 // skip it and open their full topic list after one delay, so the reader never
@@ -68,13 +69,7 @@ const COVERED_HIGHLIGHT = "focus-window-covered";
  *  shared by every focus post, named by the ::highlight rule in globals.css.
  *  Null where the CSS Custom Highlight API is missing. */
 function coveredHighlight(): Highlight | null {
-  if (typeof Highlight === "undefined" || typeof CSS === "undefined" || !CSS.highlights) return null;
-  let highlight = CSS.highlights.get(COVERED_HIGHLIGHT);
-  if (!highlight) {
-    highlight = new Highlight();
-    CSS.highlights.set(COVERED_HIGHLIGHT, highlight);
-  }
-  return highlight;
+  return coverHighlight(COVERED_HIGHLIGHT);
 }
 
 /**

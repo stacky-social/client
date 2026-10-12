@@ -226,8 +226,13 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 /* WebKit line clamp does not consistently paint its own ellipsis for nested
-   paragraphs/marks. JS anchors this mask immediately after the last visible
-   glyph; the white tail covers any duplicate native marker to its right. */
+   paragraphs/marks. JS (measureClampEllipsis in Post.tsx) anchors this mask
+   right after the last character left visible on the final line. Characters
+   it would overlap are covered WHOLE: they turn transparent through the
+   post-clamp-covered highlight and the mask starts after them, so no letter is
+   ever half drawn. The opaque tail, painted in the card's own surface colour
+   (--cw-post-surface, set on the post card), hides the native ellipsis and
+   anything else to its right in any theme or card state. */
 .post-clamp-ellipsis {
     position: absolute;
     right: 0;
@@ -241,7 +246,7 @@ html::-webkit-scrollbar-thumb:hover {
     margin: 0;
     border: 0;
     color: #64748b;
-    background: #fff;
+    background: var(--cw-post-surface, #fff);
     font-family: inherit;
     font-size: inherit;
     font-weight: 600;
@@ -360,8 +365,12 @@ body {
     background: #fff;
 }
 
-::highlight(focus-window-covered) {
+/* Covered characters keep their metrics (so line breaks never move) but
+   paint nothing: no glyph and no emphasis shadow. */
+::highlight(focus-window-covered),
+::highlight(post-clamp-covered) {
     color: transparent;
+    text-shadow: none;
 }
 
 /* ── Focus-post semantic topic phrases ───────────────────────────────────────

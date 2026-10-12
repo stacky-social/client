@@ -29,6 +29,7 @@ import { postRouteFor } from '../../utils/postRoute';
 import AuthorHoverInfo from '../AuthorHoverInfo';
 import ProfileAvatar from '../ProfileAvatar';
 import FocusTopicHighlightedContent from './FocusTopicHighlightedContent';
+import { measureTrailingEllipsis, replaceCoveredRange, type TrailingEllipsis } from '../../utils/coveredText';
 
 /** X-style left-pane indent (px): avatar (Mantine md = 38px) + the header row's
  *  `gap="xs"` (10px) = 48px, i.e. where the username's left edge sits. The post
@@ -182,6 +183,9 @@ const COMPACT_TEXT_FONT_SIZE = '0.875em';
 
 type ClampEllipsisPosition = { left: number; top: number; lineHeight: number };
 
+/** Characters hidden under a clamped post's trailing ellipsis (globals.css). */
+const CLAMP_COVERED_HIGHLIGHT = 'post-clamp-covered';
+
 /** Top and bottom of the rendered text itself. Element boxes are left out:
  *  the focus post's passage wash pads its segments past their lines. */
 function textGlyphBounds(element: HTMLElement): { top: number; bottom: number } | null {
@@ -201,15 +205,17 @@ function textGlyphBounds(element: HTMLElement): { top: number; bottom: number } 
 }
 
 /**
- * Find the final visible glyph in a clamped (or internally scrolled) text box.
- * The browser's multiline ellipsis is not exposed as a DOM node, so the custom
- * marker must be anchored to the caret position on the final visible line.
+ * Place the trailing "…" on the final visible line of a clamped (or
+ * internally scrolled) text box. The browser's multiline ellipsis is not
+ * exposed as a DOM node, so an opaque marker replaces it. Characters the
+ * marker overlaps are covered WHOLE (made transparent through the
+ * post-clamp-covered highlight, and the marker starts right after the last
+ * character left visible), so no character is ever half drawn.
  */
-function measureClampEllipsis(element: HTMLElement): ClampEllipsisPosition | null {
-  const shell = element.parentElement;
-  if (!shell) return null;
+function measureClampEllipsis(element: HTMLElement): TrailingEllipsis | null {
+  const container = element.closest<HTMLElement>('.post-text-clamp-shell') ?? element.parentElement;
+  if (!container) return null;
 
-  const shellRect = shell.getBoundingClientRect();
   const computed = getComputedStyle(element);
   const lineHeight = Number.parseFloat(computed.lineHeight)
     || Number.parseFloat(computed.fontSize) * POST_LINE_HEIGHT_EM;
@@ -219,102 +225,22 @@ function measureClampEllipsis(element: HTMLElement): ClampEllipsisPosition | nul
   const boxRect = element.getBoundingClientRect();
   const paintBottom = Number.parseFloat(element.dataset.revealPaintBottom ?? '');
   const windowed = element.hasAttribute('data-reveal-window');
-  const elementRect = windowed && Number.isFinite(paintBottom)
-    ? new DOMRect(boxRect.left, boxRect.top, boxRect.width, paintBottom)
-    : boxRect;
+  const bottom = windowed && Number.isFinite(paintBottom) ? boxRect.top + paintBottom : boxRect.bottom;
   if (windowed) {
     // Scrolled to the post's end: nothing follows, so no trailing ellipsis.
     const text = textGlyphBounds(element);
-    if (!text || text.bottom <= elementRect.bottom + 0.5) return null;
+    if (!text || text.bottom <= bottom + 0.5) return null;
   }
-  const sampleY = elementRect.bottom - lineHeight / 2;
-
-  // Keep our existing overlay out of hit testing while finding the text caret.
-  const marker = shell.querySelector<HTMLElement>('[data-testid="post-clamp-ellipsis"]');
-  const previousDisplay = marker?.style.display ?? '';
-  if (marker) marker.style.display = 'none';
-
-  let anchorRect: DOMRect | null = null;
-  try {
-    const caretDocument = document as Document & {
-      caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
-      caretRangeFromPoint?: (x: number, y: number) => Range | null;
-    };
-    const caretPosition = caretDocument.caretPositionFromPoint?.(elementRect.right - 1, sampleY);
-    const fallbackRange = caretPosition
-      ? null
-      : caretDocument.caretRangeFromPoint?.(elementRect.right - 1, sampleY);
-    const node = caretPosition?.offsetNode ?? fallbackRange?.startContainer;
-    let end = caretPosition?.offset ?? fallbackRange?.startOffset ?? 0;
-
-    if (node?.nodeType === Node.TEXT_NODE && element.contains(node)) {
-      const textNode = node as Text;
-      end = Math.min(end, textNode.data.length);
-      while (end > 0 && /\s/.test(textNode.data[end - 1])) end -= 1;
-      if (end > 0) {
-        const range = document.createRange();
-        range.setStart(textNode, end - 1);
-        range.setEnd(textNode, end);
-        const candidate = range.getBoundingClientRect();
-        const onFinalVisibleLine = candidate.bottom > elementRect.bottom - lineHeight - 2
-          && candidate.top < elementRect.bottom
-          && candidate.right <= elementRect.right + 1;
-        if (onFinalVisibleLine) anchorRect = candidate;
-      }
-    }
-
-    // Nested marks can occasionally make the caret API return an element
-    // boundary. Fall back to a reverse text-node scan, stopping at the first
-    // character that belongs to the final visible line.
-    if (!anchorRect) {
-      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-      const textNodes: Text[] = [];
-      let node: Node | null;
-      while ((node = walker.nextNode())) textNodes.push(node as Text);
-
-      outer: for (let nodeIndex = textNodes.length - 1; nodeIndex >= 0; nodeIndex -= 1) {
-        const textNode = textNodes[nodeIndex];
-        for (let offset = textNode.data.length; offset > 0; offset -= 1) {
-          if (/\s/.test(textNode.data[offset - 1])) continue;
-          const range = document.createRange();
-          range.setStart(textNode, offset - 1);
-          range.setEnd(textNode, offset);
-          const candidate = range.getBoundingClientRect();
-          if (
-            candidate.width > 0
-            && candidate.bottom > elementRect.bottom - lineHeight - 2
-            && candidate.top < elementRect.bottom
-            && candidate.left < elementRect.right
-            && candidate.right > elementRect.left
-          ) {
-            anchorRect = candidate;
-            break outer;
-          }
-        }
-      }
-    }
-  } finally {
-    if (marker) marker.style.display = previousDisplay;
-  }
-
-  if (!anchorRect) return null;
-  const fontSize = Number.parseFloat(computed.fontSize) || 16;
-  const markerWidth = Math.max(8, fontSize * 0.7);
-  const nativeClampActive = computed.webkitLineClamp !== 'none';
-  const markerLeft = Math.min(
-    anchorRect.right - shellRect.left + 1,
-    elementRect.right - shellRect.left - markerWidth,
-  );
-  return {
-    // A WebKit line clamp paints an anonymous ellipsis immediately before our
-    // marker. Start the opaque button one ellipsis-width earlier so it replaces
-    // that native glyph instead of appearing beside it. The internally-scrolled
-    // focus window has no native clamp, so its marker stays after the final
-    // visible character.
-    left: Math.round((markerLeft - (nativeClampActive ? markerWidth : 0)) * 100) / 100,
-    top: Math.round((anchorRect.top - shellRect.top) * 100) / 100,
+  // The marker (globals.css .post-clamp-ellipsis) sets "…" in weight 600
+  // after a 0.25em left padding, at the text's own size.
+  return measureTrailingEllipsis({
+    element,
+    container,
+    bottom,
     lineHeight,
-  };
+    ellipsisFontWeight: 600,
+    ellipsisPaddingEm: 0.25,
+  });
 }
 
 interface PostProps {
@@ -458,6 +384,8 @@ function Post({
   const [isOverflowing, setIsOverflowing] = useState(false);
   const [clampEllipsisPosition, setClampEllipsisPosition] = useState<ClampEllipsisPosition | null>(null);
   const textRef = useRef<HTMLDivElement>(null);
+  // Whole characters hidden under the trailing ellipsis (post-clamp-covered).
+  const coveredRangeRef = useRef<Range | null>(null);
   // Guards against setState after unmount: under feed virtualization a post can
   // unmount while a post-action refetch is still in flight.
   const mountedRef = useRef(true);
@@ -516,7 +444,12 @@ function Post({
 
   useLayoutEffect(() => {
     const element = textRef.current;
+    const releaseCovered = () => {
+      replaceCoveredRange(CLAMP_COVERED_HIGHLIGHT, coveredRangeRef.current, null);
+      coveredRangeRef.current = null;
+    };
     if (!element || isTextExpanded) {
+      releaseCovered();
       setClampEllipsisPosition(null);
       return;
     }
@@ -538,7 +471,12 @@ function Post({
           overflowing = Boolean(text && (text.top < box.top - 0.5 || text.bottom > box.bottom + 0.5));
         }
         setIsOverflowing(overflowing);
-        const nextPosition = overflowing ? measureClampEllipsis(element) : null;
+        const layout = overflowing ? measureClampEllipsis(element) : null;
+        replaceCoveredRange(CLAMP_COVERED_HIGHLIGHT, coveredRangeRef.current, layout?.covered ?? null);
+        coveredRangeRef.current = layout?.covered ?? null;
+        const nextPosition: ClampEllipsisPosition | null = layout
+          ? { left: layout.left, top: layout.top, lineHeight: layout.lineHeight }
+          : null;
         setClampEllipsisPosition((current) => {
           if (!current || !nextPosition) return current === nextPosition ? current : nextPosition;
           return Math.abs(current.left - nextPosition.left) < 0.25
@@ -571,6 +509,12 @@ function Post({
       windowObserver.disconnect();
     };
   }, [displayText, text, isTextExpanded, compact, clampLines, contentRelations, focusRelations]);
+  // The next measurement swaps the covered range in place (no frame where the
+  // characters reappear); only unmounting releases it for good.
+  useEffect(() => () => {
+    replaceCoveredRange(CLAMP_COVERED_HIGHLIGHT, coveredRangeRef.current, null);
+    coveredRangeRef.current = null;
+  }, []);
   useEffect(() => {
     setTempRelatedStacks(relatedStacks);
   }, [relatedStacks]);
@@ -924,7 +868,9 @@ function Post({
         style={{
           position: 'relative',
           width: "100%",
-          backgroundColor: '#fff',
+          // The trailing "…" marker paints this same surface (globals.css).
+          '--cw-post-surface': '#fff',
+          backgroundColor: 'var(--cw-post-surface)',
           zIndex: 5,
           borderRadius: '10px',
           borderStyle: 'solid',
