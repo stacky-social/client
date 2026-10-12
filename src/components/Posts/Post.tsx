@@ -17,6 +17,8 @@ import { getMe, getPost, isLiked as storeIsLiked, isBookmarked as storeIsBookmar
 import { getCurrentUser } from '../../utils/getCurrentUser';
 import { setPendingFocusTopic } from '../../utils/highlightStore';
 import { CATEGORY_LABELS, categoryIcon, getCategoryColors } from '../../utils/categoryStyles';
+import { showTooltip, hideTooltip } from '../HoverTooltip';
+import { buildTooltipLabel } from '../spanTooltip';
 import { type FocusTopicCandidate } from '../../utils/focusTopics.mjs';
 import ReplyHighlightedContent from './ReplyHighlightedContent';
 import { useRelatedStacks } from '../../app/(shell)/related-stacks-context';
@@ -283,6 +285,12 @@ interface PostProps {
   categoryBadges?: string[];
   /** A contribution span in this post was clicked (rangeIndex into contentRelations). */
   onContentSpanClick?: (rangeIndex: number) => void;
+  /** A contribution-type badge was clicked: group "more like this" by that type
+   *  (the related panel's type-icon interaction). Absent = passive badges. */
+  onCategoryBadgeClick?: (category: string) => void;
+  /** Tooltip/affordance state for a badge: how many other posts carry the type,
+   *  whether its group is the active one, and whether a click does anything. */
+  categoryBadgeState?: (category: string) => { others: number; active: boolean; actionable: boolean };
   /** Optional cross-pane count for the reply span tooltip ("N more <topic>"). */
   replyTopicCount?: (topic: string) => number;
   /** The reply pane's active grouping topic — threaded to the reply spans so an
@@ -327,6 +335,8 @@ function Post({
   contentRelations,
   categoryBadges,
   onContentSpanClick,
+  onCategoryBadgeClick,
+  categoryBadgeState,
   replyTopicCount,
   activeClusterTopic = null,
   replyingToAccount = null,
@@ -982,17 +992,61 @@ function Post({
                 {categoryBadges.map((cat) => {
                   const tc = getCategoryColors(cat);
                   const label = CATEGORY_LABELS[cat] ?? cat;
+                  const badgeState = onCategoryBadgeClick ? categoryBadgeState?.(cat) : undefined;
+                  const actionable = !!onCategoryBadgeClick && (badgeState?.actionable ?? true);
+                  // Same reading as a span tooltip: "N more <Type>", or
+                  // "Showing <Type>" while its group is the active one.
+                  const showBadgeTooltip = (x: number, y: number) => {
+                    if (!badgeState) return;
+                    showTooltip({
+                      content: actionable
+                        ? buildTooltipLabel(label, badgeState.others, tc.text, badgeState.active ? label : null)
+                        : label,
+                      colors: { text: tc.text, border: tc.border },
+                      x,
+                      y,
+                    });
+                  };
+                  const activate = () => {
+                    hideTooltip();
+                    if (actionable) onCategoryBadgeClick?.(cat);
+                  };
                   return (
                     <span
                       key={cat}
                       data-reply-badge={cat}
-                      title={label}
+                      data-contribution-category={cat}
+                      title={onCategoryBadgeClick ? undefined : label}
                       aria-label={label}
+                      {...(onCategoryBadgeClick
+                        ? {
+                            role: 'button',
+                            tabIndex: 0,
+                            'aria-pressed': !!badgeState?.active,
+                            'aria-disabled': actionable ? undefined : true,
+                            // The badge sits inside the header row, whose click
+                            // and Enter open the reply. A badge never navigates.
+                            onClick: (e: React.MouseEvent) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              activate();
+                            },
+                            onKeyDown: (e: React.KeyboardEvent) => {
+                              if (e.key !== 'Enter' && e.key !== ' ') return;
+                              e.stopPropagation();
+                              e.preventDefault();
+                              activate();
+                            },
+                            onMouseEnter: (e: React.MouseEvent) => showBadgeTooltip(e.clientX, e.clientY),
+                            onMouseLeave: () => hideTooltip(),
+                          }
+                        : {})}
                       style={{
                         background: tc.bg, color: tc.text, border: `1px solid ${tc.border}`,
                         borderRadius: '5px', padding: '2px 7px',
                         display: 'inline-flex', alignItems: 'center', gap: '4px',
                         fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap',
+                        cursor: actionable ? 'pointer' : 'default',
                       }}
                     >
                       {categoryIcon(cat, 12, tc.text)}

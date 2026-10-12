@@ -240,5 +240,19 @@ export function useCompactFocus(
     expandOnUpwardInput();
   }, [replies, expandOnUpwardInput, maybeCollapse, pinFocus, isPinned, syncScrollable]);
 
-  return { compact, setCompact, onReplyScroll, pinFocus, repliesScrollable };
+  /** Hold a reply still after the list above it changed (a filter or group
+   * from a click inside the replies): scroll the region by `delta`. The scroll
+   * counts as the reader's own, so it collapses the focus only past the
+   * hysteresis threshold, and then anchored. Treated as programmatic, a mere
+   * 40px of compensation collapsed the focus unanchored and moved the clicked
+   * reply by the height the focus gave back. */
+  const holdReplies = useCallback((delta: number) => {
+    const region = replies.current;
+    if (!region || Math.abs(delta) <= 0.5) return;
+    lastReplyInput.current = performance.now();
+    direction.current = Math.sign(delta);
+    region.scrollTop += delta;
+  }, [replies]);
+
+  return { compact, setCompact, onReplyScroll, pinFocus, repliesScrollable, holdReplies };
 }

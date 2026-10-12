@@ -44,6 +44,7 @@ import {
   setFilterCategories,
   clearResponseFilter,
   activateReplyTopic,
+  activateAsideTopic,
   clearTopicInteraction,
   setReplyTopicCounts,
   registerReplyTopicResolver,
@@ -56,6 +57,7 @@ import {
   currentPanelScope,
   navigateFromPanelScope,
 } from "../../../../../utils/highlightStore";
+import { categoryKeyOf, pickTypeGroupAnchor, relatedCountForCategory } from "../../../../../utils/typeGroupAnchor.mjs";
 import {
   restoreFeedScrollSnapshot,
   saveFeedScrollSnapshot,
@@ -181,7 +183,7 @@ export default function MockPostView() {
   // budget stays exact, in the same layout pass as a compact change (#259).
   const {
     compact: focusCompact, setCompact: setFocusCompact, onReplyScroll, pinFocus,
-    repliesScrollable,
+    repliesScrollable, holdReplies,
   } = useCompactFocus(focusAnchorRef, replyScrollRef, FOCUS_PIN_OFFSET, focusWrapRef);
 
   const plainPostText = post ? stripHtmlToPlain(post.content) : null;
@@ -560,7 +562,7 @@ export default function MockPostView() {
   // Topic → displayed-reply count, published to the store so the related
   // panel's "N more <topic>" tooltips count across both panes. Counts every
   // reply in the displayed branches — nested replies carry contributions too.
-  const replyTopicCountsMap = useMemo(() => {
+  const displayedReplyIds = useMemo(() => {
     const childIds = new Map<string, string[]>();
     for (const r of mergedReplies) {
       const pid = r.in_reply_to_id;
@@ -569,21 +571,37 @@ export default function MockPostView() {
       arr.push(r.id);
       childIds.set(pid, arr);
     }
-    const m = new Map<string, number>();
     const stack = displayedTopLevel.map((r) => r.id);
     const seen = new Set<string>();
     while (stack.length) {
       const rid = stack.pop()!;
       if (seen.has(rid)) continue;
       seen.add(rid);
+      for (const cid of childIds.get(rid) ?? []) stack.push(cid);
+    }
+    return seen;
+  }, [displayedTopLevel, mergedReplies]);
+  const replyTopicCountsMap = useMemo(() => {
+    const m = new Map<string, number>();
+    displayedReplyIds.forEach((rid) => {
       const topics = new Set(
         (replyRelationsById.get(rid) ?? []).map((x) => x.topic).filter(Boolean) as string[]
       );
       topics.forEach((t) => m.set(t, (m.get(t) ?? 0) + 1));
-      for (const cid of childIds.get(rid) ?? []) stack.push(cid);
-    }
+    });
     return m;
-  }, [displayedTopLevel, mergedReplies, replyRelationsById]);
+  }, [displayedReplyIds, replyRelationsById]);
+  // Same count per contribution type, for the reply type tags' "N more <Type>".
+  const replyCategoryCountsMap = useMemo(() => {
+    const m = new Map<string, number>();
+    displayedReplyIds.forEach((rid) => {
+      const cats = new Set(
+        (replyRelationsById.get(rid) ?? []).map((x) => categoryKeyOf(x.category)).filter(Boolean)
+      );
+      cats.forEach((c) => m.set(c, (m.get(c) ?? 0) + 1));
+    });
+    return m;
+  }, [displayedReplyIds, replyRelationsById]);
 
   useEffect(() => {
     if (!crossFilterActive) {
@@ -646,7 +664,7 @@ export default function MockPostView() {
       const rels = replyRelationsById.get(replyId) ?? [];
       // Topic key computed at the click site (the store can't derive it).
       const clickTopicKey = topicKeyOf(rels[rangeIndex]);
-      const el = document.querySelector(`[data-post-id="${replyId}"]`) as HTMLElement | null;
+      const el = (replyScrollRef.current ?? document).querySelector(`[data-post-id="${replyId}"]`) as HTMLElement | null;
       replyPinRef.current = el ? { id: replyId, top: el.getBoundingClientRect().top } : null;
 
       const active = replyGroupingInteraction;
@@ -699,15 +717,70 @@ export default function MockPostView() {
     ]
   );
 
+  // Reply type tag: the related panel's type-icon interaction ("more like
+  // this", an aside topic interaction grouped by category, fg=category), so
+  // the URL, Back-undo, aside grouping, and reply filtering all match a click
+  // on a related card's icon. The group needs a related card to anchor on: the
+  // reply itself when it is also a related post, otherwise the first card of
+  // the type as the panel draws it. With no related post of the type there is
+  // nothing to group, and the tag does nothing. Like the aside icon, the active
+  // type toggles off from any tag that shows it. The reply stays put.
+  const activeTypeGroup =
+    topicInteraction?.origin === "aside" && topicInteraction.groupBy === "category"
+      ? topicInteraction.topicKey
+      : null;
+  const replyTypeTagState = useCallback(
+    (cat: string) => {
+      const key = categoryKeyOf(cat);
+      const related = relatedCountForCategory(ctxRelatedStacks as any, key);
+      const replies = replyCategoryCountsMap.get(key) ?? 0;
+      return {
+        others: Math.max(0, related + replies - 1),
+        active: activeTypeGroup === key,
+        actionable: activeTypeGroup === key || related > 0,
+      };
+    },
+    [ctxRelatedStacks, replyCategoryCountsMap, activeTypeGroup]
+  );
+  const handleReplyTypeTagClick = useCallback(
+    (replyId: string, cat: string) => {
+      const key = categoryKeyOf(cat);
+      if (!key) return;
+      const pinReply = () => {
+        const el = (replyScrollRef.current ?? document).querySelector(`[data-post-id="${replyId}"]`) as HTMLElement | null;
+        replyPinRef.current = el ? { id: replyId, top: el.getBoundingClientRect().top } : null;
+      };
+      if (activeTypeGroup === key) {
+        pinReply();
+        const scope = currentPanelScope();
+        if (scope) beginPanelInteraction(scope, null);
+        clearTopicInteraction();
+        return;
+      }
+      const drawnCardIds = Array.from(
+        document.querySelectorAll('[data-testid="col-aside"] [data-related-card]')
+      )
+        .map((card) => card.querySelector("[data-post-id]")?.getAttribute("data-post-id"))
+        .filter((pid): pid is string => !!pid);
+      const anchor = pickTypeGroupAnchor(ctxRelatedStacks as any, key, [replyId, ...drawnCardIds]);
+      if (!anchor) return;
+      pinReply();
+      const scope = currentPanelScope();
+      if (scope) beginPanelInteraction(scope, null);
+      activateAsideTopic({ topicKey: key, anchor, groupBy: "category" });
+    },
+    [activeTypeGroup, ctxRelatedStacks]
+  );
+
   useLayoutEffect(() => {
     const pin = replyPinRef.current;
     replyPinRef.current = null;
     if (!pin) return;
-    const el = document.querySelector(`[data-post-id="${pin.id}"]`) as HTMLElement | null;
+    const el = (replyScrollRef.current ?? document).querySelector(`[data-post-id="${pin.id}"]`) as HTMLElement | null;
     if (!el) return;
     const delta = el.getBoundingClientRect().top - pin.top;
-    if (Math.abs(delta) > 0.5 && replyScrollRef.current) replyScrollRef.current.scrollTop += delta;
-  }, [topicInteraction]);
+    holdReplies(delta);
+  }, [topicInteraction, holdReplies]);
 
   // ── X-style click-to-focus: arrival pin + fade (WS3/T2) ──────────────────
   // When we land here from a reply/ancestor click, an animate-intent keyed to
@@ -915,6 +988,10 @@ export default function MockPostView() {
       focusRelations={isFocusPost ? focusRelationsAll : []}
       contentRelations={showReplyContributions ? replyRelationsById.get(p.id) : undefined}
       categoryBadges={showReplyContributions ? replyBadgesById.get(p.id) : undefined}
+      onCategoryBadgeClick={
+        showReplyContributions ? (cat: string) => handleReplyTypeTagClick(p.id, cat) : undefined
+      }
+      categoryBadgeState={showReplyContributions ? replyTypeTagState : undefined}
       onContentSpanClick={
         showReplyContributions && flags.replyReranking && flags.replySortTabs
           ? (ri: number) => handleReplySpanClick(p.id, ri)
