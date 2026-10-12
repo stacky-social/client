@@ -1196,8 +1196,9 @@ export default function MockPostView() {
           // focus or reach their end. A fixed 72px budget used to leave the
           // last reply up to ~52px below the viewport, unreachable because the
           // wheel is contained in this region.
-          // Not user-scrollable until the focus is stuck: input first scrolls the
-          // page, so the replies move exactly with it (useCompactFocus).
+          // Scrollable only while the focus is compact (and so pinned); while it
+          // is full, input scrolls the page and the replies move with it
+          // (useCompactFocus).
           style={{ paddingLeft: 6, marginLeft: -6, overflowAnchor: "none", overflowY: repliesScrollable ? "auto" : "hidden", overscrollBehaviorY: repliesScrollable ? "contain" : "auto", scrollbarGutter: "stable", maxHeight: `calc(100dvh - ${FOCUS_PIN_OFFSET}px - var(--cw-focus-budget, 316px))`, minHeight: 160 }}
         >
         <Divider my="md" />
