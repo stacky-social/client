@@ -130,26 +130,12 @@ export default function PostView() {
   const replyScrollRef = useRef<HTMLDivElement>(null);
   const focusAnchorRef = useRef<HTMLDivElement>(null);
   // The focus post sticks at top: 64 (see its wrapper below).
-  const { compact: focusCompact, setCompact: setFocusCompact, onReplyScroll, pinFocus } = useCompactFocus(focusAnchorRef, replyScrollRef, 64);
-  const [focusHeight, setFocusHeight] = useState(300);
-  // Space between the focus post's box and the reply region, measured so the
-  // reply budget below stays exact.
-  const [replyGap, setReplyGap] = useState(16);
-  useLayoutEffect(() => {
-    const focus = currentPostRef.current;
-    if (!focus) return;
-    const observer = new ResizeObserver(() => {
-      const box = focus.getBoundingClientRect();
-      setFocusHeight(box.height);
-      const region = replyScrollRef.current;
-      if (region) {
-        const gap = region.getBoundingClientRect().top - box.bottom;
-        if (gap >= 0 && gap <= 64) setReplyGap(gap);
-      }
-    });
-    observer.observe(focus);
-    return () => observer.disconnect();
-  }, [post?.id]);
+  // The hook also measures the focus post and the gap below it, so the reply
+  // budget stays exact in the same layout pass as a compact change (#259).
+  const {
+    compact: focusCompact, setCompact: setFocusCompact, onReplyScroll, pinFocus,
+    repliesScrollable,
+  } = useCompactFocus(focusAnchorRef, replyScrollRef, 64, currentPostRef);
   useLayoutEffect(() => {
     const restored = Number(sessionStorage.getItem(`reply-scroll:${id}`) ?? 0);
     if (replyScrollRef.current) replyScrollRef.current.scrollTop = restored;
@@ -703,7 +689,7 @@ export default function PostView() {
             sessionStorage.setItem(`reply-scroll:${id}`, String(event.currentTarget.scrollTop));
             sessionStorage.setItem(`reply-visible:${id}`, String(visibleTopLevelReplies));
           }}
-          style={{ paddingLeft: 6, marginLeft: -6, overflowAnchor: "none", overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${Math.ceil(64 + focusHeight + replyGap)}px)`, minHeight: 160 }}
+          style={{ paddingLeft: 6, marginLeft: -6, overflowAnchor: "none", overflowY: repliesScrollable ? "auto" : "hidden", overscrollBehaviorY: repliesScrollable ? "contain" : "auto", scrollbarGutter: "stable", maxHeight: `calc(100dvh - ${64}px - var(--cw-focus-budget, 316px))`, minHeight: 160 }}
         >
         <Divider my="md" />
 

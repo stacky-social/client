@@ -175,26 +175,14 @@ export default function MockPostView() {
 
   const replyScrollRef = useRef<HTMLDivElement>(null);
   const focusAnchorRef = useRef<HTMLDivElement>(null);
-  const { compact: focusCompact, setCompact: setFocusCompact, onReplyScroll, pinFocus } = useCompactFocus(focusAnchorRef, replyScrollRef, FOCUS_PIN_OFFSET);
-  const [focusHeight, setFocusHeight] = useState(300);
-  // Space between the focus post's box and the reply region (the post's own
-  // bottom margin). Measured, so the reply budget below stays exact.
-  const [replyGap, setReplyGap] = useState(16);
-  useLayoutEffect(() => {
-    const focus = focusWrapRef.current;
-    if (!focus) return;
-    const observer = new ResizeObserver(() => {
-      const box = focus.getBoundingClientRect();
-      setFocusHeight(box.height);
-      const region = replyScrollRef.current;
-      if (region) {
-        const gap = region.getBoundingClientRect().top - box.bottom;
-        if (gap >= 0 && gap <= 64) setReplyGap(gap);
-      }
-    });
-    observer.observe(focus);
-    return () => observer.disconnect();
-  }, [post?.id]);
+  // Focus geometry for arrival positioning and the bounded reply viewport.
+  const focusWrapRef = useRef<HTMLDivElement | null>(null);
+  // The hook measures the stuck focus post (and the gap below it) so the reply
+  // budget stays exact, in the same layout pass as a compact change (#259).
+  const {
+    compact: focusCompact, setCompact: setFocusCompact, onReplyScroll, pinFocus,
+    repliesScrollable,
+  } = useCompactFocus(focusAnchorRef, replyScrollRef, FOCUS_PIN_OFFSET, focusWrapRef);
 
   const plainPostText = post ? stripHtmlToPlain(post.content) : null;
 
@@ -651,8 +639,6 @@ export default function MockPostView() {
   // Reply span click: rerank in place. The clicked card is scroll-pinned so the
   // user never loses their place (same contract as the related panel's anchors).
   const replyPinRef = useRef<{ id: string; top: number } | null>(null);
-  // Focus geometry for arrival positioning and the bounded reply viewport.
-  const focusWrapRef = useRef<HTMLDivElement | null>(null);
   const columnRef = useRef<HTMLDivElement | null>(null);
   const handleReplySpanClick = useCallback(
     (replyId: string, rangeIndex: number) => {
@@ -1093,7 +1079,9 @@ export default function MockPostView() {
           // focus or reach their end. A fixed 72px budget used to leave the
           // last reply up to ~52px below the viewport, unreachable because the
           // wheel is contained in this region.
-          style={{ paddingLeft: 6, marginLeft: -6, overflowAnchor: "none", overflowY: "auto", overscrollBehaviorY: "contain", maxHeight: `calc(100dvh - ${Math.ceil(FOCUS_PIN_OFFSET + focusHeight + replyGap)}px)`, minHeight: 160 }}
+          // Not user-scrollable until the focus is stuck: input first scrolls the
+          // page, so the replies move exactly with it (useCompactFocus).
+          style={{ paddingLeft: 6, marginLeft: -6, overflowAnchor: "none", overflowY: repliesScrollable ? "auto" : "hidden", overscrollBehaviorY: repliesScrollable ? "contain" : "auto", scrollbarGutter: "stable", maxHeight: `calc(100dvh - ${FOCUS_PIN_OFFSET}px - var(--cw-focus-budget, 316px))`, minHeight: 160 }}
         >
         <Divider my="md" />
 
