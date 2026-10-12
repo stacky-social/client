@@ -604,7 +604,16 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
       // small extension its right half cuts through the opening. Keep native
       // focus/resize feedback outside the mouth and leave hit testing intact.
       const dividerCoverRight = Math.ceil(dividerRect?.right ?? targetX) + 2;
-      const coordinates = [sourceX, sourceTopY, sourceBottomY, targetX, targetTopY, targetBottomY, dividerCoverRight];
+      // The SVG spans the page's own content, never the document scroll
+      // height: that height includes this absolutely positioned SVG, so
+      // measuring it kept a previous route's (e.g. a long feed's) height
+      // forever. On a short post page the stale SVG kept the window scrollable
+      // far past the content group and carried the sticky aside off screen.
+      const viewportHeight = round(Math.max(
+        document.body.getBoundingClientRect().height,
+        document.documentElement.clientHeight,
+      ));
+      const coordinates = [sourceX, sourceTopY, sourceBottomY, targetX, targetTopY, targetBottomY, dividerCoverRight, viewportHeight];
       const next: BridgeGeometry = {
         focusId: activePostId,
         sourceKind,
@@ -612,7 +621,7 @@ export function WeaveBridge({ enabled, feedRef, asideRef, variant = "open" }: We
         signature: `${variant}|${activePostId}|${sourceKind}|${window.innerWidth}|${window.innerHeight}|${coordinates.join("|")}`,
         originY,
         viewportWidth: round(document.documentElement.clientWidth),
-        viewportHeight: round(document.documentElement.scrollHeight),
+        viewportHeight,
         sourceX,
         sourceTopY,
         sourceBottomY,
