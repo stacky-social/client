@@ -3,6 +3,7 @@
 import { allDemoEntries } from "../data/demoCorpora";
 import { firstTypeRelations } from "./relationFirstType.mjs";
 import { contextualAiRewrite } from "../data/contextualAiRewrites";
+import { canonicalThreadPost, projectThreadRelations } from "./threadRelations.mjs";
 import { resolveReplyCount } from "./replyCount.mjs";
 import type {
   ListyInjectionData,
@@ -77,6 +78,7 @@ const relatedById = new Map<string, { rp: RelatedPostMock; parent: ListyInjectio
 const replyById = new Map<string, Array<{ reply: ReplyMock; parent: ListyInjectionEntry }>>();
 const replyByFocusAndId = new Map<string, { reply: ReplyMock; parent: ListyInjectionEntry }>();
 const allPostsById = new Map<string, FocusPostMock | RelatedPostMock>();
+const originalRelatedById = new Map<string, RelatedPostMock>();
 /** Lifted quote-tweet ids never inherit the source article as a thread parent. */
 const quoteFocusIds = new Set(
   entries.filter((entry) => !!entry.focusPost.quotedPost).map((entry) => entry.focusPost.id),
@@ -122,12 +124,23 @@ for (const e of entries) {
   }
 
   for (const rp of e.relatedPosts) {
+    if (rp.rewrite?.originalContent && !originalRelatedById.has(rp.id)) originalRelatedById.set(rp.id, rp);
     if (!relatedById.has(rp.id)) relatedById.set(rp.id, { rp, parent: e });
     if (!allPostsById.has(rp.id)) allPostsById.set(rp.id, rp);
     if (rp.inReplyToId && !quoteFocusIds.has(rp.id) && !parentMap.has(rp.id)) {
       parentMap.set(rp.id, rp.inReplyToId);
     }
   }
+}
+
+// Focus/ancestor records carry authored text. Related-only records can still
+// recover it from rewrite provenance without changing the aside's scoped copies.
+for (const [id, post] of Array.from(allPostsById.entries())) {
+  const provenance = originalRelatedById.get(id)?.rewrite;
+  const original = !entryByFocusId.has(id) && provenance
+    ? { ...post, rewrite: provenance }
+    : post;
+  allPostsById.set(id, canonicalThreadPost(original));
 }
 
 parentMap.forEach((parentId, childId) => {
@@ -196,12 +209,9 @@ export function getMockReplies(id: string): MockPostType[] {
     const cid = stack.shift()!;
     if (seen.has(cid)) continue;
     seen.add(cid);
-    // Descendant display text is backend-decontextualized and its relation
-    // offsets are scoped to this focus entry. Prefer that scoped copy over the
-    // same post's canonical focused-body copy.
-    const post = replyByFocusAndId.get(`${id}:${cid}`)?.reply
-      ?? entryByFocusId.get(id)?.relatedPosts.find((related) => related.id === cid)
-      ?? allPostsById.get(cid);
+    // Thread reading uses the same authored body as opening this post. Scoped
+    // NLP annotations are projected separately in getMockReplyRelations.
+    const post = allPostsById.get(cid);
     // A post can occur twice in the fixture: once as a related response and
     // once as a reply. The related copy may omit its parent, so pass the
     // canonical graph edge instead of whichever copy happened to be stored.
@@ -310,12 +320,20 @@ export function getMockReplyRelations(id: string, focusId?: string): Relation[] 
     : replyById.get(id)?.[0];
   if (fromReply && (!focusId || fromReply.parent.focusPost.id === focusId)) {
     const relations = firstTypeRelations(fromReply.reply.relations);
-    if (relations.length > 0) return relations;
+    if (relations.length > 0) return projectThreadRelations(
+      fromReply.reply.plainText,
+      getMockPlainText(id) ?? fromReply.reply.plainText,
+      relations,
+    );
   }
   const related = focusId
     ? entryByFocusId.get(focusId)?.relatedPosts.find((post) => post.id === id)
     : relatedById.get(id)?.rp;
-  if (related) return firstTypeRelations(related.relations);
+  if (related) return projectThreadRelations(
+    related.content,
+    getMockPlainText(id) ?? related.content,
+    firstTypeRelations(related.relations),
+  );
   return [];
 }
 
