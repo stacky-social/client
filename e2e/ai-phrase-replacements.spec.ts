@@ -4,9 +4,10 @@ test.use({ hasTouch: true });
 
 test('AI redlines group consecutive replacements and separate old/new phrases', async ({ page }) => {
   await page.goto('/EnergyTech/posts/cw-ie_db4lx1rv_UOr_');
-  await page.getByRole('button', { name: 'Show Connections filter' }).click();
+  await page.getByRole('button', { name: 'Show Predictions filter' }).click();
   const card = page.locator('[data-related-card] [data-post-id="cw-BUGfufR__CqO1aQ-"]');
   const badge = card.getByRole('button', { name: 'Modified by AI' });
+  await card.scrollIntoViewIfNeeded();
   const before = await card.boundingBox();
   await badge.hover();
   const diff = card.locator('[data-ai-inline-diff]');
