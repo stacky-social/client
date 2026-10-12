@@ -676,7 +676,7 @@ export default function PostView() {
 
           <div ref={focusAnchorRef} />
           {/* Current Post */}
-          <div ref={currentPostRef} data-focus-compact={focusCompact ? "true" : "false"} style={{ position: "sticky", top: 64, zIndex: 20, background: "white" }}>
+          <div ref={currentPostRef} data-focus-compact={focusCompact ? "true" : "false"} style={{ position: "sticky", top: 64, zIndex: 20, background: "white", borderRadius: 10 }}>
             {post && renderPost(post)}
           </div>
         </div>

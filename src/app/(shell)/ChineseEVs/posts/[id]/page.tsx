@@ -1051,6 +1051,9 @@ export default function MockPostView() {
               top: TOP_NAV_HEIGHT + 8,
               zIndex: 20,
               background: "white",
+              // Match the post card's corners: a square white backing showed
+              // as a notch in the soft shadow around the rounded card.
+              borderRadius: 10,
               transform:
                 focusEnter === "from"
                   ? `translateY(${FOCUS_ENTER_TRANSLATE}px)`
