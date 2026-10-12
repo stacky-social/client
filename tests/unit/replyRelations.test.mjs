@@ -209,3 +209,21 @@ test('any reply that carries relations has in-range offsets (forward-compat guar
     }
   }
 });
+
+test('the latest contribution annotations retain all source probabilities and Humor', () => {
+  let multiple = 0;
+  let humor = 0;
+  for (const entry of data) {
+    for (const post of [...entry.relatedPosts, ...(entry.replies ?? [])]) {
+      const relations = post.relations ?? [];
+      if (new Set(relations.map((r) => r.category)).size > 1) multiple++;
+      for (const relation of relations) {
+        assert.ok(Number.isFinite(relation.probability) && relation.probability >= 0 && relation.probability <= 1,
+          `${post.id}/${relation.category} preserves its probability`);
+        if (relation.category === 'humor') humor++;
+      }
+    }
+  }
+  assert.ok(multiple > 0, 'coincident multi-type annotations survive import');
+  assert.ok(humor > 0, 'the new Humor classification is present');
+});

@@ -11,15 +11,15 @@ const rel = (category, spans = {}) => ({
   ...spans,
 });
 
-test('keeps only the FIRST contribution type of a coincident-span pair', () => {
+test('preserves every contribution type of a coincident-span pair', () => {
   const first = rel('evidence_public');
   const second = rel('agree');
-  assert.deepEqual(firstTypeRelations([first, second]), [first]);
+  assert.deepEqual(firstTypeRelations([first, second]), [first, second]);
 });
 
-test('coincident triple collapses to the first, order preserved', () => {
-  const rels = [rel('framing'), rel('values'), rel('disagree')];
-  assert.deepEqual(firstTypeRelations(rels), [rels[0]]);
+test('arbitrary coincident type count survives in source order', () => {
+  const rels = [rel('framing'), rel('values'), rel('disagree'), rel('agree'), rel('questions')];
+  assert.deepEqual(firstTypeRelations(rels), rels);
 });
 
 test('relations on DIFFERENT spans all survive', () => {
@@ -29,12 +29,12 @@ test('relations on DIFFERENT spans all survive', () => {
   assert.deepEqual(firstTypeRelations([a, b, c]), [a, b, c]);
 });
 
-test('mixed: dedupes within a coincident group without touching distinct spans', () => {
+test('mixed coincident and distinct spans retain all categories', () => {
   const a = rel('framing');
-  const aDup = rel('values'); // same span as a — second type, dropped
+  const aDup = rel('values'); // same span as a — second type, retained
   const b = rel('agree', { focusStart: 50, focusEnd: 80 });
   const bDup = rel('questions', { focusStart: 50, focusEnd: 80 });
-  assert.deepEqual(firstTypeRelations([a, aDup, b, bDup]), [a, b]);
+  assert.deepEqual(firstTypeRelations([a, aDup, b, bDup]), [a, aDup, b, bDup]);
 });
 
 test('empty / undefined / single-relation inputs pass through', () => {

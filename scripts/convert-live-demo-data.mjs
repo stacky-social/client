@@ -33,6 +33,7 @@
 // "Modified by AI" redline without remapping backend-provided offsets.
 
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   readFileSync,
@@ -74,6 +75,7 @@ const CATEGORY_MAP = {
   Predictions: 'predictions',
   Questions: 'questions',
   Values: 'values',
+  Humor: 'humor',
   Agree: 'agree',
   Disagree: 'disagree',
   Uncategorized: 'uncategorized',
@@ -473,9 +475,13 @@ function relationsFor(row, focusText, sideText, context) {
     || (row.span_match_ok !== true ? `${context}: span_match_ok is not true` : null);
   if (error) return { error, relations: [] };
 
-  const types = row.judgment?.contribution_types?.length
-    ? row.judgment.contribution_types
-    : [{ label: 'Uncategorized' }];
+  const types = row.judgment?.contribution_types ?? [{ label: 'Uncategorized' }];
+  for (const type of types) {
+    assert(type.probability === undefined || (
+      typeof type.probability === 'number' && Number.isFinite(type.probability)
+      && type.probability >= 0 && type.probability <= 1
+    ), `${context}: invalid contribution probability for ${type.label}`);
+  }
   const topic = row.judgment?.topic ?? '';
   const relations = types.map((type) => ({
     focusStart: focusText.boundaryMap[focusHighlight.start],
@@ -487,6 +493,7 @@ function relationsFor(row, focusText, sideText, context) {
     contentCommentStart: sideText.boundaryMap[sideHighlight.crux_start],
     contentCommentEnd: sideText.boundaryMap[sideHighlight.crux_end],
     category: mapCategory(type.label, context),
+    ...(type.probability === undefined ? {} : { probability: type.probability }),
     topic,
   }));
   return { error: null, relations };
@@ -547,9 +554,10 @@ function descendantReply(index, row, focusItem, context) {
   const item = index.byKey.get(row.descendant_post?.key);
   assert(item, `${context}: descendant_post key does not resolve: ${row.descendant_post?.key}`);
   const rewritten = sourceText(item.node.decontextualized_text ?? item.node.body);
-  const hasNoMarkup = row.span_match_ok === false
-    && (row.highlights_focused?.length ?? 0) === 0
-    && (row.highlights_side?.length ?? 0) === 0;
+  const hasNoMarkup = row.judgment?.contribution_types?.length === 0
+    || (row.span_match_ok === false
+      && (row.highlights_focused?.length ?? 0) === 0
+      && (row.highlights_side?.length ?? 0) === 0);
   const built = relationsFor(row, sourceText(focusItem.node.body), rewritten, context);
   // The prepared-data contract deliberately keeps every in-thread descendant,
   // including responsive descendants whose judge spans did not match. Those
@@ -788,7 +796,31 @@ const entries = results
     if (left.timelineRoot !== right.timelineRoot) return left.timelineRoot ? -1 : 1;
     return new Date(right.focusPost.created_at).getTime() - new Date(left.focusPost.created_at).getTime();
   });
-writeFileSync(OUT_PATH, `${JSON.stringify(entries, null, 2)}\n`, 'utf8');
+const output = `${JSON.stringify(entries, null, 2)}\n`;
+writeFileSync(OUT_PATH, output, 'utf8');
+let sourceCommit = null;
+try {
+  sourceCommit = execFileSync('git', ['-C', LIVE_DEMO_DIR, 'rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+} catch { /* An exported source directory may not have Git metadata. */ }
+const inputDigest = createHash('sha256');
+for (const topic of topics) {
+  const files = ['corpus_threads.json', ...readdirSync(join(PREPARED_ROOT, topic, 'annotations')).filter((file) => file.endsWith('.json')).sort().map((file) => `annotations/${file}`)];
+  for (const file of files) {
+    inputDigest.update(`${topic}/${file}\0`);
+    inputDigest.update(readFileSync(join(PREPARED_ROOT, topic, file)));
+  }
+}
+writeFileSync(OUT_PATH.replace(/\.json$/, '') + '.provenance.json', JSON.stringify({
+  sourceRepository: 'https://github.com/stacky-social/crossweave',
+  sourceCommit,
+  sourceDirectory: 'live_demo_data/prepared_data',
+  contributionStage: 'live_demo_data/intermediate_artifacts/05ii_contrib_type_finalization',
+  topics,
+  preparedInputSha256: inputDigest.digest('hex'),
+  outputSha256: createHash('sha256').update(output).digest('hex'),
+  maxCandidates: MAX_CANDIDATES || null,
+  strictSource: STRICT_SOURCE,
+}, null, 2) + '\n', 'utf8');
 
 const totalRelated = entries.reduce((sum, entry) => sum + entry.relatedPosts.length, 0);
 const totalReplies = entries.reduce((sum, entry) => sum + entry.replies.length, 0);
@@ -831,7 +863,7 @@ if (closureReplies) {
   console.log(`  included ${closureReplies} unannotated intermediate replies to keep descendant trees connected`);
 }
 if (unmarkedDescendants) {
-  console.log(`  retained ${unmarkedDescendants} source descendants without relation markup (span_match_ok=false)`);
+  console.log(`  retained ${unmarkedDescendants} source descendants without relation markup (unclassified or unmatched spans)`);
 }
 if (missingUpvotes) {
   console.log(`  defaulted ${missingUpvotes} source roots without num_upvotes to zero`);

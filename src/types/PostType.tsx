@@ -99,6 +99,8 @@ export interface Relation {
   contentCommentEnd: number;
   /** Relation type for this specific substring pair */
   category: CategoryKey;
+  /** Source probability for this contribution type (0..1); absent in legacy data. */
+  probability?: number;
   /** Short topic label from NLP, e.g. "Trial results". Optional — synthesized via topicOf() when missing. */
   topic?: string;
 }

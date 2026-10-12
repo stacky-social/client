@@ -73,9 +73,7 @@ function toTopPost(rp: RelatedPostMock) {
       originalContent: rp.rewrite?.originalContent,
       editSummary: rp.rewrite?.editSummary,
     },
-    // First contribution type only per highlight (relationFirstType.mjs) — the
-    // backend now emits one relation PER TYPE on the same span, which rendered
-    // as stacked two-colour bands on every highlight.
+    // Retain every annotated type; the renderer chooses one active colour.
     relations: firstTypeRelations(rp.relations),
   };
 }
@@ -86,16 +84,20 @@ function toPostData(entry: ListyInjectionEntry) {
   }));
   const categoryMap = new Map<string, { count: number; rank: number; topPost: ReturnType<typeof toTopPost> }>();
   for (const rp of entry.relatedPosts) {
-    const existing = categoryMap.get(rp.category);
-    if (!existing) {
-      categoryMap.set(rp.category, { count: 1, rank: rp.rank, topPost: toTopPost(rp) });
-    } else {
-      // Count this item exactly once, then promote the top post only if this
-      // one ranks higher (lower rank number = better).
-      existing.count++;
-      if (rp.rank < existing.rank) {
-        existing.rank = rp.rank;
-        existing.topPost = toTopPost(rp);
+    const categories = new Set(rp.relations?.length
+      ? rp.relations.map((relation) => relation.category)
+      : [rp.category]);
+    for (const category of Array.from(categories)) {
+      const existing = categoryMap.get(category);
+      if (!existing) {
+        categoryMap.set(category, { count: 1, rank: rp.rank, topPost: toTopPost(rp) });
+      } else {
+        // Count each post once per annotated category, regardless of span count.
+        existing.count++;
+        if (rp.rank < existing.rank) {
+          existing.rank = rp.rank;
+          existing.topPost = toTopPost(rp);
+        }
       }
     }
   }
@@ -103,8 +105,7 @@ function toPostData(entry: ListyInjectionEntry) {
     stackId: `agg-${entry.focusPost.id}-${cat}`, rel: cat, size: count, topPost,
   }));
   // All focus-post relations from every related post (for dimmed always-visible
-  // marks). Deduped to the first contribution type PER related post — distinct
-  // posts marking the same focus span still both contribute.
+  // marks). All categories survive, including coincident spans across posts.
   const focusRelations = entry.relatedPosts.flatMap((rp) => firstTypeRelations(rp.relations));
   return {
     postId: entry.focusPost.id,

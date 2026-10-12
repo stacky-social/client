@@ -85,3 +85,13 @@ test("each converter defaults to its own output and supports an explicit destina
   assert.match(liveImporter, /Refusing to overwrite the Chinese-EVs fixture/);
   assert.match(liveImporter, /Refusing to overwrite the legacy Stacky-injection fixture/);
 });
+
+test('scale-demo provenance pins the imported source and exact output', async () => {
+  const { createHash } = await import('node:crypto');
+  const provenance = JSON.parse(readFileSync(join(root, 'src/app/FakeData/scale-demo.provenance.json'), 'utf8'));
+  assert.match(provenance.sourceCommit, /^[a-f0-9]{40}$/);
+  assert.equal(provenance.sourceRepository, 'https://github.com/stacky-social/crossweave');
+  assert.deepEqual(provenance.topics, ['ai-workforce', 'energy-tech', 'tariffs']);
+  assert.equal(provenance.outputSha256, createHash('sha256').update(readFileSync(join(root, 'src/app/FakeData/scale-demo.json'))).digest('hex'));
+  assert.equal(provenance.strictSource, true);
+});

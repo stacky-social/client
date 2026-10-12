@@ -14,11 +14,12 @@ import { showTooltip, hideTooltip } from "../HoverTooltip";
 import { buildTooltipLabel, spanIsActionable } from "../spanTooltip";
 import { pointBridgesInlineRects } from "../../utils/inlineHighlightGeometry.mjs";
 import InlineLinkedContent from "../InlineLinkedContent";
+import { contributionSegments, selectWinningRelation } from "../../utils/contributionSelection.mjs";
 
 interface ReplyHighlightedContentProps {
   /** The reply's plain text — relation content offsets index into this string. */
   plainText: string;
-  /** Non-overlapping content-side relations (the dataset generator guarantees it). */
+  /** Content-side relations, including coincident and partially overlapping types. */
   relations: Relation[];
   replyId: string;
   /** Clicking a span (rangeIndex into `relations`). Reranking wires in here. */
@@ -34,7 +35,7 @@ interface ReplyHighlightedContentProps {
 /**
  * Reply body with colored contribution spans — the left-pane counterpart of the
  * related cards' highlight rendering, deliberately simpler: replies are short,
- * plain-text, and their spans never overlap. Hovering the reply publishes its
+ * plain-text. Each overlapping segment has one winning color. Hovering publishes its
  * relations to the highlight store, which is all the focus post needs to
  * cross-highlight the connected regions (same path a related-card hover uses).
  */
@@ -46,7 +47,10 @@ export default function ReplyHighlightedContent({
   otherCountByTopic,
   activeClusterTopic = null,
 }: ReplyHighlightedContentProps) {
-  const { focusHoverRanges } = useHighlightStore();
+  const { focusHoverRanges, hoveredPostId, hoveredCategory, filterCategories, topicInteraction } = useHighlightStore();
+  const preferredCategory = hoveredPostId === replyId && hoveredCategory
+    ? hoveredCategory
+    : topicInteraction?.groupBy === "category" ? topicInteraction.topicKey : null;
   const [hovered, setHovered] = useState(false);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   // Mirror of hoveredIdx for the debounced publish below: setHoveredSidebarPost
@@ -106,42 +110,29 @@ export default function ReplyHighlightedContent({
     hideOwnTooltip();
   };
 
-  // Sorted, non-overlapping segments. A real descendant reply carries MORE THAN
-  // ONE contribution type on the SAME span (coincident ranges that share the same
-  // topic), and this renderer draws one mark per span — so collapse overlaps
-  // greedily: keep the first relation covering a region and skip any later one that
-  // overlaps an already-kept span. Coincident duplicates thus render as a single
-  // mark in the first type's colour; the reply's category tags still surface every
-  // type. (Previously ANY overlap bailed the whole reply to plain text, which the
-  // real 2-type-per-span data tripped on every reply.)
-  const inRange = relations
-    .map((r, i) => [i, r] as [number, Relation])
-    .filter(([, r]) => r.contentStart >= 0 && r.contentEnd <= plainText.length && r.contentEnd > r.contentStart)
-    .sort((a, b) => a[1].contentStart - b[1].contentStart || a[1].contentEnd - b[1].contentEnd);
-  const sorted: [number, Relation][] = [];
-  for (const entry of inRange) {
-    const prev = sorted[sorted.length - 1];
-    if (prev && entry[1].contentStart < prev[1].contentEnd) continue; // overlaps a kept span
-    sorted.push(entry);
-  }
-  if (sorted.length === 0) {
+  // Partition overlaps rather than dropping later spans: every distinct
+  // remainder stays visible, and one winning contribution supplies each color.
+  const segments = contributionSegments(relations, plainText.length);
+  if (segments.length === 0) {
     return <span><InlineLinkedContent>{plainText}</InlineLinkedContent></span>;
   }
 
   const nodes: React.ReactNode[] = [];
   let cursor = 0;
-  for (const [origIdx, r] of sorted) {
-    if (r.contentStart > cursor) nodes.push(plainText.slice(cursor, r.contentStart));
+  for (const segment of segments) {
+    const r = selectWinningRelation(segment.contributors, preferredCategory, filterCategories)!;
+    const origIdx = r.index;
+    if (segment.start > cursor) nodes.push(plainText.slice(cursor, segment.start));
     const colors = getCategoryColors(r.category);
-    const segText = plainText.slice(r.contentStart, r.contentEnd);
+    const segText = plainText.slice(segment.start, segment.end);
     const reverseMatched = focusHoverRanges?.some((range) => r.focusStart < range.end && range.start < r.focusEnd) ?? false;
     const isSpanHovered = hoveredIdx === origIdx || reverseMatched;
     const alpha = isSpanHovered || hovered ? 1 : focusHoverRanges?.length ? 0.25 : 0.7;
     // Bold sub-phrase (contentComment) shown while the span is hovered — matches
     // the related cards' non-reflowing text-shadow emphasis.
-    const cs = r.contentCommentStart - r.contentStart;
-    const ce = r.contentCommentEnd - r.contentStart;
-    const hasComment = r.contentCommentEnd > r.contentCommentStart && cs >= 0 && ce <= segText.length;
+    const cs = Math.max(segment.start, r.contentCommentStart) - segment.start;
+    const ce = Math.min(segment.end, r.contentCommentEnd) - segment.start;
+    const hasComment = ce > cs && cs >= 0 && ce <= segText.length;
     const content = hasComment ? (
       <>
         {segText.slice(0, cs)}
@@ -153,8 +144,9 @@ export default function ReplyHighlightedContent({
     ) : segText;
     nodes.push(
       <mark
-        key={origIdx}
+        key={`${segment.start}-${segment.end}`}
         data-reply-range-id={origIdx}
+        data-contribution-category={r.category}
         data-focus-cross-highlight={reverseMatched ? "true" : undefined}
         data-continuous-inline-highlight
         style={{
@@ -219,7 +211,7 @@ export default function ReplyHighlightedContent({
         {content}
       </mark>
     );
-    cursor = r.contentEnd;
+    cursor = segment.end;
   }
   if (cursor < plainText.length) nodes.push(plainText.slice(cursor));
 

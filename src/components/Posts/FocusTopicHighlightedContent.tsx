@@ -25,6 +25,7 @@ import {
   type FocusTopicCandidate,
 } from "../../utils/focusTopics.mjs";
 import { pointBridgesInlineRects } from "../../utils/inlineHighlightGeometry.mjs";
+import { selectWinningRelation } from "../../utils/contributionSelection.mjs";
 import { blendHex, getCategoryColors } from "../../utils/categoryStyles";
 import { useRelatedStacks } from "../../app/(shell)/related-stacks-context";
 import { hideTooltip, showTooltip } from "../HoverTooltip";
@@ -227,6 +228,7 @@ const FocusTopicHighlightedContent = React.forwardRef<
     sidebarHoverActive,
     hoveredHighlightRangeIndex,
     hoveredCategory,
+    filterCategories,
     tappedCardPostId,
     responseFilter,
     topicInteraction,
@@ -468,16 +470,19 @@ const FocusTopicHighlightedContent = React.forwardRef<
       passage.classList.remove("fp-aside-passage");
       passage.style.removeProperty("--fp-passage-bg");
       passage.removeAttribute("data-aside-highlight");
+      passage.removeAttribute("data-contribution-category");
     });
     const marks = Array.from(element.querySelectorAll<HTMLElement>('mark[data-range-ids]'));
     marks.forEach((mark) => mark.classList.remove("fp-aside-muted"));
     if (!active || !sidebarHoverActive || !hoveredRelations?.length) return;
 
-    const level2 = hoveredHighlightRangeIndex != null
+    const preferredCategory = hoveredCategory
+      ?? (topicInteraction?.groupBy === "category" ? topicInteraction.topicKey : null);
+    const level2 = !preferredCategory && hoveredHighlightRangeIndex != null
       ? hoveredRelations[hoveredHighlightRangeIndex] ?? null
       : null;
-    const categoryLevel2 = !level2 && hoveredCategory
-      ? hoveredRelations.filter((relation) => relation.category === hoveredCategory)
+    const categoryLevel2 = !level2 && preferredCategory
+      ? hoveredRelations.filter((relation) => relation.category === preferredCategory)
       : [];
     const intersects = (passage: HTMLElement, relation: Relation) => {
       const start = Number(passage.dataset.fs);
@@ -502,12 +507,10 @@ const FocusTopicHighlightedContent = React.forwardRef<
       });
     }
     passages.forEach((passage) => {
-      const strong = level2 && intersects(passage, level2)
-        ? level2
-        : categoryLevel2.find((relation) => intersects(passage, relation)) ?? null;
-      const matched = strong
-        ?? hoveredRelations.find((relation) => intersects(passage, relation))
-        ?? null;
+      const matching = hoveredRelations.filter((relation) => intersects(passage, relation));
+      const directedMatches = directed.filter((relation) => intersects(passage, relation));
+      const strong = selectWinningRelation(directedMatches, preferredCategory, filterCategories);
+      const matched = strong ?? selectWinningRelation(matching, preferredCategory, filterCategories);
       if (!matched) return;
       const colors = getCategoryColors(matched.category);
       const background = strong
@@ -516,6 +519,7 @@ const FocusTopicHighlightedContent = React.forwardRef<
       passage.style.setProperty("--fp-passage-bg", background);
       passage.classList.add("fp-aside-passage");
       passage.dataset.asideHighlight = strong ? "strong" : "faint";
+      passage.dataset.contributionCategory = matched.category;
     });
   });
 
@@ -897,14 +901,13 @@ const FocusTopicHighlightedContent = React.forwardRef<
     if (!active || isTextExpanded) return [];
     if (hoverRevealed && hoveredRelations?.length) {
       let source = hoveredRelations;
-      if (
+      if (hoveredCategory) {
+        const matches = hoveredRelations.filter((relation) => relation.category === hoveredCategory);
+        if (matches.length > 0) source = matches;
+      } else if (
         hoveredHighlightRangeIndex != null
         && hoveredRelations[hoveredHighlightRangeIndex]
       ) source = [hoveredRelations[hoveredHighlightRangeIndex]];
-      else if (hoveredCategory) {
-        const matches = hoveredRelations.filter((relation) => relation.category === hoveredCategory);
-        if (matches.length > 0) source = matches;
-      }
       return focusRelations.flatMap((relation, index) =>
         source.some((candidate) => {
           const sourceStart = candidate.focusCommentEnd > candidate.focusCommentStart ? candidate.focusCommentStart : candidate.focusStart;

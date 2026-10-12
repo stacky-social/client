@@ -228,9 +228,7 @@ export function getMockReplies(id: string): MockPostType[] {
  *  post has no entry (synthetic / reply-only ids). */
 export function getMockFocusRelations(id: string): Relation[] {
   const entry = entryByFocusId.get(id);
-  // First contribution type only (see relationFirstType.mjs) — deduped PER
-  // related post, so two different posts marking the same focus span still
-  // both contribute their mark.
+  // Preserve all types and their source probabilities for filtering and display.
   if (entry) return entry.relatedPosts.flatMap((rp) => firstTypeRelations(rp.relations));
   // Replies have no own relations (they aren't part of NLP analysis); leave empty
   // so the reply text renders cleanly without misaligned marks from the parent.

@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import { Paper, UnstyledButton, Group, Text, Divider, Anchor } from '@mantine/core';
 import { IconMessageCircle, IconHeart, IconHeartFilled, IconBookmark, IconBookmarkFilled, IconShare } from '@tabler/icons-react';
-import { CATEGORY_COLORS, CATEGORY_LABELS, iconMapping, getCategoryColors, type CategoryStyle } from '../utils/categoryStyles';
+import { CATEGORY_LABELS, iconMapping, getCategoryColors, type CategoryStyle } from '../utils/categoryStyles';
 import { formatPostDate } from '../utils/formatPostDate';
 import RelatedStackCount from './RelatedStackCount';
 import { useRouter } from 'next/navigation';
@@ -17,7 +17,7 @@ import { focusTopicCandidates } from '../utils/focusTopics.mjs';
 import { useExperimentFlags } from '../utils/experimentFlags';
 import { reorderForAnchor } from '../utils/reorderForAnchor';
 import type { Relation } from '../types/PostType';
-import { showTooltip, hideTooltip, type TooltipColors } from './HoverTooltip';
+import { showTooltip, hideTooltip } from './HoverTooltip';
 import { buildTooltipLabel, spanIsActionable } from './spanTooltip';
 import { showUndoableAction } from '../utils/actionNotifications';
 import AiModifiedDisclosure from './AiModifiedDisclosure';
@@ -38,6 +38,7 @@ import AuthorHoverInfo from './AuthorHoverInfo';
 import ProfileAvatar from './ProfileAvatar';
 import InlineLinkedContent from './InlineLinkedContent';
 import { preserveInlineLinkOffsets } from '../utils/inlineLinks.mjs';
+import { selectWinningRelation } from '../utils/contributionSelection.mjs';
 import { readingWindowBounds, WINDOW_CHARS } from '../utils/relatedWindow.mjs';
 import './RelatedStacks.css';
 
@@ -91,16 +92,15 @@ function categoryKey(value: string | null | undefined): string {
 }
 
 /** Legacy Mastodon groups classify the stack itself (`rel`) and often do not
- * repeat offset annotations on every expanded member. Treat both locations as
- * the same category contract so chip counts and chip results cannot diverge. */
+ * repeat offset annotations on every expanded member. Use the legacy category
+ * only when annotations provide no type; stale primary labels must not add types. */
 function categoriesOfStack(stack: RelatedStackType): Set<string> {
   const categories = new Set<string>();
-  const stackCategory = categoryKey(stack.rel);
-  if (stackCategory) categories.add(stackCategory);
   for (const relation of stack.topPost.relations ?? []) {
     const relationCategory = categoryKey(relation.category);
     if (relationCategory) categories.add(relationCategory);
   }
+  if (categories.size === 0) categories.add(categoryKey(stack.rel) || 'uncategorized');
   return categories;
 }
 
@@ -108,13 +108,6 @@ function stackMatchesCategories(stack: RelatedStackType, filters: Set<string>): 
   if (filters.size === 0) return true;
   const categories = categoriesOfStack(stack);
   return Array.from(filters).every((filter) => categories.has(categoryKey(filter)));
-}
-
-/** Top-chip category of a card: the count the filter bar shows per category
- * (legacy `rel`, with the same 'uncategorized' fallback). A contribution-type
- * group gathers exactly these cards, so its "(N)" agrees with that chip. */
-function chipCategoryOf(stack: RelatedStackType): string {
-  return categoryKey(stack.rel) || 'uncategorized';
 }
 
 /** The relation a contribution-type group anchors on: the card's first relation
@@ -327,12 +320,6 @@ function getSyntheticTopicCount(_topic: string, realCount: number): number {
   return realCount;
 }
 
-/** Same logic as getSyntheticTopicCount but for relation categories. */
-function getSyntheticCategoryCount(_category: string, realCount: number): number {
-  // No-op: synthetic boost removed; see getSyntheticTopicCount.
-  return realCount;
-}
-
 // ─── Tooltip label renderer ───────────────────────────────────────────────────
 // Shared with reply spans (ReplyHighlightedContent): see spanTooltip.tsx.
 
@@ -394,6 +381,8 @@ function FilterChip({ category, count, active, previewActive, previewDim, onClic
       onMouseLeave={onMouseLeave}
       aria-label={`${active ? "Remove" : "Show"} ${label} filter`}
       aria-pressed={active}
+      data-contribution-category={category}
+      data-contribution-count={count}
       style={{
         display: "inline-flex", alignItems: "center", gap: "4px",
         background: isLit ? colors.bg : quietBackground,
@@ -411,102 +400,9 @@ function FilterChip({ category, count, active, previewActive, previewDim, onClic
   );
 }
 
-// ─── Filter conjunction helper ────────────────────────────────────────────────
-
-/**
- * Decides whether clicking `candidate` should ADD it to the current filter set
- * (conjunction non-empty) or SWITCH to it exclusively.
- *
- * Real AND semantics: for each stack, collect the stack-level legacy `rel` plus
- * every distinct `category` across `stack.topPost.relations`. If any stack covers every category in
- * (currentFilters ∪ {candidate}), there would be at least one result — ADD.
- * Otherwise SWITCH.
- *
- * When currentFilters is empty the candidate set is just {candidate}, so any
- * stack that has candidate in either source satisfies the check → always ADD,
- * which is correct for the first selection.
- */
-function decideFilterMode(
-  stacks: RelatedStackType[],
-  currentFilters: Set<string>,
-  candidate: string,
-): 'ADD' | 'SWITCH' {
-  const candidateSet = new Set(currentFilters);
-  candidateSet.add(candidate);
-  const found = stacks.some((stack) => stackMatchesCategories(stack, candidateSet));
-  return found ? 'ADD' : 'SWITCH';
-}
-
-/**
- * Group × category interaction. When a grouping (anchor) is active and the user
- * clicks/hovers a category chip, decide whether it STACKS onto the group or
- * REPLACES it:
- * - 'STACK'  → some post in the group also has every (current filters + candidate)
- *              category, so we keep the grouping and add the category constraint.
- * - 'SWITCH' → no group member matches, so clicking would abandon the grouping
- *              and just filter by the category instead.
- * Mirrors decideFilterMode (ADD/SWITCH) but scoped to the current group.
- */
-function decideGroupFilterMode(
-  groupMemberIds: Set<string>,
-  stacks: RelatedStackType[],
-  currentFilters: Set<string>,
-  candidate: string,
-): 'STACK' | 'SWITCH' {
-  const need = new Set(currentFilters);
-  need.add(candidate);
-  for (const stack of stacks) {
-    if (!groupMemberIds.has(stack.topPost.id)) continue;
-    if (stackMatchesCategories(stack, need)) return 'STACK';
-  }
-  return 'SWITCH';
-}
-
-/**
- * "Responses to" × category interaction — the same STACK/SWITCH model as
- * decideGroupFilterMode, but scoped to the posts that respond to the active
- * passage (responseFilter) instead of a group:
- * - 'STACK'  → some post that responds to the passage also has every
- *              (current filters + candidate) category → keep the passage filter
- *              and add the category as an intersection constraint.
- * - 'SWITCH' → no responding post matches, so clicking would abandon the passage
- *              filter and just filter by the category instead.
- */
-function decideResponseFilterMode(
-  responseFilter: { start: number; end: number },
-  stacks: RelatedStackType[],
-  currentFilters: Set<string>,
-  candidate: string,
-): 'STACK' | 'SWITCH' {
-  const need = new Set(currentFilters);
-  need.add(candidate);
-  for (const stack of stacks) {
-    const rels = stack.topPost.relations ?? [];
-    const responds = rels.some(r => r.focusStart < responseFilter.end && responseFilter.start < r.focusEnd);
-    if (!responds) continue;
-    if (stackMatchesCategories(stack, need)) return 'STACK';
-  }
-  return 'SWITCH';
-}
-
-// ─── Filter hover-preview logic ──────────────────────────────────────────────
-
-/**
- * Determines what visual signal to show when hovering a filter chip.
- * - 'add'    → clicking would add this category to the active set (conjunction non-empty)
- * - 'switch' → clicking would replace the active set with this category alone
- * - 'none'   → no preview needed (nothing active, or hovering an already-active chip)
- */
-function computePreviewMode(
-  hoveredCat: string | null,
-  activeCats: Set<string>,
-  relStacks: RelatedStackType[],
-): 'none' | 'add' | 'switch' {
-  if (!hoveredCat) return 'none';
-  if (activeCats.has(hoveredCat)) return 'none'; // already active
-  if (activeCats.size === 0) return 'none';       // first selection, no preview needed
-  // Real conjunction check across relations arrays
-  return decideFilterMode(relStacks, activeCats, hoveredCat) === 'ADD' ? 'add' : 'switch';
+// Top pills preview replacement, matching their single-selection click behavior.
+function computePreviewMode(hoveredCat: string | null, activeCats: Set<string>): 'none' | 'switch' {
+  return hoveredCat && activeCats.size > 0 && !activeCats.has(hoveredCat) ? 'switch' : 'none';
 }
 
 // ─── Highlight helpers (offset-based) ────────────────────────────────────────
@@ -527,6 +423,7 @@ interface TaggedRange {
   end: number;
   rangeIndex: number;
   category: string;
+  probability?: number;
   topic?: string;
   commentStart?: number;
   commentEnd?: number;
@@ -605,6 +502,7 @@ function buildMultiHighlightNodes(
     anyCardHovered: boolean;
     hoveredRangeIndex: number | null;
     hoveredCategory: string | null;
+    filterCategories: Set<string>;
     anchoredRangeIndex: number | null;
     /** Currently-active anchor topic (for in-block dimming + tooltip "shown"
      *  wording + no-op clicks). Null when no anchor is active. */
@@ -640,6 +538,7 @@ function buildMultiHighlightNodes(
   const tagged: TaggedRange[] = relations.map((r, i) => ({
     start: r.contentStart, end: r.contentEnd, rangeIndex: ((r as any).__idx ?? i) as number,
     category: r.category,
+    probability: r.probability,
     topic: r.topic,
     commentStart: r.contentCommentStart < r.contentCommentEnd
       ? r.contentCommentStart
@@ -662,146 +561,12 @@ function buildMultiHighlightNodes(
       nodes.push(plain.slice(lastEnd, seg.start));
     }
 
-    const isOverlap = seg.contributors.length > 1;
     const segText = plain.slice(seg.start, seg.end);
-
-    if (isOverlap) {
-      // Overlapping region — per-band alpha: the hovered band is bright, others dim.
-      // Hover band is detected via mouseMove Y within the mark.
-      const cats = seg.contributors.map(c => {
-        const cc = getCategoryColors(c.category);
-        return { ...c, colors: cc };
-      });
-
-      const isBandActive = (c: { rangeIndex: number; category: string }) =>
-        opts.hoveredRangeIndex === c.rangeIndex ||
-        (opts.hoveredCategory !== null && opts.hoveredCategory === c.category) ||
-        (opts.focusHoverMatchedIdx !== null && opts.focusHoverMatchedIdx.has(c.rangeIndex));
-      const anyDirected =
-        opts.hoveredRangeIndex !== null || opts.hoveredCategory !== null || opts.focusHoverMatchedIdx !== null;
-      // Original related-post hover behaviour: always-visible by default, full on
-      // card hover (Level 1), and on span/category hover (Level 2) the active band
-      // stays full while the rest dim. (The grey/colour spec is focus-post only.)
-      const baseAlpha =
-        opts.isCardHovered ? 1 :
-        opts.anyCardHovered ? 0.25 :
-        0.7;
-      const bandTopic = (c: { topic?: string; category: string; rangeIndex: number }) =>
-        topicOf(c, opts.stackId, c.rangeIndex);
-      const isBandOnActiveTopic = (c: { topic?: string; category: string; rangeIndex: number }) =>
-        opts.activeTopic !== null && bandTopic(c) === opts.activeTopic;
-      const gradientStops = cats.map((c, i) => {
-        let a = baseAlpha;
-        if (anyDirected) a = isBandActive(c) ? 1 : 0.18;
-        // In-block dimming: dim bands whose topic isn't the active one
-        // (unless this very band is hovered).
-        else if (opts.inActiveBlock && !isBandOnActiveTopic(c) && !isBandActive(c)) a = 0.2;
-        const pct1 = (i / cats.length) * 100;
-        const pct2 = ((i + 1) / cats.length) * 100;
-        const rgba = hexToRgba(c.colors.bg, a);
-        return `${rgba} ${pct1}%, ${rgba} ${pct2}%`;
-      }).join(', ');
-      const emphasizedCruxes = cats.flatMap((c) => {
-        const shouldEmphasize = opts.forceCommentEmphasis
-          || opts.isCardHovered
-          || isBandActive(c);
-        return shouldEmphasize && c.commentStart !== undefined && c.commentEnd !== undefined
-          ? [{ start: c.commentStart, end: c.commentEnd }]
-          : [];
-      });
-      const markContent = emphasizeSegmentCruxes(segText, seg.start, emphasizedCruxes);
-
-      // Pointer + mouse handlers run side-by-side so an extension that blocks one
-      // event family still leaves the other working (Chrome on Win/Linux hover bug).
-      // Which overlap band (category) is under the cursor. The stacked bands are a
-      // 180deg gradient that an inline <mark> repaints on EVERY line box it wraps to,
-      // so map the cursor to its position within the CURRENT line box — not the whole
-      // multi-line bounding rect. With the bounding rect, up/down felt broken: the
-      // visible top/bottom split is per line, but the selection only flipped at the
-      // overall vertical midpoint, so moving within a line changed nothing and
-      // re-entering picked a seemingly random band. getClientRects() = per-line boxes.
-      const bandIdxAt = (el: HTMLElement, clientY: number) => {
-        const rects = Array.from(el.getClientRects());
-        const line = rects.find((r) => clientY >= r.top && clientY <= r.bottom) ?? el.getBoundingClientRect();
-        const rel = line.height > 0 ? (clientY - line.top) / line.height : 0;
-        return Math.max(0, Math.min(cats.length - 1, Math.floor(rel * cats.length)));
-      };
-      // Clickable look only if at least one stacked topic leads somewhere.
-      const overlapCursor = cats.some((c) => spanCursor(
-        opts.otherCountByTopic ? opts.otherCountByTopic(bandTopic(c)) : 0,
-        bandTopic(c),
-        opts.activeTopic,
-      ) !== 'default') ? EYE_CURSOR : 'default';
-      const overlapHover = (clientX: number, clientY: number, currentTarget: HTMLElement) => {
-        const bandIdx = bandIdxAt(currentTarget, clientY);
-        const band = cats[bandIdx];
-        opts.onRangeHover(band.rangeIndex);
-
-        // Clicking a related-card span GROUPS BY its topic, so the tooltip
-        // previews the grouping ("N more <Topic>") — NOT the focus-post span
-        // filter wording. (The "Click to focus on N posts" tooltip belongs to the
-        // focus post only.)
-        const topic = bandTopic(band);
-        const moreCount = opts.otherCountByTopic ? opts.otherCountByTopic(topic) : 0;
-        const colors: TooltipColors = { text: band.colors.text, border: band.colors.border };
-        scheduleCardTooltip({
-          // R-REORDER-9: hovering a span whose topic is already the active
-          // grouping reads "N more <Topic> (shown)" — the click is a no-op.
-          content: buildTooltipLabel(topic, moreCount, band.colors.text, opts.activeTopic),
-          colors,
-          x: clientX,
-          y: clientY,
-        });
-      };
-      nodes.push(
-        <span key={`seg-${seg.start}`} style={{ position: 'relative', display: 'inline' }}>
-          <mark
-            data-overlap-bands={cats.length}
-            data-overlap-range-ids={cats.map(c => c.rangeIndex).join(',')}
-            data-continuous-inline-highlight
-            tabIndex={-1}
-            onMouseMove={(e) => overlapHover(e.clientX, e.clientY, e.currentTarget as HTMLElement)}
-            onMouseLeave={(e) => {
-              if (pointBridgesInlineRects(e.currentTarget.getClientRects(), e.clientX, e.clientY)) return;
-              opts.onRangeHover(null);
-              cancelCardTooltip();
-            }}
-            onPointerMove={(e) => { if (e.pointerType === 'mouse') overlapHover(e.clientX, e.clientY, e.currentTarget as HTMLElement); }}
-            onPointerLeave={(e) => {
-              if (e.pointerType !== 'mouse') return;
-              if (pointBridgesInlineRects(e.currentTarget.getClientRects(), e.clientX, e.clientY)) return;
-              opts.onRangeHover(null);
-              cancelCardTooltip();
-            }}
-            onClick={(e) => {
-              if (!opts.onRangeClick) return;
-              const bandIdx = bandIdxAt(e.currentTarget as HTMLElement, e.clientY);
-              e.stopPropagation();
-              (e.currentTarget as HTMLElement).blur();
-              cancelCardTooltip();
-              // Overlap click → filter by the band under the cursor (onRangeClick
-              // sets the span filter). stopPropagation keeps the card's
-              // open-the-post handler from also firing.
-              opts.onRangeClick(cats[bandIdx].rangeIndex);
-            }}
-            style={{
-              background: `linear-gradient(180deg, ${gradientStops})`,
-              color: 'inherit', borderRadius: '3px', padding: '1px 0',
-              transition: 'background 200ms ease',
-              cursor: overlapCursor,
-              outline: 'none',
-              border: 'none',
-              pointerEvents: 'auto',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-          >
-            {markContent}
-          </mark>
-        </span>
-      );
-    } else {
-      // Single-contributor segment
-      const c = seg.contributors[0];
+    // One color per overlap. Explicit icon hover and the current filter take
+    // precedence over source probability; ties retain original relation order.
+    // Keep the winner's original index so both panes follow the same relation.
+    {
+      const c = selectWinningRelation(seg.contributors, opts.hoveredCategory, opts.filterCategories)!;
       const colors = getCategoryColors(c.category);
       const isThisRangeHovered =
         opts.hoveredRangeIndex === c.rangeIndex ||
@@ -811,7 +576,7 @@ function buildMultiHighlightNodes(
       // "(shown)" tooltip wording / no-op click for same-topic spans.
       const resolvedTopicForRange = topicOf(c, opts.stackId, c.rangeIndex);
       const spanOtherCount = opts.otherCountByTopic ? opts.otherCountByTopic(resolvedTopicForRange) : 0;
-      const isOnActiveTopic = opts.activeTopic !== null;
+      const isOnActiveTopic = opts.activeTopic !== null && resolvedTopicForRange === opts.activeTopic;
       // In-block dimming: when this card sits inside the active topic block,
       // non-Topic spans dim out (unless this very span is hovered).
       const dimByBlock = opts.inActiveBlock && !isOnActiveTopic && !isThisRangeHovered;
@@ -865,6 +630,8 @@ function buildMultiHighlightNodes(
         <span key={`r${c.rangeIndex}-${seg.start}`} style={{ position: 'relative', display: 'inline' }}>
           <mark
             data-range-id={c.rangeIndex}
+            data-contribution-category={c.category}
+            data-overlap-range-ids={seg.contributors.length > 1 ? seg.contributors.map((r) => r.rangeIndex).join(',') : undefined}
             onMouseMove={() => opts.onRangeHover(c.rangeIndex)}
             data-continuous-inline-highlight
             tabIndex={-1}
@@ -1498,8 +1265,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
   // Category chip click → routed through the atomic `setCategoryFilter` so
   // replace-not-stack holds: activating a category clears any active topic
   // grouping + passage filter in one transition (the store enforces the
-  // one-interaction-at-a-time invariant). The decide* STACK/SWITCH helpers are
-  // kept behind the `filterStacking` flag (default off) for the ablation.
+  // one-interaction-at-a-time invariant). Top pills select one type at a time.
   const handleFilterChipClick = (category: string) => {
     // WS6: a category chip is an undoable gesture on the detail route — record the
     // pre-interaction snapshot before mutating. No rebase (null order): a category
@@ -1517,61 +1283,23 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       return;
     }
 
-    // Default (filterStacking off): single-category selection — a new category
-    // REPLACES the prior filter and any topic/passage interaction.
-    if (!flags.filterStacking) {
-      setCategoryFilter(new Set([category]));
-      return;
-    }
-
-    // filterStacking on — legacy AND/drill conjunction via the decide* helpers.
-    // NOTE: cross-dimension STACK (category onto a grouping/passage) collapses to
-    // the category dimension under the atomic model (one interaction at a time);
-    // same-dimension category AND is preserved.
-    if (grouping) {
-      const decision = decideGroupFilterMode(groupMemberIds, relatedStacks, active, category);
-      setCategoryFilter(decision === 'STACK' ? new Set(Array.from(active).concat([category])) : new Set([category]));
-      return;
-    }
-    if (responseFilter !== null) {
-      const decision = decideResponseFilterMode(responseFilter, relatedStacks, active, category);
-      setCategoryFilter(decision === 'STACK' ? new Set(Array.from(active).concat([category])) : new Set([category]));
-      return;
-    }
-    if (active.size === 0) {
-      setCategoryFilter(new Set([category]));
-    } else {
-      const decision = decideFilterMode(relatedStacks, active, category);
-      setCategoryFilter(decision === 'ADD' ? new Set(Array.from(active).concat([category])) : new Set([category]));
-    }
+    setCategoryFilter(new Set([category]));
   };
 
+  // Count distinct posts once per type, including secondary annotations.
+  // Legacy rel is a fallback only when there are no annotated categories.
   const categories = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const stack of relatedStacks) {
-      const cat = categoryKey(stack.rel) || 'uncategorized';
-      map.set(cat, (map.get(cat) ?? 0) + 1);
+    const idsByCategory = new Map<string, Set<string>>();
+    for (const stack of relatedStacks) for (const category of Array.from(categoriesOfStack(stack))) {
+      const ids = idsByCategory.get(category) ?? new Set<string>();
+      ids.add(stack.topPost.id);
+      idsByCategory.set(category, ids);
     }
-    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+    return Array.from(idsByCategory, ([category, ids]) => [category, ids.size] as [string, number])
+      .sort((a, b) => b[1] - a[1]);
   }, [relatedStacks]);
 
-  // Category prevalence — counts stacks that contain ANY relation with the given
-  // category (one stack contributes at most 1 per category, even if it has
-  // multiple relations of the same category). Used for tag-hover tooltips.
-  // Synthetic augmentation is applied for low real counts (see getSyntheticCategoryCount).
-  const categoryStackCount = useMemo(() => {
-    const real = new Map<string, number>();
-    for (const stack of relatedStacks) {
-      categoriesOfStack(stack).forEach((category) => {
-        real.set(category, (real.get(category) ?? 0) + 1);
-      });
-    }
-    const augmented = new Map<string, number>();
-    real.forEach((count, category) => {
-      augmented.set(category, getSyntheticCategoryCount(category, count));
-    });
-    return augmented;
-  }, [relatedStacks]);
+  const categoryStackCount = useMemo(() => new Map(categories), [categories]);
 
   // Topic prevalence — used by tooltip ("7 more Contract reform") and for pagination.
   // Synthetic augmentation is applied for low real counts (see getSyntheticTopicCount).
@@ -1721,7 +1449,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
     // group the cards sharing the clicked span's topic. Nothing is hidden
     // either way — non-members keep their places around the block.
     const matchesAnchor = groupCategory
-      ? (s: RelatedStackType) => chipCategoryOf(s) === groupCategory
+      ? (s: RelatedStackType) => categoriesOfStack(s).has(groupCategory)
       : anchorTopic
       ? (s: RelatedStackType) =>
           (s.topPost.relations ?? []).some((r, ri) => topicOf(r, s.stackId, ri) === anchorTopic)
@@ -1826,6 +1554,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
       ? { displayStacks: matched, activeTopicFilterKey: asideTopicFilterKey }
       : { displayStacks: groupedStacks, activeTopicFilterKey: null };
   }, [groupedStacks, asideTopicFilterKey]);
+
+  const distinctDisplayedPostCount = new Set(displayStacks.map((stack) => stack.topPost.id)).size;
 
   // Keep long related sets study-friendly: start with ten cards and reveal ten
   // more at a time. A filter/group change starts a fresh page, while the active
@@ -2755,7 +2485,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
           <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginBottom: "0.75rem" }}>
             {(() => {
               // C2: compute preview mode once for the whole chip row
-              const previewMode = computePreviewMode(chipHovered, filterCategories, relatedStacks);
+              const previewMode = computePreviewMode(chipHovered, filterCategories);
               return categories.map(([category, count]) => (
                 <FilterChip
                   key={category}
@@ -2776,8 +2506,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
         <div className="related-filter-summary" data-testid="related-filter-summary">
           <span role="status" aria-live="polite">
             {filterCategories.size > 0 || responseFilter !== null || activeTopicFilterKey
-              ? `Filtered: ${displayStacks.length} related post${displayStacks.length === 1 ? '' : 's'}`
-              : `${heading}: ${displayStacks.length} post${displayStacks.length === 1 ? '' : 's'} across all categories`}
+              ? `Filtered: ${distinctDisplayedPostCount} related post${distinctDisplayedPostCount === 1 ? '' : 's'}`
+              : `${heading}: ${distinctDisplayedPostCount} post${distinctDisplayedPostCount === 1 ? '' : 's'} across all categories`}
           </span>
           {filterCategories.size > 0 && <span>{' contributing '}</span>}
           {Array.from(filterCategories).map((category) => (
@@ -2793,11 +2523,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                 label: `${CATEGORY_LABELS[key] ?? key} · ${count}`,
                 onSelect: () => {
                   beginUndoablePanelInteractionIfDetail();
-                  // A dropdown choice replaces this chip, even in stacking experiments.
-                  const next = new Set(filterCategories);
-                  next.delete(category);
-                  next.add(key);
-                  setCategoryFilter(next);
+                  setCategoryFilter(new Set([key]));
                 },
               }))}
             />
@@ -2886,7 +2612,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                 maxWidth: '220px',
               }}
             >
-              {activeGroupHeader.label} ({activeGroupHeader.count})
+              {activeGroupHeader.label} ({activeGroupHeader.count}{groupCategory ? ' posts' : ''})
             </span>
             <button
               type="button"
@@ -3101,7 +2827,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               isCardHovered: isCardActive,
               anyCardHovered,
               hoveredRangeIndex: isCardActive ? (isCardTapped ? tappedRangeIndex : hoveredHighlightRangeIndex) : null,
-              hoveredCategory: isCardActive ? hoveredCategory : null,
+              hoveredCategory: (isCardActive ? hoveredCategory : null) ?? groupCategory,
+              filterCategories,
               focusHoverMatchedIdx,
               forceCommentEmphasis: isAiEditActive,
               anchoredRangeIndex: anchoredRangeByPost[stack.topPost.id] ?? null,
@@ -3401,7 +3128,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                   maxWidth: '220px',
                 }}
               >
-                {anchorTopic} ({blockTotalCount})
+                {anchorTopic} ({blockTotalCount}{groupCategory ? ' posts' : ''})
               </span>
               <button
                 type="button"
@@ -3455,8 +3182,9 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
               if (panelScrollingRef.current || isTouchRef.current) return;
               setHoveredCardId(pid);
               setHoveredSidebarPost(pid, stack.topPost.relations);
+              // A badge entered during the dwell owns its category selection.
+              // Badge leave already clears it; delayed card setup must not.
               setHoveredHighlightRangeIndex(null);
-              setHoveredCategory(null);
             }, 90);
           };
 
@@ -3675,7 +3403,8 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                     const seen = new Set<string>();
                     const tags: { cat: string; indices: number[] }[] = [];
                     for (let ri = 0; ri < rels.length; ri++) {
-                      const cat = rels[ri].category;
+                      const cat = categoryKey(rels[ri].category);
+                      if (!cat) continue;
                       if (!seen.has(cat)) { seen.add(cat); tags.push({ cat, indices: [ri] }); }
                       else { tags.find(t => t.cat === cat)?.indices.push(ri); }
                     }
@@ -3697,6 +3426,14 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                       const tagBright = !anyDirected || indices.includes(hri ?? -1) || hcat === cat;
                       const tagRangeIdx = indices[0] ?? -1;
                       const tagHover = (clientX: number, clientY: number) => {
+                        // Icon intent must survive the delayed card-hover setup.
+                        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                        hoverTimerRef.current = null;
+                        pendingHoverCardIdRef.current = null;
+                        setHoveredCardId(stack.topPost.id);
+                        setHoveredSidebarPost(stack.topPost.id, stack.topPost.relations);
+                        setHoveredHighlightRangeIndex(null);
+                        setHoveredCategory(cat);
                         showTooltip({
                           content: CATEGORY_LABELS[cat] ?? cat,
                           colors: { text: tc.text, border: tc.border },
@@ -3711,6 +3448,7 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
                           tabIndex={0}
                           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setHoveredCategory(null); hideTooltip(); handleToggleAnchor(stack.topPost.id, undefined, 'card', cat); } }}
                           data-related-tag
+                          data-contribution-category={cat}
                           data-related-span={hasSpecificSpan ? 'true' : 'false'}
                           aria-label={CATEGORY_LABELS[cat] ?? cat}
                           aria-pressed={groupCategory === categoryKey(cat)}

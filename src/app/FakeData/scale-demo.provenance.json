@@ -1,0 +1,15 @@
+{
+  "sourceRepository": "https://github.com/stacky-social/crossweave",
+  "sourceCommit": "cb1f3207fff94ce2e4fe80c7db169dbf7ca5cf05",
+  "sourceDirectory": "live_demo_data/prepared_data",
+  "contributionStage": "live_demo_data/intermediate_artifacts/05ii_contrib_type_finalization",
+  "topics": [
+    "ai-workforce",
+    "energy-tech",
+    "tariffs"
+  ],
+  "preparedInputSha256": "4eb4f3a1b61a71946aadd5f9cd2b43f152039fc9805eff413310e1427681f14d",
+  "outputSha256": "099e8d5da1f11828a302f2a796c42547e404ca52a6efd0ecab2b6a6243f250ca",
+  "maxCandidates": null,
+  "strictSource": true
+}
