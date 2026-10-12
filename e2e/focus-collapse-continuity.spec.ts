@@ -184,3 +184,14 @@ test('wheeling over the compact post scrolls the replies, not the page', async (
   expect(after.scrollY).toBe(before.scrollY);
   expect(after.scrollTop).toBeCloseTo(before.scrollTop - 60, 0);
 });
+
+test('an expanded focus post taller than the window never covers the composer', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('/AIWorkforce/posts/cw-LjWwt1SlfYxGPVJV');
+  await page.locator('[data-focus-compact]').getByText('Read more').first().click();
+  await expect(page.locator('[data-focus-compact]')).toHaveAttribute('data-focus-tall', 'true');
+  const composer = page.getByPlaceholder('Post your reply');
+  await composer.fill('still reachable');
+  await page.getByRole('button', { name: 'Submit' }).first().click({ timeout: 5_000 });
+  await expect(composer).toHaveValue('');
+});

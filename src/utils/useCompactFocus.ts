@@ -14,6 +14,10 @@ const RESIZE_MS = 200;
  * paints over the replies) while leaving room for its shadow on the sides. */
 const RESIZE_CLIP = "inset(-48px -48px 0 -48px)";
 const LINE_PX = 40;
+/** Viewport space (px) the replies keep below a stuck full post. A taller full
+ * post (e.g. expanded with Read more) is not stuck: pinned, it would cover the
+ * composer and replies scrolling beneath it. */
+const MIN_REPLY_VIEW = 200;
 
 const prefersReducedMotion = () =>
   typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -108,10 +112,12 @@ export function useCompactFocus(
     const region = replies.current;
     if (!el || !region || resize.current) return;
     const box = el.getBoundingClientRect();
+    const tall = !compactRef.current && box.height > window.innerHeight - pinTop - MIN_REPLY_VIEW;
+    if ((el.dataset.focusTall === "true") !== tall) el.dataset.focusTall = tall ? "true" : "false";
     const gap = region.getBoundingClientRect().top - box.bottom;
     if (gap >= 0 && gap <= 64) replyGap.current = gap;
     setBudget(box.height);
-  }, [focus, replies, setBudget]);
+  }, [focus, replies, setBudget, pinTop]);
 
   const release = useCallback((el: HTMLElement) => {
     resize.current = null;
@@ -135,6 +141,8 @@ export function useCompactFocus(
       };
       resize.current = run;
       lockHeight(el, from);
+      // The compact post always sticks; measure() re-checks a full one.
+      if (value) el.dataset.focusTall = "false";
       // A change undone before it commits never runs the effect below.
       requestAnimationFrame(() => requestAnimationFrame(() => {
         if (resize.current === run && !run.committed) release(el);
@@ -161,8 +169,10 @@ export function useCompactFocus(
     measure();
     const observer = new ResizeObserver(() => measure());
     observer.observe(el);
+    window.addEventListener("resize", measure, { passive: true });
     return () => {
       observer.disconnect();
+      window.removeEventListener("resize", measure);
       if (resize.current) cancelAnimationFrame(resize.current.frame);
     };
   }, [focus, measure]);

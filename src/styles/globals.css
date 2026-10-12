@@ -653,3 +653,9 @@ body {
 @media (prefers-reduced-motion: reduce) {
     [data-testid="content-group"] [role="separator"][aria-orientation="vertical"]::before { transition: none; }
 }
+
+/* A full focus post too tall to leave room for its replies scrolls with the
+   page instead of sticking over them (useCompactFocus sets the flag). */
+[data-focus-tall="true"] {
+  position: relative !important;
+}
