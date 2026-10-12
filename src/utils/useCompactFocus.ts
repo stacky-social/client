@@ -152,7 +152,9 @@ export function useCompactFocus(
     const giveBack = Math.max(0, full - (compactHeight.current ?? COMPACT_HEIGHT_GUESS));
     const programmatic = fromReplies && !userDriven;
     if (!programmatic && progress < giveBack + COLLAPSE_MARGIN) return false;
-    setCompact(true, true);
+    // A restored/scripted position is the exact place to show: anchoring it
+    // would subtract the height the focus gives back from that position.
+    setCompact(true, !programmatic);
     return true;
   }, [anchor, replies, focus, pinTop, setCompact]);
 
