@@ -219,6 +219,12 @@ html::-webkit-scrollbar-thumb:hover {
 .postClampedText p + p {
     margin-top: 0.75em;  /* paragraph gap via margin-top only */
 }
+/* The compact focus post is a fixed three-line window (4.5em at 1.5 line
+   height): no paragraph gap, so every line sits on the grid and the third is
+   whole rather than half cut off. */
+.postCompactText p + p {
+    margin-top: 0;
+}
 
 .post-text-clamp-shell {
     position: relative;

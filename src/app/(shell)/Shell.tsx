@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useMediaQuery } from "@mantine/hooks";
+import { usePathname } from "next/navigation";
 import { notifications } from "@mantine/notifications";
 import { HoverTooltip } from "../../components/HoverTooltip";
 import { toggleHoverRestore } from "../../utils/hoverRestore";
@@ -64,6 +65,7 @@ export default function Shell({
     const [feedGesture, setFeedGesture] = useState(false);
     const [feedFast, setFeedFast] = useState(false);
     const [feedScrolling, setFeedScrolling] = useState(false);
+    const onPostPage = /\/posts\//.test(usePathname() ?? "");
     // Border-only mode draws no bridge. Retain the last drawn variant so the
     // bridge does not switch visual treatments during the single render before
     // its disabled-state effect removes the SVG.
@@ -186,7 +188,9 @@ export default function Shell({
             setFeedFast(false);
         };
 
-        if (!showAside) {
+        // A post page's focus never changes with scroll (only its size does),
+        // so there is no settled post to wait for: the aside stays live.
+        if (!showAside || onPostPage) {
             endGesture();
             return;
         }
@@ -223,7 +227,7 @@ export default function Shell({
             window.clearTimeout(settleTimer);
             endGesture();
         };
-    }, [showAside]);
+    }, [showAside, onPostPage]);
     const openBridgeSuspended = feedScrolling && bridgeVariant !== "border";
 
     // Keep the split geometry alive just long enough for the bridge to unweave.

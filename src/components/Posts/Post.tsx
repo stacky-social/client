@@ -1090,7 +1090,7 @@ function Post({
         // the same wrapper the plain branch uses.
         <div
           ref={textRef}
-          className={isTextExpanded ? undefined : 'postClampedText'}
+          className={isTextExpanded ? undefined : compact ? 'postClampedText postCompactText' : 'postClampedText'}
           style={{
             display: isTextExpanded ? 'block' : '-webkit-box',
             WebkitBoxOrient: 'vertical',
@@ -1129,7 +1129,7 @@ function Post({
           active={isActive}
           postRelatedStacks={tempRelatedStacks}
           onTopicFocusRequest={handleTopicFocusRequest}
-          className={isTextExpanded ? undefined : 'postClampedText'}
+          className={isTextExpanded ? undefined : compact ? 'postClampedText postCompactText' : 'postClampedText'}
           style={
             isTextExpanded
               ? {
@@ -1164,7 +1164,7 @@ function Post({
       ) : (
         <div
           ref={textRef}
-          className={isTextExpanded ? undefined : 'postClampedText'}
+          className={isTextExpanded ? undefined : compact ? 'postClampedText postCompactText' : 'postClampedText'}
           style={{
             display: isTextExpanded ? 'block' : '-webkit-box',
             WebkitBoxOrient: 'vertical',
