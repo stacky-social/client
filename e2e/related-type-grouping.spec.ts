@@ -21,6 +21,9 @@ const cardIds = (page: Page) => page.locator('[data-related-card]').evaluateAll(
   cards.map((card) => ({
     id: card.querySelector('[data-post-id]')!.getAttribute('data-post-id')!,
     category: card.getAttribute('data-related-category')!,
+    // Every contribution type the card carries (one icon per type).
+    types: Array.from(card.querySelectorAll('[data-related-tag][data-contribution-category]'))
+      .map((tag) => tag.getAttribute('data-contribution-category')!),
     member: card.hasAttribute('data-related-group-member'),
   })));
 
@@ -36,10 +39,12 @@ const panelSummary = (page: Page) =>
   page.getByTestId('related-sticky-header').getByText(/\d+ posts? /).innerText();
 
 /** Scroll a card into the aside's reading area and return its first icon's top. */
-async function settleCard(page: Page, postId: string) {
+async function settleCard(page: Page, postId: string, category?: string) {
   const card = page.locator(`[data-related-card]:has([data-post-id="${postId}"])`);
   await card.evaluate((element) => element.scrollIntoView({ block: 'center' }));
-  const icon = card.locator('[data-related-tag]').first();
+  const icon = card.locator(category
+    ? `[data-related-tag][data-contribution-category="${category}"]`
+    : '[data-related-tag]').first();
   await icon.hover();
   // Hovering a type icon reveals its span (a short smooth scroll): measure
   // only once the pointer's own reveal has settled.
@@ -60,15 +65,16 @@ test.describe('contribution-type grouping (#224)', () => {
     const countBefore = await panelCount(page);
     await expect(page.getByTestId('related-sticky-header')).toContainText('across all categories');
     const before = await cardIds(page);
-    // The second Disagree card: at least one member sits above it.
-    const anchorId = before.filter((card) => card.category === 'disagree')[1].id;
+    // The second card carrying Disagree (as any of its types): at least one
+    // member sits above it.
+    const anchorId = before.filter((card) => card.types.includes('disagree'))[1].id;
     const anchorIndex = before.findIndex((card) => card.id === anchorId);
-    const aboveMembers = before.slice(0, anchorIndex).filter((card) => card.category === 'disagree');
+    const aboveMembers = before.slice(0, anchorIndex).filter((card) => card.types.includes('disagree'));
     expect(aboveMembers.length).toBeGreaterThan(0);
 
     const chip = page.getByRole('button', { name: 'Show Disagree filter' });
     const chipCount = Number((await chip.innerText()).replace(/\D/g, ''));
-    const { icon, top } = await settleCard(page, anchorId);
+    const { icon, top } = await settleCard(page, anchorId, 'disagree');
     await icon.click();
 
     await expect(page).toHaveURL(/[?&]fg=category/);
@@ -82,9 +88,10 @@ test.describe('contribution-type grouping (#224)', () => {
     // The clicked card (its icon) holds still.
     expect(Math.abs((await icon.boundingBox())!.y - top)).toBeLessThanOrEqual(1);
 
-    // "(N)" is the top chip's count; the footer pages the rest in threes.
+    // "(N posts)" is the top chip's distinct-post count; the footer pages the
+    // rest in threes.
     const header = page.locator('[data-related-group-header]');
-    await expect(header).toContainText(`Disagree (${chipCount})`);
+    await expect(header).toContainText(`Disagree (${chipCount} posts)`);
     const after = await cardIds(page);
     const members = after.filter((card) => card.member);
     const belowShown = members.length - 1 - aboveMembers.length;
@@ -98,7 +105,7 @@ test.describe('contribution-type grouping (#224)', () => {
     // were above still precede the anchor and the rest follow it.
     const newAnchorIndex = after.findIndex((card) => card.id === anchorId);
     const block = after.slice(newAnchorIndex - aboveMembers.length, newAnchorIndex + 1 + belowShown);
-    expect(block.every((card) => card.member && card.category === 'disagree')).toBe(true);
+    expect(block.every((card) => card.member && card.types.includes('disagree'))).toBe(true);
     expect(after.slice(0, newAnchorIndex).map((card) => card.id))
       .toEqual(expect.arrayContaining(aboveMembers.map((card) => card.id)));
     // Every card that preceded the anchor still precedes it (nothing jumps up).
@@ -116,9 +123,10 @@ test.describe('contribution-type grouping (#224)', () => {
     await page.getByRole('button', { name: 'Show Disagree filter' }).click();
     await expect(page).toHaveURL(/[?&]fc=disagree/);
     const filteredCards = await cardIds(page);
-    expect(filteredCards.every((card) => card.category === 'disagree')).toBe(true);
+    // A post matches when Disagree is any of its contribution types.
+    expect(filteredCards.every((card) => card.types.includes('disagree'))).toBe(true);
 
-    const { icon } = await settleCard(page, filteredCards[1].id);
+    const { icon } = await settleCard(page, filteredCards[1].id, 'disagree');
     await icon.click();
     await expect(page).toHaveURL(/[?&]fg=category/);
     await expect(page).not.toHaveURL(/[?&]fc=/);
@@ -132,7 +140,7 @@ test.describe('contribution-type grouping (#224)', () => {
 
     // The same icon on ANOTHER member clears the group (and the reply filter).
     const otherMember = (await cardIds(page)).find((card) => card.member && card.id !== filteredCards[1].id)!;
-    const other = await settleCard(page, otherMember.id);
+    const other = await settleCard(page, otherMember.id, 'disagree');
     await other.icon.click();
     await expect(page).not.toHaveURL(/[?&]ft=/);
     await expect(page.getByTestId('active-group-anchor')).toHaveCount(0);
