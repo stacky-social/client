@@ -2135,14 +2135,14 @@ const RelatedStacks: React.FC<RelatedStacksProps> = ({ relatedStacks: sourceRela
         }
         // Never move what was just clicked — not even to uncover it from the
         // frozen group header this grouping shows (that used to scroll the
-        // card ~22px). If the copy would cover the clicked span (or, for a card
-        // pin, the type icons) the copy waits for the reader's next scroll.
-        const clicked = pinRange !== null
-          ? pinEl
-          : (cardEl?.querySelector('[data-related-tag-cluster]') as HTMLElement | null) ?? pinEl;
+        // card ~22px). If the copy would cover the clicked span the copy waits
+        // for the reader's next scroll. A card pin (type icon) never waits:
+        // the real header sits above the panel's reading line then, so holding
+        // the copy back would leave the group with no visible header at all.
         const sticky = measureGroupSticky(aside);
-        const covered = sticky.visible
-          && sticky.line + sticky.height > clicked.getBoundingClientRect().top;
+        const covered = pinRange !== null
+          && sticky.visible
+          && sticky.line + sticky.height > pinEl.getBoundingClientRect().top;
         groupStickySuppressedRef.current = covered;
       }
     }
